@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="colearnx.client/colearnx.client.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+  <Project Path="CoLearnX.Server/CoLearnX.Server.csproj" />
+</Solution>
