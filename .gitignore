@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# CoLearnX local SQLite
+CoLearnX.Server/colearnx.db
+CoLearnX.Server/colearnx.db-*
