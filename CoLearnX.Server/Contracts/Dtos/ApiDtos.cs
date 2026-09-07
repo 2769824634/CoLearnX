@@ -3,7 +3,7 @@ using CoLearnX.Server.Domain.Enums;
 
 namespace CoLearnX.Server.Contracts.Dtos;
 
-// Auth request/response DTOs. Shared: LoginRequest, AuthResponse, UserMeDto
+// Auth request/response DTOs.
 public record RegisterRequest(
     [Required, EmailAddress] string Email,
     [Required, MinLength(8)] string Password,
@@ -79,6 +79,8 @@ public record CourseDetailDto(
     IReadOnlyList<CourseSessionDto> Sessions,
     bool InWishlist,
     bool AlreadyEnrolled);
+
+public record WishlistResultDto(int CourseId, bool InWishlist);
 
 public record EnrolRequest(
     [Required] int CourseId,

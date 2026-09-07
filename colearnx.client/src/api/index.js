@@ -28,6 +28,8 @@ export const coursesApi = {
   },
   featured: () => apiRequest('/api/courses/featured'),
   get: (id) => apiRequest(`/api/courses/${id}`),
+  addWishlist: (id) => apiRequest(`/api/courses/${id}/wishlist`, { method: 'POST' }),
+  removeWishlist: (id) => apiRequest(`/api/courses/${id}/wishlist`, { method: 'DELETE' }),
 };
 
 export const enrollmentsApi = {

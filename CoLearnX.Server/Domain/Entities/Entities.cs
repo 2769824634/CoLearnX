@@ -29,7 +29,7 @@ public class User
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 }
 
-// Multi-role link. Shared: UserRole, AppRole
+// Multi-role link.
 public class UserRole
 {
     public int UserId { get; set; }
@@ -101,7 +101,7 @@ public class RoleRequest
     public User User { get; set; } = null!;
 }
 
-// Training program. Shared: Course, CourseSession, Enrollment
+// Training program.
 public class Course
 {
     public int Id { get; set; }
@@ -160,7 +160,7 @@ public class WishlistItem
     public Course Course { get; set; } = null!;
 }
 
-// Creator content. Shared: LearningMaterial
+// Creator content.
 public class LearningMaterial
 {
     public int Id { get; set; }
@@ -202,7 +202,7 @@ public class MaterialUsageLog
     public LearningMaterial LearningMaterial { get; set; } = null!;
 }
 
-// Member enrol in a session. Shared: Enrollment
+// Member enrol in a session.
 public class Enrollment
 {
     public int Id { get; set; }
@@ -244,7 +244,7 @@ public class ProgramRating
     public Enrollment Enrollment { get; set; } = null!;
 }
 
-// Fixed PayPal top-up tiers. Shared: CreditPackage
+// Fixed PayPal top-up tiers.
 public class CreditPackage
 {
     public int Id { get; set; }
@@ -272,7 +272,7 @@ public class PaymentTransaction
     public CreditPackage CreditPackage { get; set; } = null!;
 }
 
-// Every credit change must write a row. Shared: CreditTransaction
+// Every credit change must write a row.
 public class CreditTransaction
 {
     public int Id { get; set; }

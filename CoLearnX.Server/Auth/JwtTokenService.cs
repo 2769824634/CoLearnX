@@ -8,7 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace CoLearnX.Server.Auth;
 
-// Issues JWT with active_role claim. Shared: IJwtTokenService, JwtTokenService
+// Issues JWT with active_role claim.
 public interface IJwtTokenService
 {
     (string Token, DateTime ExpiresAt) CreateToken(User user, AppRole activeRole, IEnumerable<AppRole> roles);

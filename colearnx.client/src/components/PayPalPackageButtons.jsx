@@ -23,7 +23,7 @@ function loadPayPalSdk(clientId, currency) {
   });
 }
 
-// Renders PayPal Buttons for one CreditPackage. Shared: PayPalPackageButtons
+// Renders PayPal Buttons for one CreditPackage.
 export default function PayPalPackageButtons({ packageId, onCaptured, onError }) {
   const hostRef = useRef(null);
   const [status, setStatus] = useState('loading');

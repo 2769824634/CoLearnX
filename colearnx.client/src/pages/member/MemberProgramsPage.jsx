@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import { useMemberData } from './MemberDataContext';
 
-// Active / completed enrollments. Shared: MemberProgramsPage
+// Active / completed enrollments.
 export default function MemberProgramsPage() {
   const navigate = useNavigate();
   const { state, showToast } = useMemberData();
@@ -14,8 +14,7 @@ export default function MemberProgramsPage() {
   return (
     <MemberShell
       title="My Programs"
-      subtitle="MBR-05 · Access learning materials and track enrolled programs"
-      onNotify={() => showToast('3 notifications')}
+      onNotify={() => showToast('No new notifications')}
     >
       <div className="tabs">
         <button type="button" className={`tab${tab === 'active' ? ' active' : ''}`} onClick={() => setTab('active')}>

@@ -5,7 +5,7 @@ import Modal from '../../components/Modal';
 import { maskEmail, maskPhone } from '../../data/memberMock';
 import { useMemberData } from './MemberDataContext';
 
-// Masked account + Edit Profile. Shared: MemberAccountPage
+// Masked account + Edit Profile.
 export default function MemberAccountPage() {
   const navigate = useNavigate();
   const { state, showToast, saveProfile } = useMemberData();
@@ -31,8 +31,7 @@ export default function MemberAccountPage() {
     <>
       <MemberShell
         title="Profile / My Account"
-        subtitle="Read-only · sensitive fields masked · edit via Edit Profile"
-        onNotify={() => showToast('3 notifications')}
+        onNotify={() => showToast('No new notifications')}
       >
         <div className="grid-2-1" style={{ gridTemplateColumns: '240px 1fr' }}>
           <div style={{ textAlign: 'center' }}>

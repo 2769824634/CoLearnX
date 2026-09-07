@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { RequireAuth } from '../auth/RequireAuth';
-import RoleShell, { RolePlaceholder } from '../layouts/RoleShell';
+import RoleShell from '../layouts/RoleShell';
 import LoginPage from '../pages/LoginPage';
 import { MemberDataProvider, useMemberData } from '../pages/member/MemberDataContext';
 import MemberHomePage from '../pages/member/MemberHomePage';
@@ -35,11 +35,11 @@ function MemberArea() {
   );
 }
 
-function stub(title, body) {
-  return <RolePlaceholder heading={title} body={body} />;
+function PageTitle({ children }) {
+  return <h1 className="page-title">{children}</h1>;
 }
 
-// Top-level router. Shared: AppRouter
+// Top-level router.
 export default function AppRouter() {
   return (
     <div className="app-wrap">
@@ -53,35 +53,35 @@ export default function AppRouter() {
 
         <Route element={<RequireAuth role="trainer" />}>
           <Route path="/trainer" element={<RoleShell role="trainer" />}>
-            <Route path="home" element={stub('Trainer Dashboard (TRN-01)', 'Framework shell ready — KPI, today sessions, todos.')} />
-            <Route path="courses" element={stub('Courses (TRN-02)', 'Create wizard + content library placeholders.')} />
-            <Route path="attendance" element={stub('Attendance (TRN-05)', 'Session roster Present/Absent/Late.')} />
-            <Route path="learners" element={stub('Learner List (TRN-04)', 'Cohort roster + bulk message.')} />
-            <Route path="account" element={stub('My Account', 'Read-only masked profile + Edit Profile modal (shared pattern).')} />
+            <Route path="home" element={<PageTitle>Trainer Dashboard</PageTitle>} />
+            <Route path="courses" element={<PageTitle>Courses</PageTitle>} />
+            <Route path="attendance" element={<PageTitle>Attendance</PageTitle>} />
+            <Route path="learners" element={<PageTitle>Learner List</PageTitle>} />
+            <Route path="account" element={<PageTitle>My Account</PageTitle>} />
             <Route index element={<Navigate to="home" replace />} />
           </Route>
         </Route>
 
         <Route element={<RequireAuth role="creator" />}>
           <Route path="/creator" element={<RoleShell role="creator" />}>
-            <Route path="home" element={stub('Creator Home (CRT-01)', 'Materials / adoption / royalty overview.')} />
-            <Route path="courses" element={stub('Courses', 'Create course from approved materials.')} />
-            <Route path="upload" element={stub('Upload Material (CRT-01)', 'Three-step upload wizard → Admin review.')} />
-            <Route path="usage" element={stub('Usage Records (CRT-03)', 'Adoption + royalty analytics.')} />
-            <Route path="account" element={stub('My Account', 'Masked account + Edit Profile modal.')} />
+            <Route path="home" element={<PageTitle>Creator Home</PageTitle>} />
+            <Route path="courses" element={<PageTitle>Courses</PageTitle>} />
+            <Route path="upload" element={<PageTitle>Upload Material</PageTitle>} />
+            <Route path="usage" element={<PageTitle>Usage Records</PageTitle>} />
+            <Route path="account" element={<PageTitle>My Account</PageTitle>} />
             <Route index element={<Navigate to="home" replace />} />
           </Route>
         </Route>
 
         <Route element={<RequireAuth role="admin" />}>
           <Route path="/admin" element={<RoleShell role="admin" />}>
-            <Route path="home" element={stub('Admin Homepage (ADM-01)', 'Pending KPI + SLA queues.')} />
-            <Route path="approvals" element={stub('Approvals (ADM-02)', 'Materials / Courses / Certificates tabs.')} />
-            <Route path="users" element={stub('Users & Roles (ADM-03)', 'RoleRequest review + suspend/assign.')} />
-            <Route path="ledger" element={stub('Credit Ledger (ADM-04)', 'Wired to GET /api/admin/credits/ledger.')} />
-            <Route path="disputes" element={stub('Disputes & Refunds (ADM-05)', 'Open case → refund / reject.')} />
-            <Route path="audit" element={stub('Audit Log', 'Immutable Admin actions (BR-10).')} />
-            <Route path="account" element={stub('My Account', 'Masked account + Edit Profile modal.')} />
+            <Route path="home" element={<PageTitle>Admin Homepage</PageTitle>} />
+            <Route path="approvals" element={<PageTitle>Approvals</PageTitle>} />
+            <Route path="users" element={<PageTitle>Users & Roles</PageTitle>} />
+            <Route path="ledger" element={<PageTitle>Credit Ledger</PageTitle>} />
+            <Route path="disputes" element={<PageTitle>Disputes & Refunds</PageTitle>} />
+            <Route path="audit" element={<PageTitle>Audit Log</PageTitle>} />
+            <Route path="account" element={<PageTitle>My Account</PageTitle>} />
             <Route index element={<Navigate to="home" replace />} />
           </Route>
         </Route>

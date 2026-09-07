@@ -59,15 +59,20 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+var isTesting = app.Environment.IsEnvironment("Testing");
 
-using (var scope = app.Services.CreateScope())
+if (!isTesting)
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
     await SeedData.InitializeAsync(db);
 }
 
-app.UseDefaultFiles();
-app.MapStaticAssets();
+if (!isTesting)
+{
+    app.UseDefaultFiles();
+    app.MapStaticAssets();
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -75,10 +80,16 @@ if (app.Environment.IsDevelopment())
     app.UseCors("DevClient");
 }
 
-app.UseHttpsRedirection();
+if (!isTesting)
+    app.UseHttpsRedirection();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapFallbackToFile("/index.html");
+
+if (!isTesting)
+    app.MapFallbackToFile("/index.html");
 
 app.Run();
+
+public partial class Program;

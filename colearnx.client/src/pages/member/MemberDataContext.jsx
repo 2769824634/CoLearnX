@@ -5,7 +5,7 @@ import { CERT_STAGES, initialMemberState } from '../../data/memberMock';
 
 const MemberDataContext = createContext(null);
 
-// Loads member catalog / enrollments / credits from API. Shared: MemberDataProvider, useMemberData
+// Loads member catalog / enrollments / credits from API.
 function mapCourseListItem(c) {
   return {
     id: c.id,
@@ -198,9 +198,19 @@ export function MemberDataProvider({ children }) {
     showToast('Profile saved');
   }
 
-  function toggleWish(id) {
-    setWishlist((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-    showToast('Wishlist updated (local until wishlist API)');
+  async function toggleWish(id) {
+    try {
+      const saved = wishlist.includes(id);
+      const result = saved
+        ? await coursesApi.removeWishlist(id)
+        : await coursesApi.addWishlist(id);
+      setWishlist((prev) =>
+        result.inWishlist ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter((x) => x !== id),
+      );
+      showToast(result.inWishlist ? 'Saved to wishlist' : 'Removed from wishlist');
+    } catch (e) {
+      showToast(e.message || 'Wishlist update failed');
+    }
   }
 
   const value = {

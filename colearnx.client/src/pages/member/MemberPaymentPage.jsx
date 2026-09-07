@@ -4,7 +4,7 @@ import Modal from '../../components/Modal';
 import PayPalPackageButtons from '../../components/PayPalPackageButtons';
 import { useMemberData } from './MemberDataContext';
 
-// Fixed credit packages + PayPal. Shared: MemberPaymentPage
+// Fixed credit packages + PayPal.
 export default function MemberPaymentPage() {
   const { state, showToast, applyLedgerTopUp } = useMemberData();
   const [tab, setTab] = useState('topup');
@@ -36,8 +36,7 @@ export default function MemberPaymentPage() {
     <>
       <MemberShell
         title="Credit Wallet"
-        subtitle="MBR-06 · PayPal Sandbox · 6 fixed packages · No custom amount"
-        onNotify={() => showToast('3 notifications')}
+        onNotify={() => showToast('No new notifications')}
       >
         <div className="tabs">
           <button type="button" className={`tab${tab === 'topup' ? ' active' : ''}`} onClick={() => setTab('topup')}>
@@ -87,7 +86,7 @@ export default function MemberPaymentPage() {
             </div>
 
             <div className="card" style={{ maxWidth: 480 }}>
-              <div className="card-header">Pay with PayPal Sandbox</div>
+              <div className="card-header">Pay with PayPal</div>
               <div className="card-body">
                 <p style={{ fontSize: 13, marginBottom: 12 }}>
                   Selected: <strong>{selected ? `${selected.credits} credits · ${selected.price}` : '—'}</strong>
@@ -100,11 +99,6 @@ export default function MemberPaymentPage() {
                     onError={onPayPalError}
                   />
                 ) : null}
-                <div className="callout" style={{ marginTop: 12 }}>
-                  <div className="callout-title">How to test</div>
-                  Use a PayPal Dashboard <strong>Sandbox Personal</strong> buyer account to approve payment. No real
-                  money is charged.
-                </div>
               </div>
             </div>
           </>

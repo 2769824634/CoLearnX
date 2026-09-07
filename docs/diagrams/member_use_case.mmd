@@ -1,0 +1,97 @@
+%% CoLearnX — Member Use Case Diagram
+%% Render: Mermaid Live / VS Code / GitHub · PNG via scripts/render_diagrams.py
+
+flowchart TB
+    subgraph SYS["「 CoLearnX Platform — Member Use Cases 」"]
+        direction TB
+
+        subgraph AUTH["Authentication & Account"]
+            UC01(["UC-01<br/>Register Account"])
+            UC02(["UC-02<br/>Login"])
+            UC18(["UC-18<br/>Forgot Password"])
+            UC11(["UC-11<br/>Manage Profile"])
+        end
+
+        subgraph ONB["Onboarding"]
+            UC03(["UC-03<br/>Complete Interest<br/>Onboarding"])
+        end
+
+        subgraph LEARN["Learning & Enrolment"]
+            UC06(["UC-06<br/>View Member<br/>Dashboard"])
+            UC04(["UC-04<br/>Browse Program<br/>Catalog"])
+            UC13(["UC-13<br/>Add to Wishlist"])
+            UC09d(["View Program<br/>Detail"])
+            UC05(["UC-05<br/>Enrol with Credits"])
+            UC05a(["«include»<br/>Confirm Credit Spend"])
+            UC05b(["«extend»<br/>Insufficient Credits"])
+            UC05c(["«extend»<br/>Session Full"])
+            UC05d(["View My Programs<br/>& Learning Hub"])
+        end
+
+        subgraph WALLET["Credits & Payment"]
+            UC15(["UC-15<br/>Top Up Credits<br/>(PayPal)"])
+            UC15l(["View Credit Ledger"])
+        end
+
+        subgraph CERT["Completion"]
+            UC14(["UC-14<br/>View Certificates<br/>& Badges"])
+            UC07r(["UC-MBR-07<br/>Rate Program"])
+        end
+
+        subgraph NOTIFY["Notifications"]
+            UC17(["UC-17<br/>View Notifications"])
+        end
+    end
+
+    Guest((Guest))
+    Member((Member<br/>Huang Yousheng))
+    Trainer((Trainer<br/>Secondary))
+    System((System<br/>PayPal / Email))
+
+    Guest --> UC01
+    Guest --> UC18
+    Guest --> UC02
+
+    Member --> UC02
+    Member --> UC03
+    Member --> UC06
+    Member --> UC04
+    Member --> UC13
+    Member --> UC09d
+    Member --> UC05
+    Member --> UC05d
+    Member --> UC15
+    Member --> UC15l
+    Member --> UC14
+    Member --> UC07r
+    Member --> UC11
+    Member --> UC17
+
+    UC04 --> UC09d
+    UC09d --> UC05
+    UC05 -.->|include| UC05a
+    UC05 -.->|extend| UC05b
+    UC05 -.->|extend| UC05c
+    UC05b --> UC15
+    UC05 --> UC05d
+    UC05 --> UC14
+
+    UC05 --> Trainer
+    UC05 --> System
+    UC15 --> System
+    UC02 --> UC06
+    UC01 --> UC03
+    UC03 --> UC06
+
+    UC17 -.->|N-01 Enrolment| Member
+    UC17 -.->|N-02 Session reminder| Member
+    UC17 -.->|N-08 Low balance| Member
+    UC17 -.->|N-09 Refund| Member
+
+    classDef actor fill:#E6FAF6,stroke:#10D2AF,stroke-width:2px
+    classDef uc fill:#F0EBFF,stroke:#7241FF,stroke-width:1.5px
+    classDef extend fill:#FFFBEB,stroke:#F59E0B,stroke-width:1px,stroke-dasharray:4
+
+    class Guest,Member,Trainer,System actor
+    class UC01,UC02,UC03,UC04,UC05,UC06,UC11,UC13,UC14,UC15,UC17,UC18,UC09d,UC05d,UC15l,UC07r uc
+    class UC05a,UC05b,UC05c extend

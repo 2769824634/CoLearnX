@@ -29,7 +29,7 @@ const NAV = {
   ],
 };
 
-// Trainer / Creator / Admin shell. Shared: RoleShell
+// Trainer / Creator / Admin shell.
 export default function RoleShell({ role, title, subtitle }) {
   const { user, logout } = useAuth();
   const items = NAV[role] || [];

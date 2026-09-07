@@ -5,7 +5,7 @@ import Modal from '../../components/Modal';
 import { ApiError } from '../../api/client';
 import { useMemberData } from './MemberDataContext';
 
-// Course detail + enrol. Shared: MemberCourseDetailPage
+// Course detail + enrol.
 export default function MemberCourseDetailPage() {
   const { courseId } = useParams();
   const navigate = useNavigate();
@@ -70,8 +70,7 @@ export default function MemberCourseDetailPage() {
     <>
       <MemberShell
         title={`${course.code} — ${course.title}`}
-        subtitle="MBR-03 · Course details, training sessions & enrolment"
-        onNotify={() => showToast('3 notifications')}
+        onNotify={() => showToast('No new notifications')}
       >
         <div className="grid-2-1">
           <div>
@@ -81,7 +80,7 @@ export default function MemberCourseDetailPage() {
             <div className="card" style={{ marginBottom: 12 }}>
               <div className="card-header">Learning Outcomes</div>
               <div className="card-body" style={{ fontSize: 13, lineHeight: 1.8 }}>
-                {(course.outcomes.length ? course.outcomes : ['Understand core concepts', 'Apply techniques hands-on']).map((o) => (
+                {course.outcomes.map((o) => (
                   <div key={o}>• {o}</div>
                 ))}
               </div>
@@ -135,7 +134,7 @@ export default function MemberCourseDetailPage() {
         </div>
       </MemberShell>
 
-      <Modal open={enrolOpen} title="Confirm Enrolment (MBR-04)" onClose={() => setEnrolOpen(false)}>
+      <Modal open={enrolOpen} title="Confirm Enrolment" onClose={() => setEnrolOpen(false)}>
         <div className="card purple-bg" style={{ marginBottom: 12 }}>
           <div className="card-body">
             <strong>{course.code} — {course.title}</strong>

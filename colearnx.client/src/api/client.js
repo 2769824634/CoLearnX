@@ -17,7 +17,7 @@ export class ApiError extends Error {
   }
 }
 
-// Fetch helper for /api/*. Shared: apiRequest, ApiError
+// Fetch helper for /api/*.
 export async function apiRequest(path, { method = 'GET', body, token, signal } = {}) {
   const headers = { Accept: 'application/json' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';

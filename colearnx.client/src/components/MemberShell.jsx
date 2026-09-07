@@ -4,7 +4,7 @@ import WorkspaceSwitcher from './WorkspaceSwitcher';
 import { MEMBER_NAV } from '../data/memberMock';
 import { useAuth } from '../auth/AuthContext';
 
-// Member chrome (sidebar + topbar). Shared: MemberShell
+// Member chrome (sidebar + topbar).
 export default function MemberShell({
   title,
   subtitle,
@@ -32,9 +32,7 @@ export default function MemberShell({
           />
         </div>
         <div className="topbar-actions">
-          <button type="button" className="notif-badge" onClick={onNotify} aria-label="Notifications">
-            3
-          </button>
+          <button type="button" className="notif-badge" onClick={onNotify} aria-label="Notifications" />
           <button type="button" className="btn btn-ghost" onClick={logout}>
             Log out
           </button>
@@ -62,7 +60,7 @@ export default function MemberShell({
         </nav>
         <main className="content">
           <h1 className="page-title">{title}</h1>
-          <p className="page-sub">{subtitle}</p>
+          {subtitle ? <p className="page-sub">{subtitle}</p> : null}
           {children}
         </main>
       </div>

@@ -9,7 +9,7 @@ const ROLE_META = {
   Admin: { label: 'Admin', desc: 'Platform admin' },
 };
 
-// Switch active_role without re-login. Shared: WorkspaceSwitcher
+// Switch active_role without re-login.
 export default function WorkspaceSwitcher() {
   const { user, activeRole, switchRole } = useAuth();
   const navigate = useNavigate();

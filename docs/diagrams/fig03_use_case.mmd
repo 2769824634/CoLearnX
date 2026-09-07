@@ -1,0 +1,37 @@
+flowchart LR
+    subgraph system [CoLearnX_Platform]
+        UC01[Register]
+        UC02[Login]
+        UC03[Onboarding]
+        UC04[Browse_Programs]
+        UC05[Enrol_with_Credits]
+        UC06[View_Dashboard]
+        UC07[Upload_Material]
+        UC08[Review_Content]
+        UC09[Create_Program]
+        UC10[Record_Participation]
+        UC11[Manage_Profile]
+        UC12[Audit_Ledger]
+    end
+
+    Member((Member)) --> UC02
+    Member --> UC03
+    Member --> UC04
+    Member --> UC05
+    Member --> UC06
+    Member --> UC11
+
+    Trainer((Trainer)) --> UC02
+    Trainer --> UC04
+    Trainer --> UC09
+    Trainer --> UC10
+    Trainer --> UC11
+
+    Creator((Creator)) --> UC02
+    Creator --> UC07
+    Creator --> UC11
+
+    Admin((Administrator)) --> UC02
+    Admin --> UC08
+    Admin --> UC12
+    Admin --> UC11

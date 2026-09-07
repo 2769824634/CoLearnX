@@ -23,7 +23,7 @@ public record CreatePayPalOrderResponse(string OrderId, int CreditPackageId, dec
 
 public record CapturePayPalOrderRequest(string OrderId);
 
-// Sandbox order create/capture. Shared: IPayPalClient, PayPalClient
+// Sandbox order create/capture.
 public interface IPayPalClient
 {
     PayPalClientConfigDto GetPublicConfig();

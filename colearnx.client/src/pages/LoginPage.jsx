@@ -11,13 +11,13 @@ const ROLES = [
   { id: 'Admin', label: 'Admin', desc: 'Approvals, ledger & audit' },
 ];
 
-// Login + Continue as role. Shared: LoginPage
+// Login + Continue as role.
 export default function LoginPage() {
   const { login, isAuthenticated, activeRole, booting } = useAuth();
   const navigate = useNavigate();
   const [role, setRole] = useState('Member');
-  const [email, setEmail] = useState('huang.yousheng@colearnx.com');
-  const [password, setPassword] = useState('Password123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [forgotOpen, setForgotOpen] = useState(false);
@@ -59,7 +59,6 @@ export default function LoginPage() {
             </div>
             <div className="role-pick">
               <div className="role-pick-label">Continue as</div>
-              <div className="role-pick-hint">Pick the workspace — JWT active_role claim drives shell & API (BR-06).</div>
               {ROLES.map((r) => (
                 <button
                   key={r.id}
@@ -97,15 +96,12 @@ export default function LoginPage() {
             <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
               {busy ? 'Signing in…' : `Continue as ${role}`}
             </button>
-            <div className="auth-footer" style={{ marginTop: 12 }}>
-              Demo: huang.yousheng@colearnx.com / Password123!
-            </div>
           </form>
         </div>
       </div>
 
       <Modal open={forgotOpen} title="Reset Password" onClose={() => setForgotOpen(false)}>
-        <p style={{ fontSize: 13, color: 'var(--slate)' }}>Password reset API will be wired in a later iteration.</p>
+        <p style={{ fontSize: 13, color: 'var(--slate)' }}>Enter the email on your account and we will send a reset link.</p>
         <button type="button" className="btn btn-primary btn-block" onClick={() => setForgotOpen(false)}>
           Close
         </button>

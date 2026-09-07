@@ -28,6 +28,8 @@ public interface ICourseService
 {
     Task<IReadOnlyList<CourseListItemDto>> ListAsync(int? userId, string? search, string? category, string? level, bool? featured, CancellationToken ct = default);
     Task<CourseDetailDto?> GetByIdAsync(int courseId, int? userId, CancellationToken ct = default);
+    Task<WishlistResultDto> AddToWishlistAsync(int userId, int courseId, CancellationToken ct = default);
+    Task<WishlistResultDto> RemoveFromWishlistAsync(int userId, int courseId, CancellationToken ct = default);
 }
 
 // Enrol + my enrollments (credits + seats). Keep: IEnrollmentService, EnrollmentService
@@ -286,6 +288,38 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
                 s.Id, s.Label, s.StartsAt, s.EndsAt, s.Capacity, s.SeatsLeft)).ToList(),
             inWishlist,
             enrolled);
+    }
+
+    public async Task<WishlistResultDto> AddToWishlistAsync(int userId, int courseId, CancellationToken ct = default)
+    {
+        var course = await RequirePublishedCourseAsync(courseId, ct);
+        var exists = await db.WishlistItems.AnyAsync(w => w.UserId == userId && w.CourseId == course.Id, ct);
+        if (!exists)
+        {
+            db.WishlistItems.Add(new WishlistItem { UserId = userId, CourseId = course.Id });
+            await db.SaveChangesAsync(ct);
+        }
+
+        return new WishlistResultDto(course.Id, true);
+    }
+
+    public async Task<WishlistResultDto> RemoveFromWishlistAsync(int userId, int courseId, CancellationToken ct = default)
+    {
+        var course = await RequirePublishedCourseAsync(courseId, ct);
+        var item = await db.WishlistItems.FirstOrDefaultAsync(w => w.UserId == userId && w.CourseId == course.Id, ct);
+        if (item is not null)
+        {
+            db.WishlistItems.Remove(item);
+            await db.SaveChangesAsync(ct);
+        }
+
+        return new WishlistResultDto(course.Id, false);
+    }
+
+    private async Task<Course> RequirePublishedCourseAsync(int courseId, CancellationToken ct)
+    {
+        var course = await db.Courses.FirstOrDefaultAsync(c => c.Id == courseId && c.Status == CourseStatus.Published, ct);
+        return course ?? throw new KeyNotFoundException("Course not found.");
     }
 }
 

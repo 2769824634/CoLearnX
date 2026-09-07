@@ -1,6 +1,6 @@
 namespace CoLearnX.Server.Domain.Enums;
 
-// JWT role claim values. Shared: AppRole
+// JWT role claim values.
 public enum AppRole
 {
     Member = 1,

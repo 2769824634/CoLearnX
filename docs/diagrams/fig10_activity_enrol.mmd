@@ -1,0 +1,15 @@
+flowchart TD
+    Start([Member clicks Enrol]) --> AuthCheck{Logged in as Member?}
+    AuthCheck -->|No| LoginRedirect[Redirect to login]
+    AuthCheck -->|Yes| BalanceCheck{Sufficient credits?}
+    BalanceCheck -->|No| ShowError1[Show insufficient credits]
+    BalanceCheck -->|Yes| CapacityCheck{Session has capacity?}
+    CapacityCheck -->|No| ShowError2[Show session full]
+    CapacityCheck -->|Yes| FormValid{Form complete?}
+    FormValid -->|No| ShowError3[Highlight required fields]
+    FormValid -->|Yes| TxStart[Begin DB transaction]
+    TxStart --> Debit[Debit credits and create enrollment]
+    Debit --> Commit{Commit success?}
+    Commit -->|No| Rollback[Rollback and show error]
+    Commit -->|Yes| Notify[Send confirmation notification]
+    Notify --> Done([Redirect to My Programs])

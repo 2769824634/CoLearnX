@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoLearnX.Server", "CoLearnX.Server\CoLearnX.Server.csproj", "{B8A1C2D3-4E5F-6789-ABCD-EF0123456789}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoLearnX.Server.Tests", "CoLearnX.Server.Tests\CoLearnX.Server.Tests.csproj", "{C9B2D3E4-5F60-789A-BCDE-F01234567890}"
+EndProject
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "colearnx.client", "colearnx.client\colearnx.client.esproj", "{D0E1F2A3-4B5C-6D7E-8F90-A1B2C3D4E5F6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B8A1C2D3-4E5F-6789-ABCD-EF0123456789}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8A1C2D3-4E5F-6789-ABCD-EF0123456789}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8A1C2D3-4E5F-6789-ABCD-EF0123456789}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B8A1C2D3-4E5F-6789-ABCD-EF0123456789}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C9B2D3E4-5F60-789A-BCDE-F01234567890}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C9B2D3E4-5F60-789A-BCDE-F01234567890}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C9B2D3E4-5F60-789A-BCDE-F01234567890}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C9B2D3E4-5F60-789A-BCDE-F01234567890}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D0E1F2A3-4B5C-6D7E-8F90-A1B2C3D4E5F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D0E1F2A3-4B5C-6D7E-8F90-A1B2C3D4E5F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D0E1F2A3-4B5C-6D7E-8F90-A1B2C3D4E5F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D0E1F2A3-4B5C-6D7E-8F90-A1B2C3D4E5F6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

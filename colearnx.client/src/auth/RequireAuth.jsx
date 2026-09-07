@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
-// Route guard by active role. Shared: RequireAuth
+// Route guard by active role.
 export function RequireAuth({ role }) {
   const { isAuthenticated, booting, activeRole } = useAuth();
   const location = useLocation();

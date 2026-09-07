@@ -128,6 +128,34 @@ public class CoursesController(ICourseService courses) : ControllerBase
         return course is null ? NotFound(new ApiError("NOT_FOUND", "Course not found.")) : Ok(course);
     }
 
+    [HttpPost("{id:int}/wishlist")]
+    [Authorize(Roles = "Member")]
+    public async Task<ActionResult<WishlistResultDto>> AddWishlist(int id, CancellationToken ct)
+    {
+        try
+        {
+            return Ok(await courses.AddToWishlistAsync(User.GetUserId(), id, ct));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new ApiError("NOT_FOUND", "Course not found."));
+        }
+    }
+
+    [HttpDelete("{id:int}/wishlist")]
+    [Authorize(Roles = "Member")]
+    public async Task<ActionResult<WishlistResultDto>> RemoveWishlist(int id, CancellationToken ct)
+    {
+        try
+        {
+            return Ok(await courses.RemoveFromWishlistAsync(User.GetUserId(), id, ct));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new ApiError("NOT_FOUND", "Course not found."));
+        }
+    }
+
     [HttpPost]
     [Authorize(Roles = "Trainer,Admin")]
     public ActionResult Create()

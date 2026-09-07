@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CoLearnX.Server.Data;
 
-// Demo users, courses, packages. Shared: SeedData
+// Demo users, courses, packages.
 public static class SeedData
 {
     public const string DemoPassword = "Password123!";

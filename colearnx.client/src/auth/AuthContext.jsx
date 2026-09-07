@@ -4,7 +4,7 @@ import { ApiError, getStoredToken, setStoredToken } from '../api/client';
 
 const AuthContext = createContext(null);
 
-// Session + login / switchRole. Shared: AuthProvider, useAuth
+// Session + login / switchRole.
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => getStoredToken());
   const [user, setUser] = useState(null);

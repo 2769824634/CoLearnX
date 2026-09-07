@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import { useMemberData } from './MemberDataContext';
 
-// Program catalog + left filters. Shared: MemberCatalogPage
+// Program catalog + left filters.
 export default function MemberCatalogPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -30,9 +30,8 @@ export default function MemberCatalogPage() {
   return (
     <MemberShell
       title="Program Catalog"
-      subtitle="MBR-02 · Search, filter and save programs to your wishlist"
       onSearch={(q) => setSearch(q)}
-      onNotify={() => showToast('3 notifications')}
+      onNotify={() => showToast('No new notifications')}
     >
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
         <input

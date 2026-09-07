@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import { useMemberData } from './MemberDataContext';
 
-// Dashboard: credits, continue learning, featured. Shared: MemberHomePage
+// Dashboard: credits, continue learning, featured.
 export default function MemberHomePage() {
   const navigate = useNavigate();
   const { state, showToast, toggleWish } = useMemberData();
@@ -13,9 +13,9 @@ export default function MemberHomePage() {
   return (
     <MemberShell
       title="Member Dashboard"
-      subtitle={`MBR-01 · Welcome back, ${state.user.displayName} — ${state.credits} credits · ${active.length} active programs`}
+      subtitle={`Welcome back, ${state.user.displayName}`}
       onSearch={(q) => navigate(`/member/courses?q=${encodeURIComponent(q)}`)}
-      onNotify={() => showToast('3 notifications: enrolment confirmed, certificate ready, credit top-up')}
+      onNotify={() => showToast('No new notifications')}
     >
       {state.loading ? <p className="page-sub">Loading…</p> : null}
 
@@ -36,12 +36,7 @@ export default function MemberHomePage() {
         <div className="stat-box"><div className="label">Active Programs</div><div className="value">{active.length}</div></div>
         <div className="stat-box"><div className="label">Completed</div><div className="value">{completed.length}</div></div>
         <div className="stat-box"><div className="label">Wishlist</div><div className="value">{state.wishlist.length}</div></div>
-        <div className="stat-box"><div className="label">Certificates</div><div className="value">{state.certificates.length || 4}</div></div>
-      </div>
-
-      <div className="callout">
-        <div className="callout-title">Recommended for you</div>
-        Programs match your onboarding profile and published catalog from the API.
+        <div className="stat-box"><div className="label">Certificates</div><div className="value">{state.certificates.length}</div></div>
       </div>
 
       <div className="card purple-bg" style={{ marginBottom: 16 }}>
