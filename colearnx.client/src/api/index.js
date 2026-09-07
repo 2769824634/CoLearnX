@@ -7,6 +7,11 @@ export const authApi = {
       method: 'POST',
       body: { email, password, activeRole },
     }),
+  availableRoles: (email, password) =>
+    apiRequest('/api/auth/available-roles', {
+      method: 'POST',
+      body: { email, password },
+    }),
   register: (payload) =>
     apiRequest('/api/auth/register', { method: 'POST', body: payload }),
   me: () => apiRequest('/api/auth/me'),

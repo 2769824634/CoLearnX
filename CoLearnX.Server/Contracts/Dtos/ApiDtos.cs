@@ -15,6 +15,12 @@ public record LoginRequest(
     [Required] string Password,
     [Required] string ActiveRole);
 
+public record AvailableRolesRequest(
+    [Required, EmailAddress] string Email,
+    [Required] string Password);
+
+public record AvailableRolesDto(IReadOnlyList<string> Roles);
+
 public record SwitchRoleRequest([Required] string ActiveRole);
 
 public record AuthResponse(

@@ -26,7 +26,7 @@ export const COURSES = [
     id: 'INFT3030',
     code: 'INFT 3030',
     title: 'Cybersecurity Essentials',
-    trainer: 'Alex Lee',
+    trainer: 'Gu Yincheng',
     credits: 25,
     level: 'Intermediate',
     topic: 'Programming',

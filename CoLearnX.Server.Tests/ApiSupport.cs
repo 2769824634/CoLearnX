@@ -22,7 +22,7 @@ internal static class ApiClient
 
     public static async Task<HttpClient> AsMemberAsync(
         CoLearnXApiFactory factory,
-        string email = "huang.yousheng@colearnx.com",
+        string email = SeedData.MemberEmail,
         string password = SeedData.DemoPassword)
     {
         var client = factory.CreateClient();

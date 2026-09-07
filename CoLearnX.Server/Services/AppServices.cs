@@ -13,6 +13,7 @@ public interface IAuthService
 {
     Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct = default);
     Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct = default);
+    Task<AvailableRolesDto> GetAvailableRolesAsync(AvailableRolesRequest request, CancellationToken ct = default);
     Task<AuthResponse> SwitchRoleAsync(int userId, SwitchRoleRequest request, CancellationToken ct = default);
     Task<UserMeDto> GetMeAsync(int userId, AppRole activeRole, CancellationToken ct = default);
 }
@@ -107,12 +108,7 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct = default)
     {
-        var email = request.Email.Trim().ToLowerInvariant();
-        var user = await db.Users.Include(u => u.Roles).FirstOrDefaultAsync(u => u.Email == email, ct)
-            ?? throw new UnauthorizedAccessException("Invalid email or password.");
-
-        if (!user.IsActive || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-            throw new UnauthorizedAccessException("Invalid email or password.");
+        var user = await AuthenticateUserAsync(request.Email, request.Password, ct);
 
         var activeRole = RoleParse.Parse(request.ActiveRole);
         if (activeRole == AppRole.Admin)
@@ -126,6 +122,16 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
         }
 
         return await IssueAsync(user.Id, activeRole, ct);
+    }
+
+    public async Task<AvailableRolesDto> GetAvailableRolesAsync(AvailableRolesRequest request, CancellationToken ct = default)
+    {
+        var user = await AuthenticateUserAsync(request.Email, request.Password, ct);
+        var roles = user.Roles
+            .Select(r => r.Role.ToString())
+            .Distinct()
+            .ToList();
+        return new AvailableRolesDto(roles);
     }
 
     public async Task<AuthResponse> SwitchRoleAsync(int userId, SwitchRoleRequest request, CancellationToken ct = default)
@@ -152,6 +158,18 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
             ?? throw new KeyNotFoundException("User not found.");
 
         return MapMe(user, activeRole);
+    }
+
+    private async Task<User> AuthenticateUserAsync(string email, string password, CancellationToken ct)
+    {
+        var normalized = email.Trim().ToLowerInvariant();
+        var user = await db.Users.Include(u => u.Roles).FirstOrDefaultAsync(u => u.Email == normalized, ct)
+            ?? throw new UnauthorizedAccessException("Invalid email or password.");
+
+        if (!user.IsActive || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+            throw new UnauthorizedAccessException("Invalid email or password.");
+
+        return user;
     }
 
     private async Task<AuthResponse> IssueAsync(int userId, AppRole activeRole, CancellationToken ct)

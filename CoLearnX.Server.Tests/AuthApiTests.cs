@@ -18,7 +18,7 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
 
         var response = await client.PostAsJsonAsync(
             "/api/auth/login",
-            new LoginRequest("huang.yousheng@colearnx.com", SeedData.DemoPassword, "Member"),
+            new LoginRequest(SeedData.MemberEmail, SeedData.DemoPassword, "Member"),
             ApiJson.Options);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -26,7 +26,7 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
         Assert.NotNull(body);
         Assert.False(string.IsNullOrWhiteSpace(body.AccessToken));
         Assert.Equal("Member", body.User.ActiveRole);
-        Assert.Equal("huang.yousheng@colearnx.com", body.User.Email);
+        Assert.Equal(SeedData.MemberEmail, body.User.Email);
         Assert.Contains("Member", body.User.Roles);
     }
 
@@ -37,7 +37,7 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
 
         var response = await client.PostAsJsonAsync(
             "/api/auth/login",
-            new LoginRequest("huang.yousheng@colearnx.com", "wrong-password", "Member"),
+            new LoginRequest(SeedData.MemberEmail, "wrong-password", "Member"),
             ApiJson.Options);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -53,7 +53,87 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
 
         var response = await client.PostAsJsonAsync(
             "/api/auth/login",
-            new LoginRequest("huang.yousheng@colearnx.com", SeedData.DemoPassword, "Admin"),
+            new LoginRequest(SeedData.MemberEmail, SeedData.DemoPassword, "Admin"),
+            ApiJson.Options);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var error = await ApiClient.ReadErrorAsync(response);
+        Assert.NotNull(error);
+        Assert.Equal("LOGIN_FAILED", error.Code);
+    }
+
+    [Fact]
+    public async Task Available_roles_for_member_returns_member_only()
+    {
+        var client = ApiClient.Anonymous(_factory);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/available-roles",
+            new AvailableRolesRequest(SeedData.MemberEmail, SeedData.DemoPassword),
+            ApiJson.Options);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<AvailableRolesDto>(ApiJson.Options);
+        Assert.NotNull(body);
+        Assert.Equal(["Member"], body.Roles);
+    }
+
+    [Fact]
+    public async Task Available_roles_for_trainer_returns_trainer_only()
+    {
+        var client = ApiClient.Anonymous(_factory);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/available-roles",
+            new AvailableRolesRequest(SeedData.TrainerEmail, SeedData.DemoPassword),
+            ApiJson.Options);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<AvailableRolesDto>(ApiJson.Options);
+        Assert.NotNull(body);
+        Assert.Equal(["Trainer"], body.Roles);
+    }
+
+    [Fact]
+    public async Task Available_roles_for_creator_returns_creator_only()
+    {
+        var client = ApiClient.Anonymous(_factory);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/available-roles",
+            new AvailableRolesRequest(SeedData.CreatorEmail, SeedData.DemoPassword),
+            ApiJson.Options);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<AvailableRolesDto>(ApiJson.Options);
+        Assert.NotNull(body);
+        Assert.Equal(["Creator"], body.Roles);
+    }
+
+    [Fact]
+    public async Task Available_roles_for_admin_returns_admin_only()
+    {
+        var client = ApiClient.Anonymous(_factory);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/available-roles",
+            new AvailableRolesRequest(SeedData.AdminEmail, SeedData.DemoPassword),
+            ApiJson.Options);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<AvailableRolesDto>(ApiJson.Options);
+        Assert.NotNull(body);
+        Assert.Equal(["Admin"], body.Roles);
+    }
+
+    [Fact]
+    public async Task Available_roles_wrong_password_returns_LOGIN_FAILED()
+    {
+        var client = ApiClient.Anonymous(_factory);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/available-roles",
+            new AvailableRolesRequest(SeedData.MemberEmail, "wrong-password"),
             ApiJson.Options);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);

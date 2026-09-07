@@ -8,17 +8,28 @@ namespace CoLearnX.Server.Data;
 public static class SeedData
 {
     public const string DemoPassword = "Password123!";
+    public const string MemberEmail = "huang.yousheng@colearnx.com";
+    public const string TrainerEmail = "gu.yincheng@colearnx.com";
+    public const string CreatorEmail = "zou.ruiqi@colearnx.com";
+    public const string AdminEmail = "zhu.zirui@colearnx.com";
 
     public static async Task InitializeAsync(CoLearnXDbContext db)
     {
         await db.Database.EnsureCreatedAsync();
-        if (await db.Users.AnyAsync()) return;
+        if (await IsCurrentDemoAsync(db)) return;
+
+        if (await db.Users.AnyAsync())
+        {
+            await db.Database.EnsureDeletedAsync();
+            db.ChangeTracker.Clear();
+            await db.Database.EnsureCreatedAsync();
+        }
 
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
 
         var member = new User
         {
-            Email = "huang.yousheng@colearnx.com",
+            Email = MemberEmail,
             PasswordHash = hash,
             FullName = "Huang Yousheng",
             DisplayName = "Yousheng",
@@ -28,30 +39,30 @@ public static class SeedData
         };
         var trainer = new User
         {
-            Email = "jane.smith@colearnx.com",
+            Email = TrainerEmail,
             PasswordHash = hash,
-            FullName = "Jane Smith",
-            DisplayName = "Jane",
+            FullName = "Gu Yincheng",
+            DisplayName = "Yincheng",
             Phone = "87654321",
             Bio = "Workshop facilitator · design thinking",
             CreditBalance = 0,
         };
         var creator = new User
         {
-            Email = "alex.lee@colearnx.com",
+            Email = CreatorEmail,
             PasswordHash = hash,
-            FullName = "Alex Lee",
-            DisplayName = "Alex",
+            FullName = "Zou Ruiqi",
+            DisplayName = "Ruiqi",
             Phone = "11223344",
             Bio = "Learning materials creator",
             CreditBalance = 40,
         };
         var admin = new User
         {
-            Email = "desmond.tan@colearnx.com",
+            Email = AdminEmail,
             PasswordHash = hash,
-            FullName = "Desmond Tan",
-            DisplayName = "Desmond",
+            FullName = "Zhu Zirui",
+            DisplayName = "Zirui",
             Phone = "99887766",
             Bio = "Platform administrator",
             CreditBalance = 0,
@@ -62,11 +73,8 @@ public static class SeedData
 
         db.UserRoles.AddRange(
             new UserRole { UserId = member.Id, Role = AppRole.Member, IsVisible = true },
-            new UserRole { UserId = member.Id, Role = AppRole.Trainer, IsVisible = true },
             new UserRole { UserId = trainer.Id, Role = AppRole.Trainer, IsVisible = true },
-            new UserRole { UserId = trainer.Id, Role = AppRole.Member, IsVisible = true },
             new UserRole { UserId = creator.Id, Role = AppRole.Creator, IsVisible = true },
-            new UserRole { UserId = creator.Id, Role = AppRole.Member, IsVisible = true },
             new UserRole { UserId = admin.Id, Role = AppRole.Admin, IsVisible = true }
         );
 
@@ -77,12 +85,6 @@ public static class SeedData
             new UserPreference { UserId = admin.Id }
         );
 
-        db.TrainerProfiles.Add(new TrainerProfile
-        {
-            UserId = member.Id,
-            Specialisations = "UI/UX Design, Wireframing, Usability",
-            Headline = "Workshop facilitator · design thinking",
-        });
         db.TrainerProfiles.Add(new TrainerProfile
         {
             UserId = trainer.Id,
@@ -337,5 +339,33 @@ public static class SeedData
         });
 
         await db.SaveChangesAsync();
+    }
+
+    private static async Task<bool> IsCurrentDemoAsync(CoLearnXDbContext db)
+    {
+        if (!await db.Users.AnyAsync()) return false;
+
+        var emails = await db.Users.Select(u => u.Email).ToListAsync();
+        if (emails.Contains("jane.smith@colearnx.com")
+            || emails.Contains("alex.lee@colearnx.com")
+            || emails.Contains("desmond.tan@colearnx.com"))
+        {
+            return false;
+        }
+
+        if (!emails.Contains(MemberEmail)
+            || !emails.Contains(TrainerEmail)
+            || !emails.Contains(CreatorEmail)
+            || !emails.Contains(AdminEmail))
+        {
+            return false;
+        }
+
+        var memberRoles = await db.UserRoles
+            .Where(r => db.Users.Any(u => u.Id == r.UserId && u.Email == MemberEmail))
+            .Select(r => r.Role)
+            .ToListAsync();
+
+        return memberRoles.Count == 1 && memberRoles[0] == AppRole.Member;
     }
 }

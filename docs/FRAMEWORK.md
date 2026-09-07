@@ -17,7 +17,7 @@ pages/member/*                   # Member UI wired to API
 layouts/RoleShell.jsx            # Trainer/Creator/Admin shells (stubs)
 
 ## Demo accounts (password: Password123!)
-Member(+Trainer): huang.yousheng@colearnx.com
-Trainer:          jane.smith@colearnx.com
-Creator:          alex.lee@colearnx.com
-Admin:            desmond.tan@colearnx.com
+Member:  Huang Yousheng  huang.yousheng@colearnx.com
+Trainer: Gu Yincheng     gu.yincheng@colearnx.com
+Creator: Zou Ruiqi       zou.ruiqi@colearnx.com
+Admin:   Zhu Zirui       zhu.zirui@colearnx.com

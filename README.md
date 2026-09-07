@@ -13,14 +13,16 @@
 - 页面：https://localhost:55128
 - API：https://localhost:7238
 
-| 角色 | 账号 | 密码 |
-|------|------|------|
-| Member | `huang.yousheng@colearnx.com` | `Password123!` |
-| Trainer | `jane.smith@colearnx.com` | `Password123!` |
-| Creator | `alex.lee@colearnx.com` | `Password123!` |
-| Admin | `desmond.tan@colearnx.com` | `Password123!` |
+| 角色 | 姓名 | 账号 | 密码 |
+|------|------|------|------|
+| Member | Huang Yousheng | `huang.yousheng@colearnx.com` | `Password123!` |
+| Trainer | Gu Yincheng | `gu.yincheng@colearnx.com` | `Password123!` |
+| Creator | Zou Ruiqi | `zou.ruiqi@colearnx.com` | `Password123!` |
+| Admin | Zhu Zirui | `zhu.zirui@colearnx.com` | `Password123!` |
 
-登录后选 **Continue as** 对应角色。
+登录页只输入邮箱和密码；校验通过后弹出该账号已绑定的角色。每个演示账号只有一种身份。
+
+若角色列表仍是旧账号，删掉 `CoLearnX.Server/colearnx.db` 后重新 F5。
 
 ## 仓库结构
 

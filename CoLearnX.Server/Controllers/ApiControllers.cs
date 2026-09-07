@@ -44,6 +44,20 @@ public class AuthController(IAuthService auth) : ControllerBase
         }
     }
 
+    [HttpPost("available-roles")]
+    [AllowAnonymous]
+    public async Task<ActionResult<AvailableRolesDto>> AvailableRoles([FromBody] AvailableRolesRequest request, CancellationToken ct)
+    {
+        try
+        {
+            return Ok(await auth.GetAvailableRolesAsync(request, ct));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new ApiError("LOGIN_FAILED", ex.Message));
+        }
+    }
+
     [HttpGet("me")]
     [Authorize]
     public async Task<ActionResult<UserMeDto>> Me(CancellationToken ct)
