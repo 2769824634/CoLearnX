@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
-import { useMemberData } from './MemberDataContext';
+import { useMemberData } from './memberDataState';
 
 // Program catalog + left filters.
 export default function MemberCatalogPage() {

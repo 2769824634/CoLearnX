@@ -6,10 +6,9 @@ const ROLE_META = {
   Member: { label: 'Member', desc: 'Learn & enrol' },
   Trainer: { label: 'Trainer', desc: 'Run courses' },
   Creator: { label: 'Creator', desc: 'Upload materials' },
-  Admin: { label: 'Admin', desc: 'Platform admin' },
 };
 
-// Switch active_role without re-login.
+// Switch active_role without re-login. Shared: WorkspaceSwitcher
 export default function WorkspaceSwitcher() {
   const { user, activeRole, switchRole } = useAuth();
   const navigate = useNavigate();

@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
 import PayPalPackageButtons from '../../components/PayPalPackageButtons';
-import { useMemberData } from './MemberDataContext';
+import { useMemberData } from './memberDataState';
 
 // Fixed credit packages + PayPal.
 export default function MemberPaymentPage() {

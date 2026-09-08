@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 import Modal from '../components/Modal';
 import { authApi } from '../api';
@@ -9,7 +9,6 @@ const ROLE_META = {
   Member: { label: 'Member', desc: 'Learn & enrol with credits' },
   Trainer: { label: 'Trainer', desc: 'Run courses & issue certs' },
   Creator: { label: 'Creator', desc: 'Upload materials & royalties' },
-  Admin: { label: 'Admin', desc: 'Approvals, ledger & audit' },
 };
 
 function roleMeta(id) {
@@ -107,6 +106,9 @@ export default function LoginPage() {
             <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
               {busy && !roleOpen ? 'Signing in…' : 'Sign in'}
             </button>
+            <div className="auth-footer auth-secondary-entry" style={{ marginTop: 12 }}>
+              Invited administrator? <Link to="/admin/login">Use the operations sign-in</Link>
+            </div>
           </form>
         </div>
       </div>

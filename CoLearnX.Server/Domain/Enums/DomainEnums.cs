@@ -1,21 +1,44 @@
 namespace CoLearnX.Server.Domain.Enums;
 
-// JWT role claim values.
+// JWT role claim values. Shared: AppRole
 public enum AppRole
 {
     Member = 1,
     Trainer = 2,
-    Creator = 3,
-    Admin = 4
+    Creator = 3
 }
 
 public enum CourseStatus
 {
     Draft = 0,
-    PendingReview = 1,
+    PendingApproval = 1,
     Published = 2,
     Archived = 3,
     Rejected = 4
+}
+
+public enum CourseIntakeStatus
+{
+    Draft = 0,
+    PendingApproval = 1,
+    Published = 2,
+    InProgress = 3,
+    Completed = 4,
+    Rejected = 5,
+    Cancelled = 6
+}
+
+public enum CourseIntakeApplicationKind
+{
+    Initial = 0,
+    Change = 1
+}
+
+public enum CourseIntakeApplicationStatus
+{
+    Pending = 0,
+    Confirmed = 1,
+    Rejected = 2
 }
 
 public enum MaterialStatus

@@ -22,6 +22,53 @@ export const authApi = {
     }),
 };
 
+export const adminAuthApi = {
+  login: (email, password) =>
+    apiRequest('/api/admin/auth/login', {
+      method: 'POST',
+      body: { email, password },
+    }),
+  me: (token) => apiRequest('/api/admin/auth/me', { token }),
+};
+
+export const adminAuditApi = {
+  list: (token, limit = 100, signal) =>
+    apiRequest(`/api/admin/audit-logs?limit=${limit}`, { token, signal }),
+  query: (token, params, signal) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') query.set(key, value);
+    });
+    return apiRequest(`/api/admin/audit-logs?${query}`, { token, signal });
+  },
+};
+
+export const adminRoleRequestsApi = {
+  list: (token, status, signal) => {
+    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+    return apiRequest(`/api/admin/role-requests${query}`, { token, signal });
+  },
+  review: (token, roleRequestId, decision, reason) =>
+    apiRequest(`/api/admin/role-requests/${roleRequestId}/review`, {
+      method: 'POST',
+      token,
+      body: { decision, reason: reason || null },
+    }),
+};
+
+export const adminCourseReviewsApi = {
+  list: (token, status, signal) => {
+    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+    return apiRequest(`/api/admin/courses${query}`, { token, signal });
+  },
+  review: (token, courseId, decision, reason) =>
+    apiRequest(`/api/admin/courses/${courseId}/review`, {
+      method: 'POST',
+      token,
+      body: { decision, reason: reason || null },
+    }),
+};
+
 export const coursesApi = {
   list: (params = {}) => {
     const q = new URLSearchParams();

@@ -111,7 +111,7 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
     }
 
     [Fact]
-    public async Task Available_roles_for_admin_returns_admin_only()
+    public async Task Available_roles_for_admin_uses_separate_identity_store()
     {
         var client = ApiClient.Anonymous(_factory);
 
@@ -120,10 +120,10 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
             new AvailableRolesRequest(SeedData.AdminEmail, SeedData.DemoPassword),
             ApiJson.Options);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<AvailableRolesDto>(ApiJson.Options);
-        Assert.NotNull(body);
-        Assert.Equal(["Admin"], body.Roles);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var error = await ApiClient.ReadErrorAsync(response);
+        Assert.NotNull(error);
+        Assert.Equal("LOGIN_FAILED", error.Code);
     }
 
     [Fact]

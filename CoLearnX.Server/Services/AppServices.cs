@@ -110,13 +110,11 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
     {
         var user = await AuthenticateUserAsync(request.Email, request.Password, ct);
 
+        if (string.Equals(request.ActiveRole, "Admin", StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("Administrators must use the operations sign-in.");
+
         var activeRole = RoleParse.Parse(request.ActiveRole);
-        if (activeRole == AppRole.Admin)
-        {
-            if (!user.Roles.Any(r => r.Role == AppRole.Admin))
-                throw new UnauthorizedAccessException("Admin access denied.");
-        }
-        else if (!user.Roles.Any(r => r.Role == activeRole))
+        if (!user.Roles.Any(r => r.Role == activeRole))
         {
             throw new UnauthorizedAccessException($"Role '{activeRole}' is not enabled for this account.");
         }
@@ -127,11 +125,11 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
     public async Task<AvailableRolesDto> GetAvailableRolesAsync(AvailableRolesRequest request, CancellationToken ct = default)
     {
         var user = await AuthenticateUserAsync(request.Email, request.Password, ct);
-        var roles = user.Roles
-            .Select(r => r.Role.ToString())
+        return new AvailableRolesDto(user.Roles
+            .Select(role => role.Role.ToString())
             .Distinct()
-            .ToList();
-        return new AvailableRolesDto(roles);
+            .OrderBy(role => role)
+            .ToList());
     }
 
     public async Task<AuthResponse> SwitchRoleAsync(int userId, SwitchRoleRequest request, CancellationToken ct = default)
@@ -281,9 +279,9 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
     {
         var course = await db.Courses.AsNoTracking()
             .Include(c => c.Trainer)
-            .Include(c => c.Sessions)
+            .Include(c => c.Intakes.Where(i => i.Status == CourseIntakeStatus.Published)).ThenInclude(i => i.Sessions)
             .Include(c => c.LearningOutcomes)
-            .FirstOrDefaultAsync(c => c.Id == courseId, ct);
+            .FirstOrDefaultAsync(c => c.Id == courseId && c.Status == CourseStatus.Published, ct);
         if (course is null) return null;
 
         var inWishlist = userId is not null &&
@@ -302,8 +300,9 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             course.Category,
             course.Status.ToString(),
             course.LearningOutcomes.OrderBy(o => o.SortOrder).Select(o => o.Text).ToList(),
-            course.Sessions.OrderBy(s => s.StartsAt).Select(s => new CourseSessionDto(
-                s.Id, s.Label, s.StartsAt, s.EndsAt, s.Capacity, s.SeatsLeft)).ToList(),
+            course.Intakes.SelectMany(i => i.Sessions).OrderBy(s => s.StartsAt).Select(s => new CourseSessionDto(
+                s.Id, s.Label, s.StartsAt, s.EndsAt, s.PhysicalCapacity, s.SeatsLeft,
+                s.CourseIntakeId, s.MeetingLink, s.PhysicalAddress, s.PhysicalCapacity, s.PhysicalBookingDeadline)).ToList(),
             inWishlist,
             enrolled);
     }
@@ -311,7 +310,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
     public async Task<WishlistResultDto> AddToWishlistAsync(int userId, int courseId, CancellationToken ct = default)
     {
         var course = await RequirePublishedCourseAsync(courseId, ct);
-        var exists = await db.WishlistItems.AnyAsync(w => w.UserId == userId && w.CourseId == course.Id, ct);
+        var exists = await db.WishlistItems.AnyAsync(item => item.UserId == userId && item.CourseId == course.Id, ct);
         if (!exists)
         {
             db.WishlistItems.Add(new WishlistItem { UserId = userId, CourseId = course.Id });
@@ -324,7 +323,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
     public async Task<WishlistResultDto> RemoveFromWishlistAsync(int userId, int courseId, CancellationToken ct = default)
     {
         var course = await RequirePublishedCourseAsync(courseId, ct);
-        var item = await db.WishlistItems.FirstOrDefaultAsync(w => w.UserId == userId && w.CourseId == course.Id, ct);
+        var item = await db.WishlistItems.FirstOrDefaultAsync(row => row.UserId == userId && row.CourseId == course.Id, ct);
         if (item is not null)
         {
             db.WishlistItems.Remove(item);
@@ -335,10 +334,8 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
     }
 
     private async Task<Course> RequirePublishedCourseAsync(int courseId, CancellationToken ct)
-    {
-        var course = await db.Courses.FirstOrDefaultAsync(c => c.Id == courseId && c.Status == CourseStatus.Published, ct);
-        return course ?? throw new KeyNotFoundException("Course not found.");
-    }
+        => await db.Courses.FirstOrDefaultAsync(course => course.Id == courseId && course.Status == CourseStatus.Published, ct)
+            ?? throw new KeyNotFoundException("Course not found.");
 }
 
 public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
@@ -352,10 +349,12 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
             ?? throw new KeyNotFoundException("User not found.");
         var course = await db.Courses.FirstOrDefaultAsync(c => c.Id == request.CourseId && c.Status == CourseStatus.Published, ct)
             ?? throw new InvalidOperationException("Course not available.");
-        var session = await db.CourseSessions.FirstOrDefaultAsync(s => s.Id == request.CourseSessionId && s.CourseId == course.Id, ct)
+        // Legacy Session-based adapter only. A still owns the full Intake enrolment conversion.
+        var session = await db.CourseSessions.FirstOrDefaultAsync(s => s.Id == request.CourseSessionId
+            && s.CourseIntake.CourseId == course.Id && s.CourseIntake.Status == CourseIntakeStatus.Published, ct)
             ?? throw new InvalidOperationException("Session not found.");
 
-        if (session.SeatsTaken >= session.Capacity)
+        if (session.SeatsTaken >= session.PhysicalCapacity)
             throw new InvalidOperationException("Session is full."); // BR-05
 
         if (await db.Enrollments.AnyAsync(e => e.UserId == userId && e.CourseId == course.Id && e.Status == EnrollmentStatus.Active, ct))

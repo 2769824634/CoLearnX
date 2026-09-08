@@ -94,7 +94,7 @@ public class UsersController(IUserService users) : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<ActionResult<UserMeDto>> Get(int id, [FromServices] IAuthService auth, CancellationToken ct)
     {
-        if (id != User.GetUserId() && !User.IsInRole("Admin"))
+        if (id != User.GetUserId())
             return Forbid();
         return Ok(await auth.GetMeAsync(id, User.GetActiveRole(), ct));
     }
@@ -102,7 +102,7 @@ public class UsersController(IUserService users) : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<ActionResult<UserMeDto>> Update(int id, [FromBody] UpdateProfileRequest request, CancellationToken ct)
     {
-        if (id != User.GetUserId() && !User.IsInRole("Admin"))
+        if (id != User.GetUserId())
             return Forbid();
         return Ok(await users.UpdateProfileAsync(id, User.GetActiveRole(), request, ct));
     }
@@ -150,9 +150,9 @@ public class CoursesController(ICourseService courses) : ControllerBase
         {
             return Ok(await courses.AddToWishlistAsync(User.GetUserId(), id, ct));
         }
-        catch (KeyNotFoundException)
+        catch (KeyNotFoundException ex)
         {
-            return NotFound(new ApiError("NOT_FOUND", "Course not found."));
+            return NotFound(new ApiError("NOT_FOUND", ex.Message));
         }
     }
 
@@ -164,14 +164,14 @@ public class CoursesController(ICourseService courses) : ControllerBase
         {
             return Ok(await courses.RemoveFromWishlistAsync(User.GetUserId(), id, ct));
         }
-        catch (KeyNotFoundException)
+        catch (KeyNotFoundException ex)
         {
-            return NotFound(new ApiError("NOT_FOUND", "Course not found."));
+            return NotFound(new ApiError("NOT_FOUND", ex.Message));
         }
     }
 
     [HttpPost]
-    [Authorize(Roles = "Trainer,Admin")]
+    [Authorize(Roles = "Trainer")]
     public ActionResult Create()
     {
         // Framework placeholder — full create wizard in later iteration
@@ -290,7 +290,7 @@ public class MaterialsController(IMaterialService materials) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Creator,Admin")]
+    [Authorize(Roles = "Creator")]
     public ActionResult Upload()
         => StatusCode(StatusCodes.Status501NotImplemented, new ApiError("NOT_IMPLEMENTED", "Material upload coming next."));
 }
@@ -304,19 +304,4 @@ public class CertificatesController(ICertificateService certificates) : Controll
     [HttpGet("my")]
     public async Task<ActionResult<IReadOnlyList<CertificateDto>>> My(CancellationToken ct)
         => Ok(await certificates.GetMyAsync(User.GetUserId(), ct));
-}
-
-// Admin ledger + review stubs. Keep: AdminController, route api/admin
-[ApiController]
-[Route("api/admin")]
-[Authorize(Roles = "Admin")]
-public class AdminController(IAdminService admin) : ControllerBase
-{
-    [HttpGet("credits/ledger")]
-    public async Task<ActionResult<IReadOnlyList<CreditLedgerItemDto>>> Ledger(CancellationToken ct)
-        => Ok(await admin.GetLedgerAsync(ct));
-
-    [HttpPut("materials/{id:int}/review")]
-    public ActionResult ReviewMaterial(int id)
-        => StatusCode(StatusCodes.Status501NotImplemented, new ApiError("NOT_IMPLEMENTED", $"Material {id} review coming next."));
 }

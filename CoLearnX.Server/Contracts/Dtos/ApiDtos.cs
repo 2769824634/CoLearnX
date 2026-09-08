@@ -3,7 +3,7 @@ using CoLearnX.Server.Domain.Enums;
 
 namespace CoLearnX.Server.Contracts.Dtos;
 
-// Auth request/response DTOs.
+// Auth request/response DTOs. Shared: LoginRequest, AuthResponse, UserMeDto
 public record RegisterRequest(
     [Required, EmailAddress] string Email,
     [Required, MinLength(8)] string Password,
@@ -69,7 +69,12 @@ public record CourseSessionDto(
     DateTime StartsAt,
     DateTime EndsAt,
     int Capacity,
-    int SeatsLeft);
+    int SeatsLeft,
+    int CourseIntakeId = 0,
+    string? MeetingLink = null,
+    string? PhysicalAddress = null,
+    int PhysicalCapacity = 0,
+    DateTime? PhysicalBookingDeadline = null);
 
 public record CourseDetailDto(
     int Id,
@@ -144,4 +149,6 @@ public record MaterialDto(
     string CreatorName,
     int Version);
 
-public record ApiError(string Code, string Message);
+public record ApiError(string Code, string Message,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyDictionary<string, string[]>? FieldErrors = null);
