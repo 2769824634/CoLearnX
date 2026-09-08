@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant Trainer
+    participant ReactApp
+    participant CourseAPI
+    participant Database
+
+    Trainer->>ReactApp: Select materials from library
+    ReactApp->>CourseAPI: POST /api/courses
+    CourseAPI->>Database: Insert Course draft
+    CourseAPI->>Database: Link CourseMaterial rows
+    CourseAPI->>Database: Insert MaterialUsageLog
+    Trainer->>ReactApp: Set credit price and publish
+    ReactApp->>CourseAPI: PUT publish course
+    CourseAPI->>Database: Update Course status Published
+    CourseAPI-->>ReactApp: 200 OK
+    ReactApp-->>Trainer: Program visible in catalog

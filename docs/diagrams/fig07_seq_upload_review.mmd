@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant Creator
+    participant ReactApp
+    participant MaterialAPI
+    participant Admin
+    participant Database
+
+    Creator->>ReactApp: Upload material file
+    ReactApp->>MaterialAPI: POST /api/materials
+    MaterialAPI->>Database: Save file metadata Draft
+    MaterialAPI-->>ReactApp: 201 Created
+    Admin->>ReactApp: Open content review queue
+    ReactApp->>MaterialAPI: PUT approve material
+    MaterialAPI->>Database: Update status Published
+    MaterialAPI->>Database: Create notification N03
+    MaterialAPI-->>ReactApp: 200 OK
+    ReactApp-->>Creator: Content approved notification

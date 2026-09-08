@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant Trainer
+    participant ReactApp
+    participant CertAPI
+    participant Database
+    participant Member
+
+    Trainer->>ReactApp: Mark enrollment completed
+    ReactApp->>CertAPI: POST /api/certificates/issue
+    CertAPI->>Database: Verify enrollment completed
+    CertAPI->>Database: Insert UserCertificate
+    CertAPI->>Database: Update UserLearningProgress
+    CertAPI->>Database: Create notification
+    CertAPI-->>ReactApp: 201 Certificate issued
+    Member->>ReactApp: Open Badges page
+    ReactApp->>CertAPI: GET /api/certificates/my
+    CertAPI-->>ReactApp: Certificate list
+    ReactApp-->>Member: Display certificate preview

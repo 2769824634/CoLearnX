@@ -1,0 +1,26 @@
+flowchart TB
+    subgraph client [React_Client_Vite]
+        Pages[Pages_Routes]
+        Components[Components_Layout]
+        ApiLayer[API_Service_Layer]
+        AuthCtx[Auth_Context]
+    end
+
+    subgraph server [ASP_NET_Core_Server]
+        Controllers[API_Controllers]
+        Services[Business_Services]
+        EF[EF_Core_DbContext]
+    end
+
+    subgraph data [Data_Layer]
+        DB[(SQLite_SQLServer)]
+        Files[File_Storage]
+    end
+
+    Browser[Web_Browser] --> Pages
+    Pages --> ApiLayer
+    ApiLayer -->|HTTPS_JSON| Controllers
+    Controllers --> Services
+    Services --> EF
+    EF --> DB
+    Services --> Files

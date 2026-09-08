@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant Member
+    participant ReactApp
+    participant EnrollAPI
+    participant Database
+
+    Member->>ReactApp: Click Enrol Now
+    ReactApp->>EnrollAPI: POST /api/enrollments
+    EnrollAPI->>Database: Begin transaction
+    EnrollAPI->>Database: Check credit balance
+    alt Insufficient credits
+        EnrollAPI-->>ReactApp: 400 Bad Request
+        ReactApp-->>Member: Show error message
+    else Sufficient credits
+        EnrollAPI->>Database: Insert CreditTransaction
+        EnrollAPI->>Database: Update User.CreditBalance
+        EnrollAPI->>Database: Insert Enrollment
+        EnrollAPI->>Database: Increment session count
+        EnrollAPI->>Database: Commit
+        EnrollAPI-->>ReactApp: 201 Created
+        ReactApp-->>Member: Success redirect My Programs
+    end

@@ -361,3 +361,15 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# CoLearnX local SQLite
+CoLearnX.Server/colearnx.db
+CoLearnX.Server/colearnx.db-*
+
+# Editor / agent tooling (not part of the product)
+.cursor/
+.claude/
+.vscode/
+.agents/
+AGENT-PIPELINE.md
+AGENTS.md
+CLAUDE.md

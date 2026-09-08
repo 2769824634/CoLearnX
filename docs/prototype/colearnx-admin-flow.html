@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CoLearnX — Admin 全流程交互原型</title>
+  <style>
+    :root {
+      --purple: #7241FF; --purple-soft: #F0EBFF;
+      --teal: #10D2AF; --teal-soft: #E6FAF6;
+      --admin: #EF4444; --admin-soft: #FEE2E2;
+      --charcoal: #333333; --slate: #5F6F81;
+      --white: #FFFFFF; --border: #E8ECF0; --chrome: #F8F9FB;
+      --warn: #F59E0B; --overlay: rgba(15,23,42,0.45);
+      --radius: 8px; --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: #EEF1F5; color: var(--charcoal); min-height: 100vh; }
+    .flow-bar { position: sticky; top: 0; z-index: 1000; background: var(--charcoal); color: #fff; padding: 10px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; font-size: 13px; }
+    .flow-bar strong { color: var(--admin); }
+    .flow-steps { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+    .flow-step { padding: 4px 10px; border-radius: 14px; cursor: pointer; background: rgba(255,255,255,0.1); transition: all .15s; }
+    .flow-step:hover { background: rgba(255,255,255,0.18); }
+    .flow-step.active { background: var(--purple); }
+    .flow-step.done { background: rgba(239,68,68,0.35); border: 1px solid var(--admin); }
+    .flow-meta { font-size: 12px; color: rgba(255,255,255,0.7); }
+    .flow-meta span { color: var(--teal); font-weight: 600; }
+    .app-wrap { max-width: 1320px; margin: 0 auto; padding: 20px; }
+    .screen { display: none; animation: fadeIn .2s ease; }
+    .screen.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .logo { display: inline-flex; align-items: flex-end; gap: 6px; }
+    .logo-dots { display: flex; flex-direction: column; gap: 3px; padding-bottom: 2px; }
+    .logo-dots span { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); }
+    .logo-text { font-size: 18px; font-weight: 600; }
+    .logo-text .x { color: var(--purple); font-weight: 700; font-size: 22px; }
+    .shell { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; min-height: 680px; }
+    .topbar { display: flex; align-items: center; gap: 12px; padding: 10px 20px; border-bottom: 1px solid var(--border); }
+    .topbar .search { flex: 1; max-width: 360px; }
+    .topbar .search input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--chrome); }
+    .notif-badge { width: 32px; height: 32px; border-radius: 16px; background: var(--admin-soft); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--admin); cursor: pointer; }
+    .avatar { width: 32px; height: 32px; border-radius: 16px; background: var(--admin-soft); border: 2px solid var(--admin); }
+    .shell-body { display: flex; min-height: 620px; }
+    .sidebar { width: 200px; padding: 16px 12px; border-right: 1px solid var(--border); flex-shrink: 0; }
+    .nav-item { padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--slate); border-left: 3px solid transparent; margin-bottom: 2px; }
+    .nav-item:hover { background: var(--chrome); }
+    .nav-item.active { background: var(--purple-soft); color: var(--purple); font-weight: 600; border-left-color: var(--purple); }
+    .content { flex: 1; padding: 24px; overflow-y: auto; }
+    .page-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+    .page-sub { font-size: 13px; color: var(--slate); margin-bottom: 20px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid transparent; }
+    .btn-primary { background: var(--purple); color: #fff; }
+    .btn-teal { background: var(--teal); color: #fff; }
+    .btn-danger { background: var(--white); color: var(--admin); border-color: var(--admin); }
+    .btn-ghost { background: var(--white); color: var(--charcoal); border-color: var(--border); }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .pill { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; border: 1px solid var(--teal); background: var(--teal-soft); }
+    .pill.purple { border-color: var(--purple); background: var(--purple-soft); color: var(--purple); }
+    .pill.danger { border-color: var(--admin); background: var(--admin-soft); color: var(--admin); }
+    .pill.warn { border-color: var(--warn); background: #FFFBEB; color: #92400E; }
+    .pill.neutral { border-color: var(--border); background: var(--white); color: var(--slate); }
+    .card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; }
+    .card-header { padding: 12px 16px; font-size: 13px; font-weight: 600; border-bottom: 1px solid var(--border); }
+    .card-body { padding: 16px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
+    .stat-grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .stat-box { padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); }
+    .stat-box .label { font-size: 11px; color: var(--slate); }
+    .stat-box .value { font-size: 22px; font-weight: 700; color: var(--purple); margin-top: 4px; }
+    .stat-box .value.red { color: var(--admin); }
+    .grid-2 { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+    .grid-2w { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+    .grid-2u { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; }
+    .callout { padding: 12px 16px; border-radius: var(--radius); margin-bottom: 12px; border: 1px solid var(--teal); background: var(--teal-soft); font-size: 13px; }
+    .callout.info { border-color: var(--purple); background: var(--purple-soft); }
+    .callout .title { font-weight: 600; margin-bottom: 4px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .tab { padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; border: 1px solid var(--border); background: var(--white); color: var(--slate); }
+    .tab.active { background: var(--purple-soft); color: var(--purple); border-color: var(--purple); font-weight: 600; }
+    table.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    table.data-table th { text-align: left; padding: 10px 12px; background: var(--chrome); color: var(--slate); font-weight: 600; border-bottom: 1px solid var(--border); }
+    table.data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    table.data-table tr:nth-child(even) td { background: #FAFBFC; }
+    table.data-table tr.selected td { background: var(--purple-soft); }
+    .link { color: var(--purple); cursor: pointer; }
+    .link-danger { color: var(--admin); cursor: pointer; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; }
+    .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 8px; }
+    .preview-box { height: 100px; border-radius: 8px; background: var(--purple-soft); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--slate); }
+    .auth-screen { display: flex; align-items: center; justify-content: center; min-height: 640px; position: relative; }
+    .auth-screen::before { content: ''; position: absolute; inset: 0; background: var(--overlay); }
+    .auth-card { position: relative; width: 440px; max-width: 92%; background: var(--white); border-radius: 12px; border: 1px solid var(--border); padding: 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
+    .modal-overlay { display: none; position: fixed; inset: 0; z-index: 2000; background: var(--overlay); align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--white); border-radius: 12px; border: 1px solid var(--border); width: 520px; max-width: 92%; max-height: 90vh; overflow-y: auto; padding: 24px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-size: 16px; font-weight: 600; }
+    .modal-close { cursor: pointer; color: var(--slate); }
+    .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+    .modal-actions .btn { flex: 1; }
+    .toast { position: fixed; bottom: 24px; right: 24px; z-index: 3000; background: var(--charcoal); color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 13px; opacity: 0; transform: translateY(10px); transition: all .25s; }
+    .toast.show { opacity: 1; transform: none; }
+    .badge-cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .badge-card { min-width: 110px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); }
+    .sla-ok { color: var(--teal); }
+    .sla-due { color: var(--warn); }
+    .sla-over { color: var(--admin); font-weight: 600; }
+    @media (max-width: 900px) { .stat-grid { grid-template-columns: repeat(2,1fr); } .grid-2, .grid-2w, .grid-2u { grid-template-columns: 1fr; } .sidebar { display: none; } }
+  </style>
+</head>
+<body>
+
+<div class="flow-bar">
+  <strong>Admin 全流程</strong>
+  <div class="flow-steps" id="flowSteps"></div>
+  <div class="flow-meta">Pending: <span id="flowPending">18</span> · Screen: <span id="flowScreen">login</span></div>
+</div>
+
+<div class="app-wrap">
+  <div class="screen active" id="screen-login">
+    <div class="shell auth-screen">
+      <div class="auth-card">
+        <div style="text-align:center;margin-bottom:24px"><div class="logo" style="justify-content:center"><div class="logo-dots"><span></span><span></span></div><div class="logo-text">ne<span class="x">X</span>t</div></div></div>
+        <h2 style="text-align:center;margin-bottom:20px;font-size:18px">Administrator Login</h2>
+        <div class="form-group"><label>Email</label><input type="email" value="desmond.tan@colearnx.com" /></div>
+        <div class="form-group"><label>Password</label><input type="password" value="••••••••" /></div>
+        <label class="checkbox-row"><input type="checkbox" checked /> Remember me</label>
+        <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="doLogin()">Login as Administrator</button>
+        <p style="text-align:center;font-size:12px;color:var(--slate);margin-top:16px">Desmond Tan · Platform Operations</p>
+      </div>
+    </div>
+  </div>
+  <div class="screen" id="screen-dashboard"></div>
+  <div class="screen" id="screen-approvals-materials"></div>
+  <div class="screen" id="screen-approvals-courses"></div>
+  <div class="screen" id="screen-approvals-certificates"></div>
+  <div class="screen" id="screen-users"></div>
+  <div class="screen" id="screen-credit-ledger"></div>
+  <div class="screen" id="screen-disputes"></div>
+  <div class="screen" id="screen-audit-log"></div>
+  <div class="screen" id="screen-profile"></div>
+</div>
+
+<div class="modal-overlay" id="modal-review" onclick="closeModalOnBg(event,'review')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">Review Material<span class="modal-close" onclick="closeModal('review')">✕</span></div>
+    <div class="callout info"><div class="title" id="reviewTitle">UX Basics Slides.pdf</div>Alex Lee · Design · PDF 2.4 MB · v1.0</div>
+    <label class="checkbox-row"><input type="checkbox" checked disabled /> Ownership confirmed · No duplicate</label>
+    <div class="form-group"><textarea id="reviewNotes" rows="3">Ready for trainer use in design courses.</textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('review')">Cancel</button>
+      <button class="btn btn-danger btn-sm" onclick="rejectMaterial()">Reject</button>
+      <button class="btn btn-primary btn-sm" onclick="approveMaterial()">Approve</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-assign" onclick="closeModalOnBg(event,'assign')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">Assign Role<span class="modal-close" onclick="closeModal('assign')">✕</span></div>
+    <div class="callout info"><div class="title">Alex Lee</div>alex.lee@email.com · Current: Creator → Requested: Trainer</div>
+    <div class="form-group"><label>New Role</label><select><option>Trainer</option><option>Creator</option><option>Member</option></select></div>
+    <div class="form-group"><textarea placeholder="Admin notes..." rows="2">Has 4 published courses with strong usage.</textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('assign')">Cancel</button>
+      <button class="btn btn-danger" onclick="closeModal('assign');toast('Role request rejected')">Reject</button>
+      <button class="btn btn-primary" onclick="confirmAssignRole()">Confirm Assignment</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-adjust" onclick="closeModalOnBg(event,'adjust')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">Adjust Credits<span class="modal-close" onclick="closeModal('adjust')">✕</span></div>
+    <div class="callout info"><div class="title">Noah Smith</div>Current balance: 50 credits</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label>Type</label><select id="adjustType"><option value="-">Deduction</option><option value="+">Addition</option></select></div>
+      <div class="form-group"><label>Amount</label><input type="number" id="adjustAmount" value="10" /></div>
+    </div>
+    <div class="form-group"><textarea id="adjustReason" rows="2" placeholder="Reason...">Duplicate enrolment correction</textarea></div>
+    <label class="checkbox-row"><input type="checkbox" checked /> Log to audit trail</label>
+    <label class="checkbox-row"><input type="checkbox" checked /> Notify user by email</label>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('adjust')">Cancel</button>
+      <button class="btn btn-primary" onclick="applyAdjustment()">Apply Adjustment</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-refund" onclick="closeModalOnBg(event,'refund')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">Process Refund<span class="modal-close" onclick="closeModal('refund')">✕</span></div>
+    <div class="callout info"><div class="title">Dispute DSP-1042</div>Noah Smith · INFT 2060 · Duplicate enrolment</div>
+    <div class="form-group"><label>Credits to restore</label><input type="number" id="refundAmount" value="30" /></div>
+    <div class="form-group"><textarea rows="2" placeholder="Resolution notes...">Verified duplicate enrolment — full refund approved.</textarea></div>
+    <label class="checkbox-row"><input type="checkbox" checked /> Notify member (N-09)</label>
+    <label class="checkbox-row"><input type="checkbox" checked /> Log to credit ledger</label>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="closeModal('refund');toast('Case rejected')">Reject Case</button>
+      <button class="btn btn-teal" onclick="processRefund()">Process Refund</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-certificate" onclick="closeModalOnBg(event,'certificate')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">Approve Certificate<span class="modal-close" onclick="closeModal('certificate')">✕</span></div>
+    <div class="callout info"><div class="title">Lina Chen · INFT 3030</div>Intermediate stage · Trainer: Jane Smith</div>
+    <p style="font-size:13px;line-height:1.8;margin-bottom:12px">Attendance: 10/10 (100%)<br>Assessment: Quiz 2 — 88/100 passed<br>All tasks submitted</p>
+    <label class="checkbox-row"><input type="checkbox" checked /> Notify learner on issue</label>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="closeModal('certificate');toast('Certificate rejected')">Reject</button>
+      <button class="btn btn-teal" onclick="approveCertificate()">Approve Certificate</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const ADMIN_NAV = [
+  { label: 'Homepage', screen: 'dashboard' },
+  { label: 'Approvals', screen: 'approvals-materials' },
+  { label: 'Users', screen: 'users' },
+  { label: 'Credit Ledger', screen: 'credit-ledger' },
+  { label: 'Disputes', screen: 'disputes' },
+  { label: 'Audit Log', screen: 'audit-log' },
+  { label: 'My Account', screen: 'profile' },
+];
+
+const FLOW = [
+  { id: 'login', label: 'Login' },
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'approvals-materials', label: 'Materials' },
+  { id: 'approvals-courses', label: 'Courses' },
+  { id: 'approvals-certificates', label: 'Certs' },
+  { id: 'users', label: 'Users' },
+  { id: 'credit-ledger', label: 'Ledger' },
+  { id: 'disputes', label: 'Disputes' },
+  { id: 'audit-log', label: 'Audit' },
+  { id: 'profile', label: 'Account' },
+];
+
+const state = {
+  loggedIn: false,
+  currentScreen: 'login',
+  approvalTab: 'materials',
+  selectedMaterial: 0,
+  selectedCourse: 0,
+  selectedCert: 0,
+  selectedDispute: 0,
+  selectedUser: 0,
+  pending: { materials: 8, courses: 5, certificates: 4, roles: 3, disputes: 2 },
+  materials: [
+    { title: 'UX Basics Slides.pdf', creator: 'Alex Lee', format: 'PDF', tags: 'UI/UX', submitted: 'Today', status: 'Pending' },
+    { title: 'Python Intro Notes.docx', creator: 'Alex Lee', format: 'DOCX', tags: 'Python', submitted: 'Yesterday', status: 'Pending' },
+    { title: 'Data Viz Charts.xlsx', creator: 'Maria Santos', format: 'XLSX', tags: 'Data', submitted: '07 Jun', status: 'Pending' },
+    { title: 'Wireframe Kit.zip', creator: 'Alex Lee', format: 'ZIP', tags: 'Design', submitted: '05 Jun', status: 'Approved' },
+  ],
+  courses: [
+    { title: 'Design Thinking Sprint', trainer: 'Jane Smith', credits: 30, sessions: 2, status: 'Pending' },
+    { title: 'Wireframing Workshop', trainer: 'Jane Smith', credits: 25, sessions: 1, status: 'Pending' },
+    { title: 'Python for Beginners', trainer: 'Tom Nguyen', credits: 35, sessions: 3, status: 'Pending' },
+    { title: 'UI/UX Design Basics', trainer: 'Jane Smith', credits: 30, sessions: 2, status: 'Approved' },
+  ],
+  certificates: [
+    { learner: 'Lina Chen', course: 'INFT 3030', stage: 'Intermediate', trainer: 'Jane Smith', submitted: '07 Jun', status: 'Pending' },
+    { learner: 'Emma Johnson', course: 'UI/UX Basics', stage: 'Foundation', trainer: 'Jane Smith', submitted: '06 Jun', status: 'Pending' },
+    { learner: 'Noah Smith', course: 'Python Intro', stage: 'Foundation', trainer: 'Tom Nguyen', submitted: '05 Jun', status: 'Pending' },
+    { learner: 'Mia Wilson', course: 'Design Sprint', stage: 'Advanced', trainer: 'Jane Smith', submitted: '04 Jun', status: 'Approved' },
+  ],
+  disputes: [
+    { id: 'DSP-1042', member: 'Noah Smith', course: 'INFT 2060', reason: 'Duplicate enrolment', credits: 30, status: 'Open', msg: 'I accidentally enrolled twice. Please refund 30 credits.' },
+    { id: 'DSP-1038', member: 'Ava Brown', course: 'UI/UX Basics', reason: 'Course cancelled', credits: 25, status: 'Open', msg: 'Course was cancelled by trainer — request full refund.' },
+    { id: 'DSP-1035', member: 'Lina Chen', course: 'INFT 3030', reason: 'Partial refund', credits: 15, status: 'In Review', msg: 'Missed 2 sessions due to illness — partial refund requested.' },
+  ],
+  users: [
+    { name: 'Huang Yousheng', email: 'huang.y@email.com', role: 'Member', status: 'Active', login: 'Today', credits: 120 },
+    { name: 'Jane Smith', email: 'jane.smith@email.com', role: 'Trainer', status: 'Active', login: 'Yesterday' },
+    { name: 'Alex Lee', email: 'alex.lee@email.com', role: 'Creator', status: 'Active', login: 'Yesterday' },
+    { name: 'Noah Smith', email: 'noah.s@email.com', role: 'Member', status: 'Suspended', login: '3 days ago', credits: 50 },
+  ],
+  roleRequests: [
+    { name: 'Alex Lee', req: 'Creator → Trainer', reason: 'Has 4 published courses' },
+    { name: 'Emma Johnson', req: 'Member → Creator', reason: 'Portfolio submitted' },
+    { name: 'Tom Nguyen', req: 'Trainer → Creator', reason: 'Wants to upload materials' },
+  ],
+  ledger: [
+    { dt: '21 Jun 09:14', user: 'Huang Yousheng', type: 'Enrolment', amount: -30, balance: 120, ref: 'INFT 2060', by: 'System' },
+    { dt: '20 Jun 16:02', user: 'Huang Yousheng', type: 'Top-up', amount: 150, balance: 150, ref: 'PayPal #PP-8821', by: 'System' },
+    { dt: '20 Jun 11:30', user: 'Noah Smith', type: 'Refund', amount: 30, balance: 60, ref: 'DSP-1042', by: 'Desmond Tan' },
+    { dt: '18 Jun 10:05', user: 'Noah Smith', type: 'Adjustment', amount: -10, balance: 50, ref: 'Duplicate correction', by: 'Desmond Tan' },
+  ],
+  auditLog: [
+    { ts: '21 Jun 11:02', action: 'APPROVE_MATERIAL', target: 'UX Basics Slides.pdf', details: 'Approved for library', ip: '10.0.0.12' },
+    { ts: '21 Jun 10:45', action: 'PROCESS_REFUND', target: 'DSP-1031', details: '+15 credits to Mia Wilson', ip: '10.0.0.12' },
+    { ts: '20 Jun 16:30', action: 'ASSIGN_ROLE', target: 'Jane Smith', details: 'Trainer role confirmed', ip: '10.0.0.12' },
+    { ts: '20 Jun 14:12', action: 'REJECT_MATERIAL', target: 'Ethics Module.pdf', details: 'Incomplete — missing refs', ip: '10.0.0.12' },
+    { ts: '19 Jun 09:00', action: 'APPROVE_COURSE', target: 'UI/UX Design Basics', details: 'Published to members', ip: '10.0.0.12' },
+  ],
+  queue: [
+    { type: 'Material', item: 'UX Basics Slides.pdf', owner: 'Alex Lee', age: '2h', sla: 'OK', action: 'Review', screen: 'approvals-materials' },
+    { type: 'Course', item: 'Design Thinking Sprint', owner: 'Jane Smith', age: '26h', sla: 'Due', action: 'Review', screen: 'approvals-courses' },
+    { type: 'Certificate', item: 'Lina Chen · INFT 3030', owner: 'Jane Smith', age: '3d', sla: 'Overdue', action: 'Review', screen: 'approvals-certificates' },
+    { type: 'Role', item: 'Alex Lee → Trainer', owner: 'Alex Lee', age: '1d', sla: 'OK', action: 'Assign', screen: 'users' },
+    { type: 'Dispute', item: 'DSP-1042', owner: 'Noah Smith', age: '4h', sla: 'OK', action: 'Process', screen: 'disputes' },
+  ],
+};
+
+function totalPending() {
+  return state.pending.materials + state.pending.courses + state.pending.certificates + state.pending.roles + state.pending.disputes;
+}
+
+function shell(activeNav, title, subtitle, body) {
+  const navMap = { Homepage: 'dashboard', Approvals: 'approvals-materials', Users: 'users', 'Credit Ledger': 'credit-ledger', Disputes: 'disputes', 'Audit Log': 'audit-log', 'My Account': 'profile' };
+  return `<div class="shell"><div class="topbar">
+    <div class="logo"><div class="logo-dots"><span></span><span></span></div><div class="logo-text">ne<span class="x">X</span>t</div></div>
+    <div class="search"><input placeholder="Search users, materials, transactions..." oninput="globalSearch(this.value)" /></div>
+    <div class="notif-badge" onclick="toast('${totalPending()} items need attention')" title="Notifications">${totalPending()}</div>
+    <div class="user-chip"><div class="avatar"></div><div><div style="font-size:13px;font-weight:500">Desmond Tan</div><div style="font-size:10px;color:var(--admin)">Administrator</div></div></div>
+  </div><div class="shell-body"><div class="sidebar">${ADMIN_NAV.map(n =>
+    `<div class="nav-item ${n.label===activeNav?'active':''}" onclick="go('${navMap[n.label]||n.screen}')">${n.label}</div>`
+  ).join('')}</div><div class="content"><div class="page-title">${title}</div><div class="page-sub">${subtitle}</div>${body}</div></div></div>`;
+}
+
+function approvalTabs(active) {
+  const tabs = [
+    { id: 'materials', label: `Materials (${state.pending.materials})`, screen: 'approvals-materials' },
+    { id: 'courses', label: `Courses (${state.pending.courses})`, screen: 'approvals-courses' },
+    { id: 'certificates', label: `Certificates (${state.pending.certificates})`, screen: 'approvals-certificates' },
+  ];
+  return `<div class="tabs">${tabs.map(t => `<div class="tab ${active===t.id?'active':''}" onclick="go('${t.screen}')">${t.label}</div>`).join('')}</div>`;
+}
+
+function slaClass(sla) {
+  if (sla === 'Overdue') return 'sla-over';
+  if (sla === 'Due') return 'sla-due';
+  return 'sla-ok';
+}
+
+function addAudit(action, target, details) {
+  const now = new Date();
+  const ts = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' + now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  state.auditLog.unshift({ ts, action, target, details, ip: '10.0.0.12' });
+}
+
+function renderDashboard() {
+  const p = totalPending();
+  document.getElementById('screen-dashboard').innerHTML = shell('Homepage', 'Admin Dashboard', `ADM-01 · Welcome back, Desmond — ${p} items need your attention today.`, `
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="go('approvals-materials')">Open Approvals</button>
+      <button class="btn btn-ghost" onclick="go('audit-log')">Audit Log</button>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="label">Pending Reviews</div><div class="value red">${p}</div></div>
+      <div class="stat-box"><div class="label">Overdue (>48h)</div><div class="value red">3</div></div>
+      <div class="stat-box"><div class="label">Role Requests</div><div class="value">${state.pending.roles}</div></div>
+      <div class="stat-box"><div class="label">Open Disputes</div><div class="value">${state.pending.disputes}</div></div>
+      <div class="stat-box"><div class="label">Active Users (7d)</div><div class="value">892</div></div>
+    </div>
+    <div class="badge-cards">
+      ${[['Materials', state.pending.materials, 'approvals-materials'], ['Courses', state.pending.courses, 'approvals-courses'], ['Certificates', state.pending.certificates, 'approvals-certificates'], ['Roles', state.pending.roles, 'users']].map(([l,v,s]) =>
+        `<div class="badge-card" style="cursor:pointer" onclick="go('${s}')"><div style="font-size:12px;color:var(--slate)">${l}</div><div style="font-size:20px;font-weight:700;color:var(--admin)">${v}</div></div>`
+      ).join('')}
+    </div>
+    <div class="grid-2">
+      <div class="card"><div class="card-header">Priority Action Queue</div><div class="card-body" style="padding-top:0">
+        <table class="data-table"><thead><tr><th>Type</th><th>Item</th><th>Owner</th><th>Age</th><th>SLA</th><th>Action</th></tr></thead><tbody>
+        ${state.queue.map(q => `<tr><td>${q.type}</td><td>${q.item}</td><td>${q.owner}</td><td>${q.age}</td><td class="${slaClass(q.sla)}">${q.sla}</td><td class="link" onclick="go('${q.screen}')">${q.action}</td></tr>`).join('')}
+        </tbody></table>
+      </div></div>
+      <div>
+        <div class="card"><div class="card-header">Platform Health</div><div class="card-body" style="font-size:13px;line-height:2">
+          <div>Credits in circulation: <strong style="color:var(--purple)">48,200</strong> (+2.1%)</div>
+          <div>Enrolments (7d): <strong>186</strong></div>
+          <div>Avg. review turnaround: <strong style="color:var(--teal)">1.2 days</strong></div>
+        </div></div>
+        <div class="card"><div class="card-header">Recent Admin Activity</div><div class="card-body" style="font-size:12px">
+          ${state.auditLog.slice(0,3).map(a => `<div style="margin-bottom:8px">${a.action.replace(/_/g,' ')} — ${a.target}</div>`).join('')}
+        </div></div>
+      </div>
+    </div>
+  `);
+}
+
+function renderApprovalsMaterials() {
+  const m = state.materials[state.selectedMaterial] || state.materials[0];
+  document.getElementById('screen-approvals-materials').innerHTML = shell('Approvals', 'Approvals Hub', 'ADM-02 · Review creator materials before library publish', `
+    ${approvalTabs('materials')}
+    <div class="stat-grid stat-grid-4">
+      <div class="stat-box"><div class="label">Pending</div><div class="value red">${state.pending.materials}</div></div>
+      <div class="stat-box"><div class="label">Approved (30d)</div><div class="value">42</div></div>
+      <div class="stat-box"><div class="label">Rejected (30d)</div><div class="value">5</div></div>
+      <div class="stat-box"><div class="label">Avg. Time</div><div class="value" style="font-size:16px">1.2 days</div></div>
+    </div>
+    <div class="btn-row">
+      <select><option>Status: Pending</option></select>
+      <select><option>Format: All</option></select>
+      <input placeholder="Search title, creator..." style="padding:8px;border:1px solid var(--border);border-radius:6px;width:220px" />
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm">Bulk Approve</button>
+    </div>
+    <div class="grid-2w">
+      <table class="data-table"><thead><tr><th>Material</th><th>Creator</th><th>Format</th><th>Status</th><th>Action</th></tr></thead><tbody>
+      ${state.materials.map((row,i) => `<tr class="${i===state.selectedMaterial?'selected':''}" onclick="state.selectedMaterial=${i};renderApprovalsMaterials()">
+        <td>${row.title}</td><td>${row.creator}</td><td>${row.format}</td>
+        <td><span class="pill ${row.status==='Pending'?'warn':'neutral'}">${row.status}</span></td>
+        <td class="link" onclick="event.stopPropagation();${row.status==='Pending'?'openModal(\'review\')':'toast(\'Already approved\')'}">${row.status==='Pending'?'Review':'View'}</td>
+      </tr>`).join('')}
+      </tbody></table>
+      <div class="card"><div class="card-header">Review Panel — ${m.title}</div><div class="card-body">
+        <div class="preview-box">PDF Preview · Page 1 of 24</div>
+        <p style="font-size:12px;color:var(--slate);margin:12px 0">Creator: ${m.creator} · ${m.format} · Tags: ${m.tags}</p>
+        <label class="checkbox-row"><input checked disabled /> Ownership confirmed</label>
+        <div class="form-group"><textarea placeholder="Rejection reason..." rows="2"></textarea></div>
+        <div class="form-group"><textarea rows="2">Ready for trainer use in design courses.</textarea></div>
+        <div class="btn-row" style="margin:0">
+          <button class="btn btn-ghost btn-sm">Request Changes</button>
+          <button class="btn btn-danger btn-sm" onclick="rejectMaterial()">Reject</button>
+          <span style="flex:1"></span>
+          <button class="btn btn-primary btn-sm" onclick="approveMaterial()">Approve</button>
+        </div>
+      </div></div>
+    </div>
+  `);
+}
+
+function renderApprovalsCourses() {
+  const c = state.courses[state.selectedCourse] || state.courses[0];
+  document.getElementById('screen-approvals-courses').innerHTML = shell('Approvals', 'Course Approval', 'ADM-02 · Review trainer-published courses before member enrolment', `
+    ${approvalTabs('courses')}
+    <div class="grid-2w">
+      <table class="data-table"><thead><tr><th>Course</th><th>Trainer</th><th>Credits</th><th>Sessions</th><th>Status</th><th>Action</th></tr></thead><tbody>
+      ${state.courses.map((row,i) => `<tr class="${i===state.selectedCourse?'selected':''}" onclick="state.selectedCourse=${i};renderApprovalsCourses()">
+        <td>${row.title}</td><td>${row.trainer}</td><td>${row.credits}</td><td>${row.sessions}</td>
+        <td><span class="pill ${row.status==='Pending'?'warn':'neutral'}">${row.status}</span></td>
+        <td class="link">${row.status==='Pending'?'Review':'View'}</td>
+      </tr>`).join('')}
+      </tbody></table>
+      <div class="card"><div class="card-header">Course Detail — ${c.title}</div><div class="card-body" style="font-size:13px;line-height:1.8">
+        <p style="color:var(--slate)">Trainer: ${c.trainer} · Capacity: 50/session</p>
+        <p>Hands-on sprint covering empathy, ideation, and prototyping.</p>
+        <strong>Training Sessions</strong><br>Session 1: 15 Jun 2026 · 10:00am – 4:00pm<br>Session 2: 22 Jun 2026 · 10:00am – 4:00pm
+        <br><strong>Materials (3)</strong> — all approved
+        <label class="checkbox-row" style="margin-top:12px"><input checked disabled /> Credit pricing within policy</label>
+        <div class="form-group"><textarea placeholder="Admin notes to trainer..." rows="2"></textarea></div>
+        <div class="btn-row" style="margin:0">
+          <button class="btn btn-danger btn-sm" onclick="rejectCourse()">Reject</button>
+          <span style="flex:1"></span>
+          <button class="btn btn-primary btn-sm" onclick="approveCourse()">Approve & Publish</button>
+        </div>
+      </div></div>
+    </div>
+  `);
+}
+
+function renderApprovalsCertificates() {
+  const c = state.certificates[state.selectedCert] || state.certificates[0];
+  document.getElementById('screen-approvals-certificates').innerHTML = shell('Approvals', 'Certificate Review', 'ADM-02 · Verify completion evidence before issuance', `
+    ${approvalTabs('certificates')}
+    <div class="grid-2w">
+      <table class="data-table"><thead><tr><th>Learner</th><th>Course</th><th>Stage</th><th>Trainer</th><th>Status</th><th>Action</th></tr></thead><tbody>
+      ${state.certificates.map((row,i) => `<tr class="${i===state.selectedCert?'selected':''}" onclick="state.selectedCert=${i};renderApprovalsCertificates()">
+        <td>${row.learner}</td><td>${row.course}</td><td>${row.stage}</td><td>${row.trainer}</td>
+        <td><span class="pill ${row.status==='Pending'?'warn':'neutral'}">${row.status}</span></td>
+        <td class="link" onclick="event.stopPropagation();${row.status==='Pending'?'openModal(\'certificate\')':''}">${row.status==='Pending'?'Review':'View'}</td>
+      </tr>`).join('')}
+      </tbody></table>
+      <div class="card"><div class="card-header">Evidence — ${c.learner} · ${c.course}</div><div class="card-body" style="font-size:13px">
+        <p>Attendance: 10/10 (100%)</p><p>Assessment: Quiz 2 — 88/100 passed</p><p>All tasks submitted</p>
+        <div class="preview-box" style="margin:12px 0;height:72px;background:var(--teal-soft)">Certificate Preview — ${c.stage} Stage</div>
+        <label class="checkbox-row"><input checked /> Notify learner on approval</label>
+        <div class="btn-row" style="margin:0">
+          <button class="btn btn-danger btn-sm">Reject</button>
+          <span style="flex:1"></span>
+          <button class="btn btn-teal btn-sm" onclick="openModal('certificate')">Approve Certificate</button>
+        </div>
+      </div></div>
+    </div>
+  `);
+}
+
+function renderUsers() {
+  const u = state.users[state.selectedUser] || state.users[0];
+  document.getElementById('screen-users').innerHTML = shell('Users', 'Users and Roles', 'ADM-03 · Manage accounts, assign roles, suspend/reactivate', `
+    <div class="stat-grid">
+      <div class="stat-box"><div class="label">Total</div><div class="value">1,248</div></div>
+      <div class="stat-box"><div class="label">Members</div><div class="value">1,102</div></div>
+      <div class="stat-box"><div class="label">Trainers</div><div class="value">98</div></div>
+      <div class="stat-box"><div class="label">Creators</div><div class="value">48</div></div>
+      <div class="stat-box"><div class="label">Suspended</div><div class="value red">6</div></div>
+    </div>
+    <div class="card"><div class="card-header">Pending Role Requests (${state.pending.roles})</div><div class="card-body">
+      ${state.roleRequests.map((r,i) => `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px">
+        <strong style="width:120px">${r.name}</strong><span class="pill purple">${r.req}</span><span style="color:var(--slate);flex:1">${r.reason}</span>
+        <button class="btn btn-ghost btn-sm" onclick="openModal('assign')">Review</button>
+      </div>`).join('')}
+    </div></div>
+    <div class="grid-2u">
+      <table class="data-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody>
+      ${state.users.map((row,i) => `<tr class="${i===state.selectedUser?'selected':''}" onclick="state.selectedUser=${i};renderUsers()">
+        <td>${row.name}</td><td>${row.email}</td><td>${row.role}</td>
+        <td><span class="pill ${row.status==='Suspended'?'danger':'neutral'}">${row.status}</span></td>
+        <td class="link">Manage</td>
+      </tr>`).join('')}
+      </tbody></table>
+      <div class="card"><div class="card-header">User Detail — ${u.name}</div><div class="card-body" style="font-size:13px">
+        <p style="color:var(--slate)">${u.role} · Last login: ${u.login}${u.credits?` · ${u.credits} credits`:''}</p>
+        <div class="form-group"><label>Assign role</label><select><option>${u.role}</option><option>Trainer</option><option>Creator</option><option>Member</option><option>Suspended</option></select></div>
+        <div class="btn-row"><button class="btn btn-danger btn-sm">Suspend</button><button class="btn btn-ghost btn-sm">Reset Password</button></div>
+        <button class="btn btn-primary btn-sm" onclick="toast('Role saved for ${u.name}')">Save Role</button>
+      </div></div>
+    </div>
+  `);
+}
+
+function renderLedger() {
+  document.getElementById('screen-credit-ledger').innerHTML = shell('Credit Ledger', 'Credit Ledger', 'ADM-04 · Full audit trail — filter, export, manual adjustments', `
+    <div class="stat-grid stat-grid-4">
+      <div class="stat-box"><div class="label">In Circulation</div><div class="value">48,200</div></div>
+      <div class="stat-box"><div class="label">Top-ups (30d)</div><div class="value">12,400</div></div>
+      <div class="stat-box"><div class="label">Spent (30d)</div><div class="value">9,860</div></div>
+      <div class="stat-box"><div class="label">Adjustments (30d)</div><div class="value">38</div></div>
+    </div>
+    <div class="btn-row">
+      <select><option>Type: All</option></select><select><option>User: All</option></select>
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm">Export CSV</button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('adjust')">Adjust Credits</button>
+    </div>
+    <div class="grid-2w">
+      <table class="data-table"><thead><tr><th>Date/Time</th><th>User</th><th>Type</th><th>Amount</th><th>Balance</th><th>Reference</th><th>By</th></tr></thead><tbody>
+      ${state.ledger.map(l => `<tr><td>${l.dt}</td><td>${l.user}</td><td>${l.type}</td><td style="color:${l.amount>0?'var(--teal)':'var(--admin)'}">${l.amount>0?'+':''}${l.amount}</td><td>${l.balance}</td><td>${l.ref}</td><td>${l.by}</td></tr>`).join('')}
+      </tbody></table>
+      <div class="callout info"><div class="title">Transaction types</div>Top-up · Enrolment · Refund · Adjustment · Admin correction (BR-02)</div>
+    </div>
+  `);
+}
+
+function renderDisputes() {
+  const d = state.disputes[state.selectedDispute] || state.disputes[0];
+  document.getElementById('screen-disputes').innerHTML = shell('Disputes', 'Disputes and Refunds', 'ADM-05 · Case management from report to resolution (UC-16)', `
+    <div class="stat-grid stat-grid-4">
+      <div class="stat-box"><div class="label">Open</div><div class="value red">${state.pending.disputes}</div></div>
+      <div class="stat-box"><div class="label">In Review</div><div class="value">1</div></div>
+      <div class="stat-box"><div class="label">Resolved (30d)</div><div class="value">18</div></div>
+      <div class="stat-box"><div class="label">Refunded (30d)</div><div class="value" style="font-size:16px">420 cr</div></div>
+    </div>
+    <div class="grid-2w">
+      <table class="data-table"><thead><tr><th>ID</th><th>Member</th><th>Course</th><th>Reason</th><th>Credits</th><th>Status</th><th>Action</th></tr></thead><tbody>
+      ${state.disputes.map((row,i) => `<tr class="${i===state.selectedDispute?'selected':''}" onclick="state.selectedDispute=${i};renderDisputes()">
+        <td>${row.id}</td><td>${row.member}</td><td>${row.course}</td><td>${row.reason}</td><td>${row.credits}</td>
+        <td><span class="pill ${row.status==='Open'?'warn':'purple'}">${row.status}</span></td>
+        <td class="link" onclick="event.stopPropagation();openModal('refund')">Process</td>
+      </tr>`).join('')}
+      </tbody></table>
+      <div class="card"><div class="card-header">Case Detail — ${d.id}</div><div class="card-body" style="font-size:13px">
+        <p style="color:var(--slate);margin-bottom:10px">${d.member} · ${d.course} · ${d.credits} credits</p>
+        <div class="callout"><div class="title">Member message</div>${d.msg}</div>
+        <div class="form-group"><textarea rows="2" placeholder="Resolution notes..."></textarea></div>
+        <p><strong style="color:var(--purple)">Credits to restore: ${d.credits}</strong></p>
+        <div class="btn-row" style="margin:0">
+          <button class="btn btn-danger btn-sm">Reject Case</button>
+          <span style="flex:1"></span>
+          <button class="btn btn-teal btn-sm" onclick="openModal('refund')">Process Refund</button>
+        </div>
+      </div></div>
+    </div>
+  `);
+}
+
+function renderAuditLog() {
+  document.getElementById('screen-audit-log').innerHTML = shell('Audit Log', 'Audit Log', 'Immutable admin action history for compliance', `
+    <div class="btn-row">
+      <select><option>Action: All</option></select><select><option>Admin: Desmond Tan</option></select>
+      <input value="From: 01 Jun 2026" disabled style="width:140px;padding:8px;border:1px solid var(--border);border-radius:6px" />
+      <input placeholder="Search target..." style="width:180px;padding:8px;border:1px solid var(--border);border-radius:6px" />
+      <span style="flex:1"></span><button class="btn btn-ghost btn-sm">Export</button>
+    </div>
+    <table class="data-table"><thead><tr><th>Timestamp</th><th>Admin</th><th>Action</th><th>Target</th><th>Details</th><th>IP</th></tr></thead><tbody>
+    ${state.auditLog.map(a => `<tr><td>${a.ts}</td><td>Desmond Tan</td><td>${a.action}</td><td>${a.target}</td><td>${a.details}</td><td>${a.ip}</td></tr>`).join('')}
+    </tbody></table>
+  `);
+}
+
+function renderProfile() {
+  document.getElementById('screen-profile').innerHTML = shell('My Account', 'Profile / My Account', 'Administrator account settings', `
+    <div style="display:grid;grid-template-columns:240px 1fr;gap:24px">
+      <div style="text-align:center">
+        <div class="avatar" style="width:96px;height:96px;border-radius:48px;margin:0 auto 12px"></div>
+        <button class="btn btn-ghost btn-sm">Change photo</button>
+        <div class="card" style="margin-top:16px;text-align:left"><div class="card-body" style="font-size:13px">
+          <div class="stat-box" style="margin-bottom:8px"><div class="label">Reviews (30d)</div><div class="value" style="font-size:18px">55</div></div>
+          <div class="stat-box"><div class="label">Actions logged</div><div class="value" style="font-size:18px">${state.auditLog.length}</div></div>
+        </div></div>
+      </div>
+      <div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+          <div class="form-group"><label>Full Name</label><input value="Desmond Tan" /></div>
+          <div class="form-group"><label>Role</label><input value="Administrator" disabled /></div>
+          <div class="form-group"><label>Email</label><input value="desmond.tan@colearnx.com" /></div>
+          <div class="form-group"><label>Department</label><input value="Platform Operations" /></div>
+        </div>
+        <strong style="font-size:13px">Notification Preferences</strong>
+        <label class="checkbox-row"><input checked /> Email alerts for pending reviews</label>
+        <label class="checkbox-row"><input checked /> Daily platform summary</label>
+        <label class="checkbox-row"><input checked /> Dispute escalation notices</label>
+        <label class="checkbox-row"><input checked /> SLA breach warnings (>48h)</label>
+        <div class="btn-row" style="margin-top:16px;justify-content:flex-end">
+          <button class="btn btn-ghost">Cancel</button>
+          <button class="btn btn-primary" onclick="toast('Profile saved')">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+const RENDERERS = {
+  dashboard: renderDashboard,
+  'approvals-materials': renderApprovalsMaterials,
+  'approvals-courses': renderApprovalsCourses,
+  'approvals-certificates': renderApprovalsCertificates,
+  users: renderUsers,
+  'credit-ledger': renderLedger,
+  disputes: renderDisputes,
+  'audit-log': renderAuditLog,
+  profile: renderProfile,
+};
+
+function go(screen) {
+  if (screen !== 'login' && !state.loggedIn) { screen = 'login'; toast('Please login first'); }
+  state.currentScreen = screen;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + screen);
+  if (el) el.classList.add('active');
+  if (RENDERERS[screen]) RENDERERS[screen]();
+  updateFlowBar();
+  document.getElementById('flowScreen').textContent = screen;
+  document.getElementById('flowPending').textContent = totalPending();
+}
+
+function doLogin() {
+  state.loggedIn = true;
+  toast('Welcome, Desmond Tan — Administrator');
+  go('dashboard');
+}
+
+function openModal(name) { document.getElementById('modal-' + name).classList.add('open'); }
+function closeModal(name) { document.getElementById('modal-' + name).classList.remove('open'); }
+function closeModalOnBg(e, name) { if (e.target.classList.contains('modal-overlay')) closeModal(name); }
+
+function approveMaterial() {
+  const m = state.materials[state.selectedMaterial];
+  if (!m || m.status !== 'Pending') return;
+  m.status = 'Approved';
+  state.pending.materials--;
+  addAudit('APPROVE_MATERIAL', m.title, 'Approved for library · N-03 to creator');
+  closeModal('review');
+  toast('Approved: ' + m.title + ' · Creator notified (N-03)');
+  renderApprovalsMaterials();
+  updateFlowBar();
+}
+
+function rejectMaterial() {
+  const m = state.materials[state.selectedMaterial];
+  if (!m || m.status !== 'Pending') return;
+  m.status = 'Rejected';
+  state.pending.materials--;
+  addAudit('REJECT_MATERIAL', m.title, 'Rejected — feedback sent (N-04)');
+  closeModal('review');
+  toast('Rejected: ' + m.title);
+  renderApprovalsMaterials();
+  updateFlowBar();
+}
+
+function approveCourse() {
+  const c = state.courses[state.selectedCourse];
+  if (!c || c.status !== 'Pending') return;
+  c.status = 'Approved';
+  state.pending.courses--;
+  addAudit('APPROVE_COURSE', c.title, 'Published to member catalog');
+  toast('Course published: ' + c.title);
+  renderApprovalsCourses();
+  updateFlowBar();
+}
+
+function rejectCourse() {
+  const c = state.courses[state.selectedCourse];
+  if (!c || c.status !== 'Pending') return;
+  c.status = 'Rejected';
+  state.pending.courses--;
+  addAudit('REJECT_COURSE', c.title, 'Rejected — trainer notified');
+  toast('Course rejected: ' + c.title);
+  renderApprovalsCourses();
+  updateFlowBar();
+}
+
+function approveCertificate() {
+  const c = state.certificates[state.selectedCert];
+  if (!c || c.status !== 'Pending') return;
+  c.status = 'Approved';
+  state.pending.certificates--;
+  addAudit('APPROVE_CERTIFICATE', c.learner + ' · ' + c.course, 'Certificate issued · learner notified');
+  closeModal('certificate');
+  toast('Certificate approved for ' + c.learner);
+  renderApprovalsCertificates();
+  updateFlowBar();
+}
+
+function confirmAssignRole() {
+  state.pending.roles--;
+  state.roleRequests.shift();
+  addAudit('ASSIGN_ROLE', 'Alex Lee', 'Creator → Trainer confirmed');
+  closeModal('assign');
+  toast('Role assigned: Alex Lee is now Trainer');
+  renderUsers();
+  updateFlowBar();
+}
+
+function applyAdjustment() {
+  const amt = +document.getElementById('adjustAmount').value || 10;
+  const type = document.getElementById('adjustType').value;
+  const signed = type === '+' ? amt : -amt;
+  state.ledger.unshift({ dt: 'Today', user: 'Noah Smith', type: 'Adjustment', amount: signed, balance: 50 + signed, ref: document.getElementById('adjustReason').value.slice(0,30), by: 'Desmond Tan' });
+  addAudit('ADJUST_CREDITS', 'Noah Smith', (signed>0?'+':'') + signed + ' credits');
+  closeModal('adjust');
+  toast('Credit adjustment applied');
+  renderLedger();
+}
+
+function processRefund() {
+  const d = state.disputes[state.selectedDispute];
+  const amt = +document.getElementById('refundAmount').value || d.credits;
+  d.status = 'Resolved';
+  state.pending.disputes--;
+  state.ledger.unshift({ dt: 'Today', user: d.member, type: 'Refund', amount: amt, balance: '-', ref: d.id, by: 'Desmond Tan' });
+  addAudit('PROCESS_REFUND', d.id, '+' + amt + ' credits to ' + d.member + ' (N-09)');
+  closeModal('refund');
+  toast('Refund processed: +' + amt + ' credits to ' + d.member);
+  renderDisputes();
+  updateFlowBar();
+}
+
+function globalSearch(q) {
+  if (q.length > 2) toast('Searching: ' + q);
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function updateFlowBar() {
+  const idx = FLOW.findIndex(f => f.id === state.currentScreen);
+  document.getElementById('flowSteps').innerHTML = FLOW.map((f, i) =>
+    `<div class="flow-step ${f.id===state.currentScreen?'active':''} ${i<idx?'done':''}" onclick="go('${f.id}')">${f.label}</div>`
+  ).join('');
+  document.getElementById('flowPending').textContent = totalPending();
+}
+
+updateFlowBar();
+</script>
+</body>
+</html>

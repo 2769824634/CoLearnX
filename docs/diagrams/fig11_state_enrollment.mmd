@@ -1,0 +1,9 @@
+stateDiagram-v2
+    [*] --> Pending: Submit enrolment
+    Pending --> Confirmed: Payment credits OK
+    Pending --> Cancelled: User cancels
+    Confirmed --> Completed: Trainer marks complete
+    Confirmed --> Cancelled: Admin refund
+    Completed --> [*]
+    Cancelled --> Refunded: Credits restored
+    Refunded --> [*]

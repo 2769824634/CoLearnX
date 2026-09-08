@@ -1,0 +1,11 @@
+[
+  {
+    "Name": "https",
+    "Projects": [
+      {
+        "Path": "CoLearnX.Server\\CoLearnX.Server.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

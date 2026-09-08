@@ -1,0 +1,52 @@
+erDiagram
+    User ||--o| UserPreference : has
+    User ||--o{ Enrollment : makes
+    User ||--o{ CreditTransaction : owns
+    User ||--o{ LearningMaterial : uploads
+    User ||--o{ UserCertificate : earns
+    Course ||--o{ Enrollment : receives
+    Course }o--|| User : trained_by
+    Course ||--o{ CourseSession : schedules
+    Course ||--o{ CourseMaterial : uses
+    LearningMaterial ||--o{ CourseMaterial : referenced
+    LearningMaterial ||--o{ MaterialUsageLog : tracked
+    Enrollment }o--o| CreditTransaction : debits
+    CertificateTemplate ||--o{ UserCertificate : issues
+
+    User {
+        int Id PK
+        string Email
+        string FullName
+        string Role
+        int CreditBalance
+    }
+
+    Course {
+        int Id PK
+        string Code
+        string Title
+        int TrainerId FK
+        int CreditCost
+    }
+
+    Enrollment {
+        int Id PK
+        int UserId FK
+        int CourseId FK
+        int CourseSessionId FK
+        string Status
+    }
+
+    LearningMaterial {
+        int Id PK
+        int CreatorId FK
+        string Title
+        string FilePath
+    }
+
+    CreditTransaction {
+        int Id PK
+        int UserId FK
+        int Amount
+        int BalanceAfter
+    }

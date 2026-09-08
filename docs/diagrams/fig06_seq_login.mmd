@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant User
+    participant ReactApp
+    participant AuthAPI
+    participant Database
+
+    User->>ReactApp: Submit email and password
+    ReactApp->>AuthAPI: POST /api/auth/login
+    AuthAPI->>Database: Find user by email
+    AuthAPI->>AuthAPI: Verify password hash
+    AuthAPI->>AuthAPI: Generate JWT token
+    AuthAPI->>Database: Store refresh token
+    AuthAPI-->>ReactApp: 200 token and role
+    ReactApp->>ReactApp: Resolve RBAC navigation
+    ReactApp-->>User: Redirect role dashboard
