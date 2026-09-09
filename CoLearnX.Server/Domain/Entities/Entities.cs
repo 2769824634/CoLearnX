@@ -29,7 +29,7 @@ public class User
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 }
 
-// Multi-role link.
+// Multi-role link. Shared: UserRole, AppRole
 public class UserRole
 {
     public int UserId { get; set; }
@@ -94,14 +94,15 @@ public class RoleRequest
     public string? DegreeOrResumePath { get; set; }
     public string? IdDocumentPath { get; set; }
     public string? ReviewNote { get; set; }
-    public int? ReviewedByAdminId { get; set; }
+    public int? ReviewedByAdminAccountId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ReviewedAt { get; set; }
 
     public User User { get; set; } = null!;
+    public AdminAccount? ReviewedByAdminAccount { get; set; }
 }
 
-// Training program.
+// Training program. Shared: Course, CourseSession, Enrollment
 public class Course
 {
     public int Id { get; set; }
@@ -109,6 +110,8 @@ public class Course
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public int TrainerId { get; set; }
+    // The Creator owns Intake confirmation. TrainerId remains the delivery owner.
+    public int CreatorId { get; set; }
     public int CreditCost { get; set; }
     public string Level { get; set; } = "Beginner";
     public string Category { get; set; } = string.Empty;
@@ -117,27 +120,11 @@ public class Course
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public User Trainer { get; set; } = null!;
-    public ICollection<CourseSession> Sessions { get; set; } = new List<CourseSession>();
+    public User Creator { get; set; } = null!;
+    public ICollection<CourseIntake> Intakes { get; set; } = new List<CourseIntake>();
     public ICollection<CourseLearningOutcome> LearningOutcomes { get; set; } = new List<CourseLearningOutcome>();
     public ICollection<CourseMaterial> CourseMaterials { get; set; } = new List<CourseMaterial>();
     public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
-}
-
-public class CourseSession
-{
-    public int Id { get; set; }
-    public int CourseId { get; set; }
-    public string Label { get; set; } = string.Empty;
-    public DateTime StartsAt { get; set; }
-    public DateTime EndsAt { get; set; }
-    public int Capacity { get; set; }
-    public int SeatsTaken { get; set; }
-
-    public Course Course { get; set; } = null!;
-    public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
-    public ICollection<AttendanceRecord> AttendanceRecords { get; set; } = new List<AttendanceRecord>();
-
-    public int SeatsLeft => Math.Max(0, Capacity - SeatsTaken);
 }
 
 public class CourseLearningOutcome
@@ -160,7 +147,7 @@ public class WishlistItem
     public Course Course { get; set; } = null!;
 }
 
-// Creator content.
+// Creator content. Shared: LearningMaterial
 public class LearningMaterial
 {
     public int Id { get; set; }
@@ -202,7 +189,7 @@ public class MaterialUsageLog
     public LearningMaterial LearningMaterial { get; set; } = null!;
 }
 
-// Member enrol in a session.
+// Member enrol in a session. Shared: Enrollment
 public class Enrollment
 {
     public int Id { get; set; }
@@ -244,7 +231,7 @@ public class ProgramRating
     public Enrollment Enrollment { get; set; } = null!;
 }
 
-// Fixed PayPal top-up tiers.
+// Fixed PayPal top-up tiers. Shared: CreditPackage
 public class CreditPackage
 {
     public int Id { get; set; }
@@ -272,7 +259,7 @@ public class PaymentTransaction
     public CreditPackage CreditPackage { get; set; } = null!;
 }
 
-// Every credit change must write a row.
+// Every credit change must write a row. Shared: CreditTransaction
 public class CreditTransaction
 {
     public int Id { get; set; }
@@ -283,6 +270,9 @@ public class CreditTransaction
     public int BalanceAfter { get; set; }
     public int? RelatedEnrollmentId { get; set; }
     public int? RelatedPaymentId { get; set; }
+    public int? RelatedDisputeId { get; set; }
+    public int? AdminAccountId { get; set; }
+    public Guid? IdempotencyKey { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public User User { get; set; } = null!;
@@ -330,19 +320,12 @@ public class Dispute
     public DisputeStatus Status { get; set; } = DisputeStatus.Open;
     public int? HandledByAdminId { get; set; }
     public string? ResolutionNote { get; set; }
+    public int? RefundCredits { get; set; }
+    public Guid? ResolutionKey { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ResolvedAt { get; set; }
-}
 
-public class AuditLog
-{
-    public int Id { get; set; }
-    public int ActorUserId { get; set; }
-    public string Action { get; set; } = string.Empty;
-    public string EntityType { get; set; } = string.Empty;
-    public string? EntityId { get; set; }
-    public string? Detail { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public Enrollment? Enrollment { get; set; }
 }
 
 public class Notification

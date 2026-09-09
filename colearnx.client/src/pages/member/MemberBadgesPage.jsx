@@ -1,5 +1,5 @@
 import MemberShell from '../../components/MemberShell';
-import { useMemberData } from './MemberDataContext';
+import { useMemberData } from './memberDataState';
 
 export default function MemberBadgesPage() {
   const { showToast } = useMemberData();

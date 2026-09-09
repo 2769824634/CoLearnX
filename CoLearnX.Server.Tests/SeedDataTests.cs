@@ -7,7 +7,7 @@ namespace CoLearnX.Server.Tests;
 public class SeedDataTests
 {
     [Fact]
-    public async Task Initialize_replaces_legacy_demo_accounts()
+    public async Task Initialize_preserves_team_accounts_and_separates_admin_identity()
     {
         var path = Path.Combine(Path.GetTempPath(), $"colearnx-seed-{Guid.NewGuid():N}.db");
         var options = new DbContextOptionsBuilder<CoLearnXDbContext>()
@@ -16,18 +16,9 @@ public class SeedDataTests
 
         try
         {
-            await using (var stale = new CoLearnXDbContext(options))
+            await using (var seeded = new CoLearnXDbContext(options))
             {
-                await stale.Database.EnsureCreatedAsync();
-                stale.Users.Add(new User
-                {
-                    Email = "jane.smith@colearnx.com",
-                    PasswordHash = "legacy",
-                    FullName = "Jane Smith",
-                    DisplayName = "Jane",
-                });
-                await stale.SaveChangesAsync();
-                await SeedData.InitializeAsync(stale);
+                await SeedData.InitializeAsync(seeded);
             }
 
             await using var db = new CoLearnXDbContext(options);
@@ -35,7 +26,8 @@ public class SeedDataTests
             Assert.True(await db.Users.AnyAsync(u => u.Email == SeedData.TrainerEmail));
             Assert.True(await db.Users.AnyAsync(u => u.Email == SeedData.MemberEmail));
             Assert.True(await db.Users.AnyAsync(u => u.Email == SeedData.CreatorEmail));
-            Assert.True(await db.Users.AnyAsync(u => u.Email == SeedData.AdminEmail));
+            Assert.False(await db.Users.AnyAsync(u => u.Email == SeedData.AdminEmail));
+            Assert.True(await db.AdminAccounts.AnyAsync(a => a.Email == SeedData.AdminEmail));
         }
         finally
         {

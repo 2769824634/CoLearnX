@@ -7,6 +7,7 @@ namespace CoLearnX.Server.Data;
 // EF entry point. Shared name: CoLearnXDbContext
 public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : DbContext(options)
 {
+    public DbSet<AdminAccount> AdminAccounts => Set<AdminAccount>();
     public DbSet<User> Users => Set<User>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<UserPreference> UserPreferences => Set<UserPreference>();
@@ -16,7 +17,9 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     public DbSet<UserInterest> UserInterests => Set<UserInterest>();
     public DbSet<RoleRequest> RoleRequests => Set<RoleRequest>();
     public DbSet<Course> Courses => Set<Course>();
+    public DbSet<CourseIntake> CourseIntakes => Set<CourseIntake>();
     public DbSet<CourseSession> CourseSessions => Set<CourseSession>();
+    public DbSet<CourseIntakeApplication> CourseIntakeApplications => Set<CourseIntakeApplication>();
     public DbSet<CourseLearningOutcome> CourseLearningOutcomes => Set<CourseLearningOutcome>();
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<LearningMaterial> LearningMaterials => Set<LearningMaterial>();
@@ -34,9 +37,22 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     public DbSet<Dispute> Disputes => Set<Dispute>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<CourseMaterialVersion> CourseMaterialVersions => Set<CourseMaterialVersion>();
+    public DbSet<CourseIntakeMaterial> CourseIntakeMaterials => Set<CourseIntakeMaterial>();
+    public DbSet<SessionRecording> SessionRecordings => Set<SessionRecording>();
+    public DbSet<Assessment> Assessments => Set<Assessment>();
+    public DbSet<AssessmentResult> AssessmentResults => Set<AssessmentResult>();
+    public DbSet<CertificateRequest> CertificateRequests => Set<CertificateRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<AdminAccount>(e =>
+        {
+            e.HasIndex(x => x.Email).IsUnique();
+            e.Property(x => x.Email).HasMaxLength(256).UseCollation("NOCASE");
+            e.Property(x => x.PasswordHash).HasMaxLength(128);
+        });
+
         modelBuilder.Entity<User>(e =>
         {
             e.HasIndex(x => x.Email).IsUnique();
@@ -74,16 +90,29 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
             e.HasKey(x => new { x.UserId, x.InterestId });
         });
 
+        modelBuilder.Entity<RoleRequest>(e =>
+        {
+            e.HasIndex(x => new { x.UserId, x.RequestedRole })
+                .IsUnique()
+                .HasFilter("\"Status\" = 0");
+            e.Property(x => x.DegreeOrResumePath).HasMaxLength(512);
+            e.Property(x => x.IdDocumentPath).HasMaxLength(512);
+            e.Property(x => x.ReviewNote).HasMaxLength(512);
+            e.HasOne(x => x.ReviewedByAdminAccount)
+                .WithMany(a => a.ReviewedRoleRequests)
+                .HasForeignKey(x => x.ReviewedByAdminAccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<Course>(e =>
         {
             e.HasIndex(x => x.Code).IsUnique();
             e.HasOne(x => x.Trainer).WithMany().HasForeignKey(x => x.TrainerId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Creator).WithMany().HasForeignKey(x => x.CreatorId).OnDelete(DeleteBehavior.Restrict);
         });
 
-        modelBuilder.Entity<CourseSession>(e =>
-        {
-            e.Ignore(x => x.SeatsLeft);
-        });
+        CourseIntakeModelConfiguration.Configure(modelBuilder);
+        LaterPhaseModelConfiguration.Configure(modelBuilder);
 
         modelBuilder.Entity<WishlistItem>(e =>
         {
@@ -100,7 +129,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
             e.HasIndex(x => new { x.UserId, x.CourseId, x.Status });
             e.HasOne(x => x.User).WithMany(u => u.Enrollments).HasForeignKey(x => x.UserId);
             e.HasOne(x => x.Course).WithMany(c => c.Enrollments).HasForeignKey(x => x.CourseId);
-            e.HasOne(x => x.CourseSession).WithMany(s => s.Enrollments).HasForeignKey(x => x.CourseSessionId);
+            e.HasOne(x => x.CourseSession).WithMany(s => s.Enrollments).HasForeignKey(x => x.CourseSessionId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<ProgramRating>(e =>
@@ -117,6 +146,27 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
         modelBuilder.Entity<LearningMaterial>(e =>
         {
             e.HasOne(x => x.Creator).WithMany().HasForeignKey(x => x.CreatorId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AuditLog>(e =>
+        {
+            e.ToTable("AuditLogs", table => table.HasCheckConstraint(
+                "CK_AuditLogs_ExactlyOneActor",
+                "(AdminAccountId IS NOT NULL AND UserId IS NULL) OR (AdminAccountId IS NULL AND UserId IS NOT NULL)"));
+            e.HasIndex(x => x.CreatedAt);
+            e.Property(x => x.Action).HasMaxLength(128);
+            e.Property(x => x.EntityType).HasMaxLength(128);
+            e.Property(x => x.EntityId).HasMaxLength(128);
+            e.Property(x => x.Result).HasMaxLength(32);
+            e.Property(x => x.Reason).HasMaxLength(512);
+            e.HasOne(x => x.AdminAccount)
+                .WithMany(a => a.AuditLogs)
+                .HasForeignKey(x => x.AdminAccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

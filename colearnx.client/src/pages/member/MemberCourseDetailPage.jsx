@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
 import { ApiError } from '../../api/client';
-import { useMemberData } from './MemberDataContext';
+import { useMemberData } from './memberDataState';
 
 // Course detail + enrol.
 export default function MemberCourseDetailPage() {

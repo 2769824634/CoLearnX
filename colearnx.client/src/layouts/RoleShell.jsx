@@ -1,7 +1,12 @@
+import { useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import Logo from '../components/Logo';
 import WorkspaceSwitcher from '../components/WorkspaceSwitcher';
 import { useAuth } from '../auth/AuthContext';
+import useAdminAuth from '../auth/useAdminAuth';
+import '../styles/admin.css';
+import '../styles/admin-operations.css';
+import '../styles/later-phase.css';
 
 const NAV = {
   trainer: [
@@ -29,13 +34,11 @@ const NAV = {
   ],
 };
 
-// Trainer / Creator / Admin shell.
-export default function RoleShell({ role, title, subtitle }) {
-  const { user, logout } = useAuth();
+function ShellFrame({ identityName, role, logout, showWorkspaceSwitcher = false, title, subtitle }) {
   const items = NAV[role] || [];
 
   return (
-    <div className="shell">
+    <div className={`shell${role === 'admin' ? ' admin-shell' : ''}`}>
       <div className="topbar">
         <div className="topbar-brand">
           <Logo />
@@ -48,15 +51,19 @@ export default function RoleShell({ role, title, subtitle }) {
           <div className="user-chip">
             <div className="avatar" />
             <div>
-              <div className="user-chip-name">{user?.fullName}</div>
-              <WorkspaceSwitcher />
+              <div className="user-chip-name">{identityName}</div>
+              {showWorkspaceSwitcher ? <WorkspaceSwitcher /> : <div className="role">Administrator</div>}
             </div>
           </div>
         </div>
       </div>
       <div className="shell-body">
         <nav className="sidebar">
-          {items.map((item) => (
+          {items.map((item) => item.unavailable ? (
+            <span key={item.to} className="nav-item admin-nav-unavailable" aria-disabled="true">
+              {item.label}<small>Coming later</small>
+            </span>
+          ) : (
             <NavLink
               key={item.to}
               to={item.to}
@@ -73,6 +80,39 @@ export default function RoleShell({ role, title, subtitle }) {
         </main>
       </div>
     </div>
+  );
+}
+
+// Trainer / Creator shell. Shared: RoleShell
+export default function RoleShell({ role, title, subtitle }) {
+  const { user, logout } = useAuth();
+  return (
+    <ShellFrame
+      identityName={user?.fullName}
+      role={role}
+      logout={logout}
+      showWorkspaceSwitcher
+      title={title}
+      subtitle={subtitle}
+    />
+  );
+}
+
+export function AdminRoleShell({ title, subtitle }) {
+  const { admin, logout } = useAdminAuth();
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = 'CoLearnX — Administration';
+    return () => { document.title = previousTitle; };
+  }, []);
+  return (
+    <ShellFrame
+      identityName={admin?.email}
+      role="admin"
+      logout={logout}
+      title={title}
+      subtitle={subtitle}
+    />
   );
 }
 

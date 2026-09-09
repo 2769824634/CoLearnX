@@ -1,9 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { certificatesApi, coursesApi, creditsApi, enrollmentsApi, usersApi } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { CERT_STAGES, initialMemberState } from '../../data/memberMock';
-
-const MemberDataContext = createContext(null);
+import { MemberDataContext } from './memberDataState';
 
 // Loads member catalog / enrollments / credits from API.
 function mapCourseListItem(c) {
@@ -122,7 +121,8 @@ export function MemberDataProvider({ children }) {
   }, [showToast]);
 
   useEffect(() => {
-    reload();
+    const timer = setTimeout(reload, 0);
+    return () => clearTimeout(timer);
   }, [reload]);
 
   const state = useMemo(
@@ -227,10 +227,4 @@ export function MemberDataProvider({ children }) {
   };
 
   return <MemberDataContext.Provider value={value}>{children}</MemberDataContext.Provider>;
-}
-
-export function useMemberData() {
-  const ctx = useContext(MemberDataContext);
-  if (!ctx) throw new Error('useMemberData must be used within MemberDataProvider');
-  return ctx;
 }

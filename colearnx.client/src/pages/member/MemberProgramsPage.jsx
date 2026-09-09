@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
-import { useMemberData } from './MemberDataContext';
+import { useMemberData } from './memberDataState';
 
 // Active / completed enrollments.
 export default function MemberProgramsPage() {

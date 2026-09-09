@@ -94,7 +94,7 @@ public class UsersController(IUserService users) : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<ActionResult<UserMeDto>> Get(int id, [FromServices] IAuthService auth, CancellationToken ct)
     {
-        if (id != User.GetUserId() && !User.IsInRole("Admin"))
+        if (id != User.GetUserId())
             return Forbid();
         return Ok(await auth.GetMeAsync(id, User.GetActiveRole(), ct));
     }
@@ -102,7 +102,7 @@ public class UsersController(IUserService users) : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<ActionResult<UserMeDto>> Update(int id, [FromBody] UpdateProfileRequest request, CancellationToken ct)
     {
-        if (id != User.GetUserId() && !User.IsInRole("Admin"))
+        if (id != User.GetUserId())
             return Forbid();
         return Ok(await users.UpdateProfileAsync(id, User.GetActiveRole(), request, ct));
     }
@@ -150,9 +150,9 @@ public class CoursesController(ICourseService courses) : ControllerBase
         {
             return Ok(await courses.AddToWishlistAsync(User.GetUserId(), id, ct));
         }
-        catch (KeyNotFoundException)
+        catch (KeyNotFoundException ex)
         {
-            return NotFound(new ApiError("NOT_FOUND", "Course not found."));
+            return NotFound(new ApiError("NOT_FOUND", ex.Message));
         }
     }
 
@@ -164,14 +164,14 @@ public class CoursesController(ICourseService courses) : ControllerBase
         {
             return Ok(await courses.RemoveFromWishlistAsync(User.GetUserId(), id, ct));
         }
-        catch (KeyNotFoundException)
+        catch (KeyNotFoundException ex)
         {
-            return NotFound(new ApiError("NOT_FOUND", "Course not found."));
+            return NotFound(new ApiError("NOT_FOUND", ex.Message));
         }
     }
 
     [HttpPost]
-    [Authorize(Roles = "Trainer,Admin")]
+    [Authorize(Roles = "Trainer")]
     public ActionResult Create()
     {
         // Framework placeholder — full create wizard in later iteration
@@ -278,7 +278,7 @@ public class CreditsController(ICreditService credits, IPayPalClient payPal) : C
 [ApiController]
 [Route("api/materials")]
 [Authorize]
-public class MaterialsController(IMaterialService materials) : ControllerBase
+public class MaterialsController(IMaterialService materials, IMaterialVersionService versions) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<MaterialDto>>> List([FromQuery] string? status, CancellationToken ct)
@@ -290,33 +290,32 @@ public class MaterialsController(IMaterialService materials) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Creator,Admin")]
-    public ActionResult Upload()
-        => StatusCode(StatusCodes.Status501NotImplemented, new ApiError("NOT_IMPLEMENTED", "Material upload coming next."));
+    [Authorize(Policy = CreatorAuthorization.PolicyName)]
+    [LaterPhaseApiErrors]
+    public async Task<ActionResult<MaterialVersionDto>> Upload([FromBody] CreateMaterialVersionRequest request, CancellationToken ct)
+    {
+        var result = await versions.CreateAsync(User.GetUserId(), request, ct);
+        return Created($"/api/materials/{result.LearningMaterialId}/versions/{result.VersionId}", result);
+    }
 }
 
 // Member certificates. Keep: CertificatesController, route api/certificates
 [ApiController]
 [Route("api/certificates")]
 [Authorize]
-public class CertificatesController(ICertificateService certificates) : ControllerBase
+public class CertificatesController(ICertificateService certificates, ICertificateWorkflowService workflow) : ControllerBase
 {
     [HttpGet("my")]
     public async Task<ActionResult<IReadOnlyList<CertificateDto>>> My(CancellationToken ct)
         => Ok(await certificates.GetMyAsync(User.GetUserId(), ct));
-}
 
-// Admin ledger + review stubs. Keep: AdminController, route api/admin
-[ApiController]
-[Route("api/admin")]
-[Authorize(Roles = "Admin")]
-public class AdminController(IAdminService admin) : ControllerBase
-{
-    [HttpGet("credits/ledger")]
-    public async Task<ActionResult<IReadOnlyList<CreditLedgerItemDto>>> Ledger(CancellationToken ct)
-        => Ok(await admin.GetLedgerAsync(ct));
-
-    [HttpPut("materials/{id:int}/review")]
-    public ActionResult ReviewMaterial(int id)
-        => StatusCode(StatusCodes.Status501NotImplemented, new ApiError("NOT_IMPLEMENTED", $"Material {id} review coming next."));
+    [HttpPost("requests")]
+    [Authorize(Roles = "Member")]
+    [LaterPhaseApiErrors]
+    public async Task<ActionResult<CertificateRequestDto>> RequestCertificate(
+        [FromBody] SubmitCertificateRequest request, CancellationToken ct)
+    {
+        var result = await workflow.SubmitAsync(User.GetUserId(), request, ct);
+        return Created($"/api/certificates/requests/{result.Id}", result);
+    }
 }

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
 import { maskEmail, maskPhone } from '../../data/memberMock';
-import { useMemberData } from './MemberDataContext';
+import { useMemberData } from './memberDataState';
 
 // Masked account + Edit Profile.
 export default function MemberAccountPage() {
