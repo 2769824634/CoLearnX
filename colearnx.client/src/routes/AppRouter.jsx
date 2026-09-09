@@ -17,6 +17,8 @@ import TrainerIntakeDetailPage from '../pages/trainer/TrainerIntakeDetailPage';
 import TrainerAttendancePage from '../pages/trainer/TrainerAttendancePage';
 import TrainerLearnersPage from '../pages/trainer/TrainerLearnersPage';
 import CreatorHomePage from '../pages/creator/CreatorHomePage';
+import CreatorCoursesPage from '../pages/creator/CreatorCoursesPage';
+import CreatorCourseFormPage from '../pages/creator/CreatorCourseFormPage';
 import CreatorIntakeApplicationsPage from '../pages/creator/CreatorIntakeApplicationsPage';
 import CreatorIntakeApplicationDetailPage from '../pages/creator/CreatorIntakeApplicationDetailPage';
 import { MemberDataProvider } from '../pages/member/MemberDataContext';
@@ -86,7 +88,10 @@ export default function AppRouter() {
         <Route element={<RequireAuth role="creator" />}>
           <Route path="/creator" element={<RoleShell role="creator" />}>
             <Route path="home" element={<CreatorHomePage />} />
-            <Route path="courses" element={<CreatorIntakeApplicationsPage />} />
+            <Route path="courses" element={<CreatorCoursesPage />} />
+            <Route path="courses/new" element={<CreatorCourseFormPage />} />
+            <Route path="courses/:courseId" element={<CreatorCourseFormPage />} />
+            <Route path="courses/intake-applications" element={<CreatorIntakeApplicationsPage />} />
             <Route path="courses/intake-applications/:courseIntakeId" element={<CreatorIntakeApplicationDetailPage />} />
             <Route path="upload" element={stub('Upload Material (CRT-01)', 'Three-step upload wizard → Admin review.')} />
             <Route path="usage" element={stub('Usage Records (CRT-03)', 'Adoption + royalty analytics.')} />

@@ -84,6 +84,15 @@ export const coursesApi = {
   removeWishlist: (id) => apiRequest(`/api/courses/${id}/wishlist`, { method: 'DELETE' }),
 };
 
+export const creatorCoursesApi = {
+  list: (token, signal) => apiRequest('/api/creator/courses', { token, signal }),
+  options: (token, signal) => apiRequest('/api/creator/courses/options', { token, signal }),
+  get: (token, courseId, signal) => apiRequest(`/api/creator/courses/${encodeURIComponent(courseId)}`, { token, signal }),
+  create: (token, body) => apiRequest('/api/creator/courses', { method: 'POST', token, body }),
+  update: (token, courseId, body) => apiRequest(`/api/creator/courses/${encodeURIComponent(courseId)}`, { method: 'PUT', token, body }),
+  submit: (token, courseId) => apiRequest(`/api/creator/courses/${encodeURIComponent(courseId)}/submit`, { method: 'POST', token }),
+};
+
 export const enrollmentsApi = {
   my: () => apiRequest('/api/enrollments/my'),
   enrol: (courseId, courseSessionId) =>

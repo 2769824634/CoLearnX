@@ -76,6 +76,22 @@ public class Interest
     public string? Category { get; set; }
 }
 
+public class CourseLevel
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
+    public ICollection<Course> Courses { get; set; } = new List<Course>();
+}
+
+public class LearningPath
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public ICollection<Course> Courses { get; set; } = new List<Course>();
+}
+
 public class UserInterest
 {
     public int UserId { get; set; }
@@ -113,6 +129,8 @@ public class Course
     // The Creator owns Intake confirmation. TrainerId remains the delivery owner.
     public int CreatorId { get; set; }
     public int CreditCost { get; set; }
+    public int? CourseLevelId { get; set; }
+    public int? LearningPathId { get; set; }
     public string Level { get; set; } = "Beginner";
     public string Category { get; set; } = string.Empty;
     public CourseStatus Status { get; set; } = CourseStatus.Draft;
@@ -121,6 +139,8 @@ public class Course
 
     public User Trainer { get; set; } = null!;
     public User Creator { get; set; } = null!;
+    public CourseLevel? CourseLevel { get; set; }
+    public LearningPath? LearningPath { get; set; }
     public ICollection<CourseIntake> Intakes { get; set; } = new List<CourseIntake>();
     public ICollection<CourseLearningOutcome> LearningOutcomes { get; set; } = new List<CourseLearningOutcome>();
     public ICollection<CourseMaterial> CourseMaterials { get; set; } = new List<CourseMaterial>();

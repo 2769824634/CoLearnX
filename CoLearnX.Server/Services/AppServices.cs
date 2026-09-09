@@ -31,6 +31,12 @@ public interface ICourseService
     Task<CourseDetailDto?> GetByIdAsync(int courseId, int? userId, CancellationToken ct = default);
     Task<WishlistResultDto> AddToWishlistAsync(int userId, int courseId, CancellationToken ct = default);
     Task<WishlistResultDto> RemoveFromWishlistAsync(int userId, int courseId, CancellationToken ct = default);
+    Task<IReadOnlyList<CreatorCourseDto>> ListForCreatorAsync(int creatorUserId, CancellationToken ct = default);
+    Task<CreatorCourseOptionsDto> GetCreatorOptionsAsync(int creatorUserId, CancellationToken ct = default);
+    Task<CreatorCourseDto> GetForCreatorAsync(int creatorUserId, int courseId, CancellationToken ct = default);
+    Task<CreatorCourseDto> CreateForCreatorAsync(int creatorUserId, CreateCreatorCourseRequest request, CancellationToken ct = default);
+    Task<CreatorCourseDto> UpdateForCreatorAsync(int creatorUserId, int courseId, UpdateCreatorCourseRequest request, CancellationToken ct = default);
+    Task<CreatorCourseDto> SubmitForCreatorAsync(int creatorUserId, int courseId, CancellationToken ct = default);
 }
 
 // Enrol + my enrollments (credits + seats). Keep: IEnrollmentService, EnrollmentService
@@ -243,6 +249,121 @@ public class UserService(CoLearnXDbContext db) : IUserService
 
 public class CourseService(CoLearnXDbContext db) : ICourseService
 {
+    public async Task<CreatorCourseOptionsDto> GetCreatorOptionsAsync(
+        int creatorUserId,
+        CancellationToken ct = default)
+    {
+        await RequireCreatorAsync(creatorUserId, ct);
+        var levels = await db.CourseLevels.AsNoTracking()
+            .OrderBy(level => level.SortOrder)
+            .ThenBy(level => level.Name)
+            .Select(level => new CourseOptionDto(level.Id, level.Name))
+            .ToListAsync(ct);
+        var paths = await db.LearningPaths.AsNoTracking()
+            .OrderBy(path => path.Name)
+            .Select(path => new CourseOptionDto(path.Id, path.Name))
+            .ToListAsync(ct);
+        return new CreatorCourseOptionsDto(levels, paths);
+    }
+
+    public async Task<IReadOnlyList<CreatorCourseDto>> ListForCreatorAsync(
+        int creatorUserId,
+        CancellationToken ct = default)
+    {
+        await RequireCreatorAsync(creatorUserId, ct);
+        var courses = await CreatorCoursesQuery()
+            .Where(course => course.CreatorId == creatorUserId)
+            .OrderByDescending(course => course.CreatedAt)
+            .ToListAsync(ct);
+        var reasons = await LatestReviewReasonsAsync(courses.Select(course => course.Id), ct);
+        return courses.Select(course => ToCreatorDto(course, reasons.GetValueOrDefault(course.Id))).ToList();
+    }
+
+    public async Task<CreatorCourseDto> GetForCreatorAsync(
+        int creatorUserId,
+        int courseId,
+        CancellationToken ct = default)
+    {
+        await RequireCreatorAsync(creatorUserId, ct);
+        var course = await CreatorCoursesQuery()
+            .SingleOrDefaultAsync(item => item.Id == courseId && item.CreatorId == creatorUserId, ct)
+            ?? throw new CourseException("COURSE_NOT_FOUND", "Course was not found.", 404);
+        var reasons = await LatestReviewReasonsAsync([course.Id], ct);
+        return ToCreatorDto(course, reasons.GetValueOrDefault(course.Id));
+    }
+
+    public async Task<CreatorCourseDto> CreateForCreatorAsync(
+        int creatorUserId,
+        CreateCreatorCourseRequest request,
+        CancellationToken ct = default)
+    {
+        var creator = await RequireCreatorAsync(creatorUserId, ct);
+
+        var input = await ValidateCourseInputAsync(
+            null, request.Code, request.CourseLevelId, request.LearningPathId, ct);
+
+        var course = new Course
+        {
+            CreatorId = creatorUserId,
+            TrainerId = creatorUserId,
+            Status = CourseStatus.Draft,
+        };
+        ApplyCourseFields(course, input.Code, request.Title, request.Description, request.Category,
+            request.CreditCost, request.LearningOutcomes, input.Level, input.Path);
+        db.Courses.Add(course);
+        await db.SaveChangesAsync(ct);
+
+        course.Creator = creator;
+        return ToCreatorDto(course, null);
+    }
+
+    public async Task<CreatorCourseDto> UpdateForCreatorAsync(
+        int creatorUserId,
+        int courseId,
+        UpdateCreatorCourseRequest request,
+        CancellationToken ct = default)
+    {
+        await RequireCreatorAsync(creatorUserId, ct);
+        var course = await CreatorCoursesQuery(tracked: true)
+            .SingleOrDefaultAsync(item => item.Id == courseId && item.CreatorId == creatorUserId, ct)
+            ?? throw new CourseException("COURSE_NOT_FOUND", "Course was not found.", 404);
+        EnsureEditable(course);
+
+        var input = await ValidateCourseInputAsync(
+            courseId, request.Code, request.CourseLevelId, request.LearningPathId, ct);
+        db.CourseLearningOutcomes.RemoveRange(course.LearningOutcomes);
+        ApplyCourseFields(course, input.Code, request.Title, request.Description, request.Category,
+            request.CreditCost, request.LearningOutcomes, input.Level, input.Path);
+        await db.SaveChangesAsync(ct);
+
+        var reasons = await LatestReviewReasonsAsync([course.Id], ct);
+        return ToCreatorDto(course, reasons.GetValueOrDefault(course.Id));
+    }
+
+    public async Task<CreatorCourseDto> SubmitForCreatorAsync(
+        int creatorUserId,
+        int courseId,
+        CancellationToken ct = default)
+    {
+        await RequireCreatorAsync(creatorUserId, ct);
+        var course = await CreatorCoursesQuery(tracked: true)
+            .SingleOrDefaultAsync(item => item.Id == courseId && item.CreatorId == creatorUserId, ct)
+            ?? throw new CourseException("COURSE_NOT_FOUND", "Course was not found.", 404);
+        EnsureEditable(course);
+
+        course.Status = CourseStatus.PendingApproval;
+        db.AuditLogs.Add(new AuditLog
+        {
+            UserId = creatorUserId,
+            Action = "CourseSubmitted",
+            EntityType = nameof(Course),
+            EntityId = course.Id.ToString(),
+            Result = CourseStatus.PendingApproval.ToString(),
+        });
+        await db.SaveChangesAsync(ct);
+        return ToCreatorDto(course, null);
+    }
+
     public async Task<IReadOnlyList<CourseListItemDto>> ListAsync(
         int? userId, string? search, string? category, string? level, bool? featured, CancellationToken ct = default)
     {
@@ -336,6 +457,129 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
     private async Task<Course> RequirePublishedCourseAsync(int courseId, CancellationToken ct)
         => await db.Courses.FirstOrDefaultAsync(course => course.Id == courseId && course.Status == CourseStatus.Published, ct)
             ?? throw new KeyNotFoundException("Course not found.");
+
+    private async Task<User> RequireCreatorAsync(int userId, CancellationToken ct)
+    {
+        var creator = await db.Users.Include(user => user.Roles)
+            .SingleOrDefaultAsync(user => user.Id == userId, ct);
+        if (creator is null || !creator.IsActive || !creator.Roles.Any(role => role.Role == AppRole.Creator))
+            throw new CourseException("CREATOR_REQUIRED", "An active Creator account is required.", 403);
+        return creator;
+    }
+
+    private IQueryable<Course> CreatorCoursesQuery(bool tracked = false)
+    {
+        var query = db.Courses
+            .Include(course => course.Creator)
+            .Include(course => course.CourseLevel)
+            .Include(course => course.LearningPath)
+            .Include(course => course.LearningOutcomes)
+            .AsQueryable();
+        return tracked ? query : query.AsNoTracking();
+    }
+
+    private async Task<Dictionary<int, string?>> LatestReviewReasonsAsync(
+        IEnumerable<int> courseIds,
+        CancellationToken ct)
+    {
+        var ids = courseIds.ToArray();
+        if (ids.Length == 0) return [];
+        var entityIds = ids.Select(id => id.ToString()).ToArray();
+        var logs = await db.AuditLogs.AsNoTracking()
+            .Where(log => log.EntityType == nameof(Course)
+                && log.Action == "CourseRejected"
+                && log.EntityId != null
+                && entityIds.Contains(log.EntityId))
+            .OrderByDescending(log => log.CreatedAt)
+            .ToListAsync(ct);
+        return logs.GroupBy(log => int.Parse(log.EntityId!))
+            .ToDictionary(group => group.Key, group => group.First().Reason);
+    }
+
+    private static void EnsureEditable(Course course)
+    {
+        if (course.Status is not (CourseStatus.Draft or CourseStatus.Rejected))
+            throw new CourseException(
+                "COURSE_NOT_EDITABLE",
+                $"A Course in {course.Status} status cannot be edited or submitted.",
+                409);
+    }
+
+    private async Task<(string Code, CourseLevel Level, LearningPath Path)> ValidateCourseInputAsync(
+        int? currentCourseId,
+        string requestedCode,
+        int courseLevelId,
+        int learningPathId,
+        CancellationToken ct)
+    {
+        var code = requestedCode.Trim();
+        if (await db.Courses.AnyAsync(course =>
+                (!currentCourseId.HasValue || course.Id != currentCourseId.Value)
+                && course.Code.ToUpper() == code.ToUpper(), ct))
+        {
+            throw new CourseException("COURSE_CODE_EXISTS", "Course code is already in use.", 409, "code");
+        }
+
+        var level = await db.CourseLevels.FindAsync([courseLevelId], ct)
+            ?? throw new CourseException("COURSE_LEVEL_NOT_FOUND", "Select a valid Course level.", 400, "courseLevelId");
+        var path = await db.LearningPaths.FindAsync([learningPathId], ct)
+            ?? throw new CourseException("LEARNING_PATH_NOT_FOUND", "Select a valid Learning Path.", 400, "learningPathId");
+        return (code, level, path);
+    }
+
+    private static void ApplyCourseFields(
+        Course course,
+        string code,
+        string title,
+        string? description,
+        string category,
+        int creditCost,
+        IReadOnlyList<string>? learningOutcomes,
+        CourseLevel level,
+        LearningPath path)
+    {
+        course.Code = code;
+        course.Title = title.Trim();
+        course.Description = NormalizeOptional(description);
+        course.CourseLevelId = level.Id;
+        course.CourseLevel = level;
+        course.LearningPathId = path.Id;
+        course.LearningPath = path;
+        course.Level = level.Name;
+        course.Category = category.Trim();
+        course.CreditCost = creditCost;
+        course.LearningOutcomes = NormalizeOutcomes(learningOutcomes)
+            .Select((text, index) => new CourseLearningOutcome { SortOrder = index + 1, Text = text })
+            .ToList();
+    }
+
+    private static string? NormalizeOptional(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static IReadOnlyList<string> NormalizeOutcomes(IReadOnlyList<string>? outcomes)
+        => outcomes?.Where(outcome => !string.IsNullOrWhiteSpace(outcome))
+            .Select(outcome => outcome.Trim())
+            .ToList() ?? [];
+
+    private static CreatorCourseDto ToCreatorDto(Course course, string? reviewReason)
+        => new(
+            course.Id,
+            course.Code,
+            course.Title,
+            course.Description,
+            course.CreatorId,
+            course.Creator.Email,
+            course.Creator.FullName,
+            course.CourseLevelId ?? 0,
+            course.CourseLevel?.Name ?? course.Level,
+            course.LearningPathId ?? 0,
+            course.LearningPath?.Name ?? "Unassigned",
+            course.Category,
+            course.CreditCost,
+            course.Status.ToString(),
+            course.LearningOutcomes.OrderBy(outcome => outcome.SortOrder).Select(outcome => outcome.Text).ToList(),
+            course.CreatedAt,
+            course.Status == CourseStatus.Rejected ? reviewReason : null);
 }
 
 public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService

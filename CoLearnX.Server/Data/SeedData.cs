@@ -23,9 +23,19 @@ public static class SeedData
             "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'CourseIntakeApplications'").SingleAsync() > 0;
         var hasLaterPhase = await db.Database.SqlQueryRaw<int>(
             "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'CertificateRequests'").SingleAsync() > 0;
-        if (!hasB4CourseOwner || !hasB4Applications || !hasLaterPhase)
-            throw new InvalidOperationException("Later Phase requires a fresh isolated database (colearnx-later-v1.db). The existing database was not migrated and was left unchanged.");
+        var hasCourseLevels = await db.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'CourseLevels'").SingleAsync() > 0;
+        var hasLearningPaths = await db.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'LearningPaths'").SingleAsync() > 0;
+        var hasCourseLevelId = await db.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS Value FROM pragma_table_info('Courses') WHERE name = 'CourseLevelId'").SingleAsync() > 0;
+        var hasLearningPathId = await db.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS Value FROM pragma_table_info('Courses') WHERE name = 'LearningPathId'").SingleAsync() > 0;
+        if (!hasB4CourseOwner || !hasB4Applications || !hasLaterPhase || !hasCourseLevels || !hasLearningPaths || !hasCourseLevelId || !hasLearningPathId)
+            throw new InvalidOperationException("Course Core requires a fresh isolated database. The existing database was not migrated and was left unchanged.");
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
+
+        await EnsureCourseTaxonomyAsync(db);
 
         var adminAccount = await db.AdminAccounts.SingleOrDefaultAsync(
             account => account.Email == AdminEmail);
@@ -141,6 +151,8 @@ public static class SeedData
             TrainerId = trainer.Id,
             CreatorId = creator.Id,
             CreditCost = 30,
+            CourseLevelId = 1,
+            LearningPathId = 3,
             Level = "Beginner",
             Category = "Design",
             Status = CourseStatus.Published,
@@ -154,6 +166,8 @@ public static class SeedData
             TrainerId = trainer.Id,
             CreatorId = creator.Id,
             CreditCost = 25,
+            CourseLevelId = 2,
+            LearningPathId = 2,
             Level = "Intermediate",
             Category = "Programming",
             Status = CourseStatus.Published,
@@ -167,6 +181,8 @@ public static class SeedData
             TrainerId = trainer.Id,
             CreatorId = creator.Id,
             CreditCost = 20,
+            CourseLevelId = 1,
+            LearningPathId = 2,
             Level = "Beginner",
             Category = "Programming",
             Status = CourseStatus.Published,
@@ -180,6 +196,8 @@ public static class SeedData
             TrainerId = trainer.Id,
             CreatorId = creator.Id,
             CreditCost = 35,
+            CourseLevelId = 2,
+            LearningPathId = 3,
             Level = "Intermediate",
             Category = "Design",
             Status = CourseStatus.Published,
@@ -378,6 +396,27 @@ public static class SeedData
         await EnsureLaterPhaseFixturesAsync(db);
     }
 
+    private static async Task EnsureCourseTaxonomyAsync(CoLearnXDbContext db)
+    {
+        if (!await db.CourseLevels.AnyAsync())
+        {
+            db.CourseLevels.AddRange(
+                new CourseLevel { Id = 1, Name = "Beginner", SortOrder = 1 },
+                new CourseLevel { Id = 2, Name = "Intermediate", SortOrder = 2 },
+                new CourseLevel { Id = 3, Name = "Advanced", SortOrder = 3 });
+        }
+
+        if (!await db.LearningPaths.AnyAsync())
+        {
+            db.LearningPaths.AddRange(
+                new LearningPath { Id = 1, Name = "Professional Skills" },
+                new LearningPath { Id = 2, Name = "Technology" },
+                new LearningPath { Id = 3, Name = "Design" });
+        }
+
+        await db.SaveChangesAsync();
+    }
+
     private static async Task EnsureRoleRequestFixturesAsync(CoLearnXDbContext db)
     {
         // Temporary D2 fixtures until Developer A supplies the user-side request flow.
@@ -432,6 +471,8 @@ public static class SeedData
             TrainerId = creator.Id,
             CreatorId = creator.Id,
             CreditCost = 35,
+            CourseLevelId = 3,
+            LearningPathId = 2,
             Level = "Advanced",
             Category = "Technology",
             Status = CourseStatus.PendingApproval,
