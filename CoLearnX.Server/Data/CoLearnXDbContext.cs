@@ -16,6 +16,8 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     public DbSet<Interest> Interests => Set<Interest>();
     public DbSet<UserInterest> UserInterests => Set<UserInterest>();
     public DbSet<RoleRequest> RoleRequests => Set<RoleRequest>();
+    public DbSet<CourseLevel> CourseLevels => Set<CourseLevel>();
+    public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<CourseIntake> CourseIntakes => Set<CourseIntake>();
     public DbSet<CourseSession> CourseSessions => Set<CourseSession>();
@@ -107,8 +109,23 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
         modelBuilder.Entity<Course>(e =>
         {
             e.HasIndex(x => x.Code).IsUnique();
+            e.Property(x => x.Code).HasMaxLength(64).UseCollation("NOCASE");
             e.HasOne(x => x.Trainer).WithMany().HasForeignKey(x => x.TrainerId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Creator).WithMany().HasForeignKey(x => x.CreatorId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.CourseLevel).WithMany(x => x.Courses).HasForeignKey(x => x.CourseLevelId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.LearningPath).WithMany(x => x.Courses).HasForeignKey(x => x.LearningPathId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<CourseLevel>(e =>
+        {
+            e.HasIndex(x => x.Name).IsUnique();
+            e.Property(x => x.Name).HasMaxLength(64).UseCollation("NOCASE");
+        });
+
+        modelBuilder.Entity<LearningPath>(e =>
+        {
+            e.HasIndex(x => x.Name).IsUnique();
+            e.Property(x => x.Name).HasMaxLength(128).UseCollation("NOCASE");
         });
 
         CourseIntakeModelConfiguration.Configure(modelBuilder);
