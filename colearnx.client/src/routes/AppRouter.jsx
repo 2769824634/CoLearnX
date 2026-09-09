@@ -10,6 +10,11 @@ import MemberProgramsPage from '../pages/member/MemberProgramsPage';
 import MemberPaymentPage from '../pages/member/MemberPaymentPage';
 import MemberBadgesPage from '../pages/member/MemberBadgesPage';
 import MemberAccountPage from '../pages/member/MemberAccountPage';
+import CreatorCoursesPage from '../pages/creator/CreatorCoursesPage';
+import CreatorHomePage from '../pages/creator/CreatorHomePage';
+import CreatorUploadPage from '../pages/creator/CreatorUploadPage';
+import CreatorUsagePage from '../pages/creator/CreatorUsagePage';
+import CreatorAccountPage from '../pages/creator/CreatorAccountPage';
 
 function MemberToastHost() {
   const { toast } = useMemberData();
@@ -64,11 +69,11 @@ export default function AppRouter() {
 
         <Route element={<RequireAuth role="creator" />}>
           <Route path="/creator" element={<RoleShell role="creator" />}>
-            <Route path="home" element={<PageTitle>Creator Home</PageTitle>} />
-            <Route path="courses" element={<PageTitle>Courses</PageTitle>} />
-            <Route path="upload" element={<PageTitle>Upload Material</PageTitle>} />
-            <Route path="usage" element={<PageTitle>Usage Records</PageTitle>} />
-            <Route path="account" element={<PageTitle>My Account</PageTitle>} />
+            <Route path="home" element={<CreatorHomePage />} />
+            <Route path="courses" element={<CreatorCoursesPage />} />
+            <Route path="upload" element={<CreatorUploadPage />} />
+            <Route path="usage" element={<CreatorUsagePage />} />
+            <Route path="account" element={<CreatorAccountPage />} />
             <Route index element={<Navigate to="home" replace />} />
           </Route>
         </Route>
