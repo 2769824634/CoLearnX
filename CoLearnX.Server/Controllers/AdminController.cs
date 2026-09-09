@@ -9,9 +9,10 @@ namespace CoLearnX.Server.Controllers;
 [ApiController]
 [Route("api/admin")]
 [Authorize(Policy = AdminAuthorization.PolicyName)]
-public class AdminController(IAdminService admin) : ControllerBase
+public class AdminController(IAdminFinanceService finance) : ControllerBase
 {
     [HttpGet("credits/ledger")]
-    public async Task<ActionResult<IReadOnlyList<CreditLedgerItemDto>>> Ledger(CancellationToken ct)
-        => Ok(await admin.GetLedgerAsync(ct));
+    public async Task<ActionResult<IReadOnlyList<AdminCreditLedgerItemDto>>> Ledger(
+        [FromQuery] string? search, [FromQuery] string? type, CancellationToken ct)
+        => Ok(await finance.GetLedgerAsync(search, type, ct));
 }

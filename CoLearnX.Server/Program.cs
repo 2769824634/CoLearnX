@@ -50,6 +50,10 @@ builder.Services.AddScoped<ICreditService, CreditService>();
 builder.Services.AddScoped<ICertificateService, CertificateService>();
 builder.Services.AddScoped<IMaterialService, MaterialService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IMaterialVersionService, MaterialVersionService>();
+builder.Services.AddScoped<ITrainerLaterPhaseService, TrainerLaterPhaseService>();
+builder.Services.AddScoped<ICertificateWorkflowService, CertificateWorkflowService>();
+builder.Services.AddScoped<IAdminFinanceService, AdminFinanceService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

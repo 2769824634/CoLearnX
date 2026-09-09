@@ -8,10 +8,14 @@ import AdminHomePage from '../pages/admin/AdminHomePage';
 import AdminApprovalsPage from '../pages/admin/AdminApprovalsPage';
 import AdminAuditLogsPage from '../pages/admin/AdminAuditLogsPage';
 import AdminAccountPage from '../pages/admin/AdminAccountPage';
+import AdminCreditLedgerPage from '../pages/admin/AdminCreditLedgerPage';
+import AdminDisputesPage from '../pages/admin/AdminDisputesPage';
 import TrainerHomePage from '../pages/trainer/TrainerHomePage';
 import TrainerIntakesPage from '../pages/trainer/TrainerIntakesPage';
 import TrainerIntakeCreatePage from '../pages/trainer/TrainerIntakeCreatePage';
 import TrainerIntakeDetailPage from '../pages/trainer/TrainerIntakeDetailPage';
+import TrainerAttendancePage from '../pages/trainer/TrainerAttendancePage';
+import TrainerLearnersPage from '../pages/trainer/TrainerLearnersPage';
 import CreatorHomePage from '../pages/creator/CreatorHomePage';
 import CreatorIntakeApplicationsPage from '../pages/creator/CreatorIntakeApplicationsPage';
 import CreatorIntakeApplicationDetailPage from '../pages/creator/CreatorIntakeApplicationDetailPage';
@@ -72,8 +76,8 @@ export default function AppRouter() {
             <Route path="courses" element={<TrainerIntakesPage />} />
             <Route path="courses/new" element={<TrainerIntakeCreatePage />} />
             <Route path="courses/intakes/:courseIntakeId" element={<TrainerIntakeDetailPage />} />
-            <Route path="attendance" element={stub('Attendance (TRN-05)', 'Session roster Present/Absent/Late.')} />
-            <Route path="learners" element={stub('Learner List (TRN-04)', 'Cohort roster + bulk message.')} />
+            <Route path="attendance" element={<TrainerAttendancePage />} />
+            <Route path="learners" element={<TrainerLearnersPage />} />
             <Route path="account" element={stub('My Account', 'Read-only masked profile + Edit Profile modal (shared pattern).')} />
             <Route index element={<Navigate to="home" replace />} />
           </Route>
@@ -96,8 +100,8 @@ export default function AppRouter() {
             <Route path="home" element={<AdminHomePage />} />
             <Route path="approvals" element={<AdminApprovalsPage />} />
             <Route path="users" element={<Navigate to="/admin/approvals?queue=roles" replace />} />
-            <Route path="ledger" element={stub('Credit Ledger (ADM-04)', 'Wired to GET /api/admin/credits/ledger.')} />
-            <Route path="disputes" element={stub('Disputes & Refunds (ADM-05)', 'Open case → refund / reject.')} />
+            <Route path="ledger" element={<AdminCreditLedgerPage />} />
+            <Route path="disputes" element={<AdminDisputesPage />} />
             <Route path="audit" element={<AdminAuditLogsPage />} />
             <Route path="account" element={<AdminAccountPage />} />
             <Route index element={<Navigate to="home" replace />} />

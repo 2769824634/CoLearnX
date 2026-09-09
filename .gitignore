@@ -366,6 +366,11 @@ CoLearnX.Server/colearnx.db
 CoLearnX.Server/colearnx.db-*
 CoLearnX.Server/colearnx-bd.db
 CoLearnX.Server/colearnx-bd.db-*
+CoLearnX.Server/colearnx-later-v1.db
+CoLearnX.Server/colearnx-later-v1.db-*
+
+# Local handoff archives; source and documentation are committed instead.
+deliverables/
 
 # Editor / agent tooling (not part of the product)
 .cursor/

@@ -270,6 +270,9 @@ public class CreditTransaction
     public int BalanceAfter { get; set; }
     public int? RelatedEnrollmentId { get; set; }
     public int? RelatedPaymentId { get; set; }
+    public int? RelatedDisputeId { get; set; }
+    public int? AdminAccountId { get; set; }
+    public Guid? IdempotencyKey { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public User User { get; set; } = null!;
@@ -317,8 +320,12 @@ public class Dispute
     public DisputeStatus Status { get; set; } = DisputeStatus.Open;
     public int? HandledByAdminId { get; set; }
     public string? ResolutionNote { get; set; }
+    public int? RefundCredits { get; set; }
+    public Guid? ResolutionKey { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ResolvedAt { get; set; }
+
+    public Enrollment? Enrollment { get; set; }
 }
 
 public class Notification

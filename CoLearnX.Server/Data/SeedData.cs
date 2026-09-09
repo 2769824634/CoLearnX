@@ -21,8 +21,10 @@ public static class SeedData
             "SELECT COUNT(*) AS Value FROM pragma_table_info('Courses') WHERE name = 'CreatorId'").SingleAsync() > 0;
         var hasB4Applications = await db.Database.SqlQueryRaw<int>(
             "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'CourseIntakeApplications'").SingleAsync() > 0;
-        if (!hasB4CourseOwner || !hasB4Applications)
-            throw new InvalidOperationException("B/D integration requires a fresh isolated database (colearnx-bd.db). The existing database was not migrated and was left unchanged.");
+        var hasLaterPhase = await db.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'CertificateRequests'").SingleAsync() > 0;
+        if (!hasB4CourseOwner || !hasB4Applications || !hasLaterPhase)
+            throw new InvalidOperationException("Later Phase requires a fresh isolated database (colearnx-later-v1.db). The existing database was not migrated and was left unchanged.");
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
 
         var adminAccount = await db.AdminAccounts.SingleOrDefaultAsync(
@@ -53,6 +55,7 @@ public static class SeedData
         {
             await EnsureRoleRequestFixturesAsync(db);
             await EnsureCourseReviewFixturesAsync(db);
+            await EnsureLaterPhaseFixturesAsync(db);
             return;
         }
 
@@ -372,6 +375,7 @@ public static class SeedData
         await db.SaveChangesAsync();
         await EnsureRoleRequestFixturesAsync(db);
         await EnsureCourseReviewFixturesAsync(db);
+        await EnsureLaterPhaseFixturesAsync(db);
     }
 
     private static async Task EnsureRoleRequestFixturesAsync(CoLearnXDbContext db)
@@ -432,6 +436,100 @@ public static class SeedData
             Category = "Technology",
             Status = CourseStatus.PendingApproval,
         });
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task EnsureLaterPhaseFixturesAsync(CoLearnXDbContext db)
+    {
+        var creator = await db.Users.SingleOrDefaultAsync(user => user.Email == CreatorEmail);
+        var member = await db.Users.SingleOrDefaultAsync(user => user.Email == MemberEmail);
+        var trainer = await db.Users.SingleOrDefaultAsync(user => user.Email == TrainerEmail);
+        var admin = await db.AdminAccounts.SingleOrDefaultAsync(account => account.Email == AdminEmail);
+        if (creator is null || member is null || trainer is null || admin is null) return;
+
+        var approvedMaterial = await db.LearningMaterials.FirstOrDefaultAsync(material => material.Title == "UI/UX Basics");
+        if (approvedMaterial is not null && !await db.CourseMaterialVersions.AnyAsync(version => version.LearningMaterialId == approvedMaterial.Id))
+        {
+            db.CourseMaterialVersions.Add(new CourseMaterialVersion
+            {
+                LearningMaterialId = approvedMaterial.Id,
+                VersionNumber = approvedMaterial.Version,
+                FilePath = approvedMaterial.FilePath,
+                Format = approvedMaterial.Format,
+                Status = MaterialVersionStatus.Approved,
+                ReviewedByAdminAccountId = admin.Id,
+                ReviewedAt = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+            });
+        }
+
+        if (!await db.LearningMaterials.AnyAsync(material => material.Title == "Responsible AI Facilitation Pack"))
+        {
+            db.LearningMaterials.Add(new LearningMaterial
+            {
+                CreatorId = creator.Id,
+                Title = "Responsible AI Facilitation Pack",
+                Description = "Pending version for Admin Later Phase review.",
+                FilePath = "materials/responsible-ai-facilitation-v1.pdf",
+                Format = "PDF",
+                Category = "Technology",
+                Status = MaterialStatus.PendingReview,
+                CourseMaterials = [],
+            });
+        }
+        await db.SaveChangesAsync();
+
+        var pendingMaterial = await db.LearningMaterials.SingleAsync(material => material.Title == "Responsible AI Facilitation Pack");
+        if (!await db.CourseMaterialVersions.AnyAsync(version => version.LearningMaterialId == pendingMaterial.Id))
+        {
+            db.CourseMaterialVersions.Add(new CourseMaterialVersion
+            {
+                LearningMaterialId = pendingMaterial.Id,
+                VersionNumber = 1,
+                FilePath = pendingMaterial.FilePath,
+                Format = pendingMaterial.Format,
+                Status = MaterialVersionStatus.PendingApproval,
+            });
+        }
+
+        var c1Enrollment = await db.Enrollments.Include(enrollment => enrollment.CourseSession)
+            .FirstOrDefaultAsync(enrollment => enrollment.UserId == member.Id && enrollment.Course.Code == "INFT 2051");
+        if (c1Enrollment is not null)
+        {
+            if (!await db.AttendanceRecords.AnyAsync(record => record.CourseSessionId == c1Enrollment.CourseSessionId && record.UserId == member.Id))
+            {
+                db.AttendanceRecords.Add(new AttendanceRecord
+                {
+                    CourseSessionId = c1Enrollment.CourseSessionId,
+                    UserId = member.Id,
+                    Status = AttendanceStatus.Present,
+                    RecordedByTrainerId = trainer.Id,
+                });
+            }
+            if (!await db.Assessments.AnyAsync(assessment => assessment.CourseIntakeId == c1Enrollment.CourseSession.CourseIntakeId))
+            {
+                db.Assessments.Add(new Assessment
+                {
+                    CourseIntakeId = c1Enrollment.CourseSession.CourseIntakeId,
+                    CreatedByTrainerId = trainer.Id,
+                    Title = "Design critique",
+                    MaxScore = 100,
+                    PassScore = 60,
+                    DueAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc),
+                });
+            }
+        }
+
+        var c2Enrollment = await db.Enrollments.Include(enrollment => enrollment.Course)
+            .FirstOrDefaultAsync(enrollment => enrollment.UserId == member.Id && enrollment.Course.Code == "INFT 3030");
+        if (c2Enrollment is not null && !await db.Disputes.AnyAsync(dispute => dispute.EnrollmentId == c2Enrollment.Id))
+        {
+            db.Disputes.Add(new Dispute
+            {
+                RaisedByUserId = member.Id,
+                EnrollmentId = c2Enrollment.Id,
+                Reason = "I enrolled in the wrong session and need assistance.",
+            });
+        }
         await db.SaveChangesAsync();
     }
 }

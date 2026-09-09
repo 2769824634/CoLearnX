@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext';
 import useAdminAuth from '../auth/useAdminAuth';
 import '../styles/admin.css';
 import '../styles/admin-operations.css';
+import '../styles/later-phase.css';
 
 const NAV = {
   trainer: [
@@ -26,8 +27,8 @@ const NAV = {
     { to: '/admin/home', label: 'Homepage' },
     { to: '/admin/approvals', label: 'Approvals' },
     { to: '/admin/users', label: 'Users' },
-    { to: '/admin/ledger', label: 'Credit Ledger', unavailable: true },
-    { to: '/admin/disputes', label: 'Disputes', unavailable: true },
+    { to: '/admin/ledger', label: 'Credit Ledger' },
+    { to: '/admin/disputes', label: 'Disputes' },
     { to: '/admin/audit', label: 'Audit Log' },
     { to: '/admin/account', label: 'My Account' },
   ],

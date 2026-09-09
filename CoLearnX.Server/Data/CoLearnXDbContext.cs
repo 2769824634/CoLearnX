@@ -37,6 +37,12 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     public DbSet<Dispute> Disputes => Set<Dispute>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<CourseMaterialVersion> CourseMaterialVersions => Set<CourseMaterialVersion>();
+    public DbSet<CourseIntakeMaterial> CourseIntakeMaterials => Set<CourseIntakeMaterial>();
+    public DbSet<SessionRecording> SessionRecordings => Set<SessionRecording>();
+    public DbSet<Assessment> Assessments => Set<Assessment>();
+    public DbSet<AssessmentResult> AssessmentResults => Set<AssessmentResult>();
+    public DbSet<CertificateRequest> CertificateRequests => Set<CertificateRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -106,6 +112,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
         });
 
         CourseIntakeModelConfiguration.Configure(modelBuilder);
+        LaterPhaseModelConfiguration.Configure(modelBuilder);
 
         modelBuilder.Entity<WishlistItem>(e =>
         {

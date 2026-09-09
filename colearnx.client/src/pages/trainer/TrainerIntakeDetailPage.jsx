@@ -7,6 +7,7 @@ import { formatDate, isEditable, localTimezone, safeMeetingLink } from './intake
 import useTrainerQuery, { loadTrainerDetail } from './useTrainerQuery';
 import { IntakeStatus, TrainerError, TrainerHeader, TrainerLoading } from './TrainerUi';
 import ChangeRequestEditor from './ChangeRequestEditor';
+import TrainerResourcesPanel from './TrainerResourcesPanel';
 
 function SessionCard({ session, editable, deliveryEditable, onEdit, onDelete, onDelivery }) {
   const meetingLink = safeMeetingLink(session.meetingLink);
@@ -86,6 +87,7 @@ function IntakeWorkspace({ query }) {
     </div> : null}
     {changeEditable && editor?.type !== 'change' ? <div className="trainer-submit-panel"><div><p className="trainer-eyebrow">Material changes</p><h2>{rejectedChange ? 'Revise the rejected proposal' : 'Need to change the confirmed schedule?'}</h2><p>Dates, labels, physical delivery and Session structure require Creator reconfirmation.</p></div><button type="button" className="btn btn-ghost" disabled={Boolean(editor) || busy || blocked} onClick={() => openEditor({ type: 'change' })}>{rejectedChange ? 'Revise change request' : 'Prepare change request'}</button></div> : null}
     {editor?.type === 'change' ? <ChangeRequestEditor key={`${intake.version}:${intake.latestChangeRequest?.applicationId || 'new'}`} intake={intake} busy={busy} blocked={blocked} error={error} onError={setError} onCancel={() => openEditor(null)} onSubmit={(body) => mutate(() => trainerIntakesApi.requestChange(query.token, intake.id, body), 'Change request submitted. The current confirmed schedule remains in place until approval.')} /> : null}
+    {deliveryEditable ? <TrainerResourcesPanel token={query.token} intake={intake} /> : null}
     <p className="trainer-detail-footer">Intake #{intake.id} · Course #{intake.courseId} · Trainer #{intake.trainerId}</p>
   </>;
 }

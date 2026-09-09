@@ -278,7 +278,7 @@ public class CreditsController(ICreditService credits, IPayPalClient payPal) : C
 [ApiController]
 [Route("api/materials")]
 [Authorize]
-public class MaterialsController(IMaterialService materials) : ControllerBase
+public class MaterialsController(IMaterialService materials, IMaterialVersionService versions) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<MaterialDto>>> List([FromQuery] string? status, CancellationToken ct)
@@ -290,18 +290,32 @@ public class MaterialsController(IMaterialService materials) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Creator")]
-    public ActionResult Upload()
-        => StatusCode(StatusCodes.Status501NotImplemented, new ApiError("NOT_IMPLEMENTED", "Material upload coming next."));
+    [Authorize(Policy = CreatorAuthorization.PolicyName)]
+    [LaterPhaseApiErrors]
+    public async Task<ActionResult<MaterialVersionDto>> Upload([FromBody] CreateMaterialVersionRequest request, CancellationToken ct)
+    {
+        var result = await versions.CreateAsync(User.GetUserId(), request, ct);
+        return Created($"/api/materials/{result.LearningMaterialId}/versions/{result.VersionId}", result);
+    }
 }
 
 // Member certificates. Keep: CertificatesController, route api/certificates
 [ApiController]
 [Route("api/certificates")]
 [Authorize]
-public class CertificatesController(ICertificateService certificates) : ControllerBase
+public class CertificatesController(ICertificateService certificates, ICertificateWorkflowService workflow) : ControllerBase
 {
     [HttpGet("my")]
     public async Task<ActionResult<IReadOnlyList<CertificateDto>>> My(CancellationToken ct)
         => Ok(await certificates.GetMyAsync(User.GetUserId(), ct));
+
+    [HttpPost("requests")]
+    [Authorize(Roles = "Member")]
+    [LaterPhaseApiErrors]
+    public async Task<ActionResult<CertificateRequestDto>> RequestCertificate(
+        [FromBody] SubmitCertificateRequest request, CancellationToken ct)
+    {
+        var result = await workflow.SubmitAsync(User.GetUserId(), request, ct);
+        return Created($"/api/certificates/requests/{result.Id}", result);
+    }
 }

@@ -116,6 +116,7 @@ export const creditsApi = {
 
 export const certificatesApi = {
   my: () => apiRequest('/api/certificates/my'),
+  request: (enrollmentId) => apiRequest('/api/certificates/requests', { method: 'POST', body: { enrollmentId } }),
 };
 
 export const usersApi = {

@@ -1,22 +1,26 @@
 import { useSearchParams } from 'react-router-dom';
 import AdminCourseReviewsPage from './AdminCourseReviewsPage';
 import AdminRoleRequestsPage from './AdminRoleRequestsPage';
+import AdminLaterApprovalsPage from './AdminLaterApprovalsPage';
 
 const QUEUES = [
   { id: 'roles', label: 'Role requests', detail: 'Trainer & Creator' },
   { id: 'courses', label: 'Course reviews', detail: 'Publish & reject' },
+  { id: 'materials', label: 'Material versions', detail: 'Approve Trainer use' },
+  { id: 'certificates', label: 'Certificates', detail: 'Final issuance gate' },
 ];
 
 export default function AdminApprovalsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeQueue = searchParams.get('queue') === 'courses' ? 'courses' : 'roles';
+  const requestedQueue = searchParams.get('queue');
+  const activeQueue = QUEUES.some((queue) => queue.id === requestedQueue) ? requestedQueue : 'roles';
 
   return (
     <div className="admin-approval-desk">
       <div className="admin-approval-switch" role="group" aria-label="Approval queues">
         <div className="admin-approval-switch-label">
           <span>Approval desk</span>
-          <small>02 governed queues</small>
+          <small>04 governed queues</small>
         </div>
         {QUEUES.map((queue, index) => (
           <button
@@ -40,7 +44,10 @@ export default function AdminApprovalsPage() {
         role="region"
         aria-labelledby={`approval-tab-${activeQueue}`}
       >
-        {activeQueue === 'roles' ? <AdminRoleRequestsPage /> : <AdminCourseReviewsPage />}
+        {activeQueue === 'roles' ? <AdminRoleRequestsPage /> : null}
+        {activeQueue === 'courses' ? <AdminCourseReviewsPage /> : null}
+        {activeQueue === 'materials' ? <AdminLaterApprovalsPage type="materials" /> : null}
+        {activeQueue === 'certificates' ? <AdminLaterApprovalsPage type="certificates" /> : null}
       </div>
     </div>
   );
