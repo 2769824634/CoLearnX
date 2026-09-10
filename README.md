@@ -11,6 +11,8 @@
 
 > 这是一份 **B/D 代码完成范围声明与 GitHub 运行说明**。它描述当前分支实际已经提交的功能，并清楚区分仍需 A/C 配合完成的页面、业务契约与正式 migration；不将未完成部分表述为已完成。
 
+课程资料绑定、Azure Blob、PayPal 充值的功能说明见 [`docs/README_MATERIALS_PAYPAL_AZURE.md`](docs/README_MATERIALS_PAYPAL_AZURE.md)。线上配置与冒烟测试见 [`docs/DEVLOG_20260910_AZURE_PAYPAL.md`](docs/DEVLOG_20260910_AZURE_PAYPAL.md)。
+
 ## 1. 版本结论
 
 `20290909TrainerAdmin` 是完整的 `web-base` 本地集成版本，不是增量代码包。克隆该分支后，项目已经包含后端、React 前端、测试、B/D 实现说明与 A/C 协作说明；首次安装依赖并启动后即可本地运行。
@@ -222,7 +224,7 @@ dotnet dev-certs https --trust
 | Member | 普通登录页 | `huang.yousheng@colearnx.com` | `Password123!` |
 | Trainer | 普通登录页 | `gu.yincheng@colearnx.com` | `Password123!` |
 | Creator | 普通登录页 | `zou.ruiqi@colearnx.com` | `Password123!` |
-| Admin | `/admin/login` 或 operations sign-in | `zhu.zirui@colearnx.com` | `Password123!` |
+| Admin | `/admin/login`（地址栏手动打开，普通登录页无入口） | `zhu.zirui@colearnx.com` | `Password123!` |
 
 Trainer/Creator/Member 需要使用普通登录页，并选择各自的 active role。Admin 必须从独立入口登录；Admin 不会出现在普通角色选择器中。
 

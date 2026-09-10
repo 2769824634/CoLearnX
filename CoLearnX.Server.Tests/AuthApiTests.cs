@@ -124,6 +124,7 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
         var error = await ApiClient.ReadErrorAsync(response);
         Assert.NotNull(error);
         Assert.Equal("LOGIN_FAILED", error.Code);
+        Assert.Contains("operations sign-in", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

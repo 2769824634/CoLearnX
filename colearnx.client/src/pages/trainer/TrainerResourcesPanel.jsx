@@ -13,13 +13,13 @@ export default function TrainerResourcesPanel({ token, intake }) {
   const sessions = intake.sessions;
 
   const load = useCallback((signal) => Promise.all([
-    trainerLaterPhaseApi.availableMaterials(token, signal),
+    trainerLaterPhaseApi.availableMaterials(token, signal, intake.courseId),
     trainerLaterPhaseApi.intakeMaterials(token, intake.id, signal),
     Promise.all(sessions.map(async (session) => ({
       sessionId: session.id,
       items: await trainerLaterPhaseApi.recordings(token, intake.id, session.id, signal),
     }))),
-  ]).then(([available, attached, recordings]) => ({ available, attached, recordings })), [token, intake.id, sessions]);
+  ]).then(([available, attached, recordings]) => ({ available, attached, recordings })), [token, intake.id, intake.courseId, sessions]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -45,7 +45,7 @@ export default function TrainerResourcesPanel({ token, intake }) {
   }
 
   const attachedIds = new Set(data?.attached.map((item) => item.materialVersionId) || []);
-  const selectableMaterials = data?.available.filter((item) => !attachedIds.has(item.versionId)) || [];
+  const selectableMaterials = data?.available.filter((item) => item.courseId === intake.courseId && !attachedIds.has(item.versionId)) || [];
   return <section className="later-panel trainer-resource-panel">
     <div className="trainer-section-heading"><div><p className="trainer-eyebrow">Delivery resources</p><h2>Materials & recordings</h2></div></div>
     <TrainerError error={error} />

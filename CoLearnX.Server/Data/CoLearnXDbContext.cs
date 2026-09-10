@@ -26,6 +26,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<LearningMaterial> LearningMaterials => Set<LearningMaterial>();
     public DbSet<CourseMaterial> CourseMaterials => Set<CourseMaterial>();
+    public DbSet<CourseIntakeRequest> CourseIntakeRequests => Set<CourseIntakeRequest>();
     public DbSet<MaterialUsageLog> MaterialUsageLogs => Set<MaterialUsageLog>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
@@ -139,6 +140,13 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
         modelBuilder.Entity<CourseMaterial>(e =>
         {
             e.HasKey(x => new { x.CourseId, x.LearningMaterialId });
+        });
+
+        modelBuilder.Entity<CourseIntakeRequest>(e =>
+        {
+            e.HasIndex(x => new { x.CourseId, x.UserId }).IsUnique();
+            e.HasOne(x => x.Course).WithMany(c => c.IntakeRequests).HasForeignKey(x => x.CourseId);
+            e.HasOne(x => x.User).WithMany(u => u.IntakeRequests).HasForeignKey(x => x.UserId);
         });
 
         modelBuilder.Entity<Enrollment>(e =>

@@ -147,7 +147,14 @@ public record MaterialDto(
     string Category,
     string Status,
     string CreatorName,
-    int Version);
+    int Version,
+    int CourseId = 0,
+    string? CourseCode = null,
+    string? CourseTitle = null);
+
+public record StorageStatusDto(string Provider, bool CloudLinks, string? Container);
+
+public record MaterialCloudLinkDto(string Url, DateTime ExpiresAtUtc);
 
 public record ApiError(string Code, string Message,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]

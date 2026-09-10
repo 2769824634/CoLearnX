@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 import Modal from '../components/Modal';
 import { authApi } from '../api';
@@ -106,9 +106,6 @@ export default function LoginPage() {
             <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
               {busy && !roleOpen ? 'Signing in…' : 'Sign in'}
             </button>
-            <div className="auth-footer auth-secondary-entry" style={{ marginTop: 12 }}>
-              Invited administrator? <Link to="/admin/login">Use the operations sign-in</Link>
-            </div>
           </form>
         </div>
       </div>
