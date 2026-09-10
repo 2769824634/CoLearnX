@@ -20,15 +20,42 @@ internal static class ApiClient
     public static HttpClient Anonymous(CoLearnXApiFactory factory)
         => factory.CreateClient();
 
-    public static async Task<HttpClient> AsMemberAsync(
+    public static Task<HttpClient> AsMemberAsync(
         CoLearnXApiFactory factory,
         string email = SeedData.MemberEmail,
+        string password = SeedData.DemoPassword)
+        => AsRoleAsync(factory, email, "Member", password);
+
+    public static Task<HttpClient> AsCreatorAsync(CoLearnXApiFactory factory)
+        => AsRoleAsync(factory, SeedData.CreatorEmail, "Creator");
+
+    public static async Task<HttpClient> AsOperationsAdminAsync(CoLearnXApiFactory factory)
+    {
+        var client = factory.CreateClient();
+        var login = await client.PostAsJsonAsync(
+            "/api/admin/auth/login",
+            new AdminLoginRequest(SeedData.AdminEmail, SeedData.DemoPassword),
+            ApiJson.Options);
+        login.EnsureSuccessStatusCode();
+        var body = await login.Content.ReadFromJsonAsync<AdminAuthResponse>(ApiJson.Options)
+            ?? throw new InvalidOperationException("Admin login returned no body.");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body.AccessToken);
+        return client;
+    }
+
+    public static Task<HttpClient> AsAdminAsync(CoLearnXApiFactory factory)
+        => AsRoleAsync(factory, SeedData.AdminEmail, "Admin");
+
+    public static async Task<HttpClient> AsRoleAsync(
+        CoLearnXApiFactory factory,
+        string email,
+        string role,
         string password = SeedData.DemoPassword)
     {
         var client = factory.CreateClient();
         var login = await client.PostAsJsonAsync(
             "/api/auth/login",
-            new LoginRequest(email, password, "Member"),
+            new LoginRequest(email, password, role),
             ApiJson.Options);
         login.EnsureSuccessStatusCode();
         var body = await login.Content.ReadFromJsonAsync<AuthResponse>(ApiJson.Options)

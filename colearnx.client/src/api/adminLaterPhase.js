@@ -1,4 +1,4 @@
-import { apiRequest } from './client.js';
+import { apiRequest, downloadFile } from './client.js';
 
 export const adminLaterPhaseApi = {
   ledger: (token, filters = {}, signal) => {
@@ -15,6 +15,7 @@ export const adminLaterPhaseApi = {
   reviewMaterial: (token, versionId, decision, reason) => apiRequest(`/api/admin/material-versions/${encodeURIComponent(versionId)}/review`, {
     method: 'POST', token, body: { decision, reason: reason || null },
   }),
+  downloadMaterial: (token, versionId, fileName) => downloadFile(`/api/admin/material-versions/${encodeURIComponent(versionId)}/file`, fileName, token),
   certificateRequests: (token, status, signal) => apiRequest(`/api/admin/certificate-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`, { token, signal }),
   reviewCertificate: (token, requestId, decision, reason) => apiRequest(`/api/admin/certificate-requests/${encodeURIComponent(requestId)}/review`, {
     method: 'POST', token, body: { decision, reason: reason || null },

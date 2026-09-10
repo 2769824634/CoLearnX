@@ -30,6 +30,7 @@ import MemberProgramsPage from '../pages/member/MemberProgramsPage';
 import MemberPaymentPage from '../pages/member/MemberPaymentPage';
 import MemberBadgesPage from '../pages/member/MemberBadgesPage';
 import MemberAccountPage from '../pages/member/MemberAccountPage';
+import CreatorUploadPage from '../pages/creator/CreatorUploadPage';
 
 function MemberToastHost() {
   const { toast } = useMemberData();
@@ -93,7 +94,7 @@ export default function AppRouter() {
             <Route path="courses/:courseId" element={<CreatorCourseFormPage />} />
             <Route path="courses/intake-applications" element={<CreatorIntakeApplicationsPage />} />
             <Route path="courses/intake-applications/:courseIntakeId" element={<CreatorIntakeApplicationDetailPage />} />
-            <Route path="upload" element={stub('Upload Material (CRT-01)', 'Three-step upload wizard → Admin review.')} />
+            <Route path="upload" element={<CreatorUploadPage />} />
             <Route path="usage" element={stub('Usage Records (CRT-03)', 'Adoption + royalty analytics.')} />
             <Route path="account" element={stub('My Account', 'Masked account + Edit Profile modal.')} />
             <Route index element={<Navigate to="home" replace />} />

@@ -46,7 +46,7 @@ describe('Creator Course workspace', () => {
     expect(await screen.findByRole('heading', { name: 'Course workspace' })).toBeTruthy();
     expect(screen.getByText('Accessible Learning')).toBeTruthy();
     expect(screen.getByRole('link', { name: /Intake applications/i })).toBeTruthy();
-    expect(screen.getByRole('link', { name: /Create Course/i })).toBeTruthy();
+    expect(screen.getAllByRole('link', { name: /Create Course/i }).length).toBeGreaterThan(0);
   });
 
   it('creates a draft and submits it for approval', async () => {
@@ -64,6 +64,9 @@ describe('Creator Course workspace', () => {
       if (path === '/api/creator/courses/44/submit') {
         return json(course({ id: 44, status: 'PendingApproval' }));
       }
+      if (String(path).startsWith('/api/materials')) {
+        return json([]);
+      }
       return json(course({ id: 44 }));
     }));
 
@@ -76,6 +79,8 @@ describe('Creator Course workspace', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Create Course' })).toBeTruthy();
+    expect(screen.getByLabelText('Files to upload when this Course is saved')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save and submit for approval' })).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Course code'), { target: { value: 'CRT-44' } });
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Inclusive Design' } });
     fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'Design' } });

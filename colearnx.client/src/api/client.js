@@ -29,16 +29,16 @@ export class ApiError extends Error {
 }
 
 // Fetch helper for /api/*. Shared: apiRequest, ApiError
-export async function apiRequest(path, { method = 'GET', body, token, signal } = {}) {
+export async function apiRequest(path, { method = 'GET', body, token, signal, asForm = false } = {}) {
   const headers = { Accept: 'application/json' };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (body !== undefined && !asForm) headers['Content-Type'] = 'application/json';
   const auth = token ?? getStoredToken();
   if (auth) headers.Authorization = `Bearer ${auth}`;
 
   const res = await fetch(path, {
     method,
     headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : asForm ? body : JSON.stringify(body),
     signal,
   });
 
@@ -56,4 +56,32 @@ export async function apiRequest(path, { method = 'GET', body, token, signal } =
     throw new ApiError(data?.code || 'HTTP_ERROR', data?.message || data?.title || res.statusText, res.status, data?.fieldErrors ?? {});
   }
   return data;
+}
+
+export async function downloadFile(path, fileName, token) {
+  const headers = { Accept: '*/*' };
+  const auth = token ?? getStoredToken();
+  if (auth) headers.Authorization = `Bearer ${auth}`;
+
+  const res = await fetch(path, { headers });
+  if (!res.ok) {
+    let message = res.statusText;
+    try {
+      const data = await res.json();
+      message = data?.message || message;
+    } catch {
+      /* not JSON */
+    }
+    throw new ApiError('DOWNLOAD_FAILED', message, res.status);
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName || 'material';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
