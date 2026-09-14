@@ -73,6 +73,7 @@ public sealed class LaterPhaseWorkflowIntegrationTests
             filePath = "materials/safe.pdf",
             format = "PDF",
             category = "Design",
+            courseId = 200,
         });
         var versionId = (await Body(upload)).GetProperty("versionId").GetInt32();
         using var approved = await admin.PostAsJsonAsync($"/api/admin/material-versions/{versionId}/review",
@@ -100,6 +101,7 @@ public sealed class LaterPhaseWorkflowIntegrationTests
             filePath = "materials/later-phase-v1.pdf",
             format = "PDF",
             category = "Design",
+            courseId = 200,
         });
         Assert.Equal(HttpStatusCode.Created, upload.StatusCode);
         var uploaded = await Body(upload);

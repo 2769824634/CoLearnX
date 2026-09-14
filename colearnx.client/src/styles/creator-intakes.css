@@ -21,6 +21,7 @@
 .creator-error { display: grid; gap: 8px; margin: 16px 0; padding: 16px; border: 1px solid var(--warn); border-left-width: 4px; border-radius: var(--radius); overflow-wrap: anywhere; }
 .creator-error code { font-size: 11px; }
 .creator-review-card { display: block; max-width: 620px; padding: 28px; border: 1px solid var(--border); border-left: 4px solid var(--purple); border-radius: var(--radius); color: var(--charcoal); text-decoration: none; }
+.creator-review-card + .creator-review-card { margin-top: 16px; }
 .creator-review-card strong { display: block; margin: 10px 0; font-size: 24px; }
 .creator-review-card p { color: var(--slate); line-height: 1.7; }
 .creator-back { display: inline-block; margin: 8px 0; font-size: 12px; }

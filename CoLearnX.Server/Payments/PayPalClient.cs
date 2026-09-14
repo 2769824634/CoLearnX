@@ -17,7 +17,7 @@ public class PayPalOptions
 
 public record PayPalClientConfigDto(string ClientId, string Currency, string Mode, bool Enabled);
 
-public record CreatePayPalOrderRequest(int CreditPackageId);
+public record CreatePayPalOrderRequest(int CreditPackageId, string? ReturnUrl = null);
 
 public record CreatePayPalOrderResponse(string OrderId, int CreditPackageId, decimal Amount, string Currency);
 
@@ -27,24 +27,38 @@ public record CapturePayPalOrderRequest(string OrderId);
 public interface IPayPalClient
 {
     PayPalClientConfigDto GetPublicConfig();
-    Task<string> CreateOrderAsync(decimal amount, string currency, string customId, string description, CancellationToken ct = default);
+    Task<string> CreateOrderAsync(decimal amount, string currency, string customId, string description, string? returnUrl, CancellationToken ct = default);
     Task<(bool Success, string Status, string? CaptureId)> CaptureOrderAsync(string orderId, CancellationToken ct = default);
 }
 
 public class PayPalClient(IHttpClientFactory httpClientFactory, Microsoft.Extensions.Options.IOptions<PayPalOptions> options) : IPayPalClient
 {
     private readonly PayPalOptions _options = options.Value;
+    private readonly SemaphoreSlim _tokenLock = new(1, 1);
     private string? _cachedToken;
     private DateTime _tokenExpiresAt = DateTime.MinValue;
 
     public PayPalClientConfigDto GetPublicConfig()
         => new(_options.ClientId, _options.Currency, _options.Mode, _options.IsConfigured);
 
-    public async Task<string> CreateOrderAsync(decimal amount, string currency, string customId, string description, CancellationToken ct = default)
+    public async Task<string> CreateOrderAsync(decimal amount, string currency, string customId, string description, string? returnUrl, CancellationToken ct = default)
     {
         EnsureConfigured();
         var token = await GetAccessTokenAsync(ct);
         var client = httpClientFactory.CreateClient("PayPal");
+        var safeReturn = PayPalReturnUrls.Normalize(returnUrl);
+
+        var applicationContext = new Dictionary<string, string>
+        {
+            ["brand_name"] = "CoLearnX",
+            ["user_action"] = "PAY_NOW",
+            ["shipping_preference"] = "NO_SHIPPING",
+        };
+        if (safeReturn is not null)
+        {
+            applicationContext["return_url"] = safeReturn;
+            applicationContext["cancel_url"] = safeReturn;
+        }
 
         var payload = new
         {
@@ -62,6 +76,7 @@ public class PayPalClient(IHttpClientFactory httpClientFactory, Microsoft.Extens
                     },
                 },
             },
+            application_context = applicationContext,
         };
 
         using var req = new HttpRequestMessage(HttpMethod.Post, $"{_options.BaseUrl.TrimEnd('/')}/v2/checkout/orders");
@@ -71,7 +86,7 @@ public class PayPalClient(IHttpClientFactory httpClientFactory, Microsoft.Extens
         using var res = await client.SendAsync(req, ct);
         var body = await res.Content.ReadAsStringAsync(ct);
         if (!res.IsSuccessStatusCode)
-            throw new InvalidOperationException($"PayPal create order failed: {(int)res.StatusCode} {body}");
+            throw new InvalidOperationException(FormatPayPalFailure("create order", res.StatusCode, body));
 
         using var doc = System.Text.Json.JsonDocument.Parse(body);
         var orderId = doc.RootElement.GetProperty("id").GetString();
@@ -93,7 +108,11 @@ public class PayPalClient(IHttpClientFactory httpClientFactory, Microsoft.Extens
         using var res = await client.SendAsync(req, ct);
         var body = await res.Content.ReadAsStringAsync(ct);
         if (!res.IsSuccessStatusCode)
-            throw new InvalidOperationException($"PayPal capture failed: {(int)res.StatusCode} {body}");
+        {
+            if (body.Contains("ORDER_ALREADY_CAPTURED", StringComparison.OrdinalIgnoreCase))
+                return (true, "COMPLETED", null);
+            throw new InvalidOperationException(FormatPayPalFailure("capture", res.StatusCode, body));
+        }
 
         using var doc = System.Text.Json.JsonDocument.Parse(body);
         var status = doc.RootElement.GetProperty("status").GetString() ?? "UNKNOWN";
@@ -105,7 +124,7 @@ public class PayPalClient(IHttpClientFactory httpClientFactory, Microsoft.Extens
                 captureId = captures[0].GetProperty("id").GetString();
         }
 
-        return (status is "COMPLETED" or "APPROVED", status, captureId);
+        return (status == "COMPLETED", status, captureId);
     }
 
     private void EnsureConfigured()
@@ -119,26 +138,96 @@ public class PayPalClient(IHttpClientFactory httpClientFactory, Microsoft.Extens
         if (!string.IsNullOrEmpty(_cachedToken) && DateTime.UtcNow < _tokenExpiresAt)
             return _cachedToken;
 
-        var client = httpClientFactory.CreateClient("PayPal");
-        var credentials = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{_options.ClientId}:{_options.ClientSecret}"));
-
-        using var req = new HttpRequestMessage(HttpMethod.Post, $"{_options.BaseUrl.TrimEnd('/')}/v1/oauth2/token");
-        req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
-        req.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+        await _tokenLock.WaitAsync(ct);
+        try
         {
-            ["grant_type"] = "client_credentials",
-        });
+            if (!string.IsNullOrEmpty(_cachedToken) && DateTime.UtcNow < _tokenExpiresAt)
+                return _cachedToken;
 
-        using var res = await client.SendAsync(req, ct);
-        var body = await res.Content.ReadAsStringAsync(ct);
-        if (!res.IsSuccessStatusCode)
-            throw new InvalidOperationException($"PayPal OAuth failed: {(int)res.StatusCode} {body}");
+            var client = httpClientFactory.CreateClient("PayPal");
+            var credentials = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{_options.ClientId}:{_options.ClientSecret}"));
 
-        using var doc = System.Text.Json.JsonDocument.Parse(body);
-        _cachedToken = doc.RootElement.GetProperty("access_token").GetString()
-            ?? throw new InvalidOperationException("PayPal OAuth returned no access_token.");
-        var expiresIn = doc.RootElement.TryGetProperty("expires_in", out var exp) ? exp.GetInt32() : 300;
-        _tokenExpiresAt = DateTime.UtcNow.AddSeconds(Math.Max(60, expiresIn - 60));
-        return _cachedToken;
+            using var req = new HttpRequestMessage(HttpMethod.Post, $"{_options.BaseUrl.TrimEnd('/')}/v1/oauth2/token");
+            req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
+            req.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "client_credentials",
+            });
+
+            using var res = await client.SendAsync(req, ct);
+            var body = await res.Content.ReadAsStringAsync(ct);
+            if (!res.IsSuccessStatusCode)
+                throw new InvalidOperationException(FormatPayPalFailure("OAuth", res.StatusCode, body));
+
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            _cachedToken = doc.RootElement.GetProperty("access_token").GetString()
+                ?? throw new InvalidOperationException("PayPal OAuth returned no access_token.");
+            var expiresIn = doc.RootElement.TryGetProperty("expires_in", out var exp) ? exp.GetInt32() : 300;
+            _tokenExpiresAt = DateTime.UtcNow.AddSeconds(Math.Max(60, expiresIn - 60));
+            return _cachedToken;
+        }
+        finally
+        {
+            _tokenLock.Release();
+        }
+    }
+
+    private static string FormatPayPalFailure(string action, System.Net.HttpStatusCode status, string body)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            var name = root.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
+            var message = root.TryGetProperty("message", out var messageEl) ? messageEl.GetString() : null;
+            string? issue = null;
+            if (root.TryGetProperty("details", out var details) && details.ValueKind == System.Text.Json.JsonValueKind.Array
+                && details.GetArrayLength() > 0)
+            {
+                var first = details[0];
+                issue = first.TryGetProperty("issue", out var issueEl) ? issueEl.GetString() : null;
+                if (first.TryGetProperty("description", out var descriptionEl))
+                    message = descriptionEl.GetString() ?? message;
+            }
+
+            var debugId = root.TryGetProperty("debug_id", out var debugEl) ? debugEl.GetString() : null;
+            var detail = string.Join(" ", new[] { issue, name, message }.Where(part => !string.IsNullOrWhiteSpace(part)));
+            if (string.Equals(issue, "TRANSACTION_REFUSED", StringComparison.OrdinalIgnoreCase))
+                detail += " Payer funding was declined, or the sandbox Business account is not set to accept AUD.";
+            else if (string.Equals(issue, "ORDER_NOT_APPROVED", StringComparison.OrdinalIgnoreCase))
+                detail += " The buyer did not approve the PayPal order.";
+
+            if (!string.IsNullOrWhiteSpace(debugId))
+                detail = $"{detail} debug_id={debugId}";
+
+            if (!string.IsNullOrWhiteSpace(detail))
+                return $"PayPal {action} failed ({(int)status}): {detail}";
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            /* raw body below */
+        }
+
+        return $"PayPal {action} failed ({(int)status}): {body}";
+    }
+}
+
+public static class PayPalReturnUrls
+{
+    public static string? Normalize(string? url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return null;
+
+        var local = uri.Host is "localhost" or "127.0.0.1";
+        var tunnel = uri.Host.EndsWith(".devtunnels.ms", StringComparison.OrdinalIgnoreCase);
+        if (!local && !tunnel)
+            return null;
+        if (!local && uri.Scheme != Uri.UriSchemeHttps)
+            return null;
+        if (!uri.AbsolutePath.StartsWith("/member/payment", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return uri.GetLeftPart(UriPartial.Path).TrimEnd('/');
     }
 }

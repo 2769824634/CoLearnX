@@ -1,5 +1,0 @@
-<Solution>
-  <Project DefaultStartup="true" Path="CoLearnX.Server/CoLearnX.Server.csproj" />
-  <Project Path="CoLearnX.Server.Tests/CoLearnX.Server.Tests.csproj" />
-  <Project Path="colearnx.client/colearnx.client.esproj" />
-</Solution>

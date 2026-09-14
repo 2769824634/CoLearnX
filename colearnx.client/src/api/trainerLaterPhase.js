@@ -3,7 +3,10 @@ import { apiRequest } from './client.js';
 const intakePath = (id) => `/api/trainer/intakes/${encodeURIComponent(id)}`;
 
 export const trainerLaterPhaseApi = {
-  availableMaterials: (token, signal) => apiRequest('/api/trainer/learning-materials', { token, signal }),
+  availableMaterials: (token, signal, courseId) => apiRequest(
+    `/api/trainer/learning-materials${courseId ? `?courseId=${encodeURIComponent(courseId)}` : ''}`,
+    { token, signal },
+  ),
   intakeMaterials: (token, intakeId, signal) => apiRequest(`${intakePath(intakeId)}/learning-materials`, { token, signal }),
   attachMaterial: (token, intakeId, materialVersionId) => apiRequest(`${intakePath(intakeId)}/learning-materials`, {
     method: 'POST', token, body: { materialVersionId },

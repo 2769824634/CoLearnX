@@ -380,3 +380,6 @@ deliverables/
 AGENT-PIPELINE.md
 AGENTS.md
 CLAUDE.md
+
+# Local material uploads (used when Azure connection string is empty)
+CoLearnX.Server/App_Data/

@@ -41,6 +41,13 @@ public enum CourseIntakeApplicationStatus
     Rejected = 2
 }
 
+public enum CourseIntakeRequestStatus
+{
+    Pending = 0,
+    Fulfilled = 1,
+    Cancelled = 2
+}
+
 public enum MaterialStatus
 {
     Draft = 0,

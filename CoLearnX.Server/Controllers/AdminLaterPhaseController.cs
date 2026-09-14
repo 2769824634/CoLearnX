@@ -25,6 +25,20 @@ public sealed class AdminLaterPhaseController(
         CancellationToken ct)
         => Ok(await materials.ReviewAsync(User.GetAdminAccountId(), versionId, request, ct));
 
+    [HttpGet("material-versions/{versionId:int}/file")]
+    public async Task<IActionResult> DownloadMaterial(int versionId, CancellationToken ct)
+    {
+        try
+        {
+            var file = await materials.OpenFileAsync(versionId, ct);
+            return File(file.Stream, file.ContentType, file.DownloadName);
+        }
+        catch (FileNotFoundException)
+        {
+            return NotFound(new ApiError("NOT_FOUND", "Material file not found."));
+        }
+    }
+
     [HttpGet("certificate-requests")]
     public async Task<ActionResult<IReadOnlyList<CertificateRequestDto>>> CertificateRequests([FromQuery] string? status,
         CancellationToken ct)

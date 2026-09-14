@@ -3,10 +3,13 @@ using CoLearnX.Server.Auth;
 using CoLearnX.Server.Data;
 using CoLearnX.Server.Payments;
 using CoLearnX.Server.Services;
+using CoLearnX.Server.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,6 +57,20 @@ builder.Services.AddScoped<IMaterialVersionService, MaterialVersionService>();
 builder.Services.AddScoped<ITrainerLaterPhaseService, TrainerLaterPhaseService>();
 builder.Services.AddScoped<ICertificateWorkflowService, CertificateWorkflowService>();
 builder.Services.AddScoped<IAdminFinanceService, AdminFinanceService>();
+builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection(StorageOptions.SectionName));
+builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = MaterialFiles.MaxRequestBytes);
+builder.Services.AddSingleton<IFileStorage>(sp =>
+{
+    var opts = sp.GetRequiredService<IOptions<StorageOptions>>().Value;
+    if (opts.UseAzure)
+        return new AzureBlobFileStorage(sp.GetRequiredService<IOptions<StorageOptions>>());
+
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    var root = string.IsNullOrWhiteSpace(opts.RootPath)
+        ? Path.Combine(env.ContentRootPath, "App_Data", "uploads")
+        : opts.RootPath;
+    return new LocalFileStorage(root);
+});
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -110,6 +127,13 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
     await SeedData.InitializeAsync(db);
 }
+
+var storage = app.Services.GetRequiredService<IFileStorage>();
+app.Logger.LogInformation(
+    "File storage: {Provider} container={Container} cloudLinks={CloudLinks}",
+    storage.Provider,
+    storage.Container ?? "(local disk)",
+    storage.CanIssueCloudLinks);
 
 app.UseDefaultFiles();
 app.MapStaticAssets();

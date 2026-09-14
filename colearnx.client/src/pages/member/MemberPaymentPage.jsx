@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
 import PayPalPackageButtons from '../../components/PayPalPackageButtons';
+import { creditsApi } from '../../api';
 import { useMemberData } from './memberDataState';
 
 // Fixed credit packages + PayPal.
@@ -10,6 +11,7 @@ export default function MemberPaymentPage() {
   const [tab, setTab] = useState('topup');
   const [selectedId, setSelectedId] = useState(null);
   const [success, setSuccess] = useState(null);
+  const capturingReturn = useRef(false);
 
   const selected = state.packages.find((p) => p.id === selectedId) || state.packages[0];
 
@@ -31,6 +33,27 @@ export default function MemberPaymentPage() {
     },
     [showToast],
   );
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('cancelled') === 'true') {
+      showToast('Payment cancelled');
+      window.history.replaceState({}, '', '/member/payment');
+      return undefined;
+    }
+
+    const orderId = params.get('token') || params.get('orderID');
+    if (!orderId || capturingReturn.current) return undefined;
+    capturingReturn.current = true;
+
+    creditsApi.capturePayPalOrder(orderId)
+      .then((ledger) => onCaptured(ledger))
+      .catch((error) => showToast(error.message || 'PayPal capture failed'))
+      .finally(() => {
+        window.history.replaceState({}, '', '/member/payment');
+      });
+    return undefined;
+  }, [onCaptured, showToast]);
 
   return (
     <>

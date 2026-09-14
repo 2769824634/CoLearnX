@@ -7,7 +7,8 @@ public record CreateMaterialVersionRequest(
     [MaxLength(1000)] string? Description,
     [Required, MaxLength(512)] string FilePath,
     [Required, MaxLength(32)] string Format,
-    [Required, MaxLength(80)] string Category);
+    [Required, MaxLength(80)] string Category,
+    [Range(1, int.MaxValue)] int CourseId);
 
 public record MaterialVersionDto(
     int VersionId,
@@ -23,7 +24,10 @@ public record MaterialVersionDto(
     string? ReviewReason,
     DateTime SubmittedAt,
     DateTime? ReviewedAt,
-    bool AlreadyReviewed = false);
+    bool AlreadyReviewed = false,
+    int CourseId = 0,
+    string? CourseCode = null,
+    string? CourseTitle = null);
 
 public record AttachIntakeMaterialRequest([Range(1, int.MaxValue)] int MaterialVersionId);
 

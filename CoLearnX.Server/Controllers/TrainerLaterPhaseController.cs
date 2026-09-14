@@ -15,8 +15,8 @@ public sealed class TrainerLaterPhaseController(
     ICertificateWorkflowService certificates) : ControllerBase
 {
     [HttpGet("learning-materials")]
-    public async Task<ActionResult<IReadOnlyList<MaterialVersionDto>>> AvailableMaterials(CancellationToken ct)
-        => Ok(await trainer.ListAvailableMaterialsAsync(User.GetUserId(), ct));
+    public async Task<ActionResult<IReadOnlyList<MaterialVersionDto>>> AvailableMaterials([FromQuery] int? courseId, CancellationToken ct)
+        => Ok(await trainer.ListAvailableMaterialsAsync(User.GetUserId(), courseId, ct));
 
     [HttpGet("intakes/{courseIntakeId:int}/learning-materials")]
     public async Task<ActionResult<IReadOnlyList<IntakeMaterialDto>>> IntakeMaterials(int courseIntakeId, CancellationToken ct)

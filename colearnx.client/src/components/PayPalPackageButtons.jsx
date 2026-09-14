@@ -12,9 +12,17 @@ function loadPayPalSdk(clientId, currency) {
         });
   }
 
+  const params = new URLSearchParams({
+    'client-id': clientId,
+    currency,
+    intent: 'capture',
+    components: 'buttons',
+    'disable-funding': 'paylater,venmo',
+  });
+
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=${encodeURIComponent(currency)}&intent=capture`;
+    script.src = `https://www.paypal.com/sdk/js?${params.toString()}`;
     script.async = true;
     script.dataset.colearnxPaypal = '1';
     script.onload = () => resolve(window.paypal);
@@ -55,11 +63,16 @@ export default function PayPalPackageButtons({ packageId, onCaptured, onError })
             return order.orderId;
           },
           onApprove: async (data) => {
-            const ledger = await creditsApi.capturePayPalOrder(data.orderID);
-            onCaptured?.(ledger);
+            try {
+              const ledger = await creditsApi.capturePayPalOrder(data.orderID);
+              onCaptured?.(ledger);
+            } catch (err) {
+              onError?.(err?.message || 'PayPal capture failed');
+              throw err;
+            }
           },
           onError: (err) => {
-            onError?.(err?.message || 'PayPal checkout failed');
+            onError?.(err?.message || String(err) || 'PayPal checkout failed');
           },
           onCancel: () => {
             onError?.('Payment cancelled');

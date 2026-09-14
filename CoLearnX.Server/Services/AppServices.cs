@@ -4,6 +4,7 @@ using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
 using CoLearnX.Server.Payments;
+using CoLearnX.Server.Storage;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoLearnX.Server.Services;
@@ -62,11 +63,17 @@ public interface ICertificateService
     Task<IReadOnlyList<CertificateDto>> GetMyAsync(int userId, CancellationToken ct = default);
 }
 
-// Materials list. Keep: IMaterialService, MaterialService
+// Materials list/upload/download. Keep: IMaterialService, MaterialService
 public interface IMaterialService
 {
-    Task<IReadOnlyList<MaterialDto>> ListAsync(MaterialStatus? status, CancellationToken ct = default);
+    Task<IReadOnlyList<MaterialDto>> ListAsync(int userId, MaterialStatus? status, int? courseId = null, CancellationToken ct = default);
+    Task<MaterialDto> UploadAsync(int creatorId, int courseId, string title, string? category, string? description, IFormFile? file, CancellationToken ct = default);
+    Task<MaterialFileResult> OpenDownloadAsync(int userId, int materialId, CancellationToken ct = default);
+    StorageStatusDto GetStorageStatus();
+    Task<MaterialCloudLinkDto> CreateCloudLinkAsync(int userId, int materialId, TimeSpan lifetime, CancellationToken ct = default);
 }
+
+public sealed record MaterialFileResult(Stream Stream, string ContentType, string DownloadName);
 
 // Admin ledger. Keep: IAdminService, AdminService
 public interface IAdminService
@@ -167,6 +174,15 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
     private async Task<User> AuthenticateUserAsync(string email, string password, CancellationToken ct)
     {
         var normalized = email.Trim().ToLowerInvariant();
+        var admin = await db.AdminAccounts.AsNoTracking()
+            .FirstOrDefaultAsync(account => account.Email == normalized, ct);
+        if (admin is not null)
+        {
+            if (admin.IsActive && BCrypt.Net.BCrypt.Verify(password, admin.PasswordHash))
+                throw new UnauthorizedAccessException("Administrators must use the operations sign-in.");
+            throw new UnauthorizedAccessException("Invalid email or password.");
+        }
+
         var user = await db.Users.Include(u => u.Roles).FirstOrDefaultAsync(u => u.Email == normalized, ct)
             ?? throw new UnauthorizedAccessException("Invalid email or password.");
 
@@ -738,7 +754,7 @@ public class CreditService(CoLearnXDbContext db, IPayPalClient payPal, Microsoft
         var amount = package.PayAudCents / 100m;
         var customId = $"u{userId}:p{package.Id}";
         var description = $"CoLearnX credits x{package.Credits}";
-        var orderId = await payPal.CreateOrderAsync(amount, options.Currency, customId, description, ct);
+        var orderId = await payPal.CreateOrderAsync(amount, options.Currency, customId, description, request.ReturnUrl, ct);
 
         db.PaymentTransactions.Add(new PaymentTransaction
         {
@@ -760,7 +776,25 @@ public class CreditService(CoLearnXDbContext db, IPayPalClient payPal, Microsoft
         if (string.IsNullOrWhiteSpace(request.OrderId))
             throw new InvalidOperationException("OrderId is required.");
 
+        var completed = await FindCompletedCaptureAsync(userId, request.OrderId, ct);
+        if (completed is not null)
+            return completed;
+
+        _ = await db.PaymentTransactions.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.UserId == userId && p.ProviderReference == request.OrderId && p.Provider == "PayPal", ct)
+            ?? throw new InvalidOperationException("Payment order not found.");
+
+        var (ok, status, captureId) = await payPal.CaptureOrderAsync(request.OrderId, ct);
+        if (!ok)
+            throw new InvalidOperationException($"PayPal capture status was {status}.");
+
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+        completed = await FindCompletedCaptureAsync(userId, request.OrderId, ct);
+        if (completed is not null)
+        {
+            await tx.CommitAsync(ct);
+            return completed;
+        }
 
         var payment = await db.PaymentTransactions
             .FirstOrDefaultAsync(p => p.UserId == userId && p.ProviderReference == request.OrderId && p.Provider == "PayPal", ct)
@@ -768,20 +802,15 @@ public class CreditService(CoLearnXDbContext db, IPayPalClient payPal, Microsoft
 
         if (payment.Status == PaymentStatus.Completed)
         {
-            var existing = await db.CreditTransactions
-                .Where(t => t.RelatedPaymentId == payment.Id)
-                .OrderByDescending(t => t.Id)
-                .FirstOrDefaultAsync(ct);
-            if (existing is not null)
-            {
-                await tx.CommitAsync(ct);
-                return new CreditLedgerItemDto(existing.Id, existing.CreatedAt, existing.Type.ToString(), existing.Description, existing.Delta, existing.BalanceAfter);
-            }
+            await tx.CommitAsync(ct);
+            return completed ?? new CreditLedgerItemDto(
+                0,
+                payment.CreatedAt,
+                CreditTransactionType.TopUp.ToString(),
+                "PayPal capture already completed.",
+                payment.CreditsGranted,
+                0);
         }
-
-        var (ok, status, captureId) = await payPal.CaptureOrderAsync(request.OrderId, ct);
-        if (!ok)
-            throw new InvalidOperationException($"PayPal capture status was {status}.");
 
         var user = await db.Users.FirstAsync(u => u.Id == userId, ct);
         user.CreditBalance += payment.CreditsGranted;
@@ -813,6 +842,23 @@ public class CreditService(CoLearnXDbContext db, IPayPalClient payPal, Microsoft
 
         return new CreditLedgerItemDto(ledger.Id, ledger.CreatedAt, ledger.Type.ToString(), ledger.Description, ledger.Delta, ledger.BalanceAfter);
     }
+
+    private async Task<CreditLedgerItemDto?> FindCompletedCaptureAsync(int userId, string orderId, CancellationToken ct)
+    {
+        var payment = await db.PaymentTransactions.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.UserId == userId && p.ProviderReference == orderId && p.Provider == "PayPal"
+                && p.Status == PaymentStatus.Completed, ct);
+        if (payment is null)
+            return null;
+
+        var existing = await db.CreditTransactions.AsNoTracking()
+            .Where(t => t.RelatedPaymentId == payment.Id)
+            .OrderByDescending(t => t.Id)
+            .FirstOrDefaultAsync(ct);
+        return existing is null
+            ? null
+            : new CreditLedgerItemDto(existing.Id, existing.CreatedAt, existing.Type.ToString(), existing.Description, existing.Delta, existing.BalanceAfter);
+    }
 }
 
 public class CertificateService(CoLearnXDbContext db) : ICertificateService
@@ -834,16 +880,108 @@ public class CertificateService(CoLearnXDbContext db) : ICertificateService
     }
 }
 
-public class MaterialService(CoLearnXDbContext db) : IMaterialService
+public class MaterialService(CoLearnXDbContext db, IFileStorage files, IMaterialVersionService versions) : IMaterialService
 {
-    public async Task<IReadOnlyList<MaterialDto>> ListAsync(MaterialStatus? status, CancellationToken ct = default)
+    public async Task<IReadOnlyList<MaterialDto>> ListAsync(int userId, MaterialStatus? status, int? courseId = null, CancellationToken ct = default)
     {
-        var query = db.LearningMaterials.AsNoTracking().Include(m => m.Creator).AsQueryable();
+        var query = db.LearningMaterials.AsNoTracking().Include(m => m.Creator)
+            .Where(m => m.CreatorId == userId || m.Status == MaterialStatus.Approved);
         if (status is not null) query = query.Where(m => m.Status == status);
+        if (courseId is int id)
+            query = query.Where(m => m.CourseMaterials.Any(link => link.CourseId == id));
 
         return await query.OrderByDescending(m => m.CreatedAt)
-            .Select(m => new MaterialDto(m.Id, m.Title, m.Format, m.Category, m.Status.ToString(), m.Creator.FullName, m.Version))
+            .Select(m => new MaterialDto(
+                m.Id,
+                m.Title,
+                m.Format,
+                m.Category,
+                m.Status.ToString(),
+                m.Creator.FullName,
+                m.Version,
+                m.CourseMaterials.Select(link => link.CourseId).FirstOrDefault(),
+                m.CourseMaterials.Select(link => link.Course.Code).FirstOrDefault(),
+                m.CourseMaterials.Select(link => link.Course.Title).FirstOrDefault()))
             .ToListAsync(ct);
+    }
+
+    public async Task<MaterialDto> UploadAsync(int creatorId, int courseId, string title, string? category, string? description, IFormFile? file, CancellationToken ct = default)
+    {
+        if (courseId <= 0)
+            throw new LaterPhaseException("COURSE_REQUIRED", "Choose the Course this material belongs to.", field: "courseId");
+        if (string.IsNullOrWhiteSpace(title))
+            throw new InvalidOperationException("Title is required.");
+        if (file is null || file.Length <= 0)
+            throw new InvalidOperationException("A file is required.");
+        if (file.Length > MaterialFiles.MaxBytes)
+            throw new InvalidOperationException("File must be 20 MB or smaller.");
+
+        var ext = MaterialFiles.RequireSafeExtension(file.FileName);
+        if (!await db.Users.AsNoTracking().AnyAsync(u => u.Id == creatorId, ct))
+            throw new InvalidOperationException("Creator not found.");
+        if (!await db.Courses.AsNoTracking().AnyAsync(c => c.Id == courseId && c.CreatorId == creatorId, ct))
+            throw new LaterPhaseException("COURSE_NOT_FOUND", "Course was not found.", 404, "courseId");
+
+        var key = $"materials/{creatorId}/{Guid.NewGuid():N}{ext}";
+        await using (var stream = file.OpenReadStream())
+            await files.SaveAsync(key, stream, MaterialFiles.ContentType(ext), ct);
+
+        var submitted = await versions.CreateAsync(
+            creatorId,
+            new CreateMaterialVersionRequest(
+                title.Trim(),
+                string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                key,
+                MaterialFiles.FormatLabel(ext),
+                string.IsNullOrWhiteSpace(category) ? "General" : category.Trim(),
+                courseId),
+            ct);
+
+        return new MaterialDto(
+            submitted.LearningMaterialId,
+            submitted.Title,
+            submitted.Format,
+            submitted.Category,
+            MaterialStatus.PendingReview.ToString(),
+            submitted.CreatorName,
+            submitted.VersionNumber,
+            submitted.CourseId,
+            submitted.CourseCode,
+            submitted.CourseTitle);
+    }
+
+    public async Task<MaterialFileResult> OpenDownloadAsync(int userId, int materialId, CancellationToken ct = default)
+    {
+        var material = await db.LearningMaterials.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.Id == materialId && (m.CreatorId == userId || m.Status == MaterialStatus.Approved), ct)
+            ?? throw new FileNotFoundException("Material not found.");
+
+        var stream = await files.OpenAsync(material.FilePath, ct)
+            ?? throw new FileNotFoundException("Material file not found.");
+
+        var ext = Path.GetExtension(material.FilePath);
+        return new MaterialFileResult(
+            stream,
+            MaterialFiles.ContentType(ext),
+            MaterialFiles.DownloadName(material.Title, material.FilePath));
+    }
+
+    public StorageStatusDto GetStorageStatus()
+        => new(files.Provider, files.CanIssueCloudLinks, files.Container);
+
+    public async Task<MaterialCloudLinkDto> CreateCloudLinkAsync(int userId, int materialId, TimeSpan lifetime, CancellationToken ct = default)
+    {
+        var material = await db.LearningMaterials.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.Id == materialId && (m.CreatorId == userId || m.Status == MaterialStatus.Approved), ct)
+            ?? throw new FileNotFoundException("Material not found.");
+
+        if (!files.CanIssueCloudLinks)
+            throw new InvalidOperationException("Cloud links require Azure Blob storage.");
+
+        var uri = await files.TryCreateReadUriAsync(material.FilePath, lifetime, ct)
+            ?? throw new FileNotFoundException("Material file not found.");
+
+        return new MaterialCloudLinkDto(uri.ToString(), DateTime.UtcNow.Add(lifetime));
     }
 }
 

@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiRequest, downloadFile } from './client';
 
 // API modules — keep export names: authApi, coursesApi, enrollmentsApi, creditsApi
 export const authApi = {
@@ -109,17 +109,15 @@ export const creditsApi = {
   createPayPalOrder: (creditPackageId) =>
     apiRequest('/api/credits/paypal/create-order', {
       method: 'POST',
-      body: { creditPackageId },
+      body: {
+        creditPackageId,
+        returnUrl: `${window.location.origin}/member/payment`,
+      },
     }),
   capturePayPalOrder: (orderId) =>
     apiRequest('/api/credits/paypal/capture', {
       method: 'POST',
       body: { orderId },
-    }),
-  topUp: (creditPackageId) =>
-    apiRequest('/api/credits/topup', {
-      method: 'POST',
-      body: { creditPackageId },
     }),
 };
 
@@ -131,4 +129,26 @@ export const certificatesApi = {
 export const usersApi = {
   update: (id, payload) =>
     apiRequest(`/api/users/${id}`, { method: 'PUT', body: payload }),
+};
+
+export const materialsApi = {
+  list: (status, courseId, token, signal) => {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (courseId) params.set('courseId', String(courseId));
+    const qs = params.toString();
+    return apiRequest(`/api/materials${qs ? `?${qs}` : ''}`, { token, signal });
+  },
+  storage: (token) => apiRequest('/api/materials/storage', { token }),
+  upload: ({ title, category, description, file, courseId, token }) => {
+    const body = new FormData();
+    body.append('title', title);
+    body.append('courseId', String(courseId));
+    if (category) body.append('category', category);
+    if (description) body.append('description', description);
+    body.append('file', file);
+    return apiRequest('/api/materials', { method: 'POST', body, asForm: true, token });
+  },
+  download: (id, fileName, token) => downloadFile(`/api/materials/${id}/file`, fileName, token),
+  cloudLink: (id, token) => apiRequest(`/api/materials/${id}/cloud-link`, { token }),
 };

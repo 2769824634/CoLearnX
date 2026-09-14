@@ -2,6 +2,7 @@ using CoLearnX.Server.Auth;
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Payments;
 using CoLearnX.Server.Services;
+using CoLearnX.Server.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -263,6 +264,9 @@ public class CreditsController(ICreditService credits, IPayPalClient payPal) : C
     [Authorize(Roles = "Member")]
     public async Task<ActionResult<CreditLedgerItemDto>> TopUp([FromBody] TopUpRequest request, CancellationToken ct)
     {
+        if (payPal.GetPublicConfig().Enabled)
+            return BadRequest(new ApiError("PAYPAL_REQUIRED", "PayPal checkout is configured. Simulated top-up is disabled."));
+
         try
         {
             return Ok(await credits.TopUpAsync(User.GetUserId(), request, ct));
@@ -274,28 +278,91 @@ public class CreditsController(ICreditService credits, IPayPalClient payPal) : C
     }
 }
 
-// Learning materials list/upload stub. Keep: MaterialsController, route api/materials
+// Learning materials list/upload/download. Keep: MaterialsController, route api/materials
 [ApiController]
 [Route("api/materials")]
 [Authorize]
 public class MaterialsController(IMaterialService materials, IMaterialVersionService versions) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<MaterialDto>>> List([FromQuery] string? status, CancellationToken ct)
+    public async Task<ActionResult<IReadOnlyList<MaterialDto>>> List(
+        [FromQuery] string? status,
+        [FromQuery] int? courseId,
+        CancellationToken ct)
     {
         Domain.Enums.MaterialStatus? parsed = null;
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<Domain.Enums.MaterialStatus>(status, true, out var s))
             parsed = s;
-        return Ok(await materials.ListAsync(parsed, ct));
+        return Ok(await materials.ListAsync(User.GetUserId(), parsed, courseId, ct));
+    }
+
+    [HttpGet("storage")]
+    public ActionResult<StorageStatusDto> Storage()
+        => Ok(materials.GetStorageStatus());
+
+    [HttpGet("{id:int}/cloud-link")]
+    public async Task<ActionResult<MaterialCloudLinkDto>> CloudLink(int id, CancellationToken ct)
+    {
+        try
+        {
+            return Ok(await materials.CreateCloudLinkAsync(User.GetUserId(), id, TimeSpan.FromDays(7), ct));
+        }
+        catch (FileNotFoundException)
+        {
+            return NotFound(new ApiError("NOT_FOUND", "Material file not found."));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiError("CLOUD_LINK_UNAVAILABLE", ex.Message));
+        }
     }
 
     [HttpPost]
     [Authorize(Policy = CreatorAuthorization.PolicyName)]
     [LaterPhaseApiErrors]
-    public async Task<ActionResult<MaterialVersionDto>> Upload([FromBody] CreateMaterialVersionRequest request, CancellationToken ct)
+    [Consumes("application/json")]
+    public async Task<ActionResult<MaterialVersionDto>> SubmitVersion([FromBody] CreateMaterialVersionRequest request, CancellationToken ct)
     {
         var result = await versions.CreateAsync(User.GetUserId(), request, ct);
         return Created($"/api/materials/{result.LearningMaterialId}/versions/{result.VersionId}", result);
+    }
+
+    [HttpPost]
+    [Authorize(Policy = CreatorAuthorization.PolicyName)]
+    [LaterPhaseApiErrors]
+    [RequestSizeLimit(MaterialFiles.MaxRequestBytes)]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<MaterialDto>> UploadFile(
+        [FromForm] string title,
+        [FromForm] int courseId,
+        [FromForm] string? category,
+        [FromForm] string? description,
+        [FromForm] IFormFile? file,
+        CancellationToken ct)
+    {
+        try
+        {
+            var created = await materials.UploadAsync(User.GetUserId(), courseId, title, category, description, file, ct);
+            return Created($"/api/materials/{created.Id}", created);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiError("UPLOAD_FAILED", ex.Message));
+        }
+    }
+
+    [HttpGet("{id:int}/file")]
+    public async Task<IActionResult> Download(int id, CancellationToken ct)
+    {
+        try
+        {
+            var file = await materials.OpenDownloadAsync(User.GetUserId(), id, ct);
+            return File(file.Stream, file.ContentType, file.DownloadName);
+        }
+        catch (FileNotFoundException)
+        {
+            return NotFound(new ApiError("NOT_FOUND", "Material file not found."));
+        }
     }
 }
 

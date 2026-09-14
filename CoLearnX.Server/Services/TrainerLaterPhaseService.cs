@@ -8,7 +8,7 @@ namespace CoLearnX.Server.Services;
 
 public interface ITrainerLaterPhaseService
 {
-    Task<IReadOnlyList<MaterialVersionDto>> ListAvailableMaterialsAsync(int trainerUserId, CancellationToken ct = default);
+    Task<IReadOnlyList<MaterialVersionDto>> ListAvailableMaterialsAsync(int trainerUserId, int? courseId = null, CancellationToken ct = default);
     Task<IReadOnlyList<IntakeMaterialDto>> ListMaterialsAsync(int trainerUserId, int intakeId, CancellationToken ct = default);
     Task<IntakeMaterialDto> AttachMaterialAsync(int trainerUserId, int intakeId, AttachIntakeMaterialRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<SessionRecordingDto>> ListRecordingsAsync(int trainerUserId, int intakeId, int sessionId, CancellationToken ct = default);
@@ -22,10 +22,10 @@ public interface ITrainerLaterPhaseService
 
 public sealed class TrainerLaterPhaseService(CoLearnXDbContext db, IMaterialVersionService materialVersions) : ITrainerLaterPhaseService
 {
-    public async Task<IReadOnlyList<MaterialVersionDto>> ListAvailableMaterialsAsync(int trainerUserId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<MaterialVersionDto>> ListAvailableMaterialsAsync(int trainerUserId, int? courseId = null, CancellationToken ct = default)
     {
         await RequireActiveTrainerAsync(trainerUserId, ct);
-        return await materialVersions.ListApprovedAsync(ct);
+        return await materialVersions.ListApprovedAsync(courseId, ct);
     }
 
     public async Task<IReadOnlyList<IntakeMaterialDto>> ListMaterialsAsync(int trainerUserId, int intakeId, CancellationToken ct = default)
@@ -53,6 +53,10 @@ public sealed class TrainerLaterPhaseService(CoLearnXDbContext db, IMaterialVers
             ?? throw new LaterPhaseException("MATERIAL_VERSION_NOT_FOUND", "Material version was not found.", 404);
         if (version.Status != MaterialVersionStatus.Approved)
             throw new LaterPhaseException("MATERIAL_NOT_APPROVED", "Only an approved material version can be attached.", 409);
+        var belongsToCourse = await db.CourseMaterials.AnyAsync(
+            link => link.CourseId == intake.CourseId && link.LearningMaterialId == version.LearningMaterialId, ct);
+        if (!belongsToCourse)
+            throw new LaterPhaseException("MATERIAL_NOT_FOR_COURSE", "Attach a material that belongs to this Course.", 409);
 
         var link = await db.CourseIntakeMaterials.SingleOrDefaultAsync(item =>
             item.CourseIntakeId == intakeId && item.CourseMaterialVersionId == version.Id, ct);

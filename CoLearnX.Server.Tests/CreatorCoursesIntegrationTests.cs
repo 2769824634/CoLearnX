@@ -162,6 +162,19 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
         using var creator = await AsCreatorAsync();
         var course = await CreateCourseAsync(creator);
         var courseId = course["id"]!.GetValue<int>();
+
+        using var materialContent = new MultipartFormDataContent();
+        materialContent.Add(new StringContent("Kickoff slides"), "title");
+        materialContent.Add(new StringContent("Design"), "category");
+        materialContent.Add(new StringContent(courseId.ToString()), "courseId");
+        var file = new ByteArrayContent("%PDF-1.4 course-pack"u8.ToArray());
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        materialContent.Add(file, "file", "kickoff.pdf");
+        var upload = await creator.PostAsync("/api/materials", materialContent);
+        Assert.Equal(HttpStatusCode.Created, upload.StatusCode);
+        var material = await upload.Content.ReadFromJsonAsync<MaterialDto>(ApiJson.Options);
+        Assert.Equal(courseId, material?.CourseId);
+
         (await creator.PostAsync($"/api/creator/courses/{courseId}/submit", null)).EnsureSuccessStatusCode();
 
         using var admin = await AsAdminAsync();
@@ -178,14 +191,45 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
 
         using var trainer = await AsUserAsync(SeedData.TrainerEmail, "Trainer");
         var start = DateTime.UtcNow.AddDays(14);
-        var intake = await trainer.PostAsJsonAsync($"/api/trainer/courses/{courseId}/intakes", new
+        var intakeCreate = await trainer.PostAsJsonAsync($"/api/trainer/courses/{courseId}/intakes", new
         {
             registrationOpensAt = DateTime.UtcNow.AddDays(1),
             registrationClosesAt = start.AddDays(-1),
             startsAt = start,
             endsAt = start.AddDays(2),
         });
-        Assert.Equal(HttpStatusCode.Created, intake.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, intakeCreate.StatusCode);
+        var intake = await intakeCreate.Content.ReadFromJsonAsync<CourseIntakeDetailDto>(ApiJson.Options);
+        Assert.NotNull(intake);
+
+        var withSession = await trainer.PostAsJsonAsync($"/api/trainer/intakes/{intake.Id}/sessions",
+            new CreateCourseSessionRequest("Workshop 1", start, start.AddHours(2), null,
+                "Room 101, CoLearnX Campus", 30, start.AddHours(-1), intake.Version));
+        withSession.EnsureSuccessStatusCode();
+        intake = await withSession.Content.ReadFromJsonAsync<CourseIntakeDetailDto>(ApiJson.Options);
+        Assert.NotNull(intake);
+
+        var submitted = await trainer.PostAsJsonAsync($"/api/trainer/intakes/{intake.Id}/submit",
+            new SubmitCourseIntakeRequest(intake.Version));
+        submitted.EnsureSuccessStatusCode();
+        intake = await submitted.Content.ReadFromJsonAsync<CourseIntakeDetailDto>(ApiJson.Options);
+        Assert.NotNull(intake);
+
+        var confirmed = await creator.PostAsJsonAsync($"/api/creator/intake-applications/{intake.Id}/review",
+            new ReviewIntakeApplicationRequest("Confirm", null, intake.Version));
+        confirmed.EnsureSuccessStatusCode();
+
+        using var member = await AsUserAsync(SeedData.MemberEmail, "Member");
+        var catalog = await member.GetFromJsonAsync<List<CourseListItemDto>>(
+            $"/api/courses?search={Uri.EscapeDataString(course["title"]!.GetValue<string>())}",
+            ApiJson.Options);
+        Assert.Contains(catalog!, item => item.Id == courseId);
+
+        var detail = await member.GetFromJsonAsync<CourseDetailDto>($"/api/courses/{courseId}", ApiJson.Options);
+        Assert.NotNull(detail);
+        var session = Assert.Single(detail.Sessions);
+        var enrol = await member.PostAsJsonAsync("/api/enrollments", new EnrolRequest(courseId, session.Id), ApiJson.Options);
+        Assert.Equal(HttpStatusCode.OK, enrol.StatusCode);
     }
 
     private async Task<HttpClient> AsCreatorAsync()

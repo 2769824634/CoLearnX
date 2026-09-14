@@ -169,13 +169,6 @@ export function MemberDataProvider({ children }) {
     return { ok: true, balance: result.balanceAfter, creditsSpent: result.creditsSpent };
   }
 
-  async function topUp(packageId) {
-    const row = await creditsApi.topUp(packageId);
-    refreshUser({ ...user, creditBalance: row.balanceAfter });
-    await reload();
-    showToast(`+${row.delta} credits added (simulated)`);
-  }
-
   async function applyLedgerTopUp(row) {
     refreshUser({ ...user, creditBalance: row.balanceAfter });
     await reload();
@@ -220,7 +213,6 @@ export function MemberDataProvider({ children }) {
     reload,
     loadCourseDetail,
     enrol,
-    topUp,
     applyLedgerTopUp,
     saveProfile,
     toggleWish,

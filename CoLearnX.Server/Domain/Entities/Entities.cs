@@ -27,6 +27,7 @@ public class User
     public ICollection<RoleRequest> RoleRequests { get; set; } = new List<RoleRequest>();
     public ICollection<UserCertificate> Certificates { get; set; } = new List<UserCertificate>();
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+    public ICollection<CourseIntakeRequest> IntakeRequests { get; set; } = new List<CourseIntakeRequest>();
 }
 
 // Multi-role link. Shared: UserRole, AppRole
@@ -145,6 +146,7 @@ public class Course
     public ICollection<CourseLearningOutcome> LearningOutcomes { get; set; } = new List<CourseLearningOutcome>();
     public ICollection<CourseMaterial> CourseMaterials { get; set; } = new List<CourseMaterial>();
     public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
+    public ICollection<CourseIntakeRequest> IntakeRequests { get; set; } = new List<CourseIntakeRequest>();
 }
 
 public class CourseLearningOutcome
@@ -195,6 +197,18 @@ public class CourseMaterial
 
     public Course Course { get; set; } = null!;
     public LearningMaterial LearningMaterial { get; set; } = null!;
+}
+
+public class CourseIntakeRequest
+{
+    public int Id { get; set; }
+    public int CourseId { get; set; }
+    public int UserId { get; set; }
+    public CourseIntakeRequestStatus Status { get; set; } = CourseIntakeRequestStatus.Pending;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Course Course { get; set; } = null!;
+    public User User { get; set; } = null!;
 }
 
 public class MaterialUsageLog
