@@ -37,12 +37,28 @@ export default function MemberCourseDetailPage() {
     );
   }
 
-  const session = course.sessions[sessionIdx] || course.sessions[0];
+  const sessions = course.sessions || [];
+  const session = sessions[sessionIdx] || sessions[0];
   const afterBalance = state.credits - course.credits;
+  const noPublishedSession = 'This course has no published session yet. A Trainer must open an Intake and the Creator must confirm it.';
+
+  function sessionIsFull(item) {
+    // Online sessions use PhysicalCapacity = 0 (unlimited). Remaining seats is also 0, which is not "full".
+    const limit = Number(item.capacity);
+    return Boolean(item.physical) && Number.isFinite(limit) && limit > 0 && Number(item.seats) === 0;
+  }
 
   function tryEnrol() {
     if (course.alreadyEnrolled) {
       showToast('Already enrolled');
+      return;
+    }
+    if (!session) {
+      showToast(noPublishedSession);
+      return;
+    }
+    if (sessionIsFull(session)) {
+      showToast('Session full');
       return;
     }
     if (state.credits < course.credits) {
@@ -53,6 +69,11 @@ export default function MemberCourseDetailPage() {
   }
 
   async function confirmEnrol() {
+    if (!session) {
+      setEnrolOpen(false);
+      showToast(noPublishedSession);
+      return;
+    }
     try {
       const result = await enrol(course.id, session.id);
       setEnrolOpen(false);
@@ -88,14 +109,16 @@ export default function MemberCourseDetailPage() {
             <div className="card">
               <div className="card-header">Training Sessions</div>
               <div className="card-body">
-                {course.sessions.map((s, i) => (
+                {sessions.length === 0 ? (
+                  <p className="page-sub" style={{ margin: 0 }}>{noPublishedSession}</p>
+                ) : sessions.map((s, i) => (
                   <div
                     key={s.id}
-                    className={`session-option${i === sessionIdx ? ' selected' : ''}${s.seats === 0 ? ' full' : ''}`}
-                    onClick={() => (s.seats === 0 ? showToast('Session full') : setSessionIdx(i))}
+                    className={`session-option${i === sessionIdx ? ' selected' : ''}${sessionIsFull(s) ? ' full' : ''}`}
+                    onClick={() => (sessionIsFull(s) ? showToast('Session full') : setSessionIdx(i))}
                   >
                     <strong>{s.label}</strong> · {s.when}
-                    <span className="seats">{s.seats === 0 ? 'Full' : `${s.seats} seats left`}</span>
+                    <span className="seats">{sessionIsFull(s) ? 'Full' : (s.capacity ?? 0) > 0 ? `${s.seats} seats left` : 'Online'}</span>
                   </div>
                 ))}
               </div>

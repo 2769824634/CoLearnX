@@ -38,7 +38,13 @@ public record UserMeDto(
     int CreditBalance,
     string ActiveRole,
     IReadOnlyList<string> Roles,
-    IReadOnlyDictionary<string, bool> IdentityVisibility);
+    IReadOnlyDictionary<string, bool> IdentityVisibility,
+    string? LearningGoals = null,
+    string? Specialisations = null,
+    string? TrainerHeadline = null,
+    string? ExpertiseTags = null,
+    string? CreatorHeadline = null,
+    bool EmailNotifications = true);
 
 public record UpdateProfileRequest(
     string? FullName,
@@ -50,7 +56,9 @@ public record UpdateProfileRequest(
     bool? DarkMode,
     IReadOnlyDictionary<string, bool>? IdentityVisibility,
     string? Specialisations,
-    string? TrainerHeadline);
+    string? TrainerHeadline,
+    string? ExpertiseTags = null,
+    string? CreatorHeadline = null);
 
 public record CourseListItemDto(
     int Id,

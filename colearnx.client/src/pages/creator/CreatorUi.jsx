@@ -19,8 +19,8 @@ export function CreatorError({ error, onRetry }) {
 }
 
 export function CreatorApplicationRows({ applications }) {
-  if (!applications.length) return <div className="creator-empty"><strong>No Intake applications</strong><p>Trainer submissions for your Courses will appear here.</p></div>;
+  if (!applications.length) return <div className="creator-empty"><strong>No session approvals waiting</strong><p>After a Trainer submits an Intake with Sessions, it will appear here for you to approve.</p></div>;
   return <div className="creator-application-list">{applications.map((item) => <article key={item.applicationId} className="creator-application-row">
-    <div className="creator-application-index">#{item.courseIntakeId}</div><div><p className="creator-eyebrow">{item.courseCode} · {item.kind === 'Change' ? 'Change request' : 'New Intake'}</p><h2>{item.courseTitle}</h2><p>{item.trainerName} · submitted {new Date(item.submittedAt).toLocaleString()}</p></div><span className={`creator-status ${item.status.toLowerCase()}`}>{item.status}</span><Link to={`/creator/courses/intake-applications/${item.courseIntakeId}`}>Review →</Link>
+    <div className="creator-application-index">#{item.courseIntakeId}</div><div><p className="creator-eyebrow">{item.courseCode} · {item.kind === 'Change' ? 'Change request' : 'New sessions'}</p><h2>{item.courseTitle}</h2><p>{item.trainerName} · submitted {new Date(item.submittedAt).toLocaleString()}</p></div><span className={`creator-status ${item.status.toLowerCase()}`}>{item.status}</span><Link to={`/creator/courses/intake-applications/${item.courseIntakeId}`}>Approve sessions →</Link>
   </article>)}</div>;
 }

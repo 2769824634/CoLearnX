@@ -7,13 +7,13 @@ export const intakeLink = (id) => `/trainer/courses/intakes/${id}`;
 export const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 export const formatDate = (value) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 
-// datetime-local has no zone. Use local date parts, never slice a UTC ISO string.
+// datetime-local has no zone. Minute precision only — never include seconds.
 export function toLocalInput(value) {
   if (!value) return '';
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return '';
-  const pad = (part, size = 2) => String(part).padStart(size, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+  const pad = (part) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function invalid(field, message) {

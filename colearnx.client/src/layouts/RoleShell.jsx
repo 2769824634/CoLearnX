@@ -20,6 +20,7 @@ const NAV = {
     { to: '/creator/home', label: 'Home' },
     { to: '/creator/courses', label: 'Courses' },
     { to: '/creator/courses/new', label: 'Create Course' },
+    { to: '/creator/courses/intake-applications', label: 'Session approvals' },
     { to: '/creator/upload', label: 'Upload Material' },
     { to: '/creator/usage', label: 'Usage Records' },
     { to: '/creator/account', label: 'My Account' },

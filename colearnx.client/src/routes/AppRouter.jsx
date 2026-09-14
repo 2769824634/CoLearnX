@@ -16,7 +16,9 @@ import TrainerIntakeCreatePage from '../pages/trainer/TrainerIntakeCreatePage';
 import TrainerIntakeDetailPage from '../pages/trainer/TrainerIntakeDetailPage';
 import TrainerAttendancePage from '../pages/trainer/TrainerAttendancePage';
 import TrainerLearnersPage from '../pages/trainer/TrainerLearnersPage';
+import TrainerAccountPage from '../pages/trainer/TrainerAccountPage';
 import CreatorHomePage from '../pages/creator/CreatorHomePage';
+import CreatorAccountPage from '../pages/creator/CreatorAccountPage';
 import CreatorCoursesPage from '../pages/creator/CreatorCoursesPage';
 import CreatorCourseFormPage from '../pages/creator/CreatorCourseFormPage';
 import CreatorIntakeApplicationsPage from '../pages/creator/CreatorIntakeApplicationsPage';
@@ -81,7 +83,7 @@ export default function AppRouter() {
             <Route path="courses/intakes/:courseIntakeId" element={<TrainerIntakeDetailPage />} />
             <Route path="attendance" element={<TrainerAttendancePage />} />
             <Route path="learners" element={<TrainerLearnersPage />} />
-            <Route path="account" element={stub('My Account', 'Read-only masked profile + Edit Profile modal (shared pattern).')} />
+            <Route path="account" element={<TrainerAccountPage />} />
             <Route index element={<Navigate to="home" replace />} />
           </Route>
         </Route>
@@ -96,7 +98,7 @@ export default function AppRouter() {
             <Route path="courses/intake-applications/:courseIntakeId" element={<CreatorIntakeApplicationDetailPage />} />
             <Route path="upload" element={<CreatorUploadPage />} />
             <Route path="usage" element={stub('Usage Records (CRT-03)', 'Adoption + royalty analytics.')} />
-            <Route path="account" element={stub('My Account', 'Masked account + Edit Profile modal.')} />
+            <Route path="account" element={<CreatorAccountPage />} />
             <Route index element={<Navigate to="home" replace />} />
           </Route>
         </Route>

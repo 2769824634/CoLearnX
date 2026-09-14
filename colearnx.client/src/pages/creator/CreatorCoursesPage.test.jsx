@@ -45,7 +45,8 @@ describe('Creator Course workspace', () => {
 
     expect(await screen.findByRole('heading', { name: 'Course workspace' })).toBeTruthy();
     expect(screen.getByText('Accessible Learning')).toBeTruthy();
-    expect(screen.getByRole('link', { name: /Intake applications/i })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Session approvals' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Approve Trainer sessions/i })).toBeTruthy();
     expect(screen.getAllByRole('link', { name: /Create Course/i }).length).toBeGreaterThan(0);
   });
 
