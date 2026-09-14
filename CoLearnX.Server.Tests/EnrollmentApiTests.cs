@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CoLearnX.Server.Tests;
 
@@ -80,6 +82,37 @@ public class EnrollmentApiTests : IClassFixture<CoLearnXApiFactory>
         Assert.Equal(target.CreditCost, body.CreditsSpent);
         Assert.Equal(balanceBefore - target.CreditCost, body.BalanceAfter);
         Assert.Equal(target.Code, body.CourseCode);
+    }
+
+    [Fact]
+    public async Task Enrol_online_session_with_zero_physical_capacity_succeeds()
+    {
+        int courseId;
+        int sessionId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+            var session = await db.CourseSessions
+                .Include(item => item.CourseIntake)
+                .ThenInclude(intake => intake.Course)
+                .SingleAsync(item => item.CourseIntake.Course.Code == "INFT 4010");
+            session.PhysicalAddress = null;
+            session.PhysicalCapacity = 0;
+            session.PhysicalBookingDeadline = null;
+            session.MeetingLink = "https://meet.example.com/demo";
+            session.SeatsTaken = 0;
+            await db.SaveChangesAsync();
+            courseId = session.CourseIntake.CourseId;
+            sessionId = session.Id;
+        }
+
+        var member = await ApiClient.AsMemberAsync(_factory);
+        var response = await member.PostAsJsonAsync(
+            "/api/enrollments",
+            new EnrolRequest(courseId, sessionId),
+            ApiJson.Options);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     private static async Task<(int CourseId, int SessionId)> FirstPublishedSessionAsync(HttpClient client)

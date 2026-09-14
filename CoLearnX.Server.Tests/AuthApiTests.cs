@@ -150,4 +150,68 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
         var response = await client.GetAsync("/api/auth/me");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task Trainer_can_update_profile_headline_and_see_it_on_me()
+    {
+        var client = await ApiClient.AsRoleAsync(_factory, SeedData.TrainerEmail, "Trainer");
+        var me = await client.GetFromJsonAsync<UserMeDto>("/api/auth/me", ApiJson.Options);
+        Assert.NotNull(me);
+        Assert.Equal("Senior Trainer", me.TrainerHeadline);
+
+        using var response = await client.PutAsJsonAsync(
+            $"/api/users/{me.Id}",
+            new UpdateProfileRequest(
+                "Gu Yincheng",
+                "Yincheng",
+                "0411222333",
+                "Workshop facilitator",
+                null,
+                null,
+                null,
+                new Dictionary<string, bool> { ["trainer"] = true },
+                "UI/UX Design",
+                "Lead workshop trainer"),
+            ApiJson.Options);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<UserMeDto>(ApiJson.Options);
+        Assert.NotNull(updated);
+        Assert.Equal("Gu Yincheng", updated.FullName);
+        Assert.Equal("Lead workshop trainer", updated.TrainerHeadline);
+        Assert.Equal("UI/UX Design", updated.Specialisations);
+        Assert.Equal("0411222333", updated.Phone);
+    }
+
+    [Fact]
+    public async Task Creator_can_update_expertise_and_headline()
+    {
+        var client = await ApiClient.AsCreatorAsync(_factory);
+        var me = await client.GetFromJsonAsync<UserMeDto>("/api/auth/me", ApiJson.Options);
+        Assert.NotNull(me);
+
+        using var response = await client.PutAsJsonAsync(
+            $"/api/users/{me.Id}",
+            new UpdateProfileRequest(
+                null,
+                null,
+                null,
+                "Design materials author",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "Design, Accessibility",
+                "Course author"),
+            ApiJson.Options);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<UserMeDto>(ApiJson.Options);
+        Assert.NotNull(updated);
+        Assert.Equal("Course author", updated.CreatorHeadline);
+        Assert.Equal("Design, Accessibility", updated.ExpertiseTags);
+        Assert.Equal("Design materials author", updated.Bio);
+    }
 }

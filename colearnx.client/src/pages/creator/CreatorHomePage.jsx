@@ -20,10 +20,10 @@ export default function CreatorHomePage() {
         <span>Open Upload →</span>
       </Link>
       <Link className="creator-review-card" to="/creator/courses/intake-applications">
-        <span className="creator-eyebrow">B4 review queue</span>
-        <strong>Intake applications</strong>
-        <p>Confirm or return Trainer schedules submitted against Courses you own.</p>
-        <span>Open review queue →</span>
+        <span className="creator-eyebrow">Session approvals</span>
+        <strong>Approve Trainer sessions</strong>
+        <p>Confirm the Intake and Sessions a Trainer submitted. Members can enrol only after you approve.</p>
+        <span>Open session approvals →</span>
       </Link>
     </section>
   );

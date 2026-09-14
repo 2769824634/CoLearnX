@@ -14,10 +14,10 @@ export default function CreatorCoursesPage() {
       Create Course drafts, submit them for Admin approval, and manage the Courses you own.
     </CreatorHeader>
     <Link className="creator-review-card" to="/creator/courses/intake-applications">
-      <span className="creator-eyebrow">Trainer submissions</span>
-      <strong>Intake applications</strong>
-      <p>Review schedules submitted against your published Courses.</p>
-      <span>Open review queue →</span>
+      <span className="creator-eyebrow">Session approvals</span>
+      <strong>Approve Trainer sessions</strong>
+      <p>Review the Intake and Sessions submitted against your published Courses.</p>
+      <span>Open session approvals →</span>
     </Link>
     <div className="creator-section-heading"><div><p className="creator-eyebrow">Your catalogue</p><h2>Courses</h2></div></div>
     {query.loading ? <div className="creator-empty" role="status">Loading Courses…</div>

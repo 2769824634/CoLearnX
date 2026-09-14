@@ -164,6 +164,9 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
     {
         var user = await db.Users
             .Include(u => u.Roles)
+            .Include(u => u.Preference)
+            .Include(u => u.TrainerProfile)
+            .Include(u => u.CreatorProfile)
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == userId, ct)
             ?? throw new KeyNotFoundException("User not found.");
@@ -194,7 +197,12 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
 
     private async Task<AuthResponse> IssueAsync(int userId, AppRole activeRole, CancellationToken ct)
     {
-        var user = await db.Users.Include(u => u.Roles).FirstAsync(u => u.Id == userId, ct);
+        var user = await db.Users
+            .Include(u => u.Roles)
+            .Include(u => u.Preference)
+            .Include(u => u.TrainerProfile)
+            .Include(u => u.CreatorProfile)
+            .FirstAsync(u => u.Id == userId, ct);
         var roles = user.Roles.Select(r => r.Role).ToList();
         var (token, expires) = jwt.CreateToken(user, activeRole, roles);
         return new AuthResponse(token, expires, MapMe(user, activeRole));
@@ -216,7 +224,13 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
             user.CreditBalance,
             activeRole.ToString(),
             user.Roles.Select(r => r.Role.ToString()).OrderBy(x => x).ToList(),
-            visibility);
+            visibility,
+            user.Preference?.LearningGoals,
+            user.TrainerProfile?.Specialisations,
+            user.TrainerProfile?.Headline,
+            user.CreatorProfile?.ExpertiseTags,
+            user.CreatorProfile?.Headline,
+            user.Preference?.EmailNotifications ?? true);
     }
 }
 
@@ -228,6 +242,7 @@ public class UserService(CoLearnXDbContext db) : IUserService
             .Include(u => u.Roles)
             .Include(u => u.Preference)
             .Include(u => u.TrainerProfile)
+            .Include(u => u.CreatorProfile)
             .FirstOrDefaultAsync(u => u.Id == userId, ct)
             ?? throw new KeyNotFoundException("User not found.");
 
@@ -256,6 +271,13 @@ public class UserService(CoLearnXDbContext db) : IUserService
             user.TrainerProfile ??= new TrainerProfile { UserId = user.Id };
             if (request.Specialisations is not null) user.TrainerProfile.Specialisations = request.Specialisations;
             if (request.TrainerHeadline is not null) user.TrainerProfile.Headline = request.TrainerHeadline;
+        }
+
+        if (user.Roles.Any(r => r.Role == AppRole.Creator))
+        {
+            user.CreatorProfile ??= new CreatorProfile { UserId = user.Id };
+            if (request.ExpertiseTags is not null) user.CreatorProfile.ExpertiseTags = request.ExpertiseTags;
+            if (request.CreatorHeadline is not null) user.CreatorProfile.Headline = request.CreatorHeadline;
         }
 
         await db.SaveChangesAsync(ct);
@@ -614,8 +636,8 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
             && s.CourseIntake.CourseId == course.Id && s.CourseIntake.Status == CourseIntakeStatus.Published, ct)
             ?? throw new InvalidOperationException("Session not found.");
 
-        if (session.SeatsTaken >= session.PhysicalCapacity)
-            throw new InvalidOperationException("Session is full."); // BR-05
+        if (session.PhysicalCapacity > 0 && session.SeatsTaken >= session.PhysicalCapacity)
+            throw new InvalidOperationException("Session is full."); // BR-05; online sessions use capacity 0 as unlimited.
 
         if (await db.Enrollments.AnyAsync(e => e.UserId == userId && e.CourseId == course.Id && e.Status == EnrollmentStatus.Active, ct))
             throw new InvalidOperationException("Already enrolled.");

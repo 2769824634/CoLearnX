@@ -26,8 +26,8 @@ function ReviewDesk({ application, token, intakeId, onReviewed }) {
     catch (failure) { setError(failure); }
     finally { setBusy(false); }
   }
-  return <aside className="creator-review-desk"><p className="creator-eyebrow">Decision</p><h2>Creator confirmation</h2><p>Confirm publishes a new Intake or applies the proposed change. Reject keeps the current confirmed schedule and requires a clear note.</p><label htmlFor="creator-confirmation-note">Confirmation note</label><textarea id="creator-confirmation-note" maxLength={512} rows={5} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Required when returning changes" />
-    <CreatorError error={error} /><div className="creator-review-actions"><button type="button" className="btn btn-primary" disabled={busy} onClick={() => review('Confirm')}>{busy ? 'Saving…' : 'Confirm application'}</button><button type="button" className="btn btn-ghost" disabled={busy || !note.trim()} onClick={() => review('Reject')}>Return with note</button></div>
+  return <aside className="creator-review-desk"><p className="creator-eyebrow">Decision</p><h2>Approve sessions</h2><p>Approve publishes this Intake and every Session in it so Members can enrol. Reject keeps the current schedule and requires a note.</p><label htmlFor="creator-confirmation-note">Approval note</label><textarea id="creator-confirmation-note" maxLength={512} rows={5} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Required when returning changes" />
+    <CreatorError error={error} /><div className="creator-review-actions"><button type="button" className="btn btn-primary" disabled={busy} onClick={() => review('Confirm')}>{busy ? 'Saving…' : 'Approve sessions'}</button><button type="button" className="btn btn-ghost" disabled={busy || !note.trim()} onClick={() => review('Reject')}>Return with note</button></div>
   </aside>;
 }
 
@@ -42,5 +42,5 @@ function ApplicationWorkspace({ query }) {
 export default function CreatorIntakeApplicationDetailPage() {
   const { courseIntakeId } = useParams();
   const query = useTrainerQuery(loadCreatorApplication, courseIntakeId);
-  return <section className="creator-page"><Link className="creator-back" to="/creator/courses">← Intake applications</Link>{query.loading ? <div className="creator-empty">Loading application…</div> : query.error ? <CreatorError error={query.error} onRetry={query.refresh} /> : <ApplicationWorkspace key={`${courseIntakeId}:${query.data.application.version}:${query.data.application.status}`} query={query} />}</section>;
+  return <section className="creator-page"><Link className="creator-back" to="/creator/courses/intake-applications">← Session approvals</Link>{query.loading ? <div className="creator-empty">Loading application…</div> : query.error ? <CreatorError error={query.error} onRetry={query.refresh} /> : <ApplicationWorkspace key={`${courseIntakeId}:${query.data.application.version}:${query.data.application.status}`} query={query} />}</section>;
 }

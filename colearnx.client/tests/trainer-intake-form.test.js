@@ -3,16 +3,17 @@ import test from 'node:test';
 import process from 'node:process';
 import { fieldMessages, initialSchedule, initialSession, safeMeetingLink, schedulePayload, sessionPayload, toLocalInput, toUtc } from '../src/pages/trainer/intakeForm.js';
 
-const intake = { startsAt: '2026-10-10T00:00:00.123Z', endsAt: '2026-10-11T08:00:00.000Z', version: 'current-parent-version' };
-const session = { label: 'Workshop', startsAt: '2026-10-10T01:00:00.123Z', endsAt: '2026-10-10T02:00:00.000Z', meetingLink: 'https://example.com/meeting' };
+const intake = { startsAt: '2026-10-10T00:00:00.000Z', endsAt: '2026-10-11T08:00:00.000Z', version: 'current-parent-version' };
+const session = { label: 'Workshop', startsAt: '2026-10-10T01:00:00.000Z', endsAt: '2026-10-10T02:00:00.000Z', meetingLink: 'https://example.com/meeting' };
 
-test('local date inputs round-trip UTC in UTC+8, UTC and a DST zone without losing milliseconds', () => {
+test('local date inputs use minute precision and round-trip UTC in UTC+8, UTC and a DST zone', () => {
   const previous = process.env.TZ;
   try {
-    for (const [zone, expected] of [['Asia/Shanghai', '2026-10-10T09:00:00.123'], ['UTC', '2026-10-10T01:00:00.123'], ['America/New_York', '2026-10-09T21:00:00.123']]) {
+    for (const [zone, expected] of [['Asia/Shanghai', '2026-10-10T09:00'], ['UTC', '2026-10-10T01:00'], ['America/New_York', '2026-10-09T21:00']]) {
       process.env.TZ = zone;
       assert.equal(toLocalInput(session.startsAt), expected);
       assert.equal(toUtc(expected, 'startsAt'), session.startsAt);
+      assert.equal(expected.length, 16);
     }
   } finally { if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous; }
 });

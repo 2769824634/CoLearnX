@@ -1237,6 +1237,52 @@ a {
   font-size: 12px;
 }
 
+.account-page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.account-eyebrow {
+  color: var(--slate);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: .1em;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.account-page-head h1 {
+  font-size: clamp(28px, 3.5vw, 42px);
+  line-height: 1.12;
+  letter-spacing: -.035em;
+  margin: 0;
+}
+
+.account-page-head p {
+  color: var(--slate);
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 10px 0 0;
+}
+
+.account-page .avatar.lg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--purple);
+}
+
+.account-summary-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
 @media (max-width: 900px) {
   .shell-body {
     flex-direction: column;
@@ -1266,5 +1312,9 @@ a {
   .grid-2-1,
   .package-grid {
     grid-template-columns: 1fr;
+  }
+
+  .account-page-head {
+    flex-direction: column;
   }
 }
