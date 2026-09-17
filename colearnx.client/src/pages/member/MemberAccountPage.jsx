@@ -5,6 +5,7 @@ import Modal from '../../components/Modal';
 import { maskEmail, maskPhone } from '../../data/memberMock';
 import { useMemberData } from './memberDataState';
 import RoleApplicationsPanel from '../account/RoleApplicationsPanel';
+import AvatarEditor from '../account/AvatarEditor';
 
 // Masked account + Edit Profile.
 export default function MemberAccountPage() {
@@ -36,7 +37,7 @@ export default function MemberAccountPage() {
       >
         <div className="grid-2-1" style={{ gridTemplateColumns: '240px 1fr' }}>
           <div style={{ textAlign: 'center' }}>
-            <div className="avatar lg" style={{ margin: '0 auto 12px' }} />
+            <AvatarEditor />
             <div style={{ fontWeight: 600 }}>{state.user.fullName}</div>
             <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 4 }}>Display name · {state.user.displayName}</div>
             <div className="card" style={{ marginTop: 16, textAlign: 'left' }}>

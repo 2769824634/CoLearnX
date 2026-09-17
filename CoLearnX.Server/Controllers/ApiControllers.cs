@@ -100,6 +100,26 @@ public class AuthController(IAuthService auth) : ControllerBase
 [Authorize]
 public class UsersController(IUserService users) : ControllerBase
 {
+    [HttpPost("{id:int}/avatar")]
+    [RequestSizeLimit(2 * 1024 * 1024 + 64 * 1024)]
+    public async Task<ActionResult<UserMeDto>> UploadAvatar(int id, [FromForm] IFormFile? file, CancellationToken ct)
+    {
+        if (id != User.GetUserId()) return Forbid();
+        try { return Ok(await users.UploadAvatarAsync(id, User.GetActiveRole(), file, ct)); }
+        catch (ArgumentException ex) { return BadRequest(new ApiError("INVALID_AVATAR", ex.Message)); }
+    }
+
+    [HttpGet("{id:int}/avatar")]
+    public async Task<IActionResult> Avatar(int id, CancellationToken ct)
+    {
+        if (id != User.GetUserId()) return Forbid();
+        var file = await users.OpenAvatarAsync(id, ct);
+        if (file is null) return NotFound(new ApiError("AVATAR_NOT_FOUND", "Avatar not found."));
+        Response.Headers.CacheControl = "no-store";
+        Response.Headers.XContentTypeOptions = "nosniff";
+        return File(file.Stream, file.ContentType);
+    }
+
     [HttpGet("{id:int}")]
     public async Task<ActionResult<UserMeDto>> Get(int id, [FromServices] IAuthService auth, CancellationToken ct)
     {
@@ -184,8 +204,34 @@ public class CoursesController(ICourseService courses) : ControllerBase
 [ApiController]
 [Route("api/enrollments")]
 [Authorize(Roles = "Member")]
-public class EnrollmentsController(IEnrollmentService enrollments) : ControllerBase
+public class EnrollmentsController(IEnrollmentService enrollments, IMemberLearningHubService hub) : ControllerBase
 {
+    [HttpGet("{enrollmentId:int}/materials")]
+    public async Task<ActionResult<IReadOnlyList<MemberHubMaterialDto>>> Materials(int enrollmentId, CancellationToken ct)
+    {
+        try { return Ok(await hub.MaterialsAsync(User.GetUserId(), enrollmentId, ct)); }
+        catch (KeyNotFoundException) { return NotFound(new ApiError("ENROLLMENT_NOT_FOUND", "Enrollment not found.")); }
+    }
+
+    [HttpGet("{enrollmentId:int}/recordings")]
+    public async Task<ActionResult<IReadOnlyList<MemberHubRecordingDto>>> Recordings(int enrollmentId, CancellationToken ct)
+    {
+        try { return Ok(await hub.RecordingsAsync(User.GetUserId(), enrollmentId, ct)); }
+        catch (KeyNotFoundException) { return NotFound(new ApiError("ENROLLMENT_NOT_FOUND", "Enrollment not found.")); }
+    }
+
+    [HttpGet("{enrollmentId:int}/materials/{versionId:int}/file")]
+    public async Task<IActionResult> MaterialFile(int enrollmentId, int versionId, CancellationToken ct)
+    {
+        try
+        {
+            var file = await hub.OpenMaterialAsync(User.GetUserId(), enrollmentId, versionId, ct);
+            return File(file.Stream, file.ContentType, file.DownloadName);
+        }
+        catch (KeyNotFoundException) { return NotFound(new ApiError("MATERIAL_NOT_FOUND", "Material not found.")); }
+        catch (FileNotFoundException) { return NotFound(new ApiError("MATERIAL_NOT_FOUND", "Material not found.")); }
+    }
+
     [HttpPost]
     public async Task<ActionResult<EnrolResultDto>> Enrol([FromBody] EnrolRequest request, CancellationToken ct)
     {

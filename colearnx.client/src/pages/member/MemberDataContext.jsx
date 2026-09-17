@@ -96,6 +96,7 @@ export function MemberDataProvider({ children }) {
           courseTitle: e.courseTitle,
           trainer: e.trainerName,
           sessionId: e.courseSessionId,
+          meetingLink: e.meetingLink,
           cert: e.status === 'Completed' ? 'Earned' : undefined,
         })),
       );

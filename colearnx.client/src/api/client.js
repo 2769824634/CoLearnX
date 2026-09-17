@@ -70,7 +70,7 @@ function notifySessionReplaced(path, usedToken) {
 }
 
 // Fetch helper for /api/*. Shared: apiRequest, ApiError
-export async function apiRequest(path, { method = 'GET', body, token, signal, asForm = false } = {}) {
+export async function apiRequest(path, { method = 'GET', body, token, signal, asForm = false, responseType = 'json' } = {}) {
   const headers = { Accept: 'application/json' };
   if (body !== undefined && !asForm) headers['Content-Type'] = 'application/json';
   const auth = token ?? getStoredToken();
@@ -84,6 +84,8 @@ export async function apiRequest(path, { method = 'GET', body, token, signal, as
   });
 
   if (res.status === 204) return null;
+
+  if (res.ok && responseType === 'blob') return res.blob();
 
   const text = await res.text();
   let data;

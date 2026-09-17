@@ -23,6 +23,8 @@ public interface IAuthService
 public interface IUserService
 {
     Task<UserMeDto> UpdateProfileAsync(int userId, AppRole activeRole, UpdateProfileRequest request, CancellationToken ct = default);
+    Task<UserMeDto> UploadAvatarAsync(int userId, AppRole activeRole, IFormFile? file, CancellationToken ct = default);
+    Task<MaterialFileResult?> OpenAvatarAsync(int userId, CancellationToken ct = default);
 }
 
 // Course catalog. Keep: ICourseService, CourseService
@@ -235,12 +237,67 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
             user.TrainerProfile?.Headline,
             user.CreatorProfile?.ExpertiseTags,
             user.CreatorProfile?.Headline,
-            user.Preference?.EmailNotifications ?? true);
+            user.Preference?.EmailNotifications ?? true,
+            user.AvatarUrl is null ? null : $"/api/users/{user.Id}/avatar?v={Path.GetFileNameWithoutExtension(user.AvatarUrl)}");
     }
 }
 
-public class UserService(CoLearnXDbContext db) : IUserService
+public class UserService(CoLearnXDbContext db, IFileStorage files) : IUserService
 {
+    public async Task<UserMeDto> UploadAvatarAsync(int userId, AppRole activeRole, IFormFile? file, CancellationToken ct = default)
+    {
+        if (file is null || file.Length == 0)
+            throw new ArgumentException("Choose an image to upload.");
+        if (file.Length > 2 * 1024 * 1024)
+            throw new ArgumentException("Avatar must be 2 MB or smaller.");
+
+        await using var input = file.OpenReadStream();
+        using var buffer = new MemoryStream();
+        await input.CopyToAsync(buffer, ct);
+        if (buffer.Length > 2 * 1024 * 1024)
+            throw new ArgumentException("Avatar must be 2 MB or smaller.");
+        var bytes = buffer.ToArray();
+        var (extension, contentType) = AvatarImageType(bytes);
+        var user = await db.Users.Include(item => item.Roles)
+            .Include(item => item.Preference).Include(item => item.TrainerProfile).Include(item => item.CreatorProfile)
+            .SingleOrDefaultAsync(item => item.Id == userId && item.IsActive, ct)
+            ?? throw new KeyNotFoundException("User not found.");
+        var key = $"avatars/{userId}/{Guid.NewGuid():N}{extension}";
+        using var content = new MemoryStream(bytes);
+        await files.SaveAsync(key, content, contentType, ct);
+        user.AvatarUrl = key;
+        await db.SaveChangesAsync(ct);
+        return AuthService.MapMe(user, activeRole);
+    }
+
+    public async Task<MaterialFileResult?> OpenAvatarAsync(int userId, CancellationToken ct = default)
+    {
+        var key = await db.Users.Where(item => item.Id == userId && item.IsActive)
+            .Select(item => item.AvatarUrl).SingleOrDefaultAsync(ct);
+        if (key is null) return null;
+        var stream = await files.OpenAsync(key, ct);
+        if (stream is null) return null;
+        var contentType = Path.GetExtension(key).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".jpg" => "image/jpeg",
+            ".webp" => "image/webp",
+            _ => "application/octet-stream",
+        };
+        return new MaterialFileResult(stream, contentType, "avatar" + Path.GetExtension(key));
+    }
+
+    private static (string Extension, string ContentType) AvatarImageType(byte[] bytes)
+    {
+        if (bytes.Length >= 8 && bytes.AsSpan(0, 8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }))
+            return (".png", "image/png");
+        if (bytes.Length >= 3 && bytes[0] == 255 && bytes[1] == 216 && bytes[2] == 255)
+            return (".jpg", "image/jpeg");
+        if (bytes.Length >= 12 && bytes.AsSpan(0, 4).SequenceEqual("RIFF"u8) && bytes.AsSpan(8, 4).SequenceEqual("WEBP"u8))
+            return (".webp", "image/webp");
+        throw new ArgumentException("Upload a PNG, JPEG or WebP image.");
+    }
+
     public async Task<UserMeDto> UpdateProfileAsync(int userId, AppRole activeRole, UpdateProfileRequest request, CancellationToken ct = default)
     {
         var user = await db.Users
@@ -702,7 +759,8 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
                 e.Course.Trainer.FullName,
                 e.Status.ToString(),
                 e.ProgressPercent,
-                e.CourseSessionId))
+                e.CourseSessionId,
+                e.CourseSession.MeetingLink))
             .ToListAsync(ct);
     }
 }

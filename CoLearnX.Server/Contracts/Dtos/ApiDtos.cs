@@ -47,7 +47,8 @@ public record UserMeDto(
     string? TrainerHeadline = null,
     string? ExpertiseTags = null,
     string? CreatorHeadline = null,
-    bool EmailNotifications = true);
+    bool EmailNotifications = true,
+    string? AvatarUrl = null);
 
 public record UpdateProfileRequest(
     string? FullName,
@@ -123,7 +124,11 @@ public record EnrollmentDto(
     string TrainerName,
     string Status,
     int ProgressPercent,
-    int CourseSessionId);
+    int CourseSessionId,
+    string? MeetingLink = null);
+
+public record MemberHubMaterialDto(int Id, string Title, string Format, DateTime AttachedAt);
+public record MemberHubRecordingDto(int Id, string Title, string RecordingUrl, DateTime CreatedAt);
 
 public record CreditPackageDto(
     int Id,

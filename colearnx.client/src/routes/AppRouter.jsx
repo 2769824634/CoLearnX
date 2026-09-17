@@ -30,6 +30,7 @@ import MemberHomePage from '../pages/member/MemberHomePage';
 import MemberCatalogPage from '../pages/member/MemberCatalogPage';
 import MemberCourseDetailPage from '../pages/member/MemberCourseDetailPage';
 import MemberProgramsPage from '../pages/member/MemberProgramsPage';
+import MemberDisputesPage from '../pages/member/MemberDisputesPage';
 import MemberPaymentPage from '../pages/member/MemberPaymentPage';
 import MemberBadgesPage from '../pages/member/MemberBadgesPage';
 import MemberAccountPage from '../pages/member/MemberAccountPage';
@@ -75,6 +76,7 @@ function MemberArea() {
         <Route path="courses" element={<MemberCatalogPage />} />
         <Route path="courses/:courseId" element={<MemberCourseDetailPage />} />
         <Route path="programs" element={<MemberProgramsPage />} />
+        <Route path="disputes" element={<MemberDisputesPage />} />
         <Route path="payment" element={<MemberPaymentPage />} />
         <Route path="badges" element={<MemberBadgesPage />} />
         <Route path="account" element={<MemberAccountPage />} />

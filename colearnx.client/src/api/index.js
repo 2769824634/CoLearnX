@@ -98,6 +98,9 @@ export const creatorCoursesApi = {
 
 export const enrollmentsApi = {
   my: () => apiRequest('/api/enrollments/my'),
+  materials: (id, token, signal) => apiRequest(`/api/enrollments/${encodeURIComponent(id)}/materials`, { token, signal }),
+  recordings: (id, token, signal) => apiRequest(`/api/enrollments/${encodeURIComponent(id)}/recordings`, { token, signal }),
+  downloadMaterial: (id, versionId, title, token) => downloadFile(`/api/enrollments/${encodeURIComponent(id)}/materials/${encodeURIComponent(versionId)}/file`, title, token),
   enrol: (courseId, courseSessionId) =>
     apiRequest('/api/enrollments', {
       method: 'POST',
@@ -144,6 +147,19 @@ export const roleRequestsApi = {
 export const usersApi = {
   update: (id, payload) =>
     apiRequest(`/api/users/${id}`, { method: 'PUT', body: payload }),
+  uploadAvatar: (id, file, token) => {
+    const body = new FormData();
+    body.append('file', file);
+    return apiRequest(`/api/users/${encodeURIComponent(id)}/avatar`, { method: 'POST', body, asForm: true, token });
+  },
+  avatar: (url, token, signal) => apiRequest(url, { token, signal, responseType: 'blob' }),
+};
+
+export const disputesApi = {
+  my: (token, signal) => apiRequest('/api/disputes/my', { token, signal }),
+  create: (token, enrollmentId, reason) => apiRequest('/api/disputes', {
+    method: 'POST', token, body: { enrollmentId, reason },
+  }),
 };
 
 export const materialsApi = {

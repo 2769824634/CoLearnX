@@ -4,6 +4,7 @@ import { useAuth } from '../../auth/AuthContext';
 import Modal from '../../components/Modal';
 import { maskEmail, maskPhone } from '../../data/memberMock';
 import RoleApplicationsPanel from './RoleApplicationsPanel';
+import AvatarEditor from './AvatarEditor';
 
 const IDENTITY_ROWS = [
   { key: 'member', label: 'Member', grantedHint: 'Learner profile & certificates' },
@@ -92,14 +93,6 @@ export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summ
   }
 
   const headline = extraKind === 'trainer' ? user?.trainerHeadline : user?.creatorHeadline;
-  const initials = (user?.fullName || 'U')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
-
   return (
     <>
       <div className="account-page">
@@ -113,7 +106,7 @@ export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summ
         </div>
         <div className="grid-2-1" style={{ gridTemplateColumns: '240px 1fr' }}>
           <div style={{ textAlign: 'center' }}>
-            <div className="avatar lg" style={{ margin: '0 auto 12px' }}>{initials}</div>
+            <AvatarEditor />
             <div style={{ fontWeight: 600 }}>{user?.fullName}</div>
             <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 4 }}>
               Display name · {user?.displayName || user?.fullName}
