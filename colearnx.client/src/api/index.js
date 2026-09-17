@@ -54,6 +54,10 @@ export const adminRoleRequestsApi = {
       token,
       body: { decision, reason: reason || null },
     }),
+  downloadResume: (token, roleRequestId) =>
+    downloadFile(`/api/admin/role-requests/${roleRequestId}/resume`, 'role-request-resume', token),
+  downloadIdDocument: (token, roleRequestId) =>
+    downloadFile(`/api/admin/role-requests/${roleRequestId}/id-document`, 'role-request-id', token),
 };
 
 export const adminCourseReviewsApi = {
@@ -78,7 +82,6 @@ export const coursesApi = {
     const qs = q.toString();
     return apiRequest(`/api/courses${qs ? `?${qs}` : ''}`);
   },
-  featured: () => apiRequest('/api/courses/featured'),
   get: (id) => apiRequest(`/api/courses/${id}`),
   addWishlist: (id) => apiRequest(`/api/courses/${id}/wishlist`, { method: 'POST' }),
   removeWishlist: (id) => apiRequest(`/api/courses/${id}/wishlist`, { method: 'DELETE' }),
@@ -124,6 +127,18 @@ export const creditsApi = {
 export const certificatesApi = {
   my: () => apiRequest('/api/certificates/my'),
   request: (enrollmentId) => apiRequest('/api/certificates/requests', { method: 'POST', body: { enrollmentId } }),
+};
+
+export const roleRequestsApi = {
+  my: () => apiRequest('/api/role-requests/my'),
+  create: (requestedRole, resume, idDocument, statement) => {
+    const body = new FormData();
+    body.append('requestedRole', requestedRole);
+    body.append('statement', statement);
+    body.append('resume', resume);
+    body.append('idDocument', idDocument);
+    return apiRequest('/api/role-requests', { method: 'POST', body, asForm: true });
+  },
 };
 
 export const usersApi = {

@@ -26,13 +26,13 @@ afterEach(() => {
   cleanup();
 });
 
-function renderDetail(course) {
+function renderDetail(course, { credits = 200 } = {}) {
   const showToast = vi.fn();
   const enrol = vi.fn();
   render(
     <AuthContext.Provider value={auth}>
       <MemberDataContext.Provider value={{
-        state: { credits: 200, wishlist: [] },
+        state: { credits, wishlist: [] },
         showToast,
         loadCourseDetail: vi.fn().mockResolvedValue(course),
         enrol,
@@ -41,6 +41,7 @@ function renderDetail(course) {
         <MemoryRouter initialEntries={[`/member/courses/${course.id}`]}>
           <Routes>
             <Route path="/member/courses/:courseId" element={<MemberCourseDetailPage />} />
+            <Route path="/member/payment" element={<h1>Credit Wallet</h1>} />
           </Routes>
         </MemoryRouter>
       </MemberDataContext.Provider>
@@ -97,5 +98,38 @@ describe('Member course enrolment', () => {
     expect(showToast).not.toHaveBeenCalledWith('Session full');
     expect(enrol).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Confirm Enrolment' })).toBeTruthy();
+  });
+
+  it('opens a modal when credits are too low and goes to payment from it', async () => {
+    const { showToast, enrol } = renderDetail({
+      id: 11,
+      code: 'LOW-1',
+      title: 'Credit Course',
+      trainer: 'Trainer',
+      credits: 25,
+      outcomes: ['Need more credits'],
+      sessions: [{
+        id: 51,
+        label: 'Session 1',
+        when: '10 Sep 2026, 09:00 – 11:00',
+        seats: 8,
+        capacity: 10,
+        physical: true,
+      }],
+      alreadyEnrolled: false,
+    }, { credits: 5 });
+
+    expect(await screen.findByRole('heading', { name: 'LOW-1 — Credit Course' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Enrol Now' }));
+
+    expect(enrol).not.toHaveBeenCalled();
+    expect(showToast).not.toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: 'Confirm Enrolment' })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Insufficient Credits' })).toBeTruthy();
+    expect(screen.getByText(/need 25 credits/i)).toBeTruthy();
+    expect(screen.getByText(/balance is 5/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Payment' }));
+    expect(await screen.findByRole('heading', { name: 'Credit Wallet' })).toBeTruthy();
   });
 });

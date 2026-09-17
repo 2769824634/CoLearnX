@@ -234,6 +234,24 @@ export default function AdminRoleRequestsPage() {
               <strong>{selected.userFullName}</strong>
               <small>{selected.userEmail} · requesting {selected.requestedRole}</small>
             </div>
+            {hasCredentials(selected) ? (
+              <div className="trainer-actions" style={{ margin: '0 0 16px' }}>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => adminRoleRequestsApi.downloadResume(token, selected.id)}>
+                  Download resume
+                </button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => adminRoleRequestsApi.downloadIdDocument(token, selected.id)}>
+                  Download ID document
+                </button>
+              </div>
+            ) : (
+              <p className="page-sub">No files were uploaded with this request.</p>
+            )}
+            {selected.applicantStatement ? (
+              <div className="form-group">
+                <label>Applicant statement</label>
+                <p style={{ whiteSpace: 'pre-wrap', margin: '6px 0 16px', fontSize: 13 }}>{selected.applicantStatement}</p>
+              </div>
+            ) : null}
 
             <fieldset className="admin-decision-fieldset">
               <legend>Decision</legend>

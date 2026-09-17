@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import Logo from '../../components/Logo';
+import { consumeSessionReplacedMessage, SESSION_REPLACED_MESSAGE } from '../../api/client';
 import useAdminAuth from '../../auth/useAdminAuth';
 import '../../styles/admin.css';
 
@@ -21,6 +22,13 @@ export default function AdminLoginPage() {
     document.title = 'CoLearnX — Administrator sign-in';
     return () => { document.title = previousTitle; };
   }, []);
+
+  useEffect(() => {
+    if (booting) return undefined;
+    const replaced = consumeSessionReplacedMessage(true);
+    if (replaced) setError(replaced);
+    return undefined;
+  }, [booting]);
 
   if (!booting && isAuthenticated) {
     return <Navigate to={destination} replace />;
@@ -89,7 +97,7 @@ export default function AdminLoginPage() {
           </div>
           {error ? (
             <div className="callout warn admin-auth-error" role="alert">
-              <div className="callout-title">Sign-in unsuccessful</div>
+              <div className="callout-title">{error === SESSION_REPLACED_MESSAGE ? 'Signed out' : 'Sign-in unsuccessful'}</div>
               {error}
             </div>
           ) : null}

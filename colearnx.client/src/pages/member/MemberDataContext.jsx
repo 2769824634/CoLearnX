@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { certificatesApi, coursesApi, creditsApi, enrollmentsApi, usersApi } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
-import { CERT_STAGES, initialMemberState } from '../../data/memberMock';
 import { MemberDataContext } from './memberDataState';
 
 // Loads member catalog / enrollments / credits from API.
@@ -58,8 +57,16 @@ export function MemberDataProvider({ children }) {
   const [wishlist, setWishlist] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
+  const [insufficientOpen, setInsufficientOpen] = useState(false);
 
-  const showToast = useCallback((msg) => setToast(msg), []);
+  const showToast = useCallback((msg) => {
+    if (/not enough credits/i.test(String(msg || ''))) {
+      setInsufficientOpen(true);
+      return;
+    }
+    setToast(msg);
+  }, []);
+  const closeInsufficientCredits = useCallback(() => setInsufficientOpen(false), []);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -137,9 +144,9 @@ export function MemberDataProvider({ children }) {
         email: user?.email ?? '',
         phone: user?.phone ?? '',
         bio: user?.bio ?? '',
-        learningGoals: user?.learningGoals ?? initialMemberState.user.learningGoals,
-        specialisations: user?.specialisations ?? initialMemberState.user.specialisations,
-        trainerHeadline: user?.trainerHeadline ?? initialMemberState.user.trainerHeadline,
+        learningGoals: user?.learningGoals ?? '',
+        specialisations: user?.specialisations ?? '',
+        trainerHeadline: user?.trainerHeadline ?? '',
       },
       identityVisibility: {
         member: user?.identityVisibility?.member ?? true,
@@ -153,7 +160,6 @@ export function MemberDataProvider({ children }) {
       courses,
       packages,
       certificates,
-      certStages: CERT_STAGES,
       loading,
     }),
     [user, enrolled, wishlist, ledger, courses, packages, certificates, loading],
@@ -211,7 +217,9 @@ export function MemberDataProvider({ children }) {
   const value = {
     state,
     toast,
+    insufficientOpen,
     showToast,
+    closeInsufficientCredits,
     reload,
     loadCourseDetail,
     enrol,

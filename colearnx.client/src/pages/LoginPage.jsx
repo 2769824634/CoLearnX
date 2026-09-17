@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 import Modal from '../components/Modal';
 import { authApi } from '../api';
+import { consumeSessionReplacedMessage, SESSION_REPLACED_MESSAGE } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 
 const ROLE_META = {
@@ -22,10 +23,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [forgotOpen, setForgotOpen] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
   const [availableRoles, setAvailableRoles] = useState([]);
   const [pickedRole, setPickedRole] = useState('');
+
+  useEffect(() => {
+    if (booting) return undefined;
+    const replaced = consumeSessionReplacedMessage();
+    if (replaced) setError(replaced);
+    return undefined;
+  }, [booting]);
 
   if (!booting && isAuthenticated && activeRole) {
     return <Navigate to={`/${activeRole}/home`} replace />;
@@ -79,33 +86,24 @@ export default function LoginPage() {
             <h2>Login to your account</h2>
             <div className="form-group">
               <label>Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <input type="email" autoComplete="username" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div className="form-group">
               <label>Password</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
             {error ? (
               <div className="callout warn" style={{ marginBottom: 12 }}>
-                <div className="callout-title">Login failed</div>
+                <div className="callout-title">{error === SESSION_REPLACED_MESSAGE ? 'Signed out' : 'Login failed'}</div>
                 {error}
               </div>
             ) : null}
-            <div style={{ textAlign: 'right', margin: '8px 0' }}>
-              <a
-                href="#forgot"
-                style={{ color: 'var(--purple)', fontSize: 12 }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setForgotOpen(true);
-                }}
-              >
-                Forgot password?
-              </a>
-            </div>
             <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
               {busy && !roleOpen ? 'Signing in…' : 'Sign in'}
             </button>
+            <p className="auth-footer">
+              New here? <Link to="/register">Create an account</Link>
+            </p>
           </form>
         </div>
       </div>
@@ -145,13 +143,6 @@ export default function LoginPage() {
           onClick={onContinue}
         >
           {busy ? 'Signing in…' : `Continue as ${pickedRole}`}
-        </button>
-      </Modal>
-
-      <Modal open={forgotOpen} title="Reset Password" onClose={() => setForgotOpen(false)}>
-        <p style={{ fontSize: 13, color: 'var(--slate)' }}>Enter the email on your account and we will send a reset link.</p>
-        <button type="button" className="btn btn-primary btn-block" onClick={() => setForgotOpen(false)}>
-          Close
         </button>
       </Modal>
     </>

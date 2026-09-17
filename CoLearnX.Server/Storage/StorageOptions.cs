@@ -7,6 +7,7 @@ public class StorageOptions
 
     public string ConnectionString { get; set; } = string.Empty;
     public string Container { get; set; } = "materials";
+    public string RoleRequestsContainer { get; set; } = "role-requests";
     public string RootPath { get; set; } = string.Empty;
 
     public bool UseAzure => !string.IsNullOrWhiteSpace(ConnectionString);

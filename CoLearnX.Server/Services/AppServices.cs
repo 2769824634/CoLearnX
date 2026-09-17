@@ -75,12 +75,6 @@ public interface IMaterialService
 
 public sealed record MaterialFileResult(Stream Stream, string ContentType, string DownloadName);
 
-// Admin ledger. Keep: IAdminService, AdminService
-public interface IAdminService
-{
-    Task<IReadOnlyList<CreditLedgerItemDto>> GetLedgerAsync(CancellationToken ct = default);
-}
-
 public static class RoleParse
 {
     public static AppRole Parse(string? role)
@@ -98,13 +92,17 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
     {
         var email = request.Email.Trim().ToLowerInvariant();
-        if (await db.Users.AnyAsync(u => u.Email == email, ct))
-            throw new InvalidOperationException("Email already registered.");
+        var taken = await db.Users.AnyAsync(u => u.Email == email, ct)
+            || await db.AdminAccounts.AnyAsync(account => account.Email == email, ct);
+        if (taken)
+            throw new InvalidOperationException(PasswordRules.TakenMessage);
+        if (!PasswordRules.Meets(request.Password, email))
+            throw new FormatException(PasswordRules.Hint);
 
         var user = new User
         {
             Email = email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 12),
             FullName = request.FullName.Trim(),
             DisplayName = string.IsNullOrWhiteSpace(request.DisplayName) ? request.FullName.Trim() : request.DisplayName.Trim(),
             CreditBalance = 0,
@@ -116,7 +114,7 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
         db.UserPreferences.Add(new UserPreference { UserId = user.Id });
         await db.SaveChangesAsync(ct);
 
-        return await IssueAsync(user.Id, AppRole.Member, ct);
+        return await IssueAsync(user.Id, AppRole.Member, rotateSession: true, ct);
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct = default)
@@ -132,7 +130,7 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
             throw new UnauthorizedAccessException($"Role '{activeRole}' is not enabled for this account.");
         }
 
-        return await IssueAsync(user.Id, activeRole, ct);
+        return await IssueAsync(user.Id, activeRole, rotateSession: true, ct);
     }
 
     public async Task<AvailableRolesDto> GetAvailableRolesAsync(AvailableRolesRequest request, CancellationToken ct = default)
@@ -157,7 +155,7 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
         if (!user.Roles.Any(r => r.Role == activeRole))
             throw new UnauthorizedAccessException($"Role '{activeRole}' is not enabled for this account.");
 
-        return await IssueAsync(user.Id, activeRole, ct);
+        return await IssueAsync(user.Id, activeRole, rotateSession: false, ct);
     }
 
     public async Task<UserMeDto> GetMeAsync(int userId, AppRole activeRole, CancellationToken ct = default)
@@ -195,7 +193,7 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
         return user;
     }
 
-    private async Task<AuthResponse> IssueAsync(int userId, AppRole activeRole, CancellationToken ct)
+    private async Task<AuthResponse> IssueAsync(int userId, AppRole activeRole, bool rotateSession, CancellationToken ct)
     {
         var user = await db.Users
             .Include(u => u.Roles)
@@ -203,6 +201,12 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
             .Include(u => u.TrainerProfile)
             .Include(u => u.CreatorProfile)
             .FirstAsync(u => u.Id == userId, ct);
+        if (rotateSession || user.SessionStamp == Guid.Empty)
+        {
+            user.SessionStamp = SessionStampValidator.NewStamp();
+            await db.SaveChangesAsync(ct);
+        }
+
         var roles = user.Roles.Select(r => r.Role).ToList();
         var (token, expires) = jwt.CreateToken(user, activeRole, roles);
         return new AuthResponse(token, expires, MapMe(user, activeRole));
@@ -1004,16 +1008,5 @@ public class MaterialService(CoLearnXDbContext db, IFileStorage files, IMaterial
             ?? throw new FileNotFoundException("Material file not found.");
 
         return new MaterialCloudLinkDto(uri.ToString(), DateTime.UtcNow.Add(lifetime));
-    }
-}
-
-public class AdminService(CoLearnXDbContext db) : IAdminService
-{
-    public async Task<IReadOnlyList<CreditLedgerItemDto>> GetLedgerAsync(CancellationToken ct = default)
-    {
-        return await db.CreditTransactions.AsNoTracking()
-            .OrderByDescending(t => t.CreatedAt)
-            .Select(t => new CreditLedgerItemDto(t.Id, t.CreatedAt, t.Type.ToString(), t.Description, t.Delta, t.BalanceAfter))
-            .ToListAsync(ct);
     }
 }

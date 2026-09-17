@@ -22,7 +22,6 @@ const NAV = {
     { to: '/creator/courses/new', label: 'Create Course' },
     { to: '/creator/courses/intake-applications', label: 'Session approvals' },
     { to: '/creator/upload', label: 'Upload Material' },
-    { to: '/creator/usage', label: 'Usage Records' },
     { to: '/creator/account', label: 'My Account' },
   ],
   admin: [
@@ -61,11 +60,7 @@ function ShellFrame({ identityName, role, logout, showWorkspaceSwitcher = false,
       </div>
       <div className="shell-body">
         <nav className="sidebar">
-          {items.map((item) => item.unavailable ? (
-            <span key={item.to} className="nav-item admin-nav-unavailable" aria-disabled="true">
-              {item.label}<small>Coming later</small>
-            </span>
-          ) : (
+          {items.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -116,14 +111,5 @@ export function AdminRoleShell({ title, subtitle }) {
       title={title}
       subtitle={subtitle}
     />
-  );
-}
-
-export function RolePlaceholder({ heading, body }) {
-  return (
-    <div className="callout info">
-      <div className="callout-title">{heading}</div>
-      {body}
-    </div>
   );
 }

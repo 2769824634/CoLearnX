@@ -24,6 +24,10 @@ public class AdminAuthService(
         if (admin is null || !admin.IsActive || !BCrypt.Net.BCrypt.Verify(request.Password, admin.PasswordHash))
             throw new UnauthorizedAccessException("Invalid email or password.");
 
+        admin.SessionStamp = SessionStampValidator.NewStamp();
+        admin.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+
         await auditLogs.AppendAdminAsync(
             admin.Id,
             "AdminLogin",

@@ -10,7 +10,7 @@ export default function Modal({ open, title, onClose, children, width }) {
     >
       <div className="modal" style={width ? { width } : undefined}>
         <div className="modal-header">
-          {title}
+          <h2 style={{ margin: 0, font: 'inherit' }}>{title}</h2>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
             ✕
           </button>

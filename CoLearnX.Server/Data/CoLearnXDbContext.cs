@@ -1,3 +1,4 @@
+using CoLearnX.Server.Domain;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -49,10 +50,15 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        var sqlite = Database.IsSqlite();
+        var pendingStatusFilter = sqlite ? "\"Status\" = 0" : "[Status] = 0";
+
         modelBuilder.Entity<AdminAccount>(e =>
         {
             e.HasIndex(x => x.Email).IsUnique();
-            e.Property(x => x.Email).HasMaxLength(256).UseCollation("NOCASE");
+            var email = e.Property(x => x.Email).HasMaxLength(256);
+            if (sqlite)
+                email.UseCollation("NOCASE");
             e.Property(x => x.PasswordHash).HasMaxLength(128);
         });
 
@@ -97,9 +103,10 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
         {
             e.HasIndex(x => new { x.UserId, x.RequestedRole })
                 .IsUnique()
-                .HasFilter("\"Status\" = 0");
+                .HasFilter(pendingStatusFilter);
             e.Property(x => x.DegreeOrResumePath).HasMaxLength(512);
             e.Property(x => x.IdDocumentPath).HasMaxLength(512);
+            e.Property(x => x.ApplicantStatement).HasMaxLength(ApplicantStatementRules.MaxChars);
             e.Property(x => x.ReviewNote).HasMaxLength(512);
             e.HasOne(x => x.ReviewedByAdminAccount)
                 .WithMany(a => a.ReviewedRoleRequests)
@@ -110,7 +117,9 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
         modelBuilder.Entity<Course>(e =>
         {
             e.HasIndex(x => x.Code).IsUnique();
-            e.Property(x => x.Code).HasMaxLength(64).UseCollation("NOCASE");
+            var code = e.Property(x => x.Code).HasMaxLength(64);
+            if (sqlite)
+                code.UseCollation("NOCASE");
             e.HasOne(x => x.Trainer).WithMany().HasForeignKey(x => x.TrainerId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Creator).WithMany().HasForeignKey(x => x.CreatorId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.CourseLevel).WithMany(x => x.Courses).HasForeignKey(x => x.CourseLevelId).OnDelete(DeleteBehavior.Restrict);
@@ -120,17 +129,21 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
         modelBuilder.Entity<CourseLevel>(e =>
         {
             e.HasIndex(x => x.Name).IsUnique();
-            e.Property(x => x.Name).HasMaxLength(64).UseCollation("NOCASE");
+            var levelName = e.Property(x => x.Name).HasMaxLength(64);
+            if (sqlite)
+                levelName.UseCollation("NOCASE");
         });
 
         modelBuilder.Entity<LearningPath>(e =>
         {
             e.HasIndex(x => x.Name).IsUnique();
-            e.Property(x => x.Name).HasMaxLength(128).UseCollation("NOCASE");
+            var pathName = e.Property(x => x.Name).HasMaxLength(128);
+            if (sqlite)
+                pathName.UseCollation("NOCASE");
         });
 
-        CourseIntakeModelConfiguration.Configure(modelBuilder);
-        LaterPhaseModelConfiguration.Configure(modelBuilder);
+        CourseIntakeModelConfiguration.Configure(modelBuilder, sqlite);
+        LaterPhaseModelConfiguration.Configure(modelBuilder, sqlite);
 
         modelBuilder.Entity<WishlistItem>(e =>
         {

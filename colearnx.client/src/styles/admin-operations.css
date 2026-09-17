@@ -48,8 +48,6 @@
 .admin-account-details > div + div { border-top: 1px solid var(--border); }
 .admin-account-details dt { color: var(--slate); font-size: 13px; }
 .admin-account-details dd { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
-.admin-nav-unavailable { cursor: default; }
-.admin-nav-unavailable small { display: block; margin-top: 3px; font-size: 10px; color: var(--slate); }
 .admin-shell :is(button, a, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--purple); outline-offset: 3px; }
 @media (max-width: 760px) {
   .admin-shell .shell-body { flex-direction: column; }

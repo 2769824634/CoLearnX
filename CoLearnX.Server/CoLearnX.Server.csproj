@@ -23,6 +23,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.6" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.6" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.6">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -34,5 +35,21 @@
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
+
+  <Target Name="PublishSpa" AfterTargets="ComputeFilesToPublish">
+    <PropertyGroup>
+      <_SpaRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\colearnx.client\'))</_SpaRoot>
+    </PropertyGroup>
+    <Exec WorkingDirectory="$(_SpaRoot)" Command="npm ci --no-audit --no-fund" Condition="Exists('$(_SpaRoot)package-lock.json')" />
+    <Exec WorkingDirectory="$(_SpaRoot)" Command="npm install --no-audit --no-fund" Condition="!Exists('$(_SpaRoot)package-lock.json')" />
+    <Exec WorkingDirectory="$(_SpaRoot)" Command="npm run build" />
+    <ItemGroup>
+      <DistFiles Include="$(_SpaRoot)dist\**" />
+      <ResolvedFileToPublish Include="@(DistFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
+        <RelativePath>wwwroot\%(RecursiveDir)%(FileName)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 
 </Project>

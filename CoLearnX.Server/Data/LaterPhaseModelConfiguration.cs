@@ -5,7 +5,7 @@ namespace CoLearnX.Server.Data;
 
 internal static class LaterPhaseModelConfiguration
 {
-    public static void Configure(ModelBuilder modelBuilder)
+    public static void Configure(ModelBuilder modelBuilder, bool sqlite)
     {
         modelBuilder.Entity<CourseMaterialVersion>(entity =>
         {
@@ -34,7 +34,7 @@ internal static class LaterPhaseModelConfiguration
         {
             entity.HasIndex(item => new { item.CourseSessionId, item.RecordingUrl }).IsUnique();
             entity.Property(item => item.Title).HasMaxLength(160);
-            entity.Property(item => item.RecordingUrl).HasMaxLength(1024);
+            entity.Property(item => item.RecordingUrl).HasMaxLength(sqlite ? 1024 : 450);
             entity.HasOne(item => item.CourseSession).WithMany().HasForeignKey(item => item.CourseSessionId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
@@ -82,7 +82,7 @@ internal static class LaterPhaseModelConfiguration
 
         modelBuilder.Entity<CreditTransaction>(entity =>
         {
-            entity.HasIndex(item => item.IdempotencyKey).IsUnique().HasFilter("\"IdempotencyKey\" IS NOT NULL");
+            entity.HasIndex(item => item.IdempotencyKey).IsUnique().HasFilter(sqlite ? "\"IdempotencyKey\" IS NOT NULL" : "[IdempotencyKey] IS NOT NULL");
             entity.HasOne<Dispute>().WithMany().HasForeignKey(item => item.RelatedDisputeId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<AdminAccount>().WithMany().HasForeignKey(item => item.AdminAccountId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -91,7 +91,7 @@ internal static class LaterPhaseModelConfiguration
         {
             entity.ToTable("Disputes", table =>
                 table.HasCheckConstraint("CK_Disputes_Status", "Status BETWEEN 0 AND 2"));
-            entity.HasIndex(item => item.ResolutionKey).IsUnique().HasFilter("\"ResolutionKey\" IS NOT NULL");
+            entity.HasIndex(item => item.ResolutionKey).IsUnique().HasFilter(sqlite ? "\"ResolutionKey\" IS NOT NULL" : "[ResolutionKey] IS NOT NULL");
             entity.Property(item => item.Reason).HasMaxLength(1000);
             entity.Property(item => item.ResolutionNote).HasMaxLength(512);
             entity.HasOne<User>().WithMany().HasForeignKey(item => item.RaisedByUserId).OnDelete(DeleteBehavior.Restrict);

@@ -35,6 +35,10 @@ public class AdminIdentityTests
         Assert.Equal(AuthTokenSubjects.Admin, jwt.Claims.Single(c => c.Type == AuthTokenSubjects.ClaimType).Value);
         Assert.Equal(admin.Id.ToString(), jwt.Claims.Single(c => c.Type == AdminAuthorization.AdminAccountIdClaim).Value);
         Assert.DoesNotContain(jwt.Claims, c => c.Type == ClaimTypes.Role);
+        Assert.NotEqual(Guid.Empty, Guid.Parse(jwt.Claims.Single(c => c.Type == SessionStamps.ClaimType).Value));
+
+        await harness.Db.Entry(admin).ReloadAsync();
+        Assert.Equal(admin.SessionStamp.ToString("D"), jwt.Claims.Single(c => c.Type == SessionStamps.ClaimType).Value);
 
         var auditLog = await harness.Db.AuditLogs.SingleAsync();
         Assert.Equal(admin.Id, auditLog.AdminAccountId);

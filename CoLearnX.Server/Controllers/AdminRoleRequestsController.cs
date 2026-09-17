@@ -10,13 +10,23 @@ namespace CoLearnX.Server.Controllers;
 [ApiController]
 [Route("api/admin/role-requests")]
 [Authorize(Policy = AdminAuthorization.PolicyName)]
-public class AdminRoleRequestsController(IAdminRoleRequestService roleRequests) : ControllerBase
+public class AdminRoleRequestsController(
+    IAdminRoleRequestService roleRequests,
+    IRoleRequestService applicantRequests) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<AdminRoleRequestDto>>> List(
         [FromQuery] RoleRequestStatus? status,
         CancellationToken ct)
         => Ok(await roleRequests.ListAsync(status, ct));
+
+    [HttpGet("{roleRequestId:int}/resume")]
+    public Task<IActionResult> DownloadResume(int roleRequestId, CancellationToken ct)
+        => Download(roleRequestId, RoleRequestDocument.Resume, ct);
+
+    [HttpGet("{roleRequestId:int}/id-document")]
+    public Task<IActionResult> DownloadIdDocument(int roleRequestId, CancellationToken ct)
+        => Download(roleRequestId, RoleRequestDocument.IdDocument, ct);
 
     [HttpPost("{roleRequestId:int}/review")]
     public async Task<ActionResult<AdminRoleRequestReviewResultDto>> Review(
@@ -43,6 +53,19 @@ public class AdminRoleRequestsController(IAdminRoleRequestService roleRequests) 
         catch (AdminReviewConflictException ex)
         {
             return Conflict(new ApiError(ex.Code, ex.Message));
+        }
+    }
+
+    private async Task<IActionResult> Download(int roleRequestId, RoleRequestDocument document, CancellationToken ct)
+    {
+        try
+        {
+            var file = await applicantRequests.OpenDocumentAsync(roleRequestId, document, ct);
+            return File(file.Stream, file.ContentType, file.DownloadName);
+        }
+        catch (FileNotFoundException)
+        {
+            return NotFound(new ApiError("NOT_FOUND", "Role request file was not found."));
         }
     }
 }
