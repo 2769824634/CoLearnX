@@ -1,7 +1,10 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CoLearnX.Server.Tests;
 
@@ -213,5 +216,152 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
         Assert.Equal("Course author", updated.CreatorHeadline);
         Assert.Equal("Design, Accessibility", updated.ExpertiseTags);
         Assert.Equal("Design materials author", updated.Bio);
+    }
+
+    [Fact]
+    public async Task Register_creates_member_and_hashes_password()
+    {
+        var client = ApiClient.Anonymous(_factory);
+        var email = $"new.{Guid.NewGuid():N}@colearnx.test";
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest(email, SeedData.DemoPassword, "New Learner", null),
+            ApiJson.Options);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<AuthResponse>(ApiJson.Options);
+        Assert.NotNull(body);
+        Assert.Equal("Member", body.User.ActiveRole);
+        Assert.Equal(email, body.User.Email);
+        Assert.False(string.IsNullOrWhiteSpace(body.AccessToken));
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        var stored = await db.Users.SingleAsync(user => user.Email == email);
+        Assert.NotEqual(SeedData.DemoPassword, stored.PasswordHash);
+        Assert.True(BCrypt.Net.BCrypt.Verify(SeedData.DemoPassword, stored.PasswordHash));
+        Assert.NotEqual(Guid.Empty, stored.SessionStamp);
+    }
+
+    [Fact]
+    public async Task Second_login_invalidates_the_previous_token()
+    {
+        var first = ApiClient.Anonymous(_factory);
+        var firstLogin = await first.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest(SeedData.MemberEmail, SeedData.DemoPassword, "Member"),
+            ApiJson.Options);
+        firstLogin.EnsureSuccessStatusCode();
+        var firstBody = await firstLogin.Content.ReadFromJsonAsync<AuthResponse>(ApiJson.Options);
+        Assert.NotNull(firstBody);
+        first.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", firstBody.AccessToken);
+
+        var firstMe = await first.GetAsync("/api/auth/me");
+        Assert.Equal(HttpStatusCode.OK, firstMe.StatusCode);
+
+        var second = ApiClient.Anonymous(_factory);
+        var secondLogin = await second.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest(SeedData.MemberEmail, SeedData.DemoPassword, "Member"),
+            ApiJson.Options);
+        secondLogin.EnsureSuccessStatusCode();
+        var secondBody = await secondLogin.Content.ReadFromJsonAsync<AuthResponse>(ApiJson.Options);
+        Assert.NotNull(secondBody);
+        second.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secondBody.AccessToken);
+
+        var superseded = await first.GetAsync("/api/auth/me");
+        Assert.Equal(HttpStatusCode.Unauthorized, superseded.StatusCode);
+
+        var currentMe = await second.GetAsync("/api/auth/me");
+        Assert.Equal(HttpStatusCode.OK, currentMe.StatusCode);
+    }
+
+    [Fact]
+    public async Task Second_admin_login_invalidates_the_previous_token()
+    {
+        var first = ApiClient.Anonymous(_factory);
+        var firstLogin = await first.PostAsJsonAsync(
+            "/api/admin/auth/login",
+            new AdminLoginRequest(SeedData.AdminEmail, SeedData.DemoPassword),
+            ApiJson.Options);
+        firstLogin.EnsureSuccessStatusCode();
+        var firstBody = await firstLogin.Content.ReadFromJsonAsync<AdminAuthResponse>(ApiJson.Options);
+        Assert.NotNull(firstBody);
+        first.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", firstBody.AccessToken);
+
+        var firstMe = await first.GetAsync("/api/admin/auth/me");
+        Assert.Equal(HttpStatusCode.OK, firstMe.StatusCode);
+
+        var second = ApiClient.Anonymous(_factory);
+        var secondLogin = await second.PostAsJsonAsync(
+            "/api/admin/auth/login",
+            new AdminLoginRequest(SeedData.AdminEmail, SeedData.DemoPassword),
+            ApiJson.Options);
+        secondLogin.EnsureSuccessStatusCode();
+        var secondBody = await secondLogin.Content.ReadFromJsonAsync<AdminAuthResponse>(ApiJson.Options);
+        Assert.NotNull(secondBody);
+        second.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secondBody.AccessToken);
+
+        var superseded = await first.GetAsync("/api/admin/auth/me");
+        Assert.Equal(HttpStatusCode.Unauthorized, superseded.StatusCode);
+
+        var currentMe = await second.GetAsync("/api/admin/auth/me");
+        Assert.Equal(HttpStatusCode.OK, currentMe.StatusCode);
+    }
+
+    [Fact]
+    public async Task Register_rejects_weak_password()
+    {
+        var client = ApiClient.Anonymous(_factory);
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest($"weak.{Guid.NewGuid():N}@colearnx.test", "password", "Weak User", null),
+            ApiJson.Options);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Register_does_not_reveal_existing_emails()
+    {
+        var client = ApiClient.Anonymous(_factory);
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest(SeedData.MemberEmail, SeedData.DemoPassword, "Duplicate", null),
+            ApiJson.Options);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var error = await ApiClient.ReadErrorAsync(response);
+        Assert.Equal("REGISTER_FAILED", error?.Code);
+        Assert.DoesNotContain("already", error?.Message ?? "", StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Register_rejects_admin_email()
+    {
+        var client = ApiClient.Anonymous(_factory);
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest(SeedData.AdminEmail, SeedData.DemoPassword, "Not Admin", null),
+            ApiJson.Options);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var error = await ApiClient.ReadErrorAsync(response);
+        Assert.Equal("REGISTER_FAILED", error?.Code);
+    }
+
+    [Fact]
+    public async Task Register_rejects_password_that_contains_the_email_name()
+    {
+        var client = ApiClient.Anonymous(_factory);
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest("learner@colearnx.test", "Learner123!", "Learner", null),
+            ApiJson.Options);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = await ApiClient.ReadErrorAsync(response);
+        Assert.Equal("WEAK_PASSWORD", error?.Code);
     }
 }

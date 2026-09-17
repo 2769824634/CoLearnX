@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
-import { ApiError } from '../../api/client';
 import { useMemberData } from './memberDataState';
 
 // Course detail + enrol.
@@ -82,7 +81,7 @@ export default function MemberCourseDetailPage() {
       setCourse((c) => ({ ...c, alreadyEnrolled: true }));
     } catch (e) {
       setEnrolOpen(false);
-      if (e instanceof ApiError && e.code === 'INSUFFICIENT_CREDITS') setInsufficientOpen(true);
+      if (e?.code === 'INSUFFICIENT_CREDITS') setInsufficientOpen(true);
       else showToast(e.message || 'Enrol failed');
     }
   }
@@ -180,14 +179,24 @@ export default function MemberCourseDetailPage() {
         </div>
       </Modal>
 
-      <Modal open={insufficientOpen} title="Insufficient Credits" onClose={() => setInsufficientOpen(false)}>
+      <Modal open={insufficientOpen} title="Insufficient Credits" onClose={() => setInsufficientOpen(false)} width={440}>
         <div className="callout warn">
           <div className="callout-title">Cannot enrol</div>
-          You need more credits to enrol in this program.
+          You need {course.credits} credits to enrol. Current balance is {state.credits}.
+          Top up in Payment, then return to complete enrolment.
         </div>
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={() => setInsufficientOpen(false)}>Cancel</button>
-          <button type="button" className="btn btn-teal" onClick={() => { setInsufficientOpen(false); navigate('/member/payment'); }}>Top Up Credits</button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              setInsufficientOpen(false);
+              navigate('/member/payment');
+            }}
+          >
+            Go to Payment
+          </button>
         </div>
       </Modal>
 

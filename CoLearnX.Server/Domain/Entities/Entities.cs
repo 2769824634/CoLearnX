@@ -15,6 +15,7 @@ public class User
     public string? AvatarUrl { get; set; }
     public int CreditBalance { get; set; }
     public bool IsActive { get; set; } = true;
+    public Guid SessionStamp { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public UserPreference? Preference { get; set; }
@@ -110,6 +111,7 @@ public class RoleRequest
     public RoleRequestStatus Status { get; set; } = RoleRequestStatus.Pending;
     public string? DegreeOrResumePath { get; set; }
     public string? IdDocumentPath { get; set; }
+    public string? ApplicantStatement { get; set; }
     public string? ReviewNote { get; set; }
     public int? ReviewedByAdminAccountId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

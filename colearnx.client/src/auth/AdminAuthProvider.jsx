@@ -1,12 +1,25 @@
 import { useEffect, useState } from 'react';
 import { adminAuthApi } from '../api';
-import { ApiError, getStoredAdminToken, setStoredAdminToken } from '../api/client';
+import { ApiError, getStoredAdminToken, setStoredAdminToken, SESSION_REPLACED_EVENT } from '../api/client';
 import AdminAuthContext from './AdminAuthContext';
 
 export default function AdminAuthProvider({ children }) {
   const [token, setToken] = useState(() => getStoredAdminToken());
   const [admin, setAdmin] = useState(null);
   const [booting, setBooting] = useState(Boolean(token));
+
+  useEffect(() => {
+    function onSessionReplaced(event) {
+      if (!event.detail?.admin) return;
+      setStoredAdminToken(null);
+      setToken(null);
+      setAdmin(null);
+      setBooting(false);
+    }
+
+    window.addEventListener(SESSION_REPLACED_EVENT, onSessionReplaced);
+    return () => window.removeEventListener(SESSION_REPLACED_EVENT, onSessionReplaced);
+  }, []);
 
   useEffect(() => {
     if (!token) return undefined;

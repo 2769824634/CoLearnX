@@ -1,8 +1,9 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { RequireAuth } from '../auth/RequireAuth';
 import RequireAdmin from '../auth/RequireAdmin';
-import RoleShell, { AdminRoleShell, RolePlaceholder } from '../layouts/RoleShell';
+import RoleShell, { AdminRoleShell } from '../layouts/RoleShell';
 import LoginPage from '../pages/LoginPage';
+import RegisterPage from '../pages/RegisterPage';
 import AdminLoginPage from '../pages/admin/AdminLoginPage';
 import AdminHomePage from '../pages/admin/AdminHomePage';
 import AdminApprovalsPage from '../pages/admin/AdminApprovalsPage';
@@ -33,10 +34,35 @@ import MemberPaymentPage from '../pages/member/MemberPaymentPage';
 import MemberBadgesPage from '../pages/member/MemberBadgesPage';
 import MemberAccountPage from '../pages/member/MemberAccountPage';
 import CreatorUploadPage from '../pages/creator/CreatorUploadPage';
+import Modal from '../components/Modal';
 
 function MemberToastHost() {
-  const { toast } = useMemberData();
-  return <div className={`toast${toast ? ' show' : ''}`}>{toast}</div>;
+  const navigate = useNavigate();
+  const { toast, insufficientOpen, closeInsufficientCredits } = useMemberData();
+  return (
+    <>
+      <div className={`toast${toast ? ' show' : ''}`}>{toast}</div>
+      <Modal open={Boolean(insufficientOpen)} title="Insufficient Credits" onClose={closeInsufficientCredits} width={440}>
+        <div className="callout warn">
+          <div className="callout-title">Cannot continue</div>
+          Your credit balance is too low. Go to Payment to top up, then try again.
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={closeInsufficientCredits}>Cancel</button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              closeInsufficientCredits?.();
+              navigate('/member/payment');
+            }}
+          >
+            Go to Payment
+          </button>
+        </div>
+      </Modal>
+    </>
+  );
 }
 
 // Member routes under /member/*. Keep page component names below.
@@ -58,16 +84,13 @@ function MemberArea() {
   );
 }
 
-function stub(title, body) {
-  return <RolePlaceholder heading={title} body={body} />;
-}
-
 // Top-level router. Shared: AppRouter
 export default function AppRouter() {
   return (
     <div className="app-wrap">
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
 
@@ -97,7 +120,6 @@ export default function AppRouter() {
             <Route path="courses/intake-applications" element={<CreatorIntakeApplicationsPage />} />
             <Route path="courses/intake-applications/:courseIntakeId" element={<CreatorIntakeApplicationDetailPage />} />
             <Route path="upload" element={<CreatorUploadPage />} />
-            <Route path="usage" element={stub('Usage Records (CRT-03)', 'Adoption + royalty analytics.')} />
             <Route path="account" element={<CreatorAccountPage />} />
             <Route index element={<Navigate to="home" replace />} />
           </Route>

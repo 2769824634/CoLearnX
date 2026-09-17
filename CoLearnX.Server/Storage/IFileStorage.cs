@@ -11,3 +11,6 @@ public interface IFileStorage
     Task<Stream?> OpenAsync(string key, CancellationToken ct = default);
     Task<Uri?> TryCreateReadUriAsync(string key, TimeSpan lifetime, CancellationToken ct = default);
 }
+
+// Azure container (or local folder) for role-application files. Not the materials store.
+public interface IRoleRequestFileStorage : IFileStorage;

@@ -5,6 +5,7 @@ using CoLearnX.Server.Services;
 using CoLearnX.Server.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace CoLearnX.Server.Controllers;
 
@@ -15,11 +16,16 @@ public class AuthController(IAuthService auth) : ControllerBase
 {
     [HttpPost("register")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request, CancellationToken ct)
     {
         try
         {
             return Ok(await auth.RegisterAsync(request, ct));
+        }
+        catch (FormatException ex)
+        {
+            return BadRequest(new ApiError("WEAK_PASSWORD", ex.Message));
         }
         catch (InvalidOperationException ex)
         {
@@ -29,6 +35,7 @@ public class AuthController(IAuthService auth) : ControllerBase
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request, CancellationToken ct)
     {
         try
@@ -47,6 +54,7 @@ public class AuthController(IAuthService auth) : ControllerBase
 
     [HttpPost("available-roles")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<AvailableRolesDto>> AvailableRoles([FromBody] AvailableRolesRequest request, CancellationToken ct)
     {
         try
@@ -169,14 +177,6 @@ public class CoursesController(ICourseService courses) : ControllerBase
         {
             return NotFound(new ApiError("NOT_FOUND", ex.Message));
         }
-    }
-
-    [HttpPost]
-    [Authorize(Roles = "Trainer")]
-    public ActionResult Create()
-    {
-        // Framework placeholder — full create wizard in later iteration
-        return StatusCode(StatusCodes.Status501NotImplemented, new ApiError("NOT_IMPLEMENTED", "Course creation wizard coming next."));
     }
 }
 

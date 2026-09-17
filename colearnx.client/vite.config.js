@@ -1,5 +1,4 @@
 import { fileURLToPath, URL } from 'node:url';
-
 import { defineConfig } from 'vite';
 import plugin from '@vitejs/plugin-react';
 import fs from 'fs';
@@ -7,56 +6,63 @@ import path from 'path';
 import child_process from 'child_process';
 import { env } from 'process';
 
-const baseFolder =
+const target = env.ASPNETCORE_HTTPS_PORT
+  ? `https://localhost:${env.ASPNETCORE_HTTPS_PORT}`
+  : env.ASPNETCORE_URLS
+    ? env.ASPNETCORE_URLS.split(';')[0]
+    : 'https://localhost:7238';
+
+function httpsDevCerts() {
+  const baseFolder =
     env.APPDATA !== undefined && env.APPDATA !== ''
-        ? `${env.APPDATA}/ASP.NET/https`
-        : `${env.HOME}/.aspnet/https`;
+      ? `${env.APPDATA}/ASP.NET/https`
+      : `${env.HOME}/.aspnet/https`;
+  const certificateName = 'colearnx.client';
+  const certFilePath = path.join(baseFolder, `${certificateName}.pem`);
+  const keyFilePath = path.join(baseFolder, `${certificateName}.key`);
 
-const certificateName = "colearnx.client";
-const certFilePath = path.join(baseFolder, `${certificateName}.pem`);
-const keyFilePath = path.join(baseFolder, `${certificateName}.key`);
-
-if (!fs.existsSync(baseFolder)) {
+  if (!fs.existsSync(baseFolder)) {
     fs.mkdirSync(baseFolder, { recursive: true });
-}
+  }
 
-if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
-    if (0 !== child_process.spawnSync('dotnet', [
-        'dev-certs',
-        'https',
-        '--export-path',
-        certFilePath,
-        '--format',
-        'Pem',
-        '--no-password',
-    ], { stdio: 'inherit', }).status) {
-        throw new Error("Could not create certificate.");
+  if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
+    if (
+      0 !==
+      child_process.spawnSync(
+        'dotnet',
+        ['dev-certs', 'https', '--export-path', certFilePath, '--format', 'Pem', '--no-password'],
+        { stdio: 'inherit' },
+      ).status
+    ) {
+      throw new Error('Could not create certificate.');
     }
+  }
+
+  return {
+    key: fs.readFileSync(keyFilePath),
+    cert: fs.readFileSync(certFilePath),
+  };
 }
 
-const target = env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_HTTPS_PORT}` :
-    env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0] : 'https://localhost:7238';
-
-// https://vitejs.dev/config/
-export default defineConfig({
-    plugins: [plugin()],
-    resolve: {
-        alias: {
-            '@': fileURLToPath(new URL('./src', import.meta.url))
-        }
+export default defineConfig(({ command }) => ({
+  plugins: [plugin()],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
-    server: {
-        proxy: {
+  },
+  server:
+    command === 'serve'
+      ? {
+          proxy: {
             '^/api': {
-                target,
-                secure: false
-            }
-        },
-        port: parseInt(env.DEV_SERVER_PORT || '55128'),
-        allowedHosts: true,
-        https: {
-            key: fs.readFileSync(keyFilePath),
-            cert: fs.readFileSync(certFilePath),
+              target,
+              secure: false,
+            },
+          },
+          port: parseInt(env.DEV_SERVER_PORT || '55128', 10),
+          allowedHosts: true,
+          https: httpsDevCerts(),
         }
-    }
-})
+      : undefined,
+}));

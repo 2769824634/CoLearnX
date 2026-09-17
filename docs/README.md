@@ -4,6 +4,7 @@
 
 | 路径 | 用途 |
 |------|------|
+| `CODE_OVERVIEW.md` | 当前实现怎么分层、主链路怎么走 |
 | `DESIGN-TOKENS.md` | 四角色同一套配色与壳 |
 | `FRAMEWORK.md` | 代码分层对照 |
 | `source/plan_content.md` | 项目计划可读摘要（需求/用例） |

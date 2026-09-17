@@ -6,7 +6,7 @@ namespace CoLearnX.Server.Data;
 
 internal static class CourseIntakeModelConfiguration
 {
-    public static void Configure(ModelBuilder modelBuilder)
+    public static void Configure(ModelBuilder modelBuilder, bool sqlite)
     {
         var utc = new ValueConverter<DateTime, DateTime>(value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
         modelBuilder.Entity<CourseIntake>(e =>
@@ -56,9 +56,10 @@ internal static class CourseIntakeModelConfiguration
             e.Property(x => x.SubmittedAt).HasConversion(utc);
             e.Property(x => x.ReviewedAt).HasConversion(utc);
             e.Property(x => x.ReviewNote).HasMaxLength(512);
-            e.Property(x => x.ProposalJson).HasColumnType("TEXT");
+            if (sqlite)
+                e.Property(x => x.ProposalJson).HasColumnType("TEXT");
             e.HasIndex(x => new { x.CourseIntakeId, x.ApplicationVersion }).IsUnique();
-            e.HasIndex(x => x.CourseIntakeId).IsUnique().HasFilter("\"Status\" = 0");
+            e.HasIndex(x => x.CourseIntakeId).IsUnique().HasFilter(sqlite ? "\"Status\" = 0" : "[Status] = 0");
             e.HasOne(x => x.CourseIntake).WithMany(x => x.Applications).HasForeignKey(x => x.CourseIntakeId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.SubmittedByTrainer).WithMany().HasForeignKey(x => x.SubmittedByTrainerId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.ReviewedByCreator).WithMany().HasForeignKey(x => x.ReviewedByCreatorId).OnDelete(DeleteBehavior.Restrict);

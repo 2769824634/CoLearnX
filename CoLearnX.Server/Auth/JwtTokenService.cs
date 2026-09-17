@@ -29,6 +29,7 @@ public class JwtTokenService(IOptions<JwtOptions> options) : IJwtTokenService
             new(ClaimTypes.Name, user.FullName),
             new(AuthTokenSubjects.ClaimType, AuthTokenSubjects.User),
             new("active_role", activeRole.ToString()),
+            new(SessionStamps.ClaimType, user.SessionStamp.ToString("D")),
         };
 
         foreach (var role in roles.Distinct())

@@ -16,23 +16,8 @@ public static class SeedData
     public static async Task InitializeAsync(CoLearnXDbContext db)
     {
         await db.Database.EnsureCreatedAsync();
-        // EnsureCreated cannot upgrade an existing database. Fail before any seed writes.
-        var hasB4CourseOwner = await db.Database.SqlQueryRaw<int>(
-            "SELECT COUNT(*) AS Value FROM pragma_table_info('Courses') WHERE name = 'CreatorId'").SingleAsync() > 0;
-        var hasB4Applications = await db.Database.SqlQueryRaw<int>(
-            "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'CourseIntakeApplications'").SingleAsync() > 0;
-        var hasLaterPhase = await db.Database.SqlQueryRaw<int>(
-            "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'CertificateRequests'").SingleAsync() > 0;
-        var hasCourseLevels = await db.Database.SqlQueryRaw<int>(
-            "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'CourseLevels'").SingleAsync() > 0;
-        var hasLearningPaths = await db.Database.SqlQueryRaw<int>(
-            "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'LearningPaths'").SingleAsync() > 0;
-        var hasCourseLevelId = await db.Database.SqlQueryRaw<int>(
-            "SELECT COUNT(*) AS Value FROM pragma_table_info('Courses') WHERE name = 'CourseLevelId'").SingleAsync() > 0;
-        var hasLearningPathId = await db.Database.SqlQueryRaw<int>(
-            "SELECT COUNT(*) AS Value FROM pragma_table_info('Courses') WHERE name = 'LearningPathId'").SingleAsync() > 0;
-        if (!hasB4CourseOwner || !hasB4Applications || !hasLaterPhase || !hasCourseLevels || !hasLearningPaths || !hasCourseLevelId || !hasLearningPathId)
-            throw new InvalidOperationException("Course Core requires a fresh isolated database. The existing database was not migrated and was left unchanged.");
+        if (db.Database.IsSqlite())
+            await EnsureSqliteCourseCoreSchemaAsync(db);
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
 
         await EnsureCourseTaxonomyAsync(db);
@@ -419,7 +404,7 @@ public static class SeedData
 
     private static async Task EnsureRoleRequestFixturesAsync(CoLearnXDbContext db)
     {
-        // Temporary D2 fixtures until Developer A supplies the user-side request flow.
+        // Seed pending requests so Admin review has queue data before users submit live ones.
         var member = await db.Users.SingleOrDefaultAsync(
             user => user.Email == MemberEmail);
         var creator = await db.Users.SingleOrDefaultAsync(
@@ -572,5 +557,44 @@ public static class SeedData
             });
         }
         await db.SaveChangesAsync();
+    }
+
+    static async Task EnsureSqliteCourseCoreSchemaAsync(CoLearnXDbContext db)
+    {
+        if (await db.Database.SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'Users'").SingleAsync() > 0
+            && await db.Database.SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS Value FROM pragma_table_info('Users') WHERE name = 'SessionStamp'").SingleAsync() == 0)
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE Users ADD COLUMN SessionStamp TEXT NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'");
+        if (await db.Database.SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'AdminAccounts'").SingleAsync() > 0
+            && await db.Database.SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS Value FROM pragma_table_info('AdminAccounts') WHERE name = 'SessionStamp'").SingleAsync() == 0)
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE AdminAccounts ADD COLUMN SessionStamp TEXT NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'");
+        if (await db.Database.SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'RoleRequests'").SingleAsync() > 0
+            && await db.Database.SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS Value FROM pragma_table_info('RoleRequests') WHERE name = 'ApplicantStatement'").SingleAsync() == 0)
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE RoleRequests ADD COLUMN ApplicantStatement TEXT NULL");
+        // EnsureCreated cannot upgrade an existing database. Fail before any seed writes.
+        var hasB4CourseOwner = await db.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS Value FROM pragma_table_info('Courses') WHERE name = 'CreatorId'").SingleAsync() > 0;
+        var hasB4Applications = await db.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'CourseIntakeApplications'").SingleAsync() > 0;
+        var hasLaterPhase = await db.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'CertificateRequests'").SingleAsync() > 0;
+        var hasCourseLevels = await db.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'CourseLevels'").SingleAsync() > 0;
+        var hasLearningPaths = await db.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'LearningPaths'").SingleAsync() > 0;
+        var hasCourseLevelId = await db.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS Value FROM pragma_table_info('Courses') WHERE name = 'CourseLevelId'").SingleAsync() > 0;
+        var hasLearningPathId = await db.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS Value FROM pragma_table_info('Courses') WHERE name = 'LearningPathId'").SingleAsync() > 0;
+        if (!hasB4CourseOwner || !hasB4Applications || !hasLaterPhase || !hasCourseLevels || !hasLearningPaths || !hasCourseLevelId || !hasLearningPathId)
+            throw new InvalidOperationException("Course Core requires a fresh isolated database. The existing database was not migrated and was left unchanged.");
     }
 }

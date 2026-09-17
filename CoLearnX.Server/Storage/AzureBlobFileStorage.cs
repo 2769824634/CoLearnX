@@ -6,11 +6,21 @@ using Microsoft.Extensions.Options;
 namespace CoLearnX.Server.Storage;
 
 // Azure Blob when Storage:ConnectionString is set.
-public sealed class AzureBlobFileStorage(IOptions<StorageOptions> options) : IFileStorage
+public sealed class AzureBlobFileStorage : IFileStorage
 {
-    private readonly BlobContainerClient _container = new(
-        options.Value.ConnectionString,
-        string.IsNullOrWhiteSpace(options.Value.Container) ? "materials" : options.Value.Container);
+    private readonly BlobContainerClient _container;
+
+    public AzureBlobFileStorage(IOptions<StorageOptions> options)
+        : this(options.Value.ConnectionString, options.Value.Container)
+    {
+    }
+
+    public AzureBlobFileStorage(string connectionString, string? container)
+    {
+        _container = new BlobContainerClient(
+            connectionString,
+            string.IsNullOrWhiteSpace(container) ? "materials" : container);
+    }
 
     public string Provider => "Azure";
     public bool CanIssueCloudLinks => _container.GetBlobClient("_").CanGenerateSasUri;

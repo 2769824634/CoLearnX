@@ -1,5 +1,16 @@
 const TOKEN_KEY = 'colearnx.token';
 const ADMIN_TOKEN_KEY = 'colearnx.admin.token';
+const SESSION_REPLACED_KEY = 'colearnx.sessionReplaced';
+const ADMIN_SESSION_REPLACED_KEY = 'colearnx.admin.sessionReplaced';
+const SIGN_IN_PATHS = new Set([
+  '/api/auth/login',
+  '/api/auth/available-roles',
+  '/api/auth/register',
+  '/api/admin/auth/login',
+]);
+
+export const SESSION_REPLACED_EVENT = 'colearnx:session-replaced';
+export const SESSION_REPLACED_MESSAGE = 'This account signed in on another device. You have been signed out.';
 
 export function getStoredToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -19,12 +30,42 @@ export function setStoredAdminToken(token) {
   else localStorage.removeItem(ADMIN_TOKEN_KEY);
 }
 
+export function consumeSessionReplacedMessage(admin = false) {
+  try {
+    const key = admin ? ADMIN_SESSION_REPLACED_KEY : SESSION_REPLACED_KEY;
+    if (!sessionStorage.getItem(key)) return null;
+    sessionStorage.removeItem(key);
+    return SESSION_REPLACED_MESSAGE;
+  } catch {
+    return null;
+  }
+}
+
 export class ApiError extends Error {
   constructor(code, message, status, fieldErrors = {}) {
     super(message);
     this.code = code;
     this.status = status;
     this.fieldErrors = fieldErrors;
+  }
+}
+
+function requestPath(path) {
+  return path.split('?')[0];
+}
+
+function notifySessionReplaced(path, usedToken) {
+  if (!usedToken || SIGN_IN_PATHS.has(requestPath(path))) return;
+  const admin = requestPath(path).startsWith('/api/admin');
+  if (admin) setStoredAdminToken(null);
+  else setStoredToken(null);
+  try {
+    sessionStorage.setItem(admin ? ADMIN_SESSION_REPLACED_KEY : SESSION_REPLACED_KEY, '1');
+  } catch {
+    /* storage may be unavailable in tests */
+  }
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new CustomEvent(SESSION_REPLACED_EVENT, { detail: { admin } }));
   }
 }
 
@@ -49,10 +90,12 @@ export async function apiRequest(path, { method = 'GET', body, token, signal, as
   try {
     data = text ? JSON.parse(text) : null;
   } catch {
+    if (res.status === 401) notifySessionReplaced(path, auth);
     throw new ApiError('INVALID_RESPONSE', 'The server returned an unreadable response. Please try again.', res.status);
   }
 
   if (!res.ok) {
+    if (res.status === 401) notifySessionReplaced(path, auth);
     throw new ApiError(data?.code || 'HTTP_ERROR', data?.message || data?.title || res.statusText, res.status, data?.fieldErrors ?? {});
   }
   return data;
@@ -65,6 +108,7 @@ export async function downloadFile(path, fileName, token) {
 
   const res = await fetch(path, { headers });
   if (!res.ok) {
+    if (res.status === 401) notifySessionReplaced(path, auth);
     let message = res.statusText;
     try {
       const data = await res.json();

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { authApi } from '../api';
-import { ApiError, getStoredToken, setStoredToken } from '../api/client';
+import { ApiError, getStoredToken, setStoredToken, SESSION_REPLACED_EVENT } from '../api/client';
 import { AuthContext } from './AuthContext';
 
 // Session + login / switchRole. Shared: AuthProvider
@@ -9,6 +9,19 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [booting, setBooting] = useState(true);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    function onSessionReplaced(event) {
+      if (event.detail?.admin) return;
+      setStoredToken(null);
+      setToken(null);
+      setUser(null);
+      setBooting(false);
+    }
+
+    window.addEventListener(SESSION_REPLACED_EVENT, onSessionReplaced);
+    return () => window.removeEventListener(SESSION_REPLACED_EVENT, onSessionReplaced);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +64,20 @@ export function AuthProvider({ children }) {
     }
   }
 
+  async function register(payload) {
+    setError(null);
+    const res = await authApi.register({
+      email: payload.email,
+      password: payload.password,
+      fullName: payload.fullName,
+      displayName: payload.displayName || undefined,
+    });
+    setStoredToken(res.accessToken);
+    setToken(res.accessToken);
+    setUser(res.user);
+    return res.user;
+  }
+
   async function switchRole(activeRole) {
     const res = await authApi.switchRole(activeRole);
     setStoredToken(res.accessToken);
@@ -78,6 +105,7 @@ export function AuthProvider({ children }) {
     activeRole: user?.activeRole?.toLowerCase() ?? null,
     roles: user?.roles ?? [],
     login,
+    register,
     switchRole,
     logout,
     refreshUser,

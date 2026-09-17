@@ -1,14 +1,17 @@
 using System.ComponentModel.DataAnnotations;
+using CoLearnX.Server.Auth;
 using CoLearnX.Server.Domain.Enums;
 
 namespace CoLearnX.Server.Contracts.Dtos;
 
 // Auth request/response DTOs. Shared: LoginRequest, AuthResponse, UserMeDto
 public record RegisterRequest(
-    [Required, EmailAddress] string Email,
-    [Required, MinLength(8)] string Password,
-    [Required] string FullName,
-    string? DisplayName);
+    [Required, EmailAddress, MaxLength(254)] string Email,
+    [Required, MinLength(PasswordRules.MinLength), MaxLength(PasswordRules.MaxLength)]
+    [RegularExpression(PasswordRules.Pattern, ErrorMessage = PasswordRules.Hint)]
+    string Password,
+    [Required, MinLength(2), MaxLength(80)] string FullName,
+    [MaxLength(80)] string? DisplayName);
 
 public record LoginRequest(
     [Required, EmailAddress] string Email,
@@ -163,6 +166,19 @@ public record MaterialDto(
 public record StorageStatusDto(string Provider, bool CloudLinks, string? Container);
 
 public record MaterialCloudLinkDto(string Url, DateTime ExpiresAtUtc);
+
+public record CreateRoleRequest([Required] string RequestedRole);
+
+public record RoleRequestDto(
+    int Id,
+    string RequestedRole,
+    string Status,
+    string? ReviewNote,
+    DateTime CreatedAt,
+    DateTime? ReviewedAt,
+    bool HasResume = false,
+    bool HasIdDocument = false,
+    string? Statement = null);
 
 public record ApiError(string Code, string Message,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]

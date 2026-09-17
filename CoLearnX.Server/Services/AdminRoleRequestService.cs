@@ -136,6 +136,7 @@ public sealed class AdminRoleRequestService(
             roleRequest.ReviewNote,
             roleRequest.ReviewedByAdminAccountId,
             roleRequest.CreatedAt,
-            roleRequest.ReviewedAt);
+            roleRequest.ReviewedAt,
+            roleRequest.ApplicantStatement);
 
 }

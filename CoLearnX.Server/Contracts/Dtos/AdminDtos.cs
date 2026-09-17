@@ -42,7 +42,8 @@ public record AdminRoleRequestDto(
     string? ReviewNote,
     int? ReviewedByAdminAccountId,
     DateTime CreatedAt,
-    DateTime? ReviewedAt);
+    DateTime? ReviewedAt,
+    string? ApplicantStatement = null);
 
 public record AdminRoleRequestReviewResultDto(
     AdminRoleRequestDto RoleRequest,

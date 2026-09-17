@@ -1,8 +1,8 @@
 using CoLearnX.Server.Contracts.Dtos;
+using CoLearnX.Server.Data;
 using CoLearnX.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoLearnX.Server.Controllers;
@@ -34,10 +34,7 @@ public sealed class CreatorCourseApiErrorsAttribute : ActionFilterAttribute, IEx
             };
             context.ExceptionHandled = true;
         }
-        else if (context.Exception is DbUpdateException
-            {
-                InnerException: SqliteException { SqliteExtendedErrorCode: 2067 }
-            })
+        else if (context.Exception is DbUpdateException dbUpdate && dbUpdate.IsUniqueConstraintViolation())
         {
             context.Result = new ConflictObjectResult(new ApiError(
                 "COURSE_CODE_EXISTS",

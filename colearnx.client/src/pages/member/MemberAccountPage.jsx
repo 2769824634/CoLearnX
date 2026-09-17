@@ -4,6 +4,7 @@ import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
 import { maskEmail, maskPhone } from '../../data/memberMock';
 import { useMemberData } from './memberDataState';
+import RoleApplicationsPanel from '../account/RoleApplicationsPanel';
 
 // Masked account + Edit Profile.
 export default function MemberAccountPage() {
@@ -79,6 +80,7 @@ export default function MemberAccountPage() {
                 <div style={{ display: 'flex', fontSize: 13 }}><span>Creator</span><span style={{ flex: 1 }} /><span className="pill muted">{vis.creator ? 'Visible' : 'Hidden / pending'}</span></div>
               </div>
             </div>
+            <RoleApplicationsPanel />
           </div>
         </div>
       </MemberShell>

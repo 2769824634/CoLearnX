@@ -34,9 +34,13 @@ public sealed class CoLearnXApiFactory : WebApplicationFactory<Program>
             services.AddDbContext<CoLearnXDbContext>(options =>
                 options.UseSqlite($"Data Source={_dbPath}"));
 
-            foreach (var descriptor in services.Where(d => d.ServiceType == typeof(IFileStorage)).ToList())
+            foreach (var descriptor in services.Where(d =>
+                         d.ServiceType == typeof(IFileStorage) ||
+                         d.ServiceType == typeof(IRoleRequestFileStorage)).ToList())
                 services.Remove(descriptor);
             services.AddSingleton<IFileStorage>(new LocalFileStorage(_uploadPath));
+            services.AddSingleton<IRoleRequestFileStorage>(
+                new RoleRequestFileStorage(new LocalFileStorage(Path.Combine(_uploadPath, "role-requests"))));
         });
     }
 

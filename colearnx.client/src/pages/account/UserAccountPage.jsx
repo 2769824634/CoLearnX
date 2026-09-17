@@ -3,6 +3,7 @@ import { usersApi } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import Modal from '../../components/Modal';
 import { maskEmail, maskPhone } from '../../data/memberMock';
+import RoleApplicationsPanel from './RoleApplicationsPanel';
 
 const IDENTITY_ROWS = [
   { key: 'member', label: 'Member', grantedHint: 'Learner profile & certificates' },
@@ -188,6 +189,7 @@ export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summ
                 })}
               </div>
             </div>
+            <RoleApplicationsPanel />
           </div>
         </div>
       </div>

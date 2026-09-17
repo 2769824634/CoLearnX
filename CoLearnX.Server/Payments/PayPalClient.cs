@@ -10,9 +10,13 @@ public class PayPalOptions
     public string ClientSecret { get; set; } = string.Empty;
     public string BaseUrl { get; set; } = "https://api-m.sandbox.paypal.com";
     public string Currency { get; set; } = "AUD";
+    public string AllowedReturnHosts { get; set; } = string.Empty;
 
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
+
+    public IEnumerable<string> ExtraReturnHosts =>
+        AllowedReturnHosts.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 }
 
 public record PayPalClientConfigDto(string ClientId, string Currency, string Mode, bool Enabled);
@@ -46,7 +50,7 @@ public class PayPalClient(IHttpClientFactory httpClientFactory, Microsoft.Extens
         EnsureConfigured();
         var token = await GetAccessTokenAsync(ct);
         var client = httpClientFactory.CreateClient("PayPal");
-        var safeReturn = PayPalReturnUrls.Normalize(returnUrl);
+        var safeReturn = PayPalReturnUrls.Normalize(returnUrl, _options.ExtraReturnHosts);
 
         var applicationContext = new Dictionary<string, string>
         {
@@ -214,14 +218,17 @@ public class PayPalClient(IHttpClientFactory httpClientFactory, Microsoft.Extens
 
 public static class PayPalReturnUrls
 {
-    public static string? Normalize(string? url)
+    public static string? Normalize(string? url, IEnumerable<string>? extraHosts = null)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
             return null;
 
-        var local = uri.Host is "localhost" or "127.0.0.1";
-        var tunnel = uri.Host.EndsWith(".devtunnels.ms", StringComparison.OrdinalIgnoreCase);
-        if (!local && !tunnel)
+        var host = uri.Host;
+        var local = host is "localhost" or "127.0.0.1";
+        var tunnel = host.EndsWith(".devtunnels.ms", StringComparison.OrdinalIgnoreCase);
+        var azure = host.EndsWith(".azurewebsites.net", StringComparison.OrdinalIgnoreCase);
+        var extra = extraHosts?.Any(allowed => HostMatches(host, allowed)) == true;
+        if (!local && !tunnel && !azure && !extra)
             return null;
         if (!local && uri.Scheme != Uri.UriSchemeHttps)
             return null;
@@ -229,5 +236,13 @@ public static class PayPalReturnUrls
             return null;
 
         return uri.GetLeftPart(UriPartial.Path).TrimEnd('/');
+    }
+
+    private static bool HostMatches(string host, string allowed)
+    {
+        if (string.IsNullOrWhiteSpace(allowed)) return false;
+        if (allowed.StartsWith("*.", StringComparison.Ordinal))
+            return host.EndsWith(allowed[1..], StringComparison.OrdinalIgnoreCase);
+        return host.Equals(allowed, StringComparison.OrdinalIgnoreCase);
     }
 }

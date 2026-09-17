@@ -28,6 +28,7 @@ public class AdminTokenService(IOptions<JwtOptions> options) : IAdminTokenServic
             new(ClaimTypes.Name, adminAccount.Email),
             new(AdminAuthorization.AdminAccountIdClaim, id),
             new(AuthTokenSubjects.ClaimType, AuthTokenSubjects.Admin),
+            new(SessionStamps.ClaimType, adminAccount.SessionStamp.ToString("D")),
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
