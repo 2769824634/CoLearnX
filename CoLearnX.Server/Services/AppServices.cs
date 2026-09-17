@@ -67,6 +67,7 @@ public interface ICertificateService
 public interface IMaterialService
 {
     Task<IReadOnlyList<MaterialDto>> ListAsync(int userId, MaterialStatus? status, int? courseId = null, CancellationToken ct = default);
+    Task<IReadOnlyList<CreatorMaterialUsageDto>> ListCreatorUsageAsync(int creatorId, CancellationToken ct = default);
     Task<MaterialDto> UploadAsync(int creatorId, int courseId, string title, string? category, string? description, IFormFile? file, CancellationToken ct = default);
     Task<MaterialFileResult> OpenDownloadAsync(int userId, int materialId, CancellationToken ct = default);
     StorageStatusDto GetStorageStatus();
@@ -908,6 +909,23 @@ public class CertificateService(CoLearnXDbContext db) : ICertificateService
 
 public class MaterialService(CoLearnXDbContext db, IFileStorage files, IMaterialVersionService versions) : IMaterialService
 {
+    public async Task<IReadOnlyList<CreatorMaterialUsageDto>> ListCreatorUsageAsync(int creatorId, CancellationToken ct = default)
+    {
+        if (!await db.Users.AnyAsync(user => user.Id == creatorId && user.IsActive
+            && user.Roles.Any(role => role.Role == AppRole.Creator), ct))
+            throw new LaterPhaseException("CREATOR_REQUIRED", "An active Creator account is required.", 403);
+
+        return await (from log in db.MaterialUsageLogs.AsNoTracking()
+                  join course in db.Courses.AsNoTracking() on log.CourseId equals course.Id
+                  join trainer in db.Users.AsNoTracking() on log.TrainerId equals trainer.Id
+                  where log.LearningMaterial.CreatorId == creatorId
+                  orderby log.UsedAt descending, log.Id descending
+                  select new CreatorMaterialUsageDto(
+                      log.Id, log.LearningMaterialId, log.LearningMaterial.Title,
+                      course.Id, course.Code, course.Title,
+                      trainer.Id, trainer.FullName, log.UsedAt)).ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<MaterialDto>> ListAsync(int userId, MaterialStatus? status, int? courseId = null, CancellationToken ct = default)
     {
         var query = db.LearningMaterials.AsNoTracking().Include(m => m.Creator)

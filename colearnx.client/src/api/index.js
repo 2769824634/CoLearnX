@@ -147,6 +147,7 @@ export const usersApi = {
 };
 
 export const materialsApi = {
+  usage: (token, signal) => apiRequest('/api/materials/usage', { token, signal }),
   list: (status, courseId, token, signal) => {
     const params = new URLSearchParams();
     if (status) params.set('status', status);

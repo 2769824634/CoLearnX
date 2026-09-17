@@ -284,6 +284,12 @@ public class CreditsController(ICreditService credits, IPayPalClient payPal) : C
 [Authorize]
 public class MaterialsController(IMaterialService materials, IMaterialVersionService versions) : ControllerBase
 {
+    [HttpGet("usage")]
+    [Authorize(Policy = CreatorAuthorization.PolicyName)]
+    [LaterPhaseApiErrors]
+    public async Task<ActionResult<IReadOnlyList<CreatorMaterialUsageDto>>> Usage(CancellationToken ct)
+        => Ok(await materials.ListCreatorUsageAsync(User.GetUserId(), ct));
+
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<MaterialDto>>> List(
         [FromQuery] string? status,

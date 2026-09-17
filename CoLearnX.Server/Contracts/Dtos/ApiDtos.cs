@@ -163,6 +163,17 @@ public record MaterialDto(
     string? CourseCode = null,
     string? CourseTitle = null);
 
+public record CreatorMaterialUsageDto(
+    int Id,
+    int MaterialId,
+    string MaterialTitle,
+    int CourseId,
+    string CourseCode,
+    string CourseTitle,
+    int TrainerId,
+    string TrainerName,
+    DateTime UsedAt);
+
 public record StorageStatusDto(string Provider, bool CloudLinks, string? Container);
 
 public record MaterialCloudLinkDto(string Url, DateTime ExpiresAtUtc);
