@@ -5,7 +5,7 @@ import { useMemberData } from './memberDataState';
 // Dashboard: credits, continue learning, featured.
 export default function MemberHomePage() {
   const navigate = useNavigate();
-  const { state, showToast, toggleWish } = useMemberData();
+  const { state, toggleWish } = useMemberData();
   const active = state.enrolled.filter((e) => e.status === 'active');
   const completed = state.enrolled.filter((e) => e.status === 'completed');
   const featured = state.courses.filter((c) => c.featured).slice(0, 4);
@@ -15,7 +15,6 @@ export default function MemberHomePage() {
       title="Member Dashboard"
       subtitle={`Welcome back, ${state.user.displayName}`}
       onSearch={(q) => navigate(`/member/courses?q=${encodeURIComponent(q)}`)}
-      onNotify={() => showToast('No new notifications')}
     >
       {state.loading ? <p className="page-sub">Loading…</p> : null}
 

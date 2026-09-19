@@ -30,7 +30,7 @@ export default function MemberCourseDetailPage() {
 
   if (!course) {
     return (
-      <MemberShell title="Course" subtitle="Loading…" onNotify={() => {}}>
+      <MemberShell title="Course" subtitle="Loading…">
         <p className="page-sub">Loading course detail…</p>
       </MemberShell>
     );
@@ -90,7 +90,6 @@ export default function MemberCourseDetailPage() {
     <>
       <MemberShell
         title={`${course.code} — ${course.title}`}
-        onNotify={() => showToast('No new notifications')}
       >
         <div className="grid-2-1">
           <div>

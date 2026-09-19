@@ -154,7 +154,10 @@ public record CertificateDto(
     int StageNumber,
     string Title,
     DateTime AwardedAt,
-    string VerificationCode);
+    string VerificationCode,
+    int? CourseId = null,
+    string? CourseCode = null,
+    string? CourseTitle = null);
 
 public record MaterialDto(
     int Id,

@@ -32,7 +32,6 @@ export default function MemberProgramsPage() {
   return (
     <MemberShell
       title="My Programs"
-      onNotify={() => showToast('No new notifications')}
     >
       <div className="tabs">
         <button type="button" className={`tab${tab === 'active' ? ' active' : ''}`} onClick={() => setTab('active')}>

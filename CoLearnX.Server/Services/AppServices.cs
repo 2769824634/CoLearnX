@@ -960,7 +960,10 @@ public class CertificateService(CoLearnXDbContext db) : ICertificateService
                 c.CertificateTemplate.StageNumber,
                 c.CertificateTemplate.Title,
                 c.AwardedAt,
-                c.VerificationCode))
+                c.VerificationCode,
+                c.CourseId,
+                db.Courses.Where(course => course.Id == c.CourseId).Select(course => course.Code).FirstOrDefault(),
+                db.Courses.Where(course => course.Id == c.CourseId).Select(course => course.Title).FirstOrDefault()))
             .ToListAsync(ct);
     }
 }

@@ -102,6 +102,9 @@ export default function LoginPage() {
               {busy && !roleOpen ? 'Signing in…' : 'Sign in'}
             </button>
             <p className="auth-footer">
+              <Link to="/forgot-password">Forgot password?</Link>
+            </p>
+            <p className="auth-footer">
               New here? <Link to="/register">Create an account</Link>
             </p>
           </form>

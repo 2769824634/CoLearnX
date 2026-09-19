@@ -37,6 +37,9 @@ import MemberAccountPage from '../pages/member/MemberAccountPage';
 import CreatorUploadPage from '../pages/creator/CreatorUploadPage';
 import CreatorUsagePage from '../pages/creator/CreatorUsagePage';
 import Modal from '../components/Modal';
+import ForgotPasswordPage from '../pages/ForgotPasswordPage';
+import ResetPasswordPage from '../pages/ResetPasswordPage';
+import { MemberNotificationsProvider } from '../components/MemberNotificationsProvider';
 
 function MemberToastHost() {
   const navigate = useNavigate();
@@ -71,6 +74,7 @@ function MemberToastHost() {
 function MemberArea() {
   return (
     <MemberDataProvider>
+      <MemberNotificationsProvider>
       <Routes>
         <Route path="home" element={<MemberHomePage />} />
         <Route path="courses" element={<MemberCatalogPage />} />
@@ -83,6 +87,7 @@ function MemberArea() {
         <Route path="*" element={<Navigate to="home" replace />} />
       </Routes>
       <MemberToastHost />
+      </MemberNotificationsProvider>
     </MemberDataProvider>
   );
 }
@@ -93,6 +98,8 @@ export default function AppRouter() {
     <div className="app-wrap">
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/" element={<Navigate to="/login" replace />} />

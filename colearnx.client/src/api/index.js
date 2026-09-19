@@ -2,6 +2,8 @@ import { apiRequest, downloadFile } from './client';
 
 // API modules — keep export names: authApi, coursesApi, enrollmentsApi, creditsApi
 export const authApi = {
+  forgotPassword: (email) => apiRequest('/api/auth/forgot-password', { method: 'POST', token: '', body: { email } }),
+  resetPassword: (token, newPassword) => apiRequest('/api/auth/reset-password', { method: 'POST', token: '', body: { token, newPassword } }),
   login: (email, password, activeRole) =>
     apiRequest('/api/auth/login', {
       method: 'POST',
@@ -128,8 +130,16 @@ export const creditsApi = {
 };
 
 export const certificatesApi = {
-  my: () => apiRequest('/api/certificates/my'),
-  request: (enrollmentId) => apiRequest('/api/certificates/requests', { method: 'POST', body: { enrollmentId } }),
+  my: (token, signal) => apiRequest('/api/certificates/my', { token, signal }),
+  eligibility: (token, signal) => apiRequest('/api/certificates/eligibility', { token, signal }),
+  requests: (token, signal) => apiRequest('/api/certificates/requests/my', { token, signal }),
+  request: (enrollmentId, token) => apiRequest('/api/certificates/requests', { method: 'POST', token, body: { enrollmentId } }),
+};
+
+export const notificationsApi = {
+  my: (token, signal) => apiRequest('/api/notifications/my', { token, signal }),
+  read: (id, token) => apiRequest(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'PUT', token }),
+  readAll: (token) => apiRequest('/api/notifications/read-all', { method: 'PUT', token }),
 };
 
 export const roleRequestsApi = {

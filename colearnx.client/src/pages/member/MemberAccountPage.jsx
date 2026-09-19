@@ -10,7 +10,7 @@ import AvatarEditor from '../account/AvatarEditor';
 // Masked account + Edit Profile.
 export default function MemberAccountPage() {
   const navigate = useNavigate();
-  const { state, showToast, saveProfile } = useMemberData();
+  const { state, saveProfile } = useMemberData();
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState(null);
   const vis = state.identityVisibility;
@@ -33,7 +33,6 @@ export default function MemberAccountPage() {
     <>
       <MemberShell
         title="Profile / My Account"
-        onNotify={() => showToast('No new notifications')}
       >
         <div className="grid-2-1" style={{ gridTemplateColumns: '240px 1fr' }}>
           <div style={{ textAlign: 'center' }}>

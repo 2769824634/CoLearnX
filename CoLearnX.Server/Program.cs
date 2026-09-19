@@ -57,6 +57,9 @@ builder.Services.AddSingleton<IPayPalClient, PayPalClient>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAdminTokenService, AdminTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.Configure<PasswordResetOptions>(builder.Configuration.GetSection("PasswordReset"));
+builder.Services.AddScoped<PasswordResetService>();
+builder.Services.AddSingleton<IPasswordResetMailSender, PasswordResetMailSender>();
 builder.Services.AddScoped<IAdminAuthService, AdminAuthService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IAdminRoleRequestService, AdminRoleRequestService>();
@@ -72,6 +75,7 @@ builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 builder.Services.AddScoped<IMemberLearningHubService, MemberLearningHubService>();
 builder.Services.AddScoped<ICreditService, CreditService>();
 builder.Services.AddScoped<ICertificateService, CertificateService>();
+builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<IMaterialService, MaterialService>();
 builder.Services.AddScoped<IMaterialVersionService, MaterialVersionService>();
 builder.Services.AddScoped<ITrainerLaterPhaseService, TrainerLaterPhaseService>();
@@ -148,11 +152,27 @@ builder.Services.AddRateLimiter(options =>
     options.OnRejected = async (context, token) =>
     {
         context.HttpContext.Response.ContentType = "application/json";
+        if (context.HttpContext.Request.Path == "/api/auth/forgot-password")
+        {
+            context.HttpContext.Response.StatusCode = StatusCodes.Status200OK;
+            await context.HttpContext.Response.WriteAsJsonAsync(new PasswordResetResponse(PasswordResetService.RequestMessage), token);
+            return;
+        }
         await context.HttpContext.Response.WriteAsJsonAsync(
             new ApiError("TOO_MANY_REQUESTS", "Too many sign-in attempts. Try again in a few minutes."),
             token);
     };
     var testing = builder.Environment.IsEnvironment("Testing");
+    options.AddPolicy("password-reset", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 8,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            }));
     options.AddPolicy("auth", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
