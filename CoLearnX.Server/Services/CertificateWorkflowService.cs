@@ -3,11 +3,16 @@ using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
+using Microsoft.Data.Sqlite;
+using Microsoft.Data.SqlClient;
 
 namespace CoLearnX.Server.Services;
 
 public interface ICertificateWorkflowService
 {
+    Task<IReadOnlyList<CertificateRequestDto>> ListForMemberAsync(int userId, CancellationToken ct = default);
+    Task<IReadOnlyList<CertificateEligibilityDto>> ListEligibilityAsync(int userId, CancellationToken ct = default);
     Task<CertificateRequestDto> SubmitAsync(int userId, SubmitCertificateRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<CertificateRequestDto>> ListForTrainerAsync(int trainerUserId, string? status, CancellationToken ct = default);
     Task<CertificateRequestDto> TrainerReviewAsync(int trainerUserId, int requestId, WorkflowReviewRequest request, CancellationToken ct = default);
@@ -17,34 +22,40 @@ public interface ICertificateWorkflowService
 
 public sealed class CertificateWorkflowService(CoLearnXDbContext db) : ICertificateWorkflowService
 {
-    public async Task<CertificateRequestDto> SubmitAsync(int userId, SubmitCertificateRequest request, CancellationToken ct = default)
+    public async Task<IReadOnlyList<CertificateRequestDto>> ListForMemberAsync(int userId, CancellationToken ct = default)
+    {
+        await RequireActiveRoleAsync(userId, AppRole.Member, "MEMBER_REQUIRED", ct);
+        return await RequestQuery().AsNoTracking().Where(item => item.Enrollment.UserId == userId)
+            .OrderByDescending(item => item.SubmittedAt).ThenByDescending(item => item.Id)
+            .Select(ToDtoExpression()).ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<CertificateEligibilityDto>> ListEligibilityAsync(int userId, CancellationToken ct = default)
+    {
+        await RequireActiveRoleAsync(userId, AppRole.Member, "MEMBER_REQUIRED", ct);
+        var enrollments = await EnrollmentQuery().AsNoTracking().Where(item => item.UserId == userId)
+            .OrderByDescending(item => item.Id).ToListAsync(ct);
+        var result = new List<CertificateEligibilityDto>();
+        foreach (var enrollment in enrollments)
+            result.Add(await EvaluateEligibilityAsync(enrollment, ct));
+        return result;
+    }
+
+    public Task<CertificateRequestDto> SubmitAsync(int userId, SubmitCertificateRequest request, CancellationToken ct = default)
+        => InTransactionAsync(() => SubmitCoreAsync(userId, request, ct), ct);
+
+    private async Task<CertificateRequestDto> SubmitCoreAsync(int userId, SubmitCertificateRequest request, CancellationToken ct)
     {
         await RequireActiveRoleAsync(userId, AppRole.Member, "MEMBER_REQUIRED", ct);
         var enrollment = await EnrollmentQuery().SingleOrDefaultAsync(item => item.Id == request.EnrollmentId && item.UserId == userId, ct)
             ?? throw new LaterPhaseException("ENROLLMENT_NOT_FOUND", "Enrollment was not found.", 404);
-        if (enrollment.Status != EnrollmentStatus.Completed || enrollment.ProgressPercent < 100)
-            throw new LaterPhaseException("CERTIFICATE_NOT_ELIGIBLE", "Complete the Intake before requesting a certificate.", 409);
-
-        var intakeId = enrollment.CourseSession.CourseIntakeId;
-        var sessionIds = await db.CourseSessions.Where(item => item.CourseIntakeId == intakeId).Select(item => item.Id).ToListAsync(ct);
-        var attended = await db.AttendanceRecords.CountAsync(item => sessionIds.Contains(item.CourseSessionId)
-            && item.UserId == userId && (item.Status == AttendanceStatus.Present || item.Status == AttendanceStatus.Late), ct);
-        if (sessionIds.Count == 0 || attended * 100 / sessionIds.Count < 80)
-            throw new LaterPhaseException("CERTIFICATE_NOT_ELIGIBLE", "At least 80% attendance is required.", 409);
-
-        var assessments = await db.Assessments.Where(item => item.CourseIntakeId == intakeId).ToListAsync(ct);
-        if (assessments.Count == 0)
-            throw new LaterPhaseException("CERTIFICATE_NOT_ELIGIBLE", "At least one assessment is required.", 409);
-        var results = await db.AssessmentResults.Where(item => item.EnrollmentId == enrollment.Id
-            && assessments.Select(assessment => assessment.Id).Contains(item.AssessmentId)).ToListAsync(ct);
-        if (results.Count != assessments.Count || assessments.Any(assessment =>
-                results.Single(result => result.AssessmentId == assessment.Id).Score < assessment.PassScore))
-            throw new LaterPhaseException("CERTIFICATE_NOT_ELIGIBLE", "All assessments must be graded and passed.", 409);
-
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var existing = await db.CertificateRequests.SingleOrDefaultAsync(item => item.EnrollmentId == enrollment.Id, ct);
         if (existing is not null)
             return await GetDtoAsync(existing.Id, ct);
+
+        var eligibility = await EvaluateEligibilityAsync(enrollment, ct);
+        if (!eligibility.IsEligible)
+            throw new LaterPhaseException("CERTIFICATE_NOT_ELIGIBLE", string.Join(" ", eligibility.Reasons), 409);
 
         var certificateRequest = new CertificateRequest { EnrollmentId = enrollment.Id };
         db.CertificateRequests.Add(certificateRequest);
@@ -58,8 +69,9 @@ public sealed class CertificateWorkflowService(CoLearnXDbContext db) : ICertific
             Result = "Succeeded",
             Reason = enrollment.Course.Code,
         });
+        AddNotification(certificateRequest, enrollment, "CertificateSubmitted", "Certificate request submitted",
+            "Your request is awaiting Trainer review.");
         await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
         return await GetDtoAsync(certificateRequest.Id, ct);
     }
 
@@ -72,8 +84,12 @@ public sealed class CertificateWorkflowService(CoLearnXDbContext db) : ICertific
         return await query.OrderByDescending(item => item.SubmittedAt).Select(ToDtoExpression()).ToListAsync(ct);
     }
 
-    public async Task<CertificateRequestDto> TrainerReviewAsync(int trainerUserId, int requestId, WorkflowReviewRequest request,
+    public Task<CertificateRequestDto> TrainerReviewAsync(int trainerUserId, int requestId, WorkflowReviewRequest request,
         CancellationToken ct = default)
+        => InTransactionAsync(() => TrainerReviewCoreAsync(trainerUserId, requestId, request, ct), ct);
+
+    private async Task<CertificateRequestDto> TrainerReviewCoreAsync(int trainerUserId, int requestId, WorkflowReviewRequest request,
+        CancellationToken ct)
     {
         await RequireActiveRoleAsync(trainerUserId, AppRole.Trainer, "TRAINER_REQUIRED", ct);
         var item = await RequestQuery().SingleOrDefaultAsync(candidate => candidate.Id == requestId
@@ -94,6 +110,9 @@ public sealed class CertificateWorkflowService(CoLearnXDbContext db) : ICertific
         item.TrainerReviewReason = reason;
         db.AuditLogs.Add(AuditForUser(trainerUserId, approve ? "CertificateRequestTrainerApproved" : "CertificateRequestTrainerRejected",
             item.Id, reason));
+        AddNotification(item, item.Enrollment, approve ? "CertificateTrainerApproved" : "CertificateTrainerRejected",
+            approve ? "Trainer approved your certificate request" : "Trainer rejected your certificate request",
+            approve ? "Your request is awaiting Admin review." : reason!);
         await db.SaveChangesAsync(ct);
         return await GetDtoAsync(item.Id, ct);
     }
@@ -104,8 +123,12 @@ public sealed class CertificateWorkflowService(CoLearnXDbContext db) : ICertific
         return await query.OrderByDescending(item => item.SubmittedAt).Select(ToDtoExpression()).ToListAsync(ct);
     }
 
-    public async Task<CertificateRequestDto> AdminReviewAsync(int adminAccountId, int requestId, WorkflowReviewRequest request,
+    public Task<CertificateRequestDto> AdminReviewAsync(int adminAccountId, int requestId, WorkflowReviewRequest request,
         CancellationToken ct = default)
+        => InTransactionAsync(() => AdminReviewCoreAsync(adminAccountId, requestId, request, ct), ct);
+
+    private async Task<CertificateRequestDto> AdminReviewCoreAsync(int adminAccountId, int requestId, WorkflowReviewRequest request,
+        CancellationToken ct)
     {
         var item = await RequestQuery().SingleOrDefaultAsync(candidate => candidate.Id == requestId, ct)
             ?? throw new LaterPhaseException("CERTIFICATE_REQUEST_NOT_FOUND", "Certificate request was not found.", 404);
@@ -153,6 +176,9 @@ public sealed class CertificateWorkflowService(CoLearnXDbContext db) : ICertific
             Result = "Succeeded",
             Reason = reason,
         });
+        AddNotification(item, item.Enrollment, approve ? "CertificateIssued" : "CertificateAdminRejected",
+            approve ? "Your certificate has been issued" : "Admin rejected your certificate request",
+            approve ? "Your certificate is available on Badges & Certificates." : reason!);
         await db.SaveChangesAsync(ct);
         return await GetDtoAsync(item.Id, ct);
     }
@@ -190,7 +216,74 @@ public sealed class CertificateWorkflowService(CoLearnXDbContext db) : ICertific
             item.SubmittedAt,
             item.TrainerReviewReason,
             item.AdminReviewReason,
-            item.UserCertificateId);
+            item.UserCertificateId,
+            item.TrainerReviewedAt,
+            item.AdminReviewedAt);
+
+    private async Task<CertificateEligibilityDto> EvaluateEligibilityAsync(Enrollment enrollment, CancellationToken ct)
+    {
+        var reasons = new List<string>();
+        if (enrollment.Status != EnrollmentStatus.Completed || enrollment.ProgressPercent < 100)
+            reasons.Add("Complete the Intake with 100% progress before requesting a certificate.");
+        var intakeId = enrollment.CourseSession.CourseIntakeId;
+        var sessionIds = await db.CourseSessions.Where(item => item.CourseIntakeId == intakeId).Select(item => item.Id).ToListAsync(ct);
+        var attended = await db.AttendanceRecords.CountAsync(item => sessionIds.Contains(item.CourseSessionId)
+            && item.UserId == enrollment.UserId && (item.Status == AttendanceStatus.Present || item.Status == AttendanceStatus.Late), ct);
+        var attendanceRate = sessionIds.Count == 0 ? 0 : attended * 100 / sessionIds.Count;
+        if (attendanceRate < 80) reasons.Add("At least 80% attendance (Present or Late) is required.");
+        var assessments = await db.Assessments.Where(item => item.CourseIntakeId == intakeId).ToListAsync(ct);
+        var assessmentIds = assessments.Select(item => item.Id).ToArray();
+        var results = await db.AssessmentResults.Where(item => item.EnrollmentId == enrollment.Id && assessmentIds.Contains(item.AssessmentId)).ToListAsync(ct);
+        var passed = assessments.Count(assessment => results.Any(result => result.AssessmentId == assessment.Id && result.Score >= assessment.PassScore));
+        if (assessments.Count == 0) reasons.Add("At least one assessment is required.");
+        else if (passed != assessments.Count) reasons.Add("All assessments must be graded and passed.");
+        var existing = await db.CertificateRequests.AsNoTracking().SingleOrDefaultAsync(item => item.EnrollmentId == enrollment.Id, ct);
+        if (existing is not null)
+            reasons.Add(existing.Status == CertificateRequestStatus.Issued
+                ? "A certificate has already been issued for this enrollment."
+                : "A certificate request already exists for this enrollment; view its progress below.");
+        return new CertificateEligibilityDto(enrollment.Id, enrollment.CourseId, enrollment.Course.Code, enrollment.Course.Title,
+            intakeId, reasons.Count == 0, reasons, attendanceRate, assessments.Count, passed, existing?.Id, existing?.Status.ToString());
+    }
+
+    private void AddNotification(CertificateRequest request, Enrollment enrollment, string code, string title, string body)
+        => db.Notifications.Add(new Notification
+        {
+            UserId = enrollment.UserId,
+            Code = code,
+            Title = title,
+            Body = $"{enrollment.Course.Code}: {enrollment.Course.Title}. Request #{request.Id}. {body}",
+        });
+
+    // Keep the state transition, certificate, audit and notification in one database transaction.
+    // Serializable isolation also protects against competing application processes, not only HTTP replays.
+    private Task<CertificateRequestDto> InTransactionAsync(Func<Task<CertificateRequestDto>> action, CancellationToken ct)
+        => db.Database.CreateExecutionStrategy().ExecuteAsync(() => InTransactionCoreAsync(action, ct));
+
+    private async Task<CertificateRequestDto> InTransactionCoreAsync(Func<Task<CertificateRequestDto>> action, CancellationToken ct)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+                var result = await action();
+                await transaction.CommitAsync(ct);
+                return result;
+            }
+            catch (Exception ex) when (attempt < 4 && IsRetryableConflict(ex))
+            {
+                db.ChangeTracker.Clear();
+                await Task.Delay(25 * (attempt + 1), ct);
+            }
+        }
+    }
+
+    private static bool IsRetryableConflict(Exception exception)
+        => exception is SqliteException { SqliteErrorCode: 5 or 6 }
+            or SqliteException { SqliteExtendedErrorCode: 2067 }
+            or SqlException { Number: 1205 or 2601 or 2627 }
+            || exception.InnerException is not null && IsRetryableConflict(exception.InnerException);
 
     private static bool ParseDecision(string decision)
         => decision?.Trim().ToUpperInvariant() switch

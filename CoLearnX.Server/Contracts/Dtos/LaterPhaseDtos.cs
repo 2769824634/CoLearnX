@@ -115,7 +115,23 @@ public record CertificateRequestDto(
     DateTime SubmittedAt,
     string? TrainerReviewReason,
     string? AdminReviewReason,
-    int? CertificateId);
+    int? CertificateId,
+    DateTime? TrainerReviewedAt = null,
+    DateTime? AdminReviewedAt = null);
+
+public record CertificateEligibilityDto(
+    int EnrollmentId,
+    int CourseId,
+    string CourseCode,
+    string CourseTitle,
+    int CourseIntakeId,
+    bool IsEligible,
+    IReadOnlyList<string> Reasons,
+    int AttendanceRate,
+    int AssessmentCount,
+    int PassedAssessmentCount,
+    int? ExistingRequestId,
+    string? ExistingRequestStatus);
 
 public record AdminCreditLedgerItemDto(
     int Id,

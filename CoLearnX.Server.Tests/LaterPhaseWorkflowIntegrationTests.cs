@@ -19,6 +19,131 @@ namespace CoLearnX.Server.Tests;
 public sealed class LaterPhaseWorkflowIntegrationTests
 {
     [Fact]
+    public async Task MemberCertificateEligibility_ExplainsRequirementsAndScopesData()
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        using var member = factory.UserClient(202, AppRole.Member);
+        using var other = factory.UserClient(204, AppRole.Member);
+        using var response = await member.GetAsync("/api/certificates/eligibility");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var eligibility = Assert.Single((await Body(response)).EnumerateArray());
+        Assert.Equal(200, eligibility.GetProperty("enrollmentId").GetInt32());
+        Assert.False(eligibility.GetProperty("isEligible").GetBoolean());
+        Assert.Equal(2, eligibility.GetProperty("reasons").GetArrayLength());
+        using var denied = await other.PostAsJsonAsync("/api/certificates/requests", new { enrollmentId = 200 });
+        Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+        using var ownRequests = await member.GetAsync("/api/certificates/requests/my");
+        Assert.Equal(HttpStatusCode.OK, ownRequests.StatusCode);
+        Assert.Empty((await Body(ownRequests)).EnumerateArray());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CertificateRejection_IsFinalAndReplayDoesNotRepeatNotifications(bool adminRejection)
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        await factory.MakeCertificateEligibleAsync();
+        using var member = factory.UserClient(202, AppRole.Member);
+        using var trainer = factory.UserClient(200, AppRole.Trainer);
+        using var admin = factory.AdminClient();
+        using var submit = await member.PostAsJsonAsync("/api/certificates/requests", new { enrollmentId = 200 });
+        var id = (await Body(submit)).GetProperty("id").GetInt32();
+        if (adminRejection)
+        {
+            using var initialReview = await trainer.PostAsJsonAsync($"/api/trainer/certificate-requests/{id}/review",
+                new { decision = "Approve", reason = "Checked" });
+            Assert.Equal(HttpStatusCode.OK, initialReview.StatusCode);
+        }
+        var reviewer = adminRejection ? admin : trainer;
+        var route = $"/api/{(adminRejection ? "admin" : "trainer")}/certificate-requests/{id}/review";
+        using var rejected = await reviewer.PostAsJsonAsync(route, new { decision = "Reject", reason = "Evidence missing" });
+        using var repeated = await reviewer.PostAsJsonAsync(route, new { decision = "Reject", reason = "Evidence missing" });
+        Assert.Equal(HttpStatusCode.OK, rejected.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);
+        using var reverse = await reviewer.PostAsJsonAsync(route, new { decision = "Approve", reason = "Changed" });
+        Assert.Equal(HttpStatusCode.Conflict, reverse.StatusCode);
+        // Replay remains the same request even if the underlying eligibility later changes.
+        await factory.ReadAsync(async db =>
+        {
+            (await db.Enrollments.FindAsync(200))!.ProgressPercent = 50;
+            return await db.SaveChangesAsync();
+        });
+        using var replay = await member.PostAsJsonAsync("/api/certificates/requests", new { enrollmentId = 200 });
+        var replayBody = await Body(replay);
+        Assert.Equal(id, replayBody.GetProperty("id").GetInt32());
+        Assert.Equal(adminRejection ? "AdminRejected" : "TrainerRejected", replayBody.GetProperty("status").GetString());
+        Assert.Equal(adminRejection ? 3 : 2, await factory.ReadAsync(db => db.Notifications.CountAsync(n => n.UserId == 202 && n.Code.StartsWith("Certificate"))));
+        Assert.Equal(0, await factory.ReadAsync(db => db.UserCertificates.CountAsync(n => n.UserId == 202)));
+    }
+
+    [Fact]
+    public async Task CertificateConcurrentRequestsAndReviews_CreateOneRequestCertificateAndEventEach()
+    {
+        using var factory = new LaterPhaseApiFactory(useFileDatabase: true);
+        await factory.InitializeAsync();
+        await factory.MakeCertificateEligibleAsync();
+        using var member = factory.UserClient(202, AppRole.Member);
+        using var trainer = factory.UserClient(200, AppRole.Trainer);
+        using var admin = factory.AdminClient();
+        var submissions = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ =>
+            member.PostAsJsonAsync("/api/certificates/requests", new { enrollmentId = 200 })));
+        var ids = new List<int>();
+        foreach (var submission in submissions)
+        {
+            using (submission)
+            {
+                Assert.Equal(HttpStatusCode.Created, submission.StatusCode);
+                ids.Add((await Body(submission)).GetProperty("id").GetInt32());
+            }
+        }
+        var id = Assert.Single(ids.Distinct());
+        foreach (var role in new[] { "trainer", "admin" })
+        {
+            var client = role == "trainer" ? trainer : admin;
+            var reviews = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => client.PostAsJsonAsync(
+                $"/api/{role}/certificate-requests/{id}/review", new { decision = "Approve", reason = "Verified" })));
+            foreach (var review in reviews)
+                using (review) Assert.Equal(HttpStatusCode.OK, review.StatusCode);
+        }
+        Assert.Equal(1, await factory.ReadAsync(db => db.CertificateRequests.CountAsync(n => n.EnrollmentId == 200)));
+        Assert.Equal(1, await factory.ReadAsync(db => db.UserCertificates.CountAsync(n => n.UserId == 202)));
+        Assert.Equal(3, await factory.ReadAsync(db => db.Notifications.CountAsync(n => n.UserId == 202 && n.Code.StartsWith("Certificate"))));
+        Assert.Equal(3, await factory.ReadAsync(db => db.AuditLogs.CountAsync(n => n.EntityType == "CertificateRequest" && n.EntityId == id.ToString())));
+    }
+
+    [Theory]
+    [InlineData(3, 60, false)]
+    [InlineData(4, 59, false)]
+    [InlineData(4, 60, true)]
+    public async Task CertificateEligibility_UsesAttendanceAndAssessmentThresholds(int attended, int score, bool eligible)
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        await factory.MakeCertificateEligibleAsync();
+        await factory.ReadAsync(async db =>
+        {
+            for (var i = 1; i <= 4; i++)
+            {
+                db.CourseSessions.Add(new CourseSession { Id = 200 + i, CourseIntakeId = 200, Label = $"Workshop {i}", StartsAt = DateTime.UtcNow, EndsAt = DateTime.UtcNow.AddHours(1) });
+                if (i < attended)
+                    db.AttendanceRecords.Add(new AttendanceRecord { UserId = 202, CourseSessionId = 200 + i, Status = AttendanceStatus.Late });
+            }
+            (await db.AssessmentResults.SingleAsync(item => item.EnrollmentId == 200)).Score = score;
+            return await db.SaveChangesAsync();
+        });
+        using var member = factory.UserClient(202, AppRole.Member);
+        using var response = await member.GetAsync("/api/certificates/eligibility");
+        var item = Assert.Single((await Body(response)).EnumerateArray());
+        Assert.Equal(eligible, item.GetProperty("isEligible").GetBoolean());
+        Assert.Equal(attended * 20, item.GetProperty("attendanceRate").GetInt32());
+        using var submit = await member.PostAsJsonAsync("/api/certificates/requests", new { enrollmentId = 200 });
+        Assert.Equal(eligible ? HttpStatusCode.Created : HttpStatusCode.Conflict, submit.StatusCode);
+    }
+
+    [Fact]
     public async Task RevokedTrainerToken_CannotReadLaterPhaseMaterialLibrary()
     {
         using var factory = new LaterPhaseApiFactory();
@@ -159,6 +284,10 @@ public sealed class LaterPhaseWorkflowIntegrationTests
         Assert.Equal(HttpStatusCode.Created, submit.StatusCode);
         var requestId = (await Body(submit)).GetProperty("id").GetInt32();
 
+        using var progress = await member.GetAsync("/api/certificates/requests/my");
+        Assert.Equal(HttpStatusCode.OK, progress.StatusCode);
+        Assert.Equal("Submitted", Assert.Single((await Body(progress)).EnumerateArray()).GetProperty("status").GetString());
+
         using var premature = await admin.PostAsJsonAsync($"/api/admin/certificate-requests/{requestId}/review",
             new { decision = "Approve", reason = "Too early" });
         Assert.Equal(HttpStatusCode.Conflict, premature.StatusCode);
@@ -173,10 +302,23 @@ public sealed class LaterPhaseWorkflowIntegrationTests
         var issued = await Body(adminReview);
         Assert.Equal("Issued", issued.GetProperty("status").GetString());
         Assert.True(issued.GetProperty("certificateId").GetInt32() > 0);
+        Assert.NotEqual(JsonValueKind.Null, issued.GetProperty("trainerReviewedAt").ValueKind);
+        Assert.NotEqual(JsonValueKind.Null, issued.GetProperty("adminReviewedAt").ValueKind);
+
+        using var replay = await member.PostAsJsonAsync("/api/certificates/requests", new { enrollmentId = 200 });
+        Assert.Equal(requestId, (await Body(replay)).GetProperty("id").GetInt32());
+        using var reviewReplay = await admin.PostAsJsonAsync($"/api/admin/certificate-requests/{requestId}/review",
+            new { decision = "Approve", reason = "Final approval" });
+        Assert.Equal(HttpStatusCode.OK, reviewReplay.StatusCode);
+        Assert.Equal(3, await factory.ReadAsync(db => db.Notifications.CountAsync(n => n.UserId == 202 && n.Code.StartsWith("Certificate"))));
 
         using var certificates = await member.GetAsync("/api/certificates/my");
         Assert.Equal(HttpStatusCode.OK, certificates.StatusCode);
-        Assert.Single((await Body(certificates)).EnumerateArray());
+        var certificate = Assert.Single((await Body(certificates)).EnumerateArray());
+        Assert.Equal("LP-200", certificate.GetProperty("courseCode").GetString());
+        using var other = factory.UserClient(204, AppRole.Member);
+        using var otherRequests = await other.GetAsync("/api/certificates/requests/my");
+        Assert.Empty((await Body(otherRequests)).EnumerateArray());
     }
 
     [Fact]
@@ -236,20 +378,25 @@ public sealed class LaterPhaseWorkflowIntegrationTests
     private static async Task<JsonElement> Body(HttpResponseMessage response)
         => (await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync())).RootElement.Clone();
 
-    private sealed class LaterPhaseApiFactory : WebApplicationFactory<Program>
+    private sealed class LaterPhaseApiFactory(bool useFileDatabase = false) : WebApplicationFactory<Program>
     {
         private readonly SqliteConnection _connection = new("Data Source=:memory:");
+        private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"colearnx-certificates-{Guid.NewGuid():N}.db");
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
-            _connection.Open();
+            if (!useFileDatabase) _connection.Open();
             builder.UseEnvironment("Testing");
             builder.ConfigureLogging(logging => logging.ClearProviders());
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<DbContextOptions<CoLearnXDbContext>>();
                 services.RemoveAll<CoLearnXDbContext>();
-                services.AddDbContext<CoLearnXDbContext>(options => options.UseSqlite(_connection));
+                services.AddDbContext<CoLearnXDbContext>(options =>
+                {
+                    if (useFileDatabase) options.UseSqlite($"Data Source={_databasePath};Pooling=False");
+                    else options.UseSqlite(_connection);
+                });
             });
         }
 
@@ -320,10 +467,24 @@ public sealed class LaterPhaseWorkflowIntegrationTests
             return await action(scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>());
         }
 
+        public Task<int> MakeCertificateEligibleAsync() => ReadAsync(async db =>
+        {
+            db.AttendanceRecords.Add(new AttendanceRecord { UserId = 202, CourseSessionId = 200, Status = AttendanceStatus.Present });
+            var assessment = new Assessment { CourseIntakeId = 200, Title = "Final", MaxScore = 100, PassScore = 60 };
+            db.Assessments.Add(assessment);
+            await db.SaveChangesAsync();
+            db.AssessmentResults.Add(new AssessmentResult { AssessmentId = assessment.Id, EnrollmentId = 200, Score = 88, GradedByTrainerId = 200 });
+            return await db.SaveChangesAsync();
+        });
+
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
-            if (disposing) _connection.Dispose();
+            if (disposing)
+            {
+                _connection.Dispose();
+                if (useFileDatabase) File.Delete(_databasePath);
+            }
         }
     }
 }

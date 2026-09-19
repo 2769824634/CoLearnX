@@ -7,7 +7,7 @@ import { useMemberData } from './memberDataState';
 export default function MemberCatalogPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { state, showToast, toggleWish } = useMemberData();
+  const { state, toggleWish } = useMemberData();
   const [tab, setTab] = useState('all');
   const [search, setSearch] = useState(params.get('q') || '');
   const [topic, setTopic] = useState('');
@@ -31,7 +31,6 @@ export default function MemberCatalogPage() {
     <MemberShell
       title="Program Catalog"
       onSearch={(q) => setSearch(q)}
-      onNotify={() => showToast('No new notifications')}
     >
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
         <input

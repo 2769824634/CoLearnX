@@ -59,7 +59,6 @@ export default function MemberPaymentPage() {
     <>
       <MemberShell
         title="Credit Wallet"
-        onNotify={() => showToast('No new notifications')}
       >
         <div className="tabs">
           <button type="button" className={`tab${tab === 'topup' ? ' active' : ''}`} onClick={() => setTab('topup')}>

@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import Logo from './Logo';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
+import MemberNotifications from './MemberNotifications';
 import { MEMBER_NAV } from '../data/memberMock';
 import { useAuth } from '../auth/AuthContext';
 
@@ -9,7 +10,6 @@ export default function MemberShell({
   title,
   subtitle,
   onSearch,
-  onNotify,
   children,
 }) {
   const { user, logout } = useAuth();
@@ -32,7 +32,7 @@ export default function MemberShell({
           />
         </div>
         <div className="topbar-actions">
-          <button type="button" className="notif-badge" onClick={onNotify} aria-label="Notifications" />
+          <MemberNotifications />
           <button type="button" className="btn btn-ghost" onClick={logout}>
             Log out
           </button>

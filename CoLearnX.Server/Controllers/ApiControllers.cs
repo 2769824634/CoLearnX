@@ -12,7 +12,7 @@ namespace CoLearnX.Server.Controllers;
 // Register, login, me, switch-role. Keep: AuthController, route api/auth
 [ApiController]
 [Route("api/auth")]
-public class AuthController(IAuthService auth) : ControllerBase
+public partial class AuthController(IAuthService auth) : ControllerBase
 {
     [HttpPost("register")]
     [AllowAnonymous]
@@ -424,6 +424,18 @@ public class MaterialsController(IMaterialService materials, IMaterialVersionSer
 [Authorize]
 public class CertificatesController(ICertificateService certificates, ICertificateWorkflowService workflow) : ControllerBase
 {
+    [HttpGet("requests/my")]
+    [Authorize(Roles = "Member")]
+    [LaterPhaseApiErrors]
+    public async Task<ActionResult<IReadOnlyList<CertificateRequestDto>>> MyRequests(CancellationToken ct)
+        => Ok(await workflow.ListForMemberAsync(User.GetUserId(), ct));
+
+    [HttpGet("eligibility")]
+    [Authorize(Roles = "Member")]
+    [LaterPhaseApiErrors]
+    public async Task<ActionResult<IReadOnlyList<CertificateEligibilityDto>>> Eligibility(CancellationToken ct)
+        => Ok(await workflow.ListEligibilityAsync(User.GetUserId(), ct));
+
     [HttpGet("my")]
     public async Task<ActionResult<IReadOnlyList<CertificateDto>>> My(CancellationToken ct)
         => Ok(await certificates.GetMyAsync(User.GetUserId(), ct));

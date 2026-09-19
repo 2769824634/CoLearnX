@@ -10,6 +10,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
 {
     public DbSet<AdminAccount> AdminAccounts => Set<AdminAccount>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<UserPreference> UserPreferences => Set<UserPreference>();
     public DbSet<TrainerProfile> TrainerProfiles => Set<TrainerProfile>();
@@ -52,6 +53,14 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     {
         var sqlite = Database.IsSqlite();
         var pendingStatusFilter = sqlite ? "\"Status\" = 0" : "[Status] = 0";
+
+        modelBuilder.Entity<PasswordResetToken>(e =>
+        {
+            e.HasKey(x => x.UserId);
+            e.Property(x => x.TokenHash).HasMaxLength(64);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<AdminAccount>(e =>
         {

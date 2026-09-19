@@ -18,6 +18,9 @@ public static class SeedData
         await db.Database.EnsureCreatedAsync();
         if (db.Database.IsSqlite())
             await EnsureSqliteCourseCoreSchemaAsync(db);
+        else if (db.Database.IsSqlServer() && await db.Database.SqlQueryRaw<int>(
+                     "SELECT CASE WHEN OBJECT_ID(N'dbo.PasswordResetTokens', N'U') IS NULL THEN 0 ELSE 1 END AS Value").SingleAsync() == 0)
+            throw new InvalidOperationException("Existing SQL Server databases require the reviewed PasswordResetTokens schema upgrade before startup. See PASSWORD_RESET_LOCAL.md.");
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
 
         await EnsureCourseTaxonomyAsync(db);
@@ -596,5 +599,18 @@ public static class SeedData
             "SELECT COUNT(*) AS Value FROM pragma_table_info('Courses') WHERE name = 'LearningPathId'").SingleAsync() > 0;
         if (!hasB4CourseOwner || !hasB4Applications || !hasLaterPhase || !hasCourseLevels || !hasLearningPaths || !hasCourseLevelId || !hasLearningPathId)
             throw new InvalidOperationException("Course Core requires a fresh isolated database. The existing database was not migrated and was left unchanged.");
+
+        // Idempotent additive upgrade from the current master schema; never delete existing accounts.
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "PasswordResetTokens" (
+                "UserId" INTEGER NOT NULL CONSTRAINT "PK_PasswordResetTokens" PRIMARY KEY,
+                "TokenHash" TEXT NOT NULL,
+                "RequestedAt" TEXT NOT NULL,
+                "ExpiresAt" TEXT NOT NULL,
+                "UsedAt" TEXT NULL,
+                CONSTRAINT "FK_PasswordResetTokens_Users_UserId" FOREIGN KEY ("UserId") REFERENCES "Users" ("Id") ON DELETE CASCADE
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_PasswordResetTokens_TokenHash" ON "PasswordResetTokens" ("TokenHash");
+            """);
     }
 }

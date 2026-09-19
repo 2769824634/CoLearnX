@@ -1347,3 +1347,25 @@ a {
     flex-direction: column;
   }
 }
+
+/* Member achievements and inbox share the existing card and color tokens. */
+.certificate-intro,.certificate-heading,.notification-tools,.notification-item-actions { display:flex; align-items:center; gap:12px; justify-content:space-between; flex-wrap:wrap; }
+.certificate-intro { margin-bottom:24px; }
+.certificate-intro p { flex:1; min-width:220px; color:var(--slate); }
+.certificate-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); gap:18px; }
+.certificate-card { padding:24px; overflow-wrap:anywhere; }
+.certificate-card h3 { margin:14px 0 10px; }
+.certificate-card p,.certificate-card li { color:var(--slate); line-height:1.6; }
+.certificate-card code { display:block; color:var(--purple); overflow-wrap:anywhere; }
+.certificate-section { margin-top:32px; }
+.member-notifications { position:relative; }
+.notification-count { position:absolute; right:-6px; top:-6px; padding:2px 5px; border-radius:20px; color:white; background:var(--purple); font-size:11px; }
+.notifications-panel { position:absolute; top:48px; right:0; width:min(430px,calc(100vw - 30px)); background:var(--white); border:1px solid var(--border); box-shadow:0 12px 40px #3332; border-radius:var(--radius); z-index:50; }
+.notifications-panel .card-header,.notification-tools { padding:12px 18px; }
+.notifications-panel h2 { margin:0; font-size:18px; }
+.notification-list { max-height:60vh; overflow-y:auto; }
+.notification-item { padding:18px; border-top:1px solid var(--border); overflow-wrap:anywhere; }
+.notification-item.unread { background:var(--purple-soft); }
+.notification-item p { margin:8px 0; }
+.notification-item time { font-size:12px; color:var(--slate); }
+.notification-item-actions { margin-top:12px; }
