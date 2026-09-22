@@ -11,6 +11,7 @@ public class PasswordResetOptions
     public string ClientBaseUrl { get; set; } = "https://localhost:55128";
     public int LifetimeMinutes { get; set; } = 30;
     public int CooldownSeconds { get; set; } = 60;
+    public int EmailVerificationLifetimeHours { get; set; } = 24;
     public string SmtpHost { get; set; } = "";
     public int SmtpPort { get; set; } = 587;
     public string SmtpUsername { get; set; } = "";
@@ -23,16 +24,39 @@ public interface IPasswordResetMailSender
     Task SendAsync(string email, string resetLink, CancellationToken ct);
 }
 
+public interface IEmailVerificationMailSender
+{
+    Task SendAsync(string email, string verificationLink, CancellationToken ct);
+}
+
 public class PasswordResetMailSender(IOptions<PasswordResetOptions> options, IWebHostEnvironment env)
-    : IPasswordResetMailSender
+    : IPasswordResetMailSender, IEmailVerificationMailSender
 {
     public async Task SendAsync(string email, string resetLink, CancellationToken ct)
+    {
+        await SendMessageAsync(
+            email,
+            "Reset your CoLearnX password",
+            $"Open this one-time link to reset your password:\n\n{resetLink}\n\nIf you did not request this, ignore this email.",
+            ct);
+    }
+
+    async Task IEmailVerificationMailSender.SendAsync(string email, string verificationLink, CancellationToken ct)
+    {
+        await SendMessageAsync(
+            email,
+            "Verify your CoLearnX email",
+            $"Open this one-time link to verify your email:\n\n{verificationLink}\n\nIf you did not create this account, ignore this email.",
+            ct);
+    }
+
+    private async Task SendMessageAsync(string email, string subject, string body, CancellationToken ct)
     {
         var opts = options.Value;
         using var message = new MailMessage(opts.FromAddress, email)
         {
-            Subject = "Reset your CoLearnX password",
-            Body = $"Open this one-time link to reset your password:\n\n{resetLink}\n\nIf you did not request this, ignore this email."
+            Subject = subject,
+            Body = body,
         };
         using var smtp = new SmtpClient();
         if (env.IsEnvironment("Testing") || (env.IsDevelopment() && opts.DeliveryMode != "Smtp"))
@@ -46,7 +70,7 @@ public class PasswordResetMailSender(IOptions<PasswordResetOptions> options, IWe
         else
         {
             if (string.IsNullOrWhiteSpace(opts.SmtpHost) || opts.FromAddress.EndsWith(".test", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("Production password-reset mail is not configured.");
+                throw new InvalidOperationException("Production account mail is not configured.");
             smtp.Host = opts.SmtpHost;
             smtp.Port = opts.SmtpPort;
             smtp.EnableSsl = true;

@@ -35,4 +35,15 @@ public partial class AuthController
             return BadRequest(new ApiError("WEAK_PASSWORD", ex.Message));
         }
     }
+
+    [HttpPost("verify-email")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<PasswordResetResponse>> VerifyEmail(
+        VerifyEmailRequest request, [FromServices] EmailVerificationService verification, CancellationToken ct)
+    {
+        if (!await verification.VerifyAsync(request.Token, ct))
+            return BadRequest(new ApiError("INVALID_VERIFICATION_TOKEN", "This verification link is invalid or expired. Request a new link."));
+        return Ok(new PasswordResetResponse("Email verified. You can now sign in."));
+    }
 }

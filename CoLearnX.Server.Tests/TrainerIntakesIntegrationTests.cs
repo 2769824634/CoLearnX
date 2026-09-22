@@ -320,7 +320,7 @@ public class TrainerIntakesIntegrationTests
         {
             await ReadAsync(async db => {
                 var hash = BCrypt.Net.BCrypt.HashPassword("Password123!");
-                db.Users.AddRange(Enumerable.Range(100, 4).Select(id => new User { Id = id, Email = $"b2-{id}@example.com",
+                db.Users.AddRange(Enumerable.Range(100, 4).Select(id => new User { Id = id, Email = $"b2-{id}@example.com", EmailVerifiedAt = DateTime.UtcNow,
                     FullName = $"B2 User {id}", PasswordHash = hash,
                     Roles = [new UserRole { Role = id < 102 ? AppRole.Trainer : id == 102 ? AppRole.Member : AppRole.Creator }] }));
                 db.Courses.Add(new Course { Id = 100, Code = "B2", Title = "B2 API fixture", TrainerId = 100, CreatorId = 103, Status = CourseStatus.Published });

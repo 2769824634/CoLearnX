@@ -90,7 +90,7 @@ public static class RoleParse
     }
 }
 
-public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthService
+public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt, EmailVerificationService emailVerification) : IAuthService
 {
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
     {
@@ -109,6 +109,7 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
             FullName = request.FullName.Trim(),
             DisplayName = string.IsNullOrWhiteSpace(request.DisplayName) ? request.FullName.Trim() : request.DisplayName.Trim(),
             CreditBalance = 0,
+            EmailVerifiedAt = null,
         };
         db.Users.Add(user);
         await db.SaveChangesAsync(ct);
@@ -116,8 +117,14 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
         db.UserRoles.Add(new UserRole { UserId = user.Id, Role = AppRole.Member, IsVisible = true });
         db.UserPreferences.Add(new UserPreference { UserId = user.Id });
         await db.SaveChangesAsync(ct);
+        await emailVerification.RequestAsync(user, ct);
 
-        return await IssueAsync(user.Id, AppRole.Member, rotateSession: true, ct);
+        return new AuthResponse(
+            string.Empty,
+            DateTime.UtcNow,
+            MapMe(user, AppRole.Member),
+            EmailVerificationRequired: true,
+            Message: "Check your email to verify your account before signing in.");
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct = default)
@@ -192,6 +199,8 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt) : IAuthServ
 
         if (!user.IsActive || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             throw new UnauthorizedAccessException("Invalid email or password.");
+        if (user.EmailVerifiedAt is null)
+            throw new UnauthorizedAccessException("Verify your email before signing in.");
 
         return user;
     }

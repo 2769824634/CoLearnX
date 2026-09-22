@@ -27,6 +27,7 @@ export default function RegisterPage() {
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
   if (!booting && isAuthenticated && activeRole) {
     return <Navigate to={`/${activeRole}/home`} replace />;
@@ -35,6 +36,7 @@ export default function RegisterPage() {
   async function onSubmit(e) {
     e.preventDefault();
     setError('');
+    setMessage('');
     if (password !== confirm) {
       setError('Passwords do not match.');
       return;
@@ -45,8 +47,12 @@ export default function RegisterPage() {
     }
     setBusy(true);
     try {
-      const user = await register({ email, password, fullName });
-      navigate(`/${(user.activeRole || 'Member').toLowerCase()}/home`);
+      const result = await register({ email, password, fullName });
+      if (result.emailVerificationRequired) {
+        setMessage(result.message || 'Check your email to verify your account before signing in.');
+        return;
+      }
+      navigate(`/${(result.activeRole || 'Member').toLowerCase()}/home`);
     } catch (err) {
       setError(err.message || 'Registration failed');
     } finally {
@@ -60,7 +66,13 @@ export default function RegisterPage() {
         <div className="auth-header">
           <Logo />
         </div>
-        <form className="auth-body" onSubmit={onSubmit} autoComplete="on">
+        {message ? (
+          <div className="auth-body">
+            <h2>Check your email</h2>
+            <p className="callout" role="status">{message}</p>
+            <p className="auth-footer"><Link to="/login">Back to login</Link></p>
+          </div>
+        ) : <form className="auth-body" onSubmit={onSubmit} autoComplete="on">
           <h2>Create your account</h2>
           <p className="auth-lead">New accounts start as Member. Trainer and Creator roles are granted later.</p>
           <div className="form-group">
@@ -96,7 +108,7 @@ export default function RegisterPage() {
           <p className="auth-footer">
             Already have an account? <Link to="/login">Sign in</Link>
           </p>
-        </form>
+        </form>}
       </div>
     </div>
   );

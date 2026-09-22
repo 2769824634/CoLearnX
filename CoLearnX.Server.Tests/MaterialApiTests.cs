@@ -242,6 +242,7 @@ public class MaterialApiTests : IClassFixture<CoLearnXApiFactory>
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(SeedData.DemoPassword),
             FullName = "Another Creator",
+            EmailVerifiedAt = DateTime.UtcNow,
             DisplayName = "Other Creator",
         };
         creator.Roles.Add(new UserRole { Role = Domain.Enums.AppRole.Creator });

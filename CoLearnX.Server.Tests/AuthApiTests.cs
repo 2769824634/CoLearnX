@@ -28,6 +28,7 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
         var body = await response.Content.ReadFromJsonAsync<AuthResponse>(ApiJson.Options);
         Assert.NotNull(body);
         Assert.False(string.IsNullOrWhiteSpace(body.AccessToken));
+        Assert.False(body.EmailVerificationRequired);
         Assert.Equal("Member", body.User.ActiveRole);
         Assert.Equal(SeedData.MemberEmail, body.User.Email);
         Assert.Contains("Member", body.User.Roles);
@@ -234,14 +235,16 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
         Assert.NotNull(body);
         Assert.Equal("Member", body.User.ActiveRole);
         Assert.Equal(email, body.User.Email);
-        Assert.False(string.IsNullOrWhiteSpace(body.AccessToken));
+        Assert.Equal(string.Empty, body.AccessToken);
+        Assert.True(body.EmailVerificationRequired);
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
         var stored = await db.Users.SingleAsync(user => user.Email == email);
         Assert.NotEqual(SeedData.DemoPassword, stored.PasswordHash);
         Assert.True(BCrypt.Net.BCrypt.Verify(SeedData.DemoPassword, stored.PasswordHash));
-        Assert.NotEqual(Guid.Empty, stored.SessionStamp);
+        Assert.Null(stored.EmailVerifiedAt);
+        Assert.Equal(Guid.Empty, stored.SessionStamp);
     }
 
     [Fact]

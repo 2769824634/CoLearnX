@@ -258,6 +258,7 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(SeedData.DemoPassword),
             FullName = "Another Creator",
+            EmailVerifiedAt = DateTime.UtcNow,
             DisplayName = "Other Creator",
         };
         creator.Roles.Add(new UserRole { Role = AppRole.Creator });

@@ -39,6 +39,7 @@ import CreatorUsagePage from '../pages/creator/CreatorUsagePage';
 import Modal from '../components/Modal';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
 import ResetPasswordPage from '../pages/ResetPasswordPage';
+import EmailVerificationPage from '../pages/EmailVerificationPage';
 import { MemberNotificationsProvider } from '../components/MemberNotificationsProvider';
 
 function MemberToastHost() {
@@ -100,6 +101,7 @@ export default function AppRouter() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/verify-email" element={<EmailVerificationPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/" element={<Navigate to="/login" replace />} />

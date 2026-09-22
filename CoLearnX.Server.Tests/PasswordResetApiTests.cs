@@ -49,33 +49,40 @@ public class PasswordResetApiTests : IDisposable
         {
             services.RemoveAll<IPasswordResetMailSender>();
             services.AddSingleton<IPasswordResetMailSender>(mail);
+            services.RemoveAll<IEmailVerificationMailSender>();
+            services.AddSingleton<IEmailVerificationMailSender>(mail);
         }));
         var client = app.CreateClient();
         var email = $"reset.{Guid.NewGuid():N}@colearnx.test";
         var registration = await client.PostAsJsonAsync("/api/auth/register", new RegisterRequest(email, "Password123!", "Reset User", null));
         registration.EnsureSuccessStatusCode();
-        var auth = (await registration.Content.ReadFromJsonAsync<AuthResponse>(ApiJson.Options))!;
+        var pending = (await registration.Content.ReadFromJsonAsync<AuthResponse>(ApiJson.Options))!;
+        var verificationToken = mail.Messages.Single(x => x.Link.Contains("/verify-email#token=")).Link.Split("#token=")[1];
+        (await client.PostAsJsonAsync("/api/auth/verify-email", new { token = verificationToken })).EnsureSuccessStatusCode();
+        var login = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, "Password123!", "Member"));
+        login.EnsureSuccessStatusCode();
+        var auth = (await login.Content.ReadFromJsonAsync<AuthResponse>(ApiJson.Options))!;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
         var request = await client.PostAsJsonAsync("/api/auth/forgot-password", new { email });
         request.EnsureSuccessStatusCode();
         var generic = await request.Content.ReadAsStringAsync();
-        var token = mail.Messages.Single().Link.Split("#token=")[1];
+        var token = mail.Messages.Single(x => x.Link.Contains("/reset-password#token=")).Link.Split("#token=")[1];
         Assert.DoesNotContain(token, generic);
         using (var scope = app.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-            var row = await db.PasswordResetTokens.SingleAsync(x => x.UserId == auth.User.Id);
+            var row = await db.PasswordResetTokens.SingleAsync(x => x.UserId == pending.User.Id);
             Assert.NotEqual(token, row.TokenHash);
             Assert.Equal(64, row.TokenHash.Length);
         }
         var repeated = await client.PostAsJsonAsync("/api/auth/forgot-password", new { email });
         Assert.Equal(generic, await repeated.Content.ReadAsStringAsync());
-        Assert.Single(mail.Messages);
+        Assert.Equal(2, mail.Messages.Count);
         var unknown = await client.PostAsJsonAsync("/api/auth/forgot-password", new { email = "unknown@colearnx.test" });
         Assert.Equal(generic, await unknown.Content.ReadAsStringAsync());
         var admin = await client.PostAsJsonAsync("/api/auth/forgot-password", new { email = SeedData.AdminEmail });
         Assert.Equal(generic, await admin.Content.ReadAsStringAsync());
-        Assert.Single(mail.Messages);
+        Assert.Equal(2, mail.Messages.Count);
 
         var weak = await client.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = "weakpassword" });
         Assert.Equal(HttpStatusCode.BadRequest, weak.StatusCode);
@@ -160,7 +167,7 @@ public class PasswordResetApiTests : IDisposable
         }
     }
 
-    private sealed class CapturingMailSender : IPasswordResetMailSender
+    private sealed class CapturingMailSender : IPasswordResetMailSender, IEmailVerificationMailSender
     {
         public ConcurrentQueue<(string Email, string Link)> Messages { get; } = new();
         public Task SendAsync(string email, string resetLink, CancellationToken ct)

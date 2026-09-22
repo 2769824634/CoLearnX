@@ -19,9 +19,10 @@ public static class SeedData
         if (db.Database.IsSqlite())
             await EnsureSqliteCourseCoreSchemaAsync(db);
         else if (db.Database.IsSqlServer() && await db.Database.SqlQueryRaw<int>(
-                     "SELECT CASE WHEN OBJECT_ID(N'dbo.PasswordResetTokens', N'U') IS NULL THEN 0 ELSE 1 END AS Value").SingleAsync() == 0)
-            throw new InvalidOperationException("Existing SQL Server databases require the reviewed PasswordResetTokens schema upgrade before startup. See PASSWORD_RESET_LOCAL.md.");
+                     "SELECT CASE WHEN OBJECT_ID(N'dbo.PasswordResetTokens', N'U') IS NOT NULL AND OBJECT_ID(N'dbo.EmailVerificationTokens', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.Users', N'EmailVerifiedAt') IS NOT NULL THEN 1 ELSE 0 END AS Value").SingleAsync() == 0)
+            throw new InvalidOperationException("Existing SQL Server databases require the reviewed account-token schema upgrade before startup. See PASSWORD_RESET_LOCAL.md.");
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
+        var verifiedAt = DateTime.UtcNow;
 
         await EnsureCourseTaxonomyAsync(db);
 
@@ -66,6 +67,7 @@ public static class SeedData
             Phone = "12345678",
             Bio = "The sole disciple of the Way of Mercilessness",
             CreditBalance = 120,
+            EmailVerifiedAt = verifiedAt,
         };
         var trainer = new User
         {
@@ -76,6 +78,7 @@ public static class SeedData
             Phone = "87654321",
             Bio = "Workshop facilitator · design thinking",
             CreditBalance = 0,
+            EmailVerifiedAt = verifiedAt,
         };
         var creator = new User
         {
@@ -86,6 +89,7 @@ public static class SeedData
             Phone = "11223344",
             Bio = "Learning materials creator",
             CreditBalance = 40,
+            EmailVerifiedAt = verifiedAt,
         };
         db.Users.AddRange(member, trainer, creator);
         await db.SaveChangesAsync();
@@ -567,6 +571,14 @@ public static class SeedData
         if (await db.Database.SqlQueryRaw<int>(
                 "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'Users'").SingleAsync() > 0
             && await db.Database.SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS Value FROM pragma_table_info('Users') WHERE name = 'EmailVerifiedAt'").SingleAsync() == 0)
+        {
+            await db.Database.ExecuteSqlRawAsync("ALTER TABLE Users ADD COLUMN EmailVerifiedAt TEXT NULL");
+            await db.Database.ExecuteSqlRawAsync("UPDATE Users SET EmailVerifiedAt = CURRENT_TIMESTAMP WHERE EmailVerifiedAt IS NULL");
+        }
+        if (await db.Database.SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'Users'").SingleAsync() > 0
+            && await db.Database.SqlQueryRaw<int>(
                 "SELECT COUNT(*) AS Value FROM pragma_table_info('Users') WHERE name = 'SessionStamp'").SingleAsync() == 0)
             await db.Database.ExecuteSqlRawAsync(
                 "ALTER TABLE Users ADD COLUMN SessionStamp TEXT NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'");
@@ -611,6 +623,14 @@ public static class SeedData
                 CONSTRAINT "FK_PasswordResetTokens_Users_UserId" FOREIGN KEY ("UserId") REFERENCES "Users" ("Id") ON DELETE CASCADE
             );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_PasswordResetTokens_TokenHash" ON "PasswordResetTokens" ("TokenHash");
+            CREATE TABLE IF NOT EXISTS "EmailVerificationTokens" (
+                "UserId" INTEGER NOT NULL CONSTRAINT "PK_EmailVerificationTokens" PRIMARY KEY,
+                "TokenHash" TEXT NOT NULL,
+                "RequestedAt" TEXT NOT NULL,
+                "ExpiresAt" TEXT NOT NULL,
+                CONSTRAINT "FK_EmailVerificationTokens_Users_UserId" FOREIGN KEY ("UserId") REFERENCES "Users" ("Id") ON DELETE CASCADE
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_EmailVerificationTokens_TokenHash" ON "EmailVerificationTokens" ("TokenHash");
             """);
     }
 }

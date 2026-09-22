@@ -4,6 +4,7 @@ import { apiRequest, downloadFile } from './client';
 export const authApi = {
   forgotPassword: (email) => apiRequest('/api/auth/forgot-password', { method: 'POST', token: '', body: { email } }),
   resetPassword: (token, newPassword) => apiRequest('/api/auth/reset-password', { method: 'POST', token: '', body: { token, newPassword } }),
+  verifyEmail: (token) => apiRequest('/api/auth/verify-email', { method: 'POST', token: '', body: { token } }),
   login: (email, password, activeRole) =>
     apiRequest('/api/auth/login', {
       method: 'POST',

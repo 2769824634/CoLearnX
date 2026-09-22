@@ -57,6 +57,7 @@ public class MemberLearningHubTests
         using var stranger = factory.CreateClient();
         var email = $"hub-{Guid.NewGuid():N}@example.com";
         (await stranger.PostAsJsonAsync("/api/auth/register", new RegisterRequest(email, SeedData.DemoPassword, "Other Member", "Other"), ApiJson.Options)).EnsureSuccessStatusCode();
+        await ApiClient.MarkEmailVerifiedAsync(factory, email);
         using var otherMember = await ApiClient.AsMemberAsync(factory, email);
         Assert.Equal(HttpStatusCode.NotFound, (await otherMember.GetAsync($"/api/enrollments/{enrollment.Id}/materials")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await otherMember.GetAsync($"/api/enrollments/{enrollment.Id}/recordings")).StatusCode);

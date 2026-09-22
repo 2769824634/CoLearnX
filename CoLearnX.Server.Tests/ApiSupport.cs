@@ -3,6 +3,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CoLearnX.Server.Tests;
 
@@ -17,6 +19,14 @@ internal static class ApiJson
 
 internal static class ApiClient
 {
+    public static async Task MarkEmailVerifiedAsync(CoLearnXApiFactory factory, string email)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        await db.Users.Where(user => user.Email == email)
+            .ExecuteUpdateAsync(update => update.SetProperty(user => user.EmailVerifiedAt, DateTime.UtcNow));
+    }
+
     public static HttpClient Anonymous(CoLearnXApiFactory factory)
         => factory.CreateClient();
 

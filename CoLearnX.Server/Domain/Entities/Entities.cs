@@ -15,6 +15,7 @@ public class User
     public string? AvatarUrl { get; set; }
     public int CreditBalance { get; set; }
     public bool IsActive { get; set; } = true;
+    public DateTime? EmailVerifiedAt { get; set; }
     public Guid SessionStamp { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

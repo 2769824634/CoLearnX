@@ -37,6 +37,7 @@ public class EnrollmentApiTests : IClassFixture<CoLearnXApiFactory>
             new RegisterRequest(email, SeedData.DemoPassword, "Zero Balance", null),
             ApiJson.Options);
         register.EnsureSuccessStatusCode();
+        await ApiClient.MarkEmailVerifiedAsync(_factory, email);
 
         var member = await ApiClient.AsMemberAsync(_factory, email);
         var (courseId, sessionId) = await FirstPublishedSessionAsync(member);

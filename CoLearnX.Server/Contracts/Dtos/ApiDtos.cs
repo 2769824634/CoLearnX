@@ -29,7 +29,9 @@ public record SwitchRoleRequest([Required] string ActiveRole);
 public record AuthResponse(
     string AccessToken,
     DateTime ExpiresAt,
-    UserMeDto User);
+    UserMeDto User,
+    bool EmailVerificationRequired = false,
+    string? Message = null);
 
 public record UserMeDto(
     int Id,

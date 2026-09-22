@@ -8,3 +8,4 @@ public record ResetPasswordRequest(
     [Required, MaxLength(128)] string Token,
     [Required, MinLength(PasswordRules.MinLength), MaxLength(PasswordRules.MaxLength)] string NewPassword);
 public record PasswordResetResponse(string Message);
+public record VerifyEmailRequest([Required, MaxLength(128)] string Token);

@@ -1,4 +1,4 @@
-# Password reset: local and Gmail verification
+# Account email: local and Gmail verification
 
 Implementation date: 2026-09-18. Only ordinary User identities (Member, Trainer,
 Creator) participate; AdminAccount is separate.
@@ -26,6 +26,9 @@ Open https://localhost:55128/login and choose **Forgot password?**. The emailed
 link opens `/reset-password#token=...`; the page removes the fragment from the
 address bar after loading. Do not refresh that page before completing the reset;
 if necessary, reopen the original email link.
+
+Registration uses the same mail configuration. A new account receives a
+`/verify-email#token=...` link and cannot sign in until that link succeeds.
 
 ## Gmail SMTP
 
@@ -83,17 +86,22 @@ under ignored locations; none should be committed.
   from the reset request itself. The token determines the account.
 - A uniform API response is not proof of mail delivery. Verify the real inbox and
   complete a reset and subsequent login before marking external mail accepted.
+- POST `/api/auth/register` keeps its existing response fields and adds
+  `emailVerificationRequired` and `message`. It returns no usable access token.
+- POST `/api/auth/verify-email` accepts `{ token }`. Verification tokens contain
+  256 random bits, are stored only as SHA-256 hashes, expire after 24 hours by
+  default, and can be consumed once.
 
 ## Database compatibility
 
-Fresh SQLite and SQL Server databases include PasswordResetTokens via the EF model.
-Existing SQLite databases at this clone's baseline gain the table/index on startup
-without deleting user data. A test drops only that table in a disposable temporary
-database and verifies two startup passes preserve users and password hashes.
+Fresh SQLite and SQL Server databases include both account-token tables via the EF
+model. Existing SQLite databases at this clone's baseline gain EmailVerifiedAt and
+both tables/indexes on startup without deleting user data. Accounts that predate
+this feature are marked verified so they are not locked out.
 
-For an existing SQL Server database, startup fails clearly if the new table is
+For an existing SQL Server database, startup fails clearly if the required schema is
 absent. Review/apply `scripts/PasswordReset.SqlServer.sql` before startup. It is
-idempotent and does not modify Users. SQL Server execution has not been tested in
+idempotent and marks existing Users verified. SQL Server execution has not been tested in
 this local SQLite run. This is not a repository-wide migrations conversion.
 
 ## Current verification status

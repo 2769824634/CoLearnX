@@ -75,4 +75,27 @@ describe('Account registration', () => {
     expect(await screen.findByText('Passwords do not match.')).toBeTruthy();
     expect(auth.register).not.toHaveBeenCalled();
   });
+
+  it('waits for email verification instead of signing the member in', async () => {
+    auth.register.mockResolvedValue({
+      emailVerificationRequired: true,
+      message: 'Check your email to verify your account before signing in.',
+    });
+    render(
+      <MemoryRouter initialEntries={['/register']}>
+        <AuthContext.Provider value={auth}>
+          <AppRouter />
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'New Learner' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'new.learner@colearnx.test' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Password123!' } });
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'Password123!' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(await screen.findByText('Check your email to verify your account before signing in.')).toBeTruthy();
+    expect(auth.isAuthenticated).toBe(false);
+  });
 });

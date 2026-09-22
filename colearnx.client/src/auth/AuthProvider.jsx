@@ -72,6 +72,7 @@ export function AuthProvider({ children }) {
       fullName: payload.fullName,
       displayName: payload.displayName || undefined,
     });
+    if (res.emailVerificationRequired) return res;
     setStoredToken(res.accessToken);
     setToken(res.accessToken);
     setUser(res.user);
