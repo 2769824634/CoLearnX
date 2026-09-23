@@ -5,6 +5,7 @@ using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
+using CoLearnX.Server.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -155,6 +156,57 @@ public class AdminRoleRequestIntegrationTests
         {
             factory.Dispose();
             factory.DeleteDatabase();
+        }
+    }
+
+    [Fact]
+    public async Task Approve_Succeeds_WhenSqlServerRetryOnFailureIsEnabled()
+    {
+        var database = $"colearnx-role-review-{Guid.NewGuid():N}";
+        var connection =
+            $"Server=(localdb)\\MSSQLLocalDB;Database={database};Trusted_Connection=True;TrustServerCertificate=True;Connect Timeout=5";
+        var options = new DbContextOptionsBuilder<CoLearnXDbContext>()
+            .UseSqlServer(connection, sql => sql.EnableRetryOnFailure())
+            .Options;
+        await using var db = new CoLearnXDbContext(options);
+        try
+        {
+            await db.Database.EnsureCreatedAsync();
+            var user = new User
+            {
+                Email = $"applicant.{Guid.NewGuid():N}@colearnx.test",
+                PasswordHash = "hash",
+                FullName = "Online Applicant",
+                DisplayName = "Applicant",
+            };
+            var admin = new AdminAccount { Email = $"admin.{Guid.NewGuid():N}@colearnx.test", PasswordHash = "hash" };
+            db.Users.Add(user);
+            db.AdminAccounts.Add(admin);
+            await db.SaveChangesAsync();
+            db.UserRoles.Add(new UserRole { UserId = user.Id, Role = AppRole.Member, IsVisible = true });
+            var roleRequest = new RoleRequest
+            {
+                UserId = user.Id,
+                RequestedRole = AppRole.Trainer,
+                ApplicantStatement = "test online request",
+            };
+            db.RoleRequests.Add(roleRequest);
+            await db.SaveChangesAsync();
+
+            var service = new AdminRoleRequestService(db, new AuditLogService(db));
+            var result = await service.ReviewAsync(
+                admin.Id,
+                roleRequest.Id,
+                new AdminReviewRequest("Approve", null));
+
+            Assert.False(result.AlreadyReviewed);
+            Assert.Equal("Approved", result.RoleRequest.Status);
+            Assert.Equal(1, await db.UserRoles.CountAsync(item =>
+                item.UserId == user.Id && item.Role == AppRole.Trainer));
+        }
+        finally
+        {
+            await db.Database.EnsureDeletedAsync();
         }
     }
 

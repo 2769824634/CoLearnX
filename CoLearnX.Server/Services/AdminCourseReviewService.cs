@@ -80,42 +80,46 @@ public sealed class AdminCourseReviewService(
             ? PublishedAction
             : RejectedAction;
 
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var course = await db.Courses
-            .Include(item => item.Trainer)
-            .SingleOrDefaultAsync(item => item.Id == courseId, ct)
-            ?? throw new KeyNotFoundException("Course was not found.");
-
-        var existingReview = await FindLatestReviewLogAsync(course.Id, ct);
-        if (course.Status != CourseStatus.PendingApproval)
+        return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
-            if (course.Status == targetStatus && existingReview?.Action == targetAction)
-                return new AdminCourseReviewResultDto(ToDto(course, existingReview), true);
+            db.ChangeTracker.Clear();
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
+            var course = await db.Courses
+                .Include(item => item.Trainer)
+                .SingleOrDefaultAsync(item => item.Id == courseId, ct)
+                ?? throw new KeyNotFoundException("Course was not found.");
 
-            throw new AdminReviewConflictException(
-                "COURSE_NOT_PENDING_APPROVAL",
-                $"A course in {course.Status} status cannot be reviewed.");
-        }
+            var existingReview = await FindLatestReviewLogAsync(course.Id, ct);
+            if (course.Status != CourseStatus.PendingApproval)
+            {
+                if (course.Status == targetStatus && existingReview?.Action == targetAction)
+                    return new AdminCourseReviewResultDto(ToDto(course, existingReview), true);
 
-        var reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
-        if (decision == AdminReviewDecision.Reject && reason is null)
-            throw new AdminReviewValidationException(
-                "REJECTION_REASON_REQUIRED",
-                "A reason is required when rejecting a course.");
+                throw new AdminReviewConflictException(
+                    "COURSE_NOT_PENDING_APPROVAL",
+                    $"A course in {course.Status} status cannot be reviewed.");
+            }
 
-        course.Status = targetStatus;
-        await auditLogs.AppendAdminAsync(
-            adminAccountId,
-            targetAction,
-            nameof(Course),
-            course.Id.ToString(),
-            targetStatus.ToString(),
-            reason,
-            ct);
-        await transaction.CommitAsync(ct);
+            var reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
+            if (decision == AdminReviewDecision.Reject && reason is null)
+                throw new AdminReviewValidationException(
+                    "REJECTION_REASON_REQUIRED",
+                    "A reason is required when rejecting a course.");
 
-        var reviewLog = await FindLatestReviewLogAsync(course.Id, ct);
-        return new AdminCourseReviewResultDto(ToDto(course, reviewLog), false);
+            course.Status = targetStatus;
+            await auditLogs.AppendAdminAsync(
+                adminAccountId,
+                targetAction,
+                nameof(Course),
+                course.Id.ToString(),
+                targetStatus.ToString(),
+                reason,
+                ct);
+            await transaction.CommitAsync(ct);
+
+            var reviewLog = await FindLatestReviewLogAsync(course.Id, ct);
+            return new AdminCourseReviewResultDto(ToDto(course, reviewLog), false);
+        });
     }
 
     private Task<AuditLog?> FindLatestReviewLogAsync(int courseId, CancellationToken ct)
