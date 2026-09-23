@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
+import { authApi } from '../api';
 import { useAuth } from '../auth/AuthContext';
 
 const CHECKS = [
@@ -28,6 +29,7 @@ export default function RegisterPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [resendNote, setResendNote] = useState('');
 
   if (!booting && isAuthenticated && activeRole) {
     return <Navigate to={`/${activeRole}/home`} replace />;
@@ -70,6 +72,26 @@ export default function RegisterPage() {
           <div className="auth-body">
             <h2>Check your email</h2>
             <p className="callout" role="status">{message}</p>
+            {resendNote ? <p className="callout" role="status">{resendNote}</p> : null}
+            <button
+              type="button"
+              className="btn btn-primary btn-block"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                setResendNote('');
+                try {
+                  const result = await authApi.resendVerification(email);
+                  setResendNote(result.message || 'If the account is eligible, a verification link will be sent.');
+                } catch (err) {
+                  setResendNote(err.message || 'Could not resend the verification email.');
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy ? 'Sending…' : 'Resend verification email'}
+            </button>
             <p className="auth-footer"><Link to="/login">Back to login</Link></p>
           </div>
         ) : <form className="auth-body" onSubmit={onSubmit} autoComplete="on">

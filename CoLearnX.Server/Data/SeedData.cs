@@ -18,9 +18,8 @@ public static class SeedData
         await db.Database.EnsureCreatedAsync();
         if (db.Database.IsSqlite())
             await EnsureSqliteCourseCoreSchemaAsync(db);
-        else if (db.Database.IsSqlServer() && await db.Database.SqlQueryRaw<int>(
-                     "SELECT CASE WHEN OBJECT_ID(N'dbo.PasswordResetTokens', N'U') IS NOT NULL AND OBJECT_ID(N'dbo.EmailVerificationTokens', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.Users', N'EmailVerifiedAt') IS NOT NULL THEN 1 ELSE 0 END AS Value").SingleAsync() == 0)
-            throw new InvalidOperationException("Existing SQL Server databases require the reviewed account-token schema upgrade before startup. See PASSWORD_RESET_LOCAL.md.");
+        else if (db.Database.IsSqlServer())
+            await EnsureSqlServerAccountTokenSchemaAsync(db);
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
         var verifiedAt = DateTime.UtcNow;
 
@@ -52,6 +51,7 @@ public static class SeedData
 
         if (await db.Users.AnyAsync())
         {
+            await EnsureDemoWorkspaceRolesAsync(db);
             await EnsureRoleRequestFixturesAsync(db);
             await EnsureCourseReviewFixturesAsync(db);
             await EnsureLaterPhaseFixturesAsync(db);
@@ -96,7 +96,9 @@ public static class SeedData
 
         db.UserRoles.AddRange(
             new UserRole { UserId = member.Id, Role = AppRole.Member, IsVisible = true },
+            new UserRole { UserId = trainer.Id, Role = AppRole.Member, IsVisible = true },
             new UserRole { UserId = trainer.Id, Role = AppRole.Trainer, IsVisible = true },
+            new UserRole { UserId = creator.Id, Role = AppRole.Member, IsVisible = true },
             new UserRole { UserId = creator.Id, Role = AppRole.Creator, IsVisible = true }
         );
 
@@ -135,6 +137,9 @@ public static class SeedData
             new CertificateTemplate { StageNumber = 4, StageName = "Graduation", Title = "Graduation Stage Certificate" }
         );
 
+        var (beginner, intermediate, _) = await CourseLevelIdsAsync(db);
+        var (_, technology, design) = await LearningPathIdsAsync(db);
+
         var c1 = new Course
         {
             Code = "INFT 2051",
@@ -143,8 +148,8 @@ public static class SeedData
             TrainerId = trainer.Id,
             CreatorId = creator.Id,
             CreditCost = 30,
-            CourseLevelId = 1,
-            LearningPathId = 3,
+            CourseLevelId = beginner,
+            LearningPathId = design,
             Level = "Beginner",
             Category = "Design",
             Status = CourseStatus.Published,
@@ -158,8 +163,8 @@ public static class SeedData
             TrainerId = trainer.Id,
             CreatorId = creator.Id,
             CreditCost = 25,
-            CourseLevelId = 2,
-            LearningPathId = 2,
+            CourseLevelId = intermediate,
+            LearningPathId = technology,
             Level = "Intermediate",
             Category = "Programming",
             Status = CourseStatus.Published,
@@ -173,8 +178,8 @@ public static class SeedData
             TrainerId = trainer.Id,
             CreatorId = creator.Id,
             CreditCost = 20,
-            CourseLevelId = 1,
-            LearningPathId = 2,
+            CourseLevelId = beginner,
+            LearningPathId = technology,
             Level = "Beginner",
             Category = "Programming",
             Status = CourseStatus.Published,
@@ -188,8 +193,8 @@ public static class SeedData
             TrainerId = trainer.Id,
             CreatorId = creator.Id,
             CreditCost = 35,
-            CourseLevelId = 2,
-            LearningPathId = 3,
+            CourseLevelId = intermediate,
+            LearningPathId = design,
             Level = "Intermediate",
             Category = "Design",
             Status = CourseStatus.Published,
@@ -383,9 +388,39 @@ public static class SeedData
         }
 
         await db.SaveChangesAsync();
+        await EnsureDemoWorkspaceRolesAsync(db);
         await EnsureRoleRequestFixturesAsync(db);
         await EnsureCourseReviewFixturesAsync(db);
         await EnsureLaterPhaseFixturesAsync(db);
+    }
+
+    private static async Task EnsureDemoWorkspaceRolesAsync(CoLearnXDbContext db)
+    {
+        var required = new (string Email, AppRole[] Roles)[]
+        {
+            (MemberEmail, [AppRole.Member]),
+            (TrainerEmail, [AppRole.Member, AppRole.Trainer]),
+            (CreatorEmail, [AppRole.Member, AppRole.Creator]),
+        };
+
+        foreach (var (email, roles) in required)
+        {
+            var user = await db.Users.SingleOrDefaultAsync(item => item.Email == email);
+            if (user is null)
+                continue;
+
+            var existing = await db.UserRoles
+                .Where(item => item.UserId == user.Id)
+                .Select(item => item.Role)
+                .ToListAsync();
+            foreach (var role in roles)
+            {
+                if (!existing.Contains(role))
+                    db.UserRoles.Add(new UserRole { UserId = user.Id, Role = role, IsVisible = true });
+            }
+        }
+
+        await db.SaveChangesAsync();
     }
 
     private static async Task EnsureCourseTaxonomyAsync(CoLearnXDbContext db)
@@ -393,17 +428,17 @@ public static class SeedData
         if (!await db.CourseLevels.AnyAsync())
         {
             db.CourseLevels.AddRange(
-                new CourseLevel { Id = 1, Name = "Beginner", SortOrder = 1 },
-                new CourseLevel { Id = 2, Name = "Intermediate", SortOrder = 2 },
-                new CourseLevel { Id = 3, Name = "Advanced", SortOrder = 3 });
+                new CourseLevel { Name = "Beginner", SortOrder = 1 },
+                new CourseLevel { Name = "Intermediate", SortOrder = 2 },
+                new CourseLevel { Name = "Advanced", SortOrder = 3 });
         }
 
         if (!await db.LearningPaths.AnyAsync())
         {
             db.LearningPaths.AddRange(
-                new LearningPath { Id = 1, Name = "Professional Skills" },
-                new LearningPath { Id = 2, Name = "Technology" },
-                new LearningPath { Id = 3, Name = "Design" });
+                new LearningPath { Name = "Professional Skills" },
+                new LearningPath { Name = "Technology" },
+                new LearningPath { Name = "Design" });
         }
 
         await db.SaveChangesAsync();
@@ -455,6 +490,9 @@ public static class SeedData
         if (creator is null)
             return;
 
+        var (_, _, advanced) = await CourseLevelIdsAsync(db);
+        var (_, technology, _) = await LearningPathIdsAsync(db);
+
         db.Courses.Add(new Course
         {
             Code = "INFT 4025",
@@ -463,8 +501,8 @@ public static class SeedData
             TrainerId = creator.Id,
             CreatorId = creator.Id,
             CreditCost = 35,
-            CourseLevelId = 3,
-            LearningPathId = 2,
+            CourseLevelId = advanced,
+            LearningPathId = technology,
             Level = "Advanced",
             Category = "Technology",
             Status = CourseStatus.PendingApproval,
@@ -564,6 +602,58 @@ public static class SeedData
             });
         }
         await db.SaveChangesAsync();
+    }
+
+    static async Task EnsureSqlServerAccountTokenSchemaAsync(CoLearnXDbContext db)
+    {
+        await db.Database.ExecuteSqlRawAsync("""
+            IF OBJECT_ID(N'dbo.PasswordResetTokens', N'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.PasswordResetTokens (
+                    UserId int NOT NULL,
+                    TokenHash nvarchar(64) NOT NULL,
+                    RequestedAt datetime2 NOT NULL,
+                    ExpiresAt datetime2 NOT NULL,
+                    UsedAt datetime2 NULL,
+                    CONSTRAINT PK_PasswordResetTokens PRIMARY KEY (UserId),
+                    CONSTRAINT FK_PasswordResetTokens_Users_UserId FOREIGN KEY (UserId)
+                        REFERENCES dbo.Users(Id) ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IX_PasswordResetTokens_TokenHash ON dbo.PasswordResetTokens(TokenHash);
+            END;
+
+            IF COL_LENGTH(N'dbo.Users', N'EmailVerifiedAt') IS NULL
+            BEGIN
+                ALTER TABLE dbo.Users ADD EmailVerifiedAt datetime2 NULL;
+                UPDATE dbo.Users SET EmailVerifiedAt = SYSUTCDATETIME() WHERE EmailVerifiedAt IS NULL;
+            END;
+
+            IF OBJECT_ID(N'dbo.EmailVerificationTokens', N'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.EmailVerificationTokens (
+                    UserId int NOT NULL,
+                    TokenHash nvarchar(64) NOT NULL,
+                    RequestedAt datetime2 NOT NULL,
+                    ExpiresAt datetime2 NOT NULL,
+                    CONSTRAINT PK_EmailVerificationTokens PRIMARY KEY (UserId),
+                    CONSTRAINT FK_EmailVerificationTokens_Users_UserId FOREIGN KEY (UserId)
+                        REFERENCES dbo.Users(Id) ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IX_EmailVerificationTokens_TokenHash ON dbo.EmailVerificationTokens(TokenHash);
+            END
+            """);
+    }
+
+    static async Task<(int Beginner, int Intermediate, int Advanced)> CourseLevelIdsAsync(CoLearnXDbContext db)
+    {
+        var levels = await db.CourseLevels.AsNoTracking().ToDictionaryAsync(item => item.Name, item => item.Id);
+        return (levels["Beginner"], levels["Intermediate"], levels["Advanced"]);
+    }
+
+    static async Task<(int Professional, int Technology, int Design)> LearningPathIdsAsync(CoLearnXDbContext db)
+    {
+        var paths = await db.LearningPaths.AsNoTracking().ToDictionaryAsync(item => item.Name, item => item.Id);
+        return (paths["Professional Skills"], paths["Technology"], paths["Design"]);
     }
 
     static async Task EnsureSqliteCourseCoreSchemaAsync(CoLearnXDbContext db)

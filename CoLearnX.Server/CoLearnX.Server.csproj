@@ -31,7 +31,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\colearnx.client\colearnx.client.esproj">
+    <ProjectReference Include="..\colearnx.client\colearnx.client.esproj" Condition="'$(SkipSpaPublish)' != 'true'">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>
@@ -40,9 +40,9 @@
     <PropertyGroup>
       <_SpaRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\colearnx.client\'))</_SpaRoot>
     </PropertyGroup>
-    <Exec WorkingDirectory="$(_SpaRoot)" Command="npm ci --no-audit --no-fund" Condition="Exists('$(_SpaRoot)package-lock.json')" />
-    <Exec WorkingDirectory="$(_SpaRoot)" Command="npm install --no-audit --no-fund" Condition="!Exists('$(_SpaRoot)package-lock.json')" />
-    <Exec WorkingDirectory="$(_SpaRoot)" Command="npm run build" />
+    <Exec WorkingDirectory="$(_SpaRoot)" Command="npm ci --no-audit --no-fund" Condition="'$(SkipSpaPublish)' != 'true' AND Exists('$(_SpaRoot)package-lock.json')" />
+    <Exec WorkingDirectory="$(_SpaRoot)" Command="npm install --no-audit --no-fund" Condition="'$(SkipSpaPublish)' != 'true' AND !Exists('$(_SpaRoot)package-lock.json')" />
+    <Exec WorkingDirectory="$(_SpaRoot)" Command="npm run build" Condition="'$(SkipSpaPublish)' != 'true'" />
     <ItemGroup>
       <DistFiles Include="$(_SpaRoot)dist\**" />
       <ResolvedFileToPublish Include="@(DistFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">

@@ -6,6 +6,7 @@ using CoLearnX.Server.Domain.Enums;
 using CoLearnX.Server.Payments;
 using CoLearnX.Server.Storage;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace CoLearnX.Server.Services;
 
@@ -90,7 +91,12 @@ public static class RoleParse
     }
 }
 
-public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt, EmailVerificationService emailVerification) : IAuthService
+public class AuthService(
+    CoLearnXDbContext db,
+    IJwtTokenService jwt,
+    EmailVerificationService emailVerification,
+    IOptions<PasswordResetOptions> mailOptions,
+    IWebHostEnvironment environment) : IAuthService
 {
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
     {
@@ -117,6 +123,12 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt, EmailVerifi
         db.UserRoles.Add(new UserRole { UserId = user.Id, Role = AppRole.Member, IsVisible = true });
         db.UserPreferences.Add(new UserPreference { UserId = user.Id });
         await db.SaveChangesAsync(ct);
+        if (!PasswordResetOptions.CanDeliver(mailOptions.Value, environment))
+        {
+            user.EmailVerifiedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            return new AuthResponse(string.Empty, DateTime.UtcNow, MapMe(user, AppRole.Member));
+        }
         await emailVerification.RequestAsync(user, ct);
 
         return new AuthResponse(
@@ -200,7 +212,15 @@ public class AuthService(CoLearnXDbContext db, IJwtTokenService jwt, EmailVerifi
         if (!user.IsActive || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             throw new UnauthorizedAccessException("Invalid email or password.");
         if (user.EmailVerifiedAt is null)
-            throw new UnauthorizedAccessException("Verify your email before signing in.");
+        {
+            if (!PasswordResetOptions.CanDeliver(mailOptions.Value, environment))
+            {
+                user.EmailVerifiedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync(ct);
+            }
+            else
+                throw new UnauthorizedAccessException("Verify your email before signing in.");
+        }
 
         return user;
     }

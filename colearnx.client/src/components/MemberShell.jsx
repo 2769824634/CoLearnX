@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import Logo from './Logo';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import MemberNotifications from './MemberNotifications';
+import UserAvatar from './UserAvatar';
 import { MEMBER_NAV } from '../data/memberMock';
 import { useAuth } from '../auth/AuthContext';
 
@@ -12,7 +13,7 @@ export default function MemberShell({
   onSearch,
   children,
 }) {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
 
   return (
     <div className="shell">
@@ -37,7 +38,7 @@ export default function MemberShell({
             Log out
           </button>
           <div className="user-chip">
-            <div className="avatar" />
+            <UserAvatar name={user?.fullName} avatarUrl={user?.avatarUrl} token={token} />
             <div>
               <div className="user-chip-name">{user?.fullName}</div>
               <WorkspaceSwitcher />

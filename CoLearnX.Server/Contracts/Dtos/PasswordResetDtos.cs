@@ -6,6 +6,7 @@ namespace CoLearnX.Server.Contracts.Dtos;
 public record ForgotPasswordRequest([Required, EmailAddress, MaxLength(256)] string Email);
 public record ResetPasswordRequest(
     [Required, MaxLength(128)] string Token,
-    [Required, MinLength(PasswordRules.MinLength), MaxLength(PasswordRules.MaxLength)] string NewPassword);
+    [Required, MinLength(PasswordRules.MinLength), MaxLength(PasswordRules.MaxLength)] string NewPassword,
+    [Required, EmailAddress, MaxLength(256)] string Email);
 public record PasswordResetResponse(string Message);
 public record VerifyEmailRequest([Required, MaxLength(128)] string Token);

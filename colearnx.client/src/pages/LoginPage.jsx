@@ -96,6 +96,28 @@ export default function LoginPage() {
               <div className="callout warn" style={{ marginBottom: 12 }}>
                 <div className="callout-title">{error === SESSION_REPLACED_MESSAGE ? 'Signed out' : 'Login failed'}</div>
                 {error}
+                {error.includes('Verify your email') ? (
+                  <p className="auth-footer" style={{ marginBottom: 0 }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      disabled={busy || !email}
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          const result = await authApi.resendVerification(email);
+                          setError(result.message || 'If the account is eligible, a verification link will be sent.');
+                        } catch (err) {
+                          setError(err.message || 'Could not resend the verification email.');
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                    >
+                      Resend verification email
+                    </button>
+                  </p>
+                ) : null}
               </div>
             ) : null}
             <button type="submit" className="btn btn-primary btn-block" disabled={busy}>

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import Logo from '../components/Logo';
 import WorkspaceSwitcher from '../components/WorkspaceSwitcher';
+import UserAvatar from '../components/UserAvatar';
 import { useAuth } from '../auth/AuthContext';
 import useAdminAuth from '../auth/useAdminAuth';
 import '../styles/admin.css';
@@ -36,7 +37,7 @@ const NAV = {
   ],
 };
 
-function ShellFrame({ identityName, role, logout, showWorkspaceSwitcher = false, title, subtitle }) {
+function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspaceSwitcher = false, title, subtitle }) {
   const items = NAV[role] || [];
 
   return (
@@ -51,7 +52,7 @@ function ShellFrame({ identityName, role, logout, showWorkspaceSwitcher = false,
             Log out
           </button>
           <div className="user-chip">
-            <div className="avatar" />
+            <UserAvatar name={identityName} avatarUrl={avatarUrl} token={token} />
             <div>
               <div className="user-chip-name">{identityName}</div>
               {showWorkspaceSwitcher ? <WorkspaceSwitcher /> : <div className="role">Administrator</div>}
@@ -84,10 +85,12 @@ function ShellFrame({ identityName, role, logout, showWorkspaceSwitcher = false,
 
 // Trainer / Creator shell. Shared: RoleShell
 export default function RoleShell({ role, title, subtitle }) {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   return (
     <ShellFrame
       identityName={user?.fullName}
+      avatarUrl={user?.avatarUrl}
+      token={token}
       role={role}
       logout={logout}
       showWorkspaceSwitcher

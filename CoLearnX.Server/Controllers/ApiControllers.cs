@@ -259,7 +259,7 @@ public class EnrollmentsController(IEnrollmentService enrollments, IMemberLearni
 [ApiController]
 [Route("api/credits")]
 [Authorize]
-public class CreditsController(ICreditService credits, IPayPalClient payPal) : ControllerBase
+public class CreditsController(ICreditService credits, IPayPalClient payPal, ILogger<CreditsController> logger) : ControllerBase
 {
     [HttpGet("packages")]
     [AllowAnonymous]
@@ -287,6 +287,7 @@ public class CreditsController(ICreditService credits, IPayPalClient payPal) : C
         }
         catch (InvalidOperationException ex)
         {
+            logger.LogWarning(ex, "PayPal create-order failed");
             return BadRequest(new ApiError("PAYPAL_CREATE_FAILED", ex.Message));
         }
     }
@@ -302,6 +303,7 @@ public class CreditsController(ICreditService credits, IPayPalClient payPal) : C
         }
         catch (InvalidOperationException ex)
         {
+            logger.LogWarning(ex, "PayPal capture failed for {OrderId}", request.OrderId);
             return BadRequest(new ApiError("PAYPAL_CAPTURE_FAILED", ex.Message));
         }
     }

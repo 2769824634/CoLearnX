@@ -1,16 +1,57 @@
 import { useEffect, useRef, useState } from 'react';
 import { creditsApi } from '../api';
 
-function loadPayPalSdk(clientId, currency) {
-  const existing = document.querySelector('script[data-colearnx-paypal]');
-  if (existing) {
-    return window.paypal
+const SDK_TIMEOUT_MS = 15000;
+
+export function isUsablePayPalClientId(clientId) {
+  if (!clientId || typeof clientId !== 'string') return false;
+  const trimmed = clientId.trim();
+  if (trimmed.length < 20) return false;
+  if (/PayPal:|:ClientId|ClientSecret/i.test(trimmed)) return false;
+  return true;
+}
+
+function waitForPayPal(script) {
+  if (window.paypal?.Buttons) return Promise.resolve(window.paypal);
+
+  const alreadyDone = script.getAttribute('data-loaded') === '1' || script.readyState === 'complete';
+  if (alreadyDone) {
+    return window.paypal?.Buttons
       ? Promise.resolve(window.paypal)
-      : new Promise((resolve, reject) => {
-          existing.addEventListener('load', () => resolve(window.paypal));
-          existing.addEventListener('error', reject);
-        });
+      : Promise.reject(new Error('PayPal SDK loaded without buttons. Check the Client ID.'));
   }
+
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error('PayPal SDK timed out. Check the network, disable any ad blocker, and confirm paypal.com is reachable.'));
+    }, SDK_TIMEOUT_MS);
+
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      script.removeEventListener('load', onLoad);
+      script.removeEventListener('error', onError);
+    };
+
+    const onLoad = () => {
+      cleanup();
+      script.setAttribute('data-loaded', '1');
+      if (window.paypal?.Buttons) resolve(window.paypal);
+      else reject(new Error('PayPal SDK loaded without buttons. Check the Client ID.'));
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error('Failed to load PayPal SDK'));
+    };
+
+    script.addEventListener('load', onLoad);
+    script.addEventListener('error', onError);
+  });
+}
+
+export function loadPayPalSdk(clientId, currency) {
+  const existing = document.querySelector('script[data-colearnx-paypal]');
+  if (existing) return waitForPayPal(existing);
 
   const params = new URLSearchParams({
     'client-id': clientId,
@@ -20,15 +61,13 @@ function loadPayPalSdk(clientId, currency) {
     'disable-funding': 'paylater,venmo',
   });
 
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = `https://www.paypal.com/sdk/js?${params.toString()}`;
-    script.async = true;
-    script.dataset.colearnxPaypal = '1';
-    script.onload = () => resolve(window.paypal);
-    script.onerror = () => reject(new Error('Failed to load PayPal SDK'));
-    document.body.appendChild(script);
-  });
+  const script = document.createElement('script');
+  script.src = `https://www.paypal.com/sdk/js?${params.toString()}`;
+  script.async = true;
+  script.dataset.colearnxPaypal = '1';
+  const pending = waitForPayPal(script);
+  document.body.appendChild(script);
+  return pending;
 }
 
 // Renders PayPal Buttons for one CreditPackage.
@@ -44,7 +83,7 @@ export default function PayPalPackageButtons({ packageId, onCaptured, onError })
     async function mount() {
       try {
         const config = await creditsApi.paypalConfig();
-        if (!config.enabled || !config.clientId) {
+        if (!config.enabled || !isUsablePayPalClientId(config.clientId)) {
           if (!cancelled) {
             setStatus('disabled');
             setMessage('PayPal sandbox not configured on server.');
@@ -53,14 +92,25 @@ export default function PayPalPackageButtons({ packageId, onCaptured, onError })
         }
 
         const paypal = await loadPayPalSdk(config.clientId, config.currency || 'AUD');
-        if (cancelled || !hostRef.current || !paypal?.Buttons) return;
+        if (cancelled) return;
+        if (!hostRef.current || !paypal?.Buttons) {
+          setStatus('error');
+          setMessage('PayPal SDK loaded without buttons. Check the Client ID.');
+          return;
+        }
 
         hostRef.current.innerHTML = '';
         buttons = paypal.Buttons({
           style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'paypal' },
           createOrder: async () => {
-            const order = await creditsApi.createPayPalOrder(packageId);
-            return order.orderId;
+            try {
+              const order = await creditsApi.createPayPalOrder(packageId);
+              if (!order?.orderId) throw new Error('Server did not return a PayPal order id.');
+              return order.orderId;
+            } catch (err) {
+              onError?.(err?.message || 'Could not create PayPal order');
+              throw err;
+            }
           },
           onApprove: async (data) => {
             try {

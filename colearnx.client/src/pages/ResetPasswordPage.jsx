@@ -5,6 +5,7 @@ import { authApi } from '../api';
 
 export default function ResetPasswordPage() {
   const [token, setToken] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('token') || '');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
@@ -19,8 +20,8 @@ export default function ResetPasswordPage() {
     if (password !== confirmation) { setError('Passwords do not match.'); return; }
     inFlight.current = true; setBusy(true);
     try {
-      setMessage((await authApi.resetPassword(token, password)).message);
-      setToken(''); setPassword(''); setConfirmation('');
+      setMessage((await authApi.resetPassword(token, password, email.trim())).message);
+      setToken(''); setEmail(''); setPassword(''); setConfirmation('');
     } catch (err) { setError(err.message || 'Could not reset your password. Request a fresh link and try again.'); }
     finally { inFlight.current = false; setBusy(false); }
   }
@@ -28,6 +29,8 @@ export default function ResetPasswordPage() {
     <div className="auth-header"><Logo /></div>
     <div className="auth-body"><h2>Set a new password</h2>
       {message ? <><p className="callout" role="status">{message}</p><Link to="/login">Back to login</Link></> : !token ? <><p role="alert">This reset link is missing or invalid. Open the complete link from your email.</p><Link to="/forgot-password">Request a new reset link</Link></> : <form onSubmit={submit}>
+        <p>Enter the email registered on this account. The reset only succeeds if it matches that mailbox.</p>
+        <div className="form-group"><label htmlFor="account-email">Account email</label><input id="account-email" type="email" autoComplete="email" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} /></div>
         <p>Use 10–72 characters with uppercase, lowercase, a number, and a symbol. Do not include your email address.</p>
         <div className="form-group"><label htmlFor="new-password">New password</label><input id="new-password" type="password" autoComplete="new-password" required minLength={10} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} /></div>
         <div className="form-group"><label htmlFor="confirm-password">Confirm password</label><input id="confirm-password" type="password" autoComplete="new-password" required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></div>

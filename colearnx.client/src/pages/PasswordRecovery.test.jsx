@@ -19,6 +19,7 @@ it('removes the token from the address and consumes it only after matching passw
   authApi.resetPassword.mockResolvedValue({ message: 'Password updated. Sign in with your new password.' });
   render(<MemoryRouter><ResetPasswordPage /></MemoryRouter>);
   expect(window.location.hash).toBe('');
+  fireEvent.change(screen.getByLabelText('Account email'), { target: { value: 'learner@example.test' } });
   fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'StrongPass123!' } });
   fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'WrongPass123!' } });
   fireEvent.click(screen.getByRole('button', { name: 'Reset password' }));
@@ -27,7 +28,7 @@ it('removes the token from the address and consumes it only after matching passw
   fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'StrongPass123!' } });
   fireEvent.click(screen.getByRole('button', { name: 'Reset password' }));
   expect(await screen.findByText('Password updated. Sign in with your new password.')).toBeTruthy();
-  expect(authApi.resetPassword).toHaveBeenCalledWith('one-time-token', 'StrongPass123!');
+  expect(authApi.resetPassword).toHaveBeenCalledWith('one-time-token', 'StrongPass123!', 'learner@example.test');
 });
 it('explains missing credentials and provides a fresh-link route', () => {
   render(<MemoryRouter><ResetPasswordPage /></MemoryRouter>);

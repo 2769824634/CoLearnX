@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
     <div className="auth-header"><Logo /></div>
     <form className="auth-body" onSubmit={submit}>
       <h2>Forgot your password?</h2>
-      <p>Enter the email for your Member, Trainer or Creator account. Check your inbox and spam folder for a one-time reset link.</p>
+      <p>Enter the email already registered on your Member, Trainer or Creator account. A reset link is only sent to that mailbox.</p>
       <div className="form-group"><label htmlFor="reset-email">Email</label><input id="reset-email" type="email" autoComplete="email" required maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} /></div>
       {message ? <p className="callout" role="status">{message}</p> : null}
       {error ? <p className="callout warn" role="alert">{error}</p> : null}

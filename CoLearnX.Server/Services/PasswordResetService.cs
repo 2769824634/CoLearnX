@@ -1,8 +1,10 @@
+using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
 using CoLearnX.Server.Auth;
 using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Entities;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -10,7 +12,7 @@ namespace CoLearnX.Server.Services;
 
 public class PasswordResetService(
     CoLearnXDbContext db, IPasswordResetMailSender mail, IOptions<PasswordResetOptions> options,
-    IWebHostEnvironment environment, ILogger<PasswordResetService> logger)
+    IWebHostEnvironment environment, IHttpContextAccessor http, ILogger<PasswordResetService> logger)
 {
     public const string RequestMessage = "If the account is eligible, a password reset link will be sent.";
 
@@ -20,9 +22,15 @@ public class PasswordResetService(
         var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Email == normalized && x.IsActive, ct);
         if (user is null) return; // AdminAccount is intentionally a different identity store.
         var opts = options.Value;
-        if (!Uri.TryCreate(opts.ClientBaseUrl, UriKind.Absolute, out var clientUri)
-            || clientUri.Scheme != Uri.UriSchemeHttps
-            || (!environment.IsDevelopment() && !environment.IsEnvironment("Testing") && clientUri.IsLoopback))
+        var allowLoopback = environment.IsDevelopment() || environment.IsEnvironment("Testing");
+        var origin = PasswordResetLinks.ResolveOrigin(
+            opts.ClientBaseUrl,
+            allowLoopback,
+            http.HttpContext?.Request,
+            Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME") is { Length: > 0 }
+                ? Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME")
+                : null);
+        if (string.IsNullOrWhiteSpace(origin))
         {
             logger.LogWarning("Password reset delivery configuration is unavailable.");
             return;
@@ -52,16 +60,19 @@ public class PasswordResetService(
         }
         try
         {
-            await mail.SendAsync(user.Email, opts.ClientBaseUrl.TrimEnd('/') + "/reset-password#token=" + token, ct);
+            await mail.SendAsync(user.Email, origin.TrimEnd('/') + "/reset-password#token=" + token, ct);
+        }
+        catch (SmtpException ex)
+        {
+            logger.LogWarning("Password reset delivery failed; smtpStatus={Status}", ex.StatusCode);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Do not log recipient, link, credential, or SMTP exception text.
-            logger.LogWarning("Password reset delivery failed; verify the configured mail service.");
+            logger.LogWarning("Password reset delivery failed; error={Error}", ex.GetType().Name);
         }
     }
 
-    public async Task<bool> ResetAsync(string token, string newPassword, CancellationToken ct = default)
+    public async Task<bool> ResetAsync(string token, string newPassword, string email, CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(token) || token.Length != 64 || !token.All(Uri.IsHexDigit)) return false;
         var hash = Hash(token);
@@ -70,6 +81,8 @@ public class PasswordResetService(
             .Where(x => x.TokenHash == hash && x.UsedAt == null && x.ExpiresAt > now && x.User.IsActive)
             .Select(x => new { x.UserId, x.User.Email }).SingleOrDefaultAsync(ct);
         if (candidate is null) return false;
+        if (!string.Equals(candidate.Email, email.Trim().ToLowerInvariant(), StringComparison.Ordinal))
+            return false;
         if (!PasswordRules.Meets(newPassword, candidate.Email)) throw new FormatException(PasswordRules.Hint);
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         // First write atomically claims the token. Password and session invalidation share its transaction.

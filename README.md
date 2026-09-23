@@ -139,9 +139,16 @@ POST /api/auth/reset-password
 本地 Gmail SMTP 配置通过以下脚本写入 .NET user-secrets，密码只在本机隐藏输入，不写入仓库：
 
 ```powershell
-Set-Location 'C:\Users\user\Documents\CoLearnX\.local-deploy\CoLearnX-master-20260918'
 & '.\scripts\Configure-GmailPasswordReset.ps1' -Email 'jianglingmuse@gmail.com'
 ```
+
+云端 Azure App Service **不会**使用本机 user-secrets。部署本版本后，在应用设置里配置同一套 SMTP（不要写进仓库），或运行：
+
+```powershell
+.\scripts\Configure-AzurePasswordReset.ps1 -AppName '你的WebApp名称' -ResourceGroup '你的资源组' -Email '你的Gmail'
+```
+
+生产环境会把重置链接写成 `https://你的站点/reset-password#token=...`，而不是 localhost。详细键名见 [PASSWORD_RESET_LOCAL.md](PASSWORD_RESET_LOCAL.md)。
 
 本次真实验证结果：
 

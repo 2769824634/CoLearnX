@@ -70,7 +70,7 @@ export function MemberDataProvider({ children }) {
 
   useEffect(() => {
     if (!toast) return undefined;
-    const t = setTimeout(() => setToast(''), 2200);
+    const t = setTimeout(() => setToast(''), /paypal|capture|top-up|timed out/i.test(toast) ? 12000 : 2200);
     return () => clearTimeout(t);
   }, [toast]);
 

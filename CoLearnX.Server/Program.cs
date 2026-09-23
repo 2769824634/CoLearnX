@@ -57,6 +57,7 @@ builder.Services.AddSingleton<IPayPalClient, PayPalClient>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAdminTokenService, AdminTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<PasswordResetOptions>(builder.Configuration.GetSection("PasswordReset"));
 builder.Services.AddScoped<PasswordResetService>();
 builder.Services.AddScoped<EmailVerificationService>();
@@ -161,6 +162,7 @@ builder.Services.AddRateLimiter(options =>
             await context.HttpContext.Response.WriteAsJsonAsync(new PasswordResetResponse(PasswordResetService.RequestMessage), token);
             return;
         }
+        context.HttpContext.Response.Headers.RetryAfter = "600";
         await context.HttpContext.Response.WriteAsJsonAsync(
             new ApiError("TOO_MANY_REQUESTS", "Too many sign-in attempts. Try again in a few minutes."),
             token);
@@ -168,7 +170,7 @@ builder.Services.AddRateLimiter(options =>
     var testing = builder.Environment.IsEnvironment("Testing");
     options.AddPolicy("password-reset", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            RateLimitClientKey(httpContext),
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 8,
@@ -178,10 +180,10 @@ builder.Services.AddRateLimiter(options =>
             }));
     options.AddPolicy("auth", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            RateLimitClientKey(httpContext),
             _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = testing ? 1000 : 8,
+                PermitLimit = testing ? 1000 : 20,
                 Window = testing ? TimeSpan.FromMinutes(1) : TimeSpan.FromMinutes(10),
                 QueueLimit = 0,
                 AutoReplenishment = true,
@@ -211,6 +213,24 @@ app.Logger.LogInformation(
     roleRequestStorage.Provider,
     roleRequestStorage.Container ?? "(local disk)");
 app.Logger.LogInformation("Database: {Database}", databaseDescription);
+var passwordReset = app.Configuration.GetSection("PasswordReset").Get<PasswordResetOptions>() ?? new PasswordResetOptions();
+var passwordResetReady = !string.IsNullOrWhiteSpace(passwordReset.SmtpHost)
+    && !string.IsNullOrWhiteSpace(passwordReset.SmtpUsername)
+    && !string.IsNullOrWhiteSpace(passwordReset.SmtpPassword)
+    && !string.IsNullOrWhiteSpace(passwordReset.FromAddress)
+    && !passwordReset.FromAddress.EndsWith(".test", StringComparison.OrdinalIgnoreCase);
+if (app.Environment.IsProduction() || string.Equals(passwordReset.DeliveryMode, "Smtp", StringComparison.OrdinalIgnoreCase))
+{
+    if (passwordResetReady)
+        app.Logger.LogInformation(
+            "Password reset mail: Smtp host={Host} from={From} origin={Origin}",
+            passwordReset.SmtpHost,
+            passwordReset.FromAddress,
+            string.IsNullOrWhiteSpace(passwordReset.ClientBaseUrl) ? "(request host)" : passwordReset.ClientBaseUrl);
+    else
+        app.Logger.LogWarning(
+            "Password reset mail is not configured. Set PasswordReset__SmtpHost, PasswordReset__FromAddress, PasswordReset__SmtpUsername and PasswordReset__SmtpPassword on the App Service.");
+}
 if (!useSqlServer
     && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME")))
 {
@@ -223,6 +243,11 @@ if (app.Environment.IsProduction()
 {
     app.Logger.LogWarning("Jwt:SigningKey is still the development default. Set Jwt__SigningKey on the App Service.");
 }
+var payPalOpts = app.Configuration.GetSection(PayPalOptions.SectionName).Get<PayPalOptions>() ?? new PayPalOptions();
+if (payPalOpts.IsConfigured)
+    app.Logger.LogInformation("PayPal: {Mode} currency={Currency} clientIdLength={Length}", payPalOpts.Mode, payPalOpts.Currency, payPalOpts.ClientId.Trim().Length);
+else
+    app.Logger.LogWarning("PayPal is not configured. Set PayPal__ClientId and PayPal__ClientSecret on the App Service to the sandbox REST app credentials, not the setting names.");
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
@@ -242,6 +267,19 @@ app.MapControllers();
 app.MapFallbackToFile("/index.html");
 
 app.Run();
+
+static string RateLimitClientKey(HttpContext httpContext)
+{
+    var forwarded = httpContext.Request.Headers["X-Forwarded-For"].ToString();
+    if (!string.IsNullOrWhiteSpace(forwarded))
+    {
+        var first = forwarded.Split(',')[0].Trim();
+        if (first.Length > 0)
+            return first;
+    }
+
+    return httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+}
 
 static string ResolveSqliteDataSource(WebApplicationBuilder builder, string dataSource)
 {

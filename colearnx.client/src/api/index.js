@@ -3,8 +3,9 @@ import { apiRequest, downloadFile } from './client';
 // API modules — keep export names: authApi, coursesApi, enrollmentsApi, creditsApi
 export const authApi = {
   forgotPassword: (email) => apiRequest('/api/auth/forgot-password', { method: 'POST', token: '', body: { email } }),
-  resetPassword: (token, newPassword) => apiRequest('/api/auth/reset-password', { method: 'POST', token: '', body: { token, newPassword } }),
+  resetPassword: (token, newPassword, email) => apiRequest('/api/auth/reset-password', { method: 'POST', token: '', body: { token, newPassword, email } }),
   verifyEmail: (token) => apiRequest('/api/auth/verify-email', { method: 'POST', token: '', body: { token } }),
+  resendVerification: (email) => apiRequest('/api/auth/resend-verification', { method: 'POST', token: '', body: { email } }),
   login: (email, password, activeRole) =>
     apiRequest('/api/auth/login', {
       method: 'POST',
@@ -118,10 +119,7 @@ export const creditsApi = {
   createPayPalOrder: (creditPackageId) =>
     apiRequest('/api/credits/paypal/create-order', {
       method: 'POST',
-      body: {
-        creditPackageId,
-        returnUrl: `${window.location.origin}/member/payment`,
-      },
+      body: { creditPackageId },
     }),
   capturePayPalOrder: (orderId) =>
     apiRequest('/api/credits/paypal/capture', {

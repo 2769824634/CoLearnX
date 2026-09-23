@@ -13,7 +13,18 @@ public class PayPalOptions
     public string AllowedReturnHosts { get; set; } = string.Empty;
 
     public bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
+        LooksLikeCredential(ClientId) && LooksLikeCredential(ClientSecret);
+
+    internal static bool LooksLikeCredential(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        var trimmed = value.Trim();
+        if (trimmed.Length < 20) return false;
+        if (trimmed.Contains("PayPal:", StringComparison.OrdinalIgnoreCase)) return false;
+        if (trimmed.Contains("ClientId", StringComparison.OrdinalIgnoreCase)) return false;
+        if (trimmed.Contains("ClientSecret", StringComparison.OrdinalIgnoreCase)) return false;
+        return true;
+    }
 
     public IEnumerable<string> ExtraReturnHosts =>
         AllowedReturnHosts.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
@@ -227,8 +238,10 @@ public static class PayPalReturnUrls
         var local = host is "localhost" or "127.0.0.1";
         var tunnel = host.EndsWith(".devtunnels.ms", StringComparison.OrdinalIgnoreCase);
         var azure = host.EndsWith(".azurewebsites.net", StringComparison.OrdinalIgnoreCase);
+        var custom = host.Equals("colearnx.xyz", StringComparison.OrdinalIgnoreCase)
+            || host.Equals("www.colearnx.xyz", StringComparison.OrdinalIgnoreCase);
         var extra = extraHosts?.Any(allowed => HostMatches(host, allowed)) == true;
-        if (!local && !tunnel && !azure && !extra)
+        if (!local && !tunnel && !azure && !custom && !extra)
             return null;
         if (!local && uri.Scheme != Uri.UriSchemeHttps)
             return null;

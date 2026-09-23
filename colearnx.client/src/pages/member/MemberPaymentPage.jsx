@@ -11,6 +11,7 @@ export default function MemberPaymentPage() {
   const [tab, setTab] = useState('topup');
   const [selectedId, setSelectedId] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [payError, setPayError] = useState('');
   const capturingReturn = useRef(false);
 
   const selected = state.packages.find((p) => p.id === selectedId) || state.packages[0];
@@ -18,6 +19,7 @@ export default function MemberPaymentPage() {
   const onCaptured = useCallback(
     async (ledger) => {
       await applyLedgerTopUp(ledger);
+      setPayError('');
       setSuccess({
         credits: ledger.delta,
         balance: ledger.balanceAfter,
@@ -29,7 +31,9 @@ export default function MemberPaymentPage() {
 
   const onPayPalError = useCallback(
     (msg) => {
-      if (msg && msg !== 'Payment cancelled') showToast(msg);
+      if (!msg || msg === 'Payment cancelled') return;
+      setPayError(msg);
+      showToast(msg);
     },
     [showToast],
   );
@@ -113,6 +117,12 @@ export default function MemberPaymentPage() {
                 <p style={{ fontSize: 13, marginBottom: 12 }}>
                   Selected: <strong>{selected ? `${selected.credits} credits · ${selected.price}` : '—'}</strong>
                 </p>
+                {payError ? (
+                  <div className="callout warn" style={{ marginBottom: 12 }}>
+                    <div className="callout-title">Payment failed</div>
+                    {payError}
+                  </div>
+                ) : null}
                 {selected ? (
                   <PayPalPackageButtons
                     key={selected.id}

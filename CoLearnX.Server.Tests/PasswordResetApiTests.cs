@@ -42,6 +42,37 @@ public class PasswordResetApiTests : IDisposable
     }
 
     [Fact]
+    public async Task Reset_rejects_when_email_is_not_the_account_mailbox()
+    {
+        var mail = new CapturingMailSender();
+        using var app = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IPasswordResetMailSender>();
+            services.AddSingleton<IPasswordResetMailSender>(mail);
+            services.RemoveAll<IEmailVerificationMailSender>();
+            services.AddSingleton<IEmailVerificationMailSender>(mail);
+        }));
+        var client = app.CreateClient();
+        var email = $"bound.{Guid.NewGuid():N}@colearnx.test";
+        (await client.PostAsJsonAsync("/api/auth/register", new RegisterRequest(email, "Password123!", "Bound User", null))).EnsureSuccessStatusCode();
+        var verificationToken = mail.Messages.Single(x => x.Link.Contains("/verify-email#token=")).Link.Split("#token=")[1];
+        (await client.PostAsJsonAsync("/api/auth/verify-email", new { token = verificationToken })).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/api/auth/forgot-password", new { email })).EnsureSuccessStatusCode();
+        var token = mail.Messages.Single(x => x.Link.Contains("/reset-password#token=")).Link.Split("#token=")[1];
+        Assert.Equal(email, mail.Messages.Last().Email);
+
+        var stolen = await client.PostAsJsonAsync("/api/auth/reset-password", new
+        {
+            token,
+            newPassword = "Changed789!",
+            email = "attacker@example.com",
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, stolen.StatusCode);
+        Assert.Equal("INVALID_RESET_TOKEN", (await ApiClient.ReadErrorAsync(stolen))?.Code);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, "Password123!", "Member"))).StatusCode);
+    }
+
+    [Fact]
     public async Task Reset_changes_password_invalidates_session_and_cannot_be_replayed()
     {
         var mail = new CapturingMailSender();
@@ -84,13 +115,13 @@ public class PasswordResetApiTests : IDisposable
         Assert.Equal(generic, await admin.Content.ReadAsStringAsync());
         Assert.Equal(2, mail.Messages.Count);
 
-        var weak = await client.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = "weakpassword" });
+        var weak = await client.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = "weakpassword", email });
         Assert.Equal(HttpStatusCode.BadRequest, weak.StatusCode);
         Assert.Equal("WEAK_PASSWORD", (await ApiClient.ReadErrorAsync(weak))?.Code);
-        var reset = await client.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = "Different789!" });
+        var reset = await client.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = "Different789!", email });
         reset.EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/auth/me")).StatusCode);
-        var replay = await client.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = "ThirdChoice456!" });
+        var replay = await client.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = "ThirdChoice456!", email });
         Assert.Equal(HttpStatusCode.BadRequest, replay.StatusCode);
         Assert.Equal("INVALID_RESET_TOKEN", (await ApiClient.ReadErrorAsync(replay))?.Code);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, "Password123!", "Member"))).StatusCode);
@@ -114,7 +145,7 @@ public class PasswordResetApiTests : IDisposable
         var token = mail.Messages.Single().Link.Split("#token=")[1];
         // Each request creates its own service scope and database connection.
         var responses = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ =>
-            client.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = "Changed789!" })));
+            client.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = "Changed789!", email })));
         Assert.Single(responses, x => x.StatusCode == HttpStatusCode.OK);
         Assert.Equal(3, responses.Count(x => x.StatusCode == HttpStatusCode.BadRequest));
     }
@@ -137,14 +168,14 @@ public class PasswordResetApiTests : IDisposable
             await db.PasswordResetTokens.ExecuteUpdateAsync(s => s.SetProperty(x => x.ExpiresAt, DateTime.UtcNow.AddMinutes(-1)));
         }
         foreach (var invalid in new[] { token, new string('F', 64), "forged" })
-            Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/reset-password", new { token = invalid, newPassword = "Changed789!" })).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/reset-password", new { token = invalid, newPassword = "Changed789!", email = SeedData.MemberEmail })).StatusCode);
         using (var scope = app.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
             await db.PasswordResetTokens.ExecuteUpdateAsync(s => s.SetProperty(x => x.ExpiresAt, DateTime.UtcNow.AddMinutes(10)));
             await db.Users.Where(x => x.Email == SeedData.MemberEmail).ExecuteUpdateAsync(s => s.SetProperty(x => x.IsActive, false));
         }
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = "Changed789!" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/reset-password", new { token, newPassword = "Changed789!", email = SeedData.MemberEmail })).StatusCode);
     }
 
     [Fact]

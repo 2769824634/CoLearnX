@@ -66,8 +66,26 @@ Default Development delivery captures `.eml` files in `CoLearnX.Server/App_Data/
 Setting DeliveryMode=Smtp explicitly enables real mail in Development. Automated
 Testing hosts always capture or inject a test sender, even if SMTP is configured.
 Production requires a configured SMTP host and sender and does not use pickup.
-Credentials, captured mail, local databases and verification account state are
-under ignored locations; none should be committed.
+On Azure App Service, set application settings (not source files):
+
+```text
+PasswordReset__DeliveryMode = Smtp
+PasswordReset__SmtpHost = smtp.gmail.com
+PasswordReset__SmtpPort = 587
+PasswordReset__SmtpUsername = your-gmail@gmail.com
+PasswordReset__FromAddress = your-gmail@gmail.com
+PasswordReset__SmtpPassword = Google app password
+```
+
+`PasswordReset__ClientBaseUrl` is optional on App Service. Production ignores localhost and builds `https://{your-app}.azurewebsites.net/reset-password#token=...` from the HTTPS request (or `WEBSITE_HOSTNAME`). Set `PasswordReset__ClientBaseUrl` only if you use a custom public domain.
+
+```powershell
+.\scripts\Configure-AzurePasswordReset.ps1 -AppName 'colearnxserver' -ResourceGroup 'your-rg' -Email 'your-gmail@gmail.com'
+```
+
+Or in Azure Portal: App Service → Configuration → Application settings → the keys above → Save → Restart.
+
+Existing Azure SQL databases missing `PasswordResetTokens` are upgraded on startup with the same idempotent table as `scripts/PasswordReset.SqlServer.sql`. Credentials stay in App Service settings or user-secrets; none should be committed.
 
 ## API/security behavior
 

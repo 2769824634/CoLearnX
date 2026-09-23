@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
 using CoLearnX.Server.Services;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -120,6 +121,59 @@ public class EmailVerificationApiTests : IDisposable
     }
 
     [Fact]
+    public async Task Unknown_account_resend_returns_the_same_generic_success()
+    {
+        using var client = ApiClient.Anonymous(_factory);
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/resend-verification",
+            new { email = "missing@colearnx.test" });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("If the account is eligible", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Resend_verification_sends_a_new_link_after_cooldown()
+    {
+        var mail = new CapturingMailSender();
+        using var app = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
+                new Dictionary<string, string?> { ["PasswordReset:CooldownSeconds"] = "60" }));
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IEmailVerificationMailSender>();
+                services.AddSingleton<IEmailVerificationMailSender>(mail);
+            });
+        });
+        using var client = app.CreateClient();
+        var email = $"resend.{Guid.NewGuid():N}@colearnx.test";
+        (await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest(email, "Password123!", "Resend User", null),
+            ApiJson.Options)).EnsureSuccessStatusCode();
+        Assert.Single(mail.Messages);
+
+        var blocked = await client.PostAsJsonAsync("/api/auth/resend-verification", new { email });
+        Assert.Equal(HttpStatusCode.OK, blocked.StatusCode);
+        Assert.Single(mail.Messages);
+
+        using (var scope = app.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+            var aged = DateTime.UtcNow.AddMinutes(-2);
+            await db.EmailVerificationTokens.ExecuteUpdateAsync(s => s.SetProperty(x => x.RequestedAt, aged));
+        }
+
+        var resent = await client.PostAsJsonAsync("/api/auth/resend-verification", new { email });
+        Assert.Equal(HttpStatusCode.OK, resent.StatusCode);
+        Assert.Equal(2, mail.Messages.Count);
+        var token = mail.Messages.Last().Link.Split("#token=")[1];
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.PostAsJsonAsync("/api/auth/verify-email", new { token })).StatusCode);
+    }
+
+    [Fact]
     public async Task Registration_does_not_send_a_verification_link_to_an_insecure_client_origin()
     {
         var mail = new CapturingMailSender();
@@ -141,6 +195,55 @@ public class EmailVerificationApiTests : IDisposable
             ApiJson.Options)).EnsureSuccessStatusCode();
 
         Assert.Empty(mail.Messages);
+    }
+
+    [Fact]
+    public async Task Production_without_smtp_registers_without_blocking_on_email()
+    {
+        using var app = _factory.WithWebHostBuilder(builder => builder.UseEnvironment("Production"));
+        using var client = app.CreateClient();
+        var email = $"cloud.{Guid.NewGuid():N}@colearnx.test";
+
+        var registration = await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest(email, "Password123!", "Cloud User", null),
+            ApiJson.Options);
+        registration.EnsureSuccessStatusCode();
+        using var body = JsonDocument.Parse(await registration.Content.ReadAsStringAsync());
+        Assert.False(body.RootElement.GetProperty("emailVerificationRequired").GetBoolean());
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.PostAsJsonAsync(
+                "/api/auth/login",
+                new LoginRequest(email, "Password123!", "Member"),
+                ApiJson.Options)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Production_without_smtp_lets_an_existing_unverified_account_sign_in()
+    {
+        using var app = _factory.WithWebHostBuilder(builder => builder.UseEnvironment("Production"));
+        using var client = app.CreateClient();
+        var email = $"stuck.{Guid.NewGuid():N}@colearnx.test";
+        (await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new RegisterRequest(email, "Password123!", "Stuck User", null),
+            ApiJson.Options)).EnsureSuccessStatusCode();
+        using (var scope = app.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+            await db.Users.Where(x => x.Email == email)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.EmailVerifiedAt, (DateTime?)null));
+        }
+
+        var roles = await client.PostAsJsonAsync("/api/auth/available-roles", new { email, password = "Password123!" });
+        Assert.Equal(HttpStatusCode.OK, roles.StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.PostAsJsonAsync(
+                "/api/auth/login",
+                new LoginRequest(email, "Password123!", "Member"),
+                ApiJson.Options)).StatusCode);
     }
 
     private sealed class CapturingMailSender : IEmailVerificationMailSender

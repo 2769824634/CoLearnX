@@ -385,3 +385,6 @@ CLAUDE.md
 CoLearnX.Server/App_Data/
 # Password-reset development mail (contains one-time credentials).
 **/App_Data/mail/
+# PayPal sandbox buyer/seller logins (do not commit).
+PAYPAL_SANDBOX_LOCAL.md
+**/PAYPAL_SANDBOX_LOCAL.md

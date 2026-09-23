@@ -26,7 +26,7 @@ public partial class AuthController
     {
         try
         {
-            if (!await resets.ResetAsync(request.Token, request.NewPassword, ct))
+            if (!await resets.ResetAsync(request.Token, request.NewPassword, request.Email, ct))
                 return BadRequest(new ApiError("INVALID_RESET_TOKEN", "This reset link is invalid or expired. Request a new link."));
             return Ok(new PasswordResetResponse("Password updated. Sign in with your new password."));
         }
@@ -36,9 +36,18 @@ public partial class AuthController
         }
     }
 
+    [HttpPost("resend-verification")]
+    [AllowAnonymous]
+    [EnableRateLimiting("password-reset")]
+    public async Task<ActionResult<PasswordResetResponse>> ResendVerification(
+        ForgotPasswordRequest request, [FromServices] EmailVerificationService verification, CancellationToken ct)
+    {
+        await verification.RequestByEmailAsync(request.Email, ct);
+        return Ok(new PasswordResetResponse(EmailVerificationService.ResendMessage));
+    }
+
     [HttpPost("verify-email")]
     [AllowAnonymous]
-    [EnableRateLimiting("auth")]
     public async Task<ActionResult<PasswordResetResponse>> VerifyEmail(
         VerifyEmailRequest request, [FromServices] EmailVerificationService verification, CancellationToken ct)
     {

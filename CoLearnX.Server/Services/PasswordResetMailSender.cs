@@ -17,6 +17,15 @@ public class PasswordResetOptions
     public string SmtpUsername { get; set; } = "";
     public string SmtpPassword { get; set; } = "";
     public string FromAddress { get; set; } = "noreply@colearnx.test";
+
+    public static bool CanDeliver(PasswordResetOptions opts, IHostEnvironment env) =>
+        env.IsEnvironment("Testing")
+        || (env.IsDevelopment() && opts.DeliveryMode != "Smtp")
+        || (!string.IsNullOrWhiteSpace(opts.SmtpHost)
+            && !string.IsNullOrWhiteSpace(opts.SmtpUsername)
+            && !string.IsNullOrWhiteSpace(opts.SmtpPassword)
+            && !string.IsNullOrWhiteSpace(opts.FromAddress)
+            && !opts.FromAddress.EndsWith(".test", StringComparison.OrdinalIgnoreCase));
 }
 
 public interface IPasswordResetMailSender
@@ -34,30 +43,20 @@ public class PasswordResetMailSender(IOptions<PasswordResetOptions> options, IWe
 {
     public async Task SendAsync(string email, string resetLink, CancellationToken ct)
     {
-        await SendMessageAsync(
-            email,
-            "Reset your CoLearnX password",
-            $"Open this one-time link to reset your password:\n\n{resetLink}\n\nIf you did not request this, ignore this email.",
-            ct);
+        var composed = AccountMail.PasswordReset(resetLink, options.Value.LifetimeMinutes, options.Value.FromAddress);
+        await SendMessageAsync(email, composed, ct);
     }
 
     async Task IEmailVerificationMailSender.SendAsync(string email, string verificationLink, CancellationToken ct)
     {
-        await SendMessageAsync(
-            email,
-            "Verify your CoLearnX email",
-            $"Open this one-time link to verify your email:\n\n{verificationLink}\n\nIf you did not create this account, ignore this email.",
-            ct);
+        var composed = AccountMail.Verification(verificationLink, options.Value.EmailVerificationLifetimeHours, options.Value.FromAddress);
+        await SendMessageAsync(email, composed, ct);
     }
 
-    private async Task SendMessageAsync(string email, string subject, string body, CancellationToken ct)
+    private async Task SendMessageAsync(string email, AccountMail.Message composed, CancellationToken ct)
     {
         var opts = options.Value;
-        using var message = new MailMessage(opts.FromAddress, email)
-        {
-            Subject = subject,
-            Body = body,
-        };
+        using var message = AccountMail.CreateMessage(opts.FromAddress, email, composed);
         using var smtp = new SmtpClient();
         if (env.IsEnvironment("Testing") || (env.IsDevelopment() && opts.DeliveryMode != "Smtp"))
         {
