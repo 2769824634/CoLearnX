@@ -72,6 +72,7 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
             category = "Technology",
             creditCost = 31,
             learningOutcomes = new[] { "Apply the updated method" },
+            interestIds = new[] { 2 },
         };
         var updateResponse = await client.PutAsJsonAsync($"/api/creator/courses/{courseId}", update);
         Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
@@ -193,8 +194,8 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
         var start = DateTime.UtcNow.AddDays(14);
         var intakeCreate = await trainer.PostAsJsonAsync($"/api/trainer/courses/{courseId}/intakes", new
         {
-            registrationOpensAt = DateTime.UtcNow.AddDays(1),
-            registrationClosesAt = start.AddDays(-1),
+            registrationOpensAt = DateTime.UtcNow.AddDays(-1),
+            registrationClosesAt = start.AddDays(-10),
             startsAt = start,
             endsAt = start.AddDays(2),
         });
@@ -292,6 +293,7 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
             category = "Design",
             creditCost = 20,
             learningOutcomes = new[] { "Complete the workflow" },
+            interestIds = new[] { 2 },
         });
         response.EnsureSuccessStatusCode();
         return JsonNode.Parse(await response.Content.ReadAsStringAsync())!.AsObject();

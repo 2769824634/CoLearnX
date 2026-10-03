@@ -31,11 +31,12 @@ public sealed class LaterPhaseApiErrorsAttribute : ActionFilterAttribute, IExcep
             context.ExceptionHandled = true;
             return;
         }
-        if (context.Exception is DbUpdateException)
+        if (context.Exception is not OperationCanceledException)
         {
             context.HttpContext.RequestServices.GetRequiredService<ILogger<LaterPhaseApiErrorsAttribute>>()
-                .LogError(context.Exception, "Later Phase persistence failed");
-            context.Result = new ObjectResult(new ApiError("SAVE_FAILED", "The operation could not be saved. Reload before trying again."))
+                .LogError(context.Exception, "Later Phase operation failed; traceId={TraceId}", context.HttpContext.TraceIdentifier);
+            context.Result = new ObjectResult(new ApiError("SAVE_FAILED", "The result could not be confirmed. Check current records before trying again.",
+                TraceId: context.HttpContext.TraceIdentifier))
             {
                 StatusCode = StatusCodes.Status500InternalServerError,
             };

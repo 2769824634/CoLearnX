@@ -69,8 +69,10 @@ public class AccountMailTests
         Assert.Equal("youshengh1@colearnx.xyz", message.From.Address);
         Assert.Equal("member@example.com", message.To.Single().Address);
         Assert.Equal(composed.Subject, message.Subject);
-        Assert.True(message.IsBodyHtml);
-        Assert.Contains("Verify email", message.Body);
+        Assert.Equal(MediaTypeNames.Text.Plain, message.AlternateViews[0].ContentType.MediaType);
+        Assert.Equal(MediaTypeNames.Text.Html, message.AlternateViews[1].ContentType.MediaType);
+        using var reader = new StreamReader(message.AlternateViews[1].ContentStream);
+        Assert.Contains("Verify email", reader.ReadToEnd());
         Assert.Contains(MediaTypeNames.Text.Plain, message.AlternateViews.Select(v => v.ContentType.MediaType));
         Assert.Equal("youshengh1@colearnx.xyz", message.ReplyToList.Single().Address);
         Assert.Equal("Huang Yousheng", message.ReplyToList.Single().DisplayName);

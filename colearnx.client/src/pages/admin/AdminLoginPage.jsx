@@ -8,8 +8,8 @@ import '../../styles/admin.css';
 export default function AdminLoginPage() {
   const { login, isAuthenticated, booting } = useAdminAuth();
   const location = useLocation();
-  const [email, setEmail] = useState('zhu.zirui@colearnx.com');
-  const [password, setPassword] = useState('Password123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const from = location.state?.from;
@@ -26,8 +26,12 @@ export default function AdminLoginPage() {
   useEffect(() => {
     if (booting) return undefined;
     const replaced = consumeSessionReplacedMessage(true);
-    if (replaced) setError(replaced);
-    return undefined;
+    if (!replaced) return undefined;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setError(replaced);
+    });
+    return () => { active = false; };
   }, [booting]);
 
   if (!booting && isAuthenticated) {
@@ -72,6 +76,9 @@ export default function AdminLoginPage() {
             <p className="admin-form-eyebrow">Restricted workspace</p>
             <h2>Sign in as administrator</h2>
           </div>
+          {location.state?.accessNotice ? (
+            <div className="callout warn" role="status">{location.state.accessNotice}</div>
+          ) : null}
           <div className="form-group">
             <label htmlFor="admin-email">Administrator email</label>
             <input
@@ -79,7 +86,7 @@ export default function AdminLoginPage() {
               type="email"
               autoComplete="username"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => { setEmail(event.target.value); setError(''); }}
               required
               autoFocus
             />
@@ -91,7 +98,7 @@ export default function AdminLoginPage() {
               type="password"
               autoComplete="current-password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => { setPassword(event.target.value); setError(''); }}
               required
             />
           </div>
@@ -104,9 +111,6 @@ export default function AdminLoginPage() {
           <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
             {busy ? 'Verifying…' : 'Enter operations console'}
           </button>
-          <p className="admin-demo-credential">
-            Demo: zhu.zirui@colearnx.com / Password123!
-          </p>
           <Link className="admin-return-link" to="/login">Return to user sign-in</Link>
         </form>
       </main>

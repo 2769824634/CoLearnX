@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { creatorCoursesApi, materialsApi } from '../../api';
+import { creatorCoursesApi, interestsApi, materialsApi } from '../../api';
 import MaterialList from '../../components/MaterialList';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 
 async function loadCourseForm(token, courseId, signal) {
-  const options = await creatorCoursesApi.options(token, signal);
+  const [options, interestTree] = await Promise.all([creatorCoursesApi.options(token, signal), interestsApi.tree()]);
+  options.interestTree = Array.isArray(interestTree) ? interestTree : [];
   if (courseId === 'new') return { course: null, options, materials: [] };
   const [course, materials] = await Promise.all([
     creatorCoursesApi.get(token, courseId, signal),
@@ -17,7 +18,7 @@ async function loadCourseForm(token, courseId, signal) {
 
 const emptyCourse = {
   code: '', title: '', description: '', courseLevelId: '', learningPathId: '',
-  category: '', creditCost: '', learningOutcomes: [], status: 'Draft',
+  category: '', creditCost: '', learningOutcomes: [], interestIds: [], status: 'Draft',
 };
 
 function titleFromFile(file) {
@@ -124,20 +125,25 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
     <Link className="creator-back" to="/creator/courses">← Courses</Link>
     <CreatorHeader eyebrow={course ? course.code : 'New Course'} title={title} action={course ? <span className={`creator-status ${course.status.toLowerCase()}`}>{course.status}</span> : null}>
       {course
-        ? 'Review the Course definition and submit it for Admin approval when it is ready.'
+        ? editable ? 'Review the Course definition and submit it for Admin approval when it is ready.'
+          : 'View the submitted Course definition and its materials.'
         : 'Save a draft, or submit it immediately so Admin can publish it to the catalogue.'}
     </CreatorHeader>
     <CreatorError error={error} />
     {course?.reviewReason ? <div className="creator-error"><strong>Admin feedback</strong><p>{course.reviewReason}</p></div> : null}
-    {editable ? <form className="card" onSubmit={save}>
-      <CourseFields form={form} options={options} setForm={setForm} />
+    {!editable ? <div className="creator-empty"><strong>Course editing is locked</strong><p>{course?.status === 'Published'
+      ? 'Published definitions are read-only. Contact your course administrator to discuss changes.'
+      : 'This submitted Course is locked while Admin reviews it. If rejected, you can update it and submit again.'} Its definition remains available below.</p></div> : null}
+    <form className="card creator-course-definition" onSubmit={save}>
+      <fieldset disabled={!editable || busy} className="creator-course-fields"><legend>{editable ? 'Course definition' : 'Submitted Course definition (read-only)'}</legend><CourseFields form={form} options={options} setForm={setForm} /></fieldset>
+      {editable ?
       <div className="trainer-actions">
         <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? 'Saving…' : course ? 'Save changes' : 'Save draft'}</button>
         {course
           ? <button className="btn btn-teal" type="button" disabled={busy} onClick={submitForApproval}>Submit for approval</button>
           : <button className="btn btn-teal" type="button" disabled={busy} onClick={saveAndSubmit}>Save and submit for approval</button>}
-      </div>
-    </form> : <div className="creator-empty"><strong>Course editing is locked</strong><p>This Course can be edited again only if Admin rejects it.</p></div>}
+      </div> : null}
+    </form>
     <CourseMaterialsCard
       course={course}
       materials={materials}
@@ -196,11 +202,21 @@ function CourseMaterialsCard({ course, materials, pendingFiles, setPendingFiles,
 
 function CourseFields({ form, options, setForm }) {
   const change = (field) => (event) => setForm((value) => ({ ...value, [field]: event.target.value }));
+  const toggleInterest = (id) => setForm((value) => ({ ...value,
+    interestIds: value.interestIds.includes(id) ? value.interestIds.filter((item) => item !== id)
+      : value.interestIds.length < 4 ? [...value.interestIds, id] : value.interestIds }));
   return <>
     <div className="form-group"><label htmlFor="creator-course-code">Course code</label><input id="creator-course-code" required value={form.code} onChange={change('code')} /></div>
     <div className="form-group"><label htmlFor="creator-course-title">Title</label><input id="creator-course-title" required value={form.title} onChange={change('title')} /></div>
     <div className="form-group"><label htmlFor="creator-course-description">Description</label><textarea id="creator-course-description" value={form.description} onChange={change('description')} /></div>
     <div className="form-group"><label htmlFor="creator-course-level">Course level</label><select id="creator-course-level" required value={form.courseLevelId} onChange={change('courseLevelId')}><option value="">Choose a level</option>{options.courseLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
+    <div className="form-group"><label>Course interests (choose 1–4 leaves before submitting)</label>
+      {(options.interestTree || []).map((category) => <fieldset key={category.id}><legend>{category.name}</legend>
+        <div className="grid-2">{category.children.map((leaf) => <label key={leaf.id}>
+          <input type="checkbox" checked={form.interestIds.includes(leaf.id)} disabled={!form.interestIds.includes(leaf.id) && form.interestIds.length >= 4} onChange={() => toggleInterest(leaf.id)} /> {leaf.name}
+        </label>)}</div>
+      </fieldset>)}
+    </div>
     <div className="form-group"><label htmlFor="creator-learning-path">Learning path</label><select id="creator-learning-path" required value={form.learningPathId} onChange={change('learningPathId')}><option value="">Choose a path</option>{options.learningPaths.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
     <div className="form-group"><label htmlFor="creator-course-category">Category</label><input id="creator-course-category" required value={form.category} onChange={change('category')} /></div>
     <div className="form-group"><label htmlFor="creator-course-cost">Credit cost</label><input id="creator-course-cost" type="number" min="1" step="1" required value={form.creditCost} onChange={change('creditCost')} /></div>
@@ -218,6 +234,7 @@ function toForm(course) {
     category: course.category,
     creditCost: String(course.creditCost || ''),
     learningOutcomes: (course.learningOutcomes || []).join('\n'),
+    interestIds: course.interestIds || [],
   };
 }
 
@@ -228,5 +245,6 @@ function toPayload(form) {
     learningPathId: Number(form.learningPathId),
     creditCost: Number(form.creditCost),
     learningOutcomes: form.learningOutcomes.split('\n').map((item) => item.trim()).filter(Boolean),
+    interestIds: form.interestIds,
   };
 }

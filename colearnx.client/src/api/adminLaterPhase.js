@@ -1,6 +1,7 @@
 import { apiRequest, downloadFile } from './client.js';
 
 export const adminLaterPhaseApi = {
+  users: (token, search = '', signal) => apiRequest(`/api/admin/users${search ? `?search=${encodeURIComponent(search)}` : ''}`, { token, signal }),
   ledger: (token, filters = {}, signal) => {
     const query = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => { if (value) query.set(key, value); });

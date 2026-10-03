@@ -32,7 +32,7 @@ export default function ChangeRequestEditor({ intake, busy, blocked, error, onEr
     <div className="trainer-section-heading"><div><p className="trainer-eyebrow">Controlled change</p><h2 id="change-request-title">Request Creator reconfirmation</h2></div><button type="button" className="btn btn-ghost" disabled={busy} onClick={onCancel}>Close editor</button></div>
     <p className="trainer-help">Your confirmed schedule stays live until the Creator approves this complete replacement proposal. Meeting-link-only changes belong in each Session’s delivery action.</p>
     {saved ? <div className="trainer-notice" role="status">{saved}</div> : null}
-    <ScheduleForm key={`${proposal.startsAt}:${proposal.endsAt}`} intake={intakeShape} error={error} onError={onError} busy={busy} blocked={blocked} onSave={saveSchedule} />
+    <ScheduleForm key={`${proposal.startsAt}:${proposal.endsAt}`} intake={intakeShape} allowMinEnrollment={false} error={error} onError={onError} busy={busy} blocked={blocked} onSave={saveSchedule} />
     <div className="trainer-section-heading"><h3>Proposed Sessions <span className="trainer-count">{proposal.sessions.length}</span></h3>{!editor ? <button type="button" className="btn btn-ghost" onClick={() => setEditor({ type: 'session' })}>+ Add proposed Session</button> : null}</div>
     {editor ? <SessionForm key={editing?._key || 'new-change-session'} session={editing} intake={intakeShape} error={error} onError={onError} busy={busy} blocked={blocked} onCancel={() => setEditor(null)} onSave={saveSession} /> : null}
     <div className="trainer-change-session-list">{proposal.sessions.map((session) => <article key={session._key}>

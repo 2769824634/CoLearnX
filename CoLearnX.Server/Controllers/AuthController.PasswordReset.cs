@@ -8,6 +8,16 @@ namespace CoLearnX.Server.Controllers;
 
 public partial class AuthController
 {
+    [HttpPost("reset-password/status")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ResetPasswordStatus(VerifyEmailRequest request,
+        [FromServices] PasswordResetService resets, CancellationToken ct)
+    {
+        Response.Headers.CacheControl = "no-store";
+        return Ok(new { valid = await resets.IsValidAsync(request.Token, ct) });
+    }
+
     [HttpPost("forgot-password")]
     [AllowAnonymous]
     [EnableRateLimiting("password-reset")]

@@ -7,7 +7,7 @@ import { useMemberData } from './memberDataState';
 export default function MemberCatalogPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { state, toggleWish } = useMemberData();
+  const { state, toggleWish, reload } = useMemberData();
   const [tab, setTab] = useState('all');
   const [search, setSearch] = useState(params.get('q') || '');
   const [topic, setTopic] = useState('');
@@ -18,7 +18,7 @@ export default function MemberCatalogPage() {
     return state.courses.filter((c) => {
       if (tab === 'wishlist' && !state.wishlist.includes(c.id)) return false;
       const q = search.toLowerCase();
-      if (q && !(`${c.code} ${c.title} ${c.trainer}`).toLowerCase().includes(q)) return false;
+      if (q && !(`${c.code} ${c.title} ${c.creatorName || ''} ${(c.trainerNames || []).join(' ')}`).toLowerCase().includes(q)) return false;
       if (topic && c.topic !== topic) return false;
       if (level && c.level !== level) return false;
       if (credits === 'low' && c.credits > 25) return false;
@@ -69,13 +69,19 @@ export default function MemberCatalogPage() {
       </div>
 
       <div className="grid-4">
-        {list.map((c) => (
+        {state.loading ? <p role="status">Loading programs…</p> : state.loadError ? <div className="callout warn" role="alert">{state.loadError} <button type="button" className="btn btn-ghost" onClick={reload}>Retry</button></div> : list.length === 0 ? <div className="callout"><p>{state.courses.length || search || topic || level || credits || tab === 'wishlist' ? 'No programs match your filters.' : 'No programs are published yet.'}</p><button type="button" className="btn btn-ghost" onClick={() => { setSearch(''); setTopic(''); setLevel(''); setCredits(''); setTab('all'); }}>Clear filters</button></div> : list.map((c) => (
           <div className="course-card" key={c.id}>
             <div className="thumb">{c.code}</div>
             <h4>{c.title}</h4>
-            <div className="meta">Trainer: {c.trainer}</div>
+            <div className="meta">{c.trainerNames?.length ? `Trainer: ${c.trainerNames.join(', ')}` : 'Trainer assigned when a class opens'}</div>
+            {c.creatorName ? <div className="meta">Creator: {c.creatorName}</div> : null}
             <span className="pill">{c.credits} Credits</span>{' '}
             <span className="pill neutral">{c.level}</span>
+            <div className="meta course-rating">
+              {c.ratingCount > 0 && c.averageStars != null
+                ? `${Number(c.averageStars).toFixed(1)} ★ (${c.ratingCount} ${c.ratingCount === 1 ? 'rating' : 'ratings'})`
+                : 'New · No ratings yet'}
+            </div>
             <div className="actions" style={{ marginTop: 10 }}>
               <button type="button" className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => navigate(`/member/courses/${c.id}`)}>
                 View Details

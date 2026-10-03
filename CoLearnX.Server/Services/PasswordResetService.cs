@@ -16,6 +16,15 @@ public class PasswordResetService(
 {
     public const string RequestMessage = "If the account is eligible, a password reset link will be sent.";
 
+    public async Task<bool> IsValidAsync(string token, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(token) || token.Length != 64 || !token.All(Uri.IsHexDigit)) return false;
+        var hash = Hash(token);
+        var now = DateTime.UtcNow;
+        return await db.PasswordResetTokens.AsNoTracking().AnyAsync(x => x.TokenHash == hash
+            && x.UsedAt == null && x.ExpiresAt > now && x.User.IsActive, ct);
+    }
+
     public async Task RequestAsync(string email, CancellationToken ct = default)
     {
         var normalized = email.Trim().ToLowerInvariant();

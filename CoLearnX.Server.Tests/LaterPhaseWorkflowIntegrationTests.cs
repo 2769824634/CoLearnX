@@ -239,6 +239,9 @@ public sealed class LaterPhaseWorkflowIntegrationTests
         using var attach = await trainer.PostAsJsonAsync("/api/trainer/intakes/200/learning-materials",
             new { materialVersionId = versionId });
         Assert.Equal(HttpStatusCode.OK, attach.StatusCode);
+        Assert.Equal(200, await factory.ReadAsync(db => db.MaterialUsageLogs
+            .Where(item => item.LearningMaterialId == uploaded.GetProperty("learningMaterialId").GetInt32())
+            .Select(item => item.CourseIntakeId).SingleAsync()));
 
         using var recording = await trainer.PostAsJsonAsync("/api/trainer/intakes/200/sessions/200/recordings",
             new { title = "Session replay", recordingUrl = "https://video.example/replay/200" });
@@ -349,6 +352,9 @@ public sealed class LaterPhaseWorkflowIntegrationTests
     {
         using var factory = new LaterPhaseApiFactory();
         await factory.InitializeAsync();
+        await factory.ReadAsync(db => db.CourseSessions.Where(item => item.Id == 200)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.PhysicalCapacity, 10)
+                .SetProperty(item => item.SeatsTaken, 1)));
         using var member = factory.UserClient(204, AppRole.Member);
         using var admin = factory.AdminClient();
 
@@ -366,13 +372,151 @@ public sealed class LaterPhaseWorkflowIntegrationTests
         var body = await Body(repeated);
         Assert.Equal("ResolvedRefund", body.GetProperty("status").GetString());
         Assert.Equal(125, body.GetProperty("balanceAfter").GetInt32());
+        Assert.Equal(200, body.GetProperty("courseIntakeId").GetInt32());
+        Assert.Equal(200, body.GetProperty("courseSessionId").GetInt32());
+        Assert.Equal("Refunded", body.GetProperty("enrollmentStatus").GetString());
 
         Assert.Equal(1, await factory.ReadAsync(db => db.CreditTransactions.CountAsync(t => t.RelatedDisputeId == disputeId)));
         Assert.Equal(EnrollmentStatus.Refunded, await factory.ReadAsync(db => db.Enrollments.Where(e => e.Id == 201).Select(e => e.Status).SingleAsync()));
+        Assert.Equal(0, await factory.ReadAsync(db => db.CourseSessions.Where(s => s.Id == 200).Select(s => s.SeatsTaken).SingleAsync()));
 
         using var reverse = await admin.PostAsJsonAsync($"/api/admin/disputes/{disputeId}/review",
             new { decision = "Reject", refundCredits = (int?)null, reason = "Different result", idempotencyKey = key });
         Assert.Equal(HttpStatusCode.Conflict, reverse.StatusCode);
+    }
+
+    [Fact]
+    public async Task PartialDisputeRefundKeepsThePhysicalSeat()
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        await factory.ReadAsync(db => db.CourseSessions.Where(item => item.Id == 200)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.PhysicalCapacity, 10)
+                .SetProperty(item => item.SeatsTaken, 1)));
+        using var member = factory.UserClient(204, AppRole.Member);
+        using var admin = factory.AdminClient();
+
+        using var submitted = await member.PostAsJsonAsync("/api/disputes",
+            new { enrollmentId = 201, reason = "Partial credit review" });
+        Assert.Equal(HttpStatusCode.Created, submitted.StatusCode);
+        var disputeId = (await Body(submitted)).GetProperty("id").GetInt32();
+        using var reviewed = await admin.PostAsJsonAsync($"/api/admin/disputes/{disputeId}/review",
+            new { decision = "Refund", refundCredits = 10, reason = "Partial refund approved", idempotencyKey = Guid.NewGuid() });
+        Assert.Equal(HttpStatusCode.OK, reviewed.StatusCode);
+        Assert.Equal(EnrollmentStatus.Active, await factory.ReadAsync(db => db.Enrollments.Where(e => e.Id == 201).Select(e => e.Status).SingleAsync()));
+        Assert.Equal(1, await factory.ReadAsync(db => db.CourseSessions.Where(s => s.Id == 200).Select(s => s.SeatsTaken).SingleAsync()));
+    }
+
+    [Fact]
+    public async Task OnlineFullDisputeRefundDoesNotRequirePhysicalSeat()
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        using var member = factory.UserClient(204, AppRole.Member);
+        using var admin = factory.AdminClient();
+
+        using var submitted = await member.PostAsJsonAsync("/api/disputes",
+            new { enrollmentId = 201, reason = "Online class refund" });
+        Assert.Equal(HttpStatusCode.Created, submitted.StatusCode);
+        var disputeId = (await Body(submitted)).GetProperty("id").GetInt32();
+        using var reviewed = await admin.PostAsJsonAsync($"/api/admin/disputes/{disputeId}/review",
+            new { decision = "Refund", refundCredits = 25, reason = "Online refund approved", idempotencyKey = Guid.NewGuid() });
+        Assert.Equal(HttpStatusCode.OK, reviewed.StatusCode);
+        Assert.Equal(EnrollmentStatus.Refunded, await factory.ReadAsync(db => db.Enrollments.Where(e => e.Id == 201).Select(e => e.Status).SingleAsync()));
+        Assert.Equal(0, await factory.ReadAsync(db => db.CourseSessions.Where(s => s.Id == 200).Select(s => s.SeatsTaken).SingleAsync()));
+    }
+
+    [Fact]
+    public async Task LearnerStatisticsUseAllIntakeSessionsAndAssessmentsAsDenominators()
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        await factory.ReadAsync(async db =>
+        {
+            db.CourseSessions.Add(new CourseSession
+            {
+                Id = 201, CourseIntakeId = 200, Label = "Second session",
+                StartsAt = new DateTime(2026, 9, 8, 1, 0, 0, DateTimeKind.Utc),
+                EndsAt = new DateTime(2026, 9, 8, 3, 0, 0, DateTimeKind.Utc), MeetingLink = "https://meet.example/201",
+            });
+            db.AttendanceRecords.Add(new AttendanceRecord { UserId = 202, CourseSessionId = 200, Status = AttendanceStatus.Present });
+            db.Assessments.Add(new Assessment { Id = 201, CourseIntakeId = 200, Title = "Final", MaxScore = 100, PassScore = 60 });
+            return await db.SaveChangesAsync();
+        });
+
+        using var trainer = factory.UserClient(200, AppRole.Trainer);
+        using var response = await trainer.GetAsync("/api/trainer/intakes/200/learners");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var learner = (await Body(response)).EnumerateArray()
+            .Single(item => item.GetProperty("enrollmentId").GetInt32() == 200);
+        Assert.Equal(50, learner.GetProperty("attendanceRate").GetInt32());
+        Assert.Equal(0, learner.GetProperty("assessmentsGraded").GetInt32());
+        Assert.Equal(1, learner.GetProperty("assessmentsTotal").GetInt32());
+    }
+
+    [Fact]
+    public async Task DeterministicDisputeFailureWritesFailedAudit()
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        using var member = factory.UserClient(204, AppRole.Member);
+
+        using var response = await member.PostAsJsonAsync("/api/disputes",
+            new { enrollmentId = 999999, reason = "Missing enrollment" });
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var audit = await factory.ReadAsync(db => db.AuditLogs
+            .Where(item => item.UserId == 204 && item.Action == "DisputeSubmittedFailed")
+            .OrderByDescending(item => item.Id).FirstOrDefaultAsync());
+        Assert.NotNull(audit);
+        Assert.Equal("Failed", audit!.Result);
+        Assert.Equal("ENROLLMENT_NOT_FOUND", audit.Reason);
+    }
+
+    [Fact]
+    public async Task DeterministicCreditAdjustmentFailureWritesFailedAudit()
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        using var admin = factory.AdminClient();
+
+        using var response = await admin.PostAsJsonAsync("/api/admin/credits/adjustments",
+            new { userId = 999999, delta = 10, reason = "Missing user", idempotencyKey = Guid.NewGuid() });
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var audit = await factory.ReadAsync(db => db.AuditLogs
+            .Where(item => item.AdminAccountId == 1 && item.Action == "CreditAdjustmentFailed")
+            .OrderByDescending(item => item.Id).FirstOrDefaultAsync());
+        Assert.NotNull(audit);
+        Assert.Equal("Failed", audit!.Result);
+        Assert.Equal("USER_NOT_FOUND", audit.Reason);
+    }
+
+    [Fact]
+    public async Task DeterministicDisputeReviewFailureWritesFailedAuditWithoutFinancialChanges()
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        using var member = factory.UserClient(204, AppRole.Member);
+        using var admin = factory.AdminClient();
+        using var submitted = await member.PostAsJsonAsync("/api/disputes",
+            new { enrollmentId = 201, reason = "Review rejected refund boundary" });
+        Assert.Equal(HttpStatusCode.Created, submitted.StatusCode);
+        var disputeId = (await Body(submitted)).GetProperty("id").GetInt32();
+
+        using var rejected = await admin.PostAsJsonAsync($"/api/admin/disputes/{disputeId}/review",
+            new { decision = "Refund", refundCredits = 26, reason = "Over the 25 credit cost", idempotencyKey = Guid.NewGuid() });
+
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        Assert.Equal("INVALID_REFUND", (await Body(rejected)).GetProperty("code").GetString());
+        var audit = await factory.ReadAsync(db => db.AuditLogs.SingleAsync(item =>
+            item.Action == "DisputeReviewFailed" && item.EntityId == disputeId.ToString()));
+        Assert.Equal(1, audit.AdminAccountId);
+        Assert.Equal("Failed", audit.Result);
+        Assert.Equal("INVALID_REFUND", audit.Reason);
+        Assert.Equal(100, await factory.ReadAsync(db => db.Users.Where(item => item.Id == 204).Select(item => item.CreditBalance).SingleAsync()));
+        Assert.Equal(DisputeStatus.Open, await factory.ReadAsync(db => db.Disputes.Where(item => item.Id == disputeId).Select(item => item.Status).SingleAsync()));
+        Assert.Equal(EnrollmentStatus.Active, await factory.ReadAsync(db => db.Enrollments.Where(item => item.Id == 201).Select(item => item.Status).SingleAsync()));
+        Assert.Equal(0, await factory.ReadAsync(db => db.CreditTransactions.CountAsync(item => item.RelatedDisputeId == disputeId)));
+        Assert.Equal(0, await factory.ReadAsync(db => db.Notifications.CountAsync(item => item.Code == "DisputeRefunded" && item.UserId == 204)));
     }
 
     private static async Task<JsonElement> Body(HttpResponseMessage response)

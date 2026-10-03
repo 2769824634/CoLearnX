@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { materialsApi } from '../../api';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { CreatorError, CreatorHeader } from './CreatorUi';
+import { formatUtcDateTime, formatUtcRange } from '../businessPresentation';
 
 const loadUsage = (token, _key, signal) => materialsApi.usage(token, signal);
 
@@ -15,6 +16,8 @@ export default function CreatorUsagePage() {
   const records = query.data || [];
   const courses = [...new Map(records.map((item) => [item.courseId, item])).values()];
   const trainers = [...new Map(records.map((item) => [item.trainerId, item])).values()];
+  const hasFilters = Boolean(courseId || trainerId || search || from || to);
+  function clearFilters() { setCourseId(''); setTrainerId(''); setSearch(''); setFrom(''); setTo(''); }
   const visible = records.filter((item) =>
     (!courseId || String(item.courseId) === courseId)
     && (!trainerId || String(item.trainerId) === trainerId)
@@ -37,14 +40,15 @@ export default function CreatorUsagePage() {
               <div className="form-group"><label htmlFor="usage-material">Material</label><input id="usage-material" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search material title" /></div>
               <div className="form-group"><label htmlFor="usage-from">From date (UTC)</label><input id="usage-from" type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></div>
               <div className="form-group"><label htmlFor="usage-to">To date (UTC)</label><input id="usage-to" type="date" value={to} onChange={(event) => setTo(event.target.value)} /></div>
+              {hasFilters ? <button type="button" className="btn btn-ghost" onClick={clearFilters}>Clear filters</button> : null}
             </div>
           </div>
           <div className="creator-section-heading"><div><p className="creator-eyebrow">Your materials</p><h2>{visible.length} recorded {visible.length === 1 ? 'use' : 'uses'}</h2><p>{new Set(visible.map((item) => item.materialId)).size} materials used across {new Set(visible.map((item) => item.courseId)).size} courses</p></div></div>
-          {visible.length === 0 ? <div className="creator-empty"><strong>No usage records found</strong><p>Usage appears after a Trainer attaches an approved material to an Intake.</p></div>
+          {visible.length === 0 ? <div className="creator-empty"><strong>{hasFilters ? 'No usage records match your filters.' : 'No usage records found'}</strong><p>{hasFilters ? 'Try a wider date range, another course or clear your filters.' : 'Usage appears after a Trainer attaches an approved material to an Intake.'}</p></div>
             : <div className="creator-application-list">{visible.map((item) => <article className="creator-application-row" key={item.id}>
               <div className="creator-application-index">{item.courseCode}</div>
-              <div><p className="creator-eyebrow">{item.courseTitle}</p><h2>{item.materialTitle}</h2><p>Trainer: {item.trainerName}</p></div>
-              <time dateTime={item.usedAt}>{new Date(item.usedAt).toLocaleString()}</time>
+              <div><p className="creator-eyebrow">{item.courseTitle}</p><h2>{item.materialTitle}</h2><p>Trainer: {item.trainerName}</p><p>{item.intakeId ? `Intake #${item.intakeId}` : 'Intake unavailable'}{item.sessionId ? ` · Session #${item.sessionId}` : ''}</p>{item.intakeStartsAt ? <p>{formatUtcRange(item.intakeStartsAt, item.intakeEndsAt)}</p> : null}</div>
+              <time dateTime={item.usedAt}>Recorded {formatUtcDateTime(item.usedAt)}</time>
             </article>)}</div>}
         </>}
   </section>;

@@ -10,7 +10,8 @@ public record CreateCreatorCourseRequest(
     [Range(1, int.MaxValue)] int LearningPathId,
     [Required, MaxLength(100)] string Category,
     [Range(1, int.MaxValue)] int CreditCost,
-    IReadOnlyList<string>? LearningOutcomes);
+    IReadOnlyList<string>? LearningOutcomes,
+    IReadOnlyList<int>? InterestIds = null);
 
 public record UpdateCreatorCourseRequest(
     [Required, MaxLength(64)] string Code,
@@ -20,7 +21,8 @@ public record UpdateCreatorCourseRequest(
     [Range(1, int.MaxValue)] int LearningPathId,
     [Required, MaxLength(100)] string Category,
     [Range(1, int.MaxValue)] int CreditCost,
-    IReadOnlyList<string>? LearningOutcomes);
+    IReadOnlyList<string>? LearningOutcomes,
+    IReadOnlyList<int>? InterestIds = null);
 
 public record CreatorCourseDto(
     int Id,
@@ -39,7 +41,8 @@ public record CreatorCourseDto(
     string Status,
     IReadOnlyList<string> LearningOutcomes,
     DateTime CreatedAt,
-    string? ReviewReason);
+    string? ReviewReason,
+    IReadOnlyList<int>? InterestIds = null);
 
 public record CourseOptionDto(int Id, string Name);
 

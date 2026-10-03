@@ -31,12 +31,19 @@ export function toUtc(value, field, original) {
 }
 
 const scheduleFields = ['registrationOpensAt', 'registrationClosesAt', 'startsAt', 'endsAt'];
-export const initialSchedule = (intake = {}) => Object.fromEntries(scheduleFields.map((field) => [field, toLocalInput(intake[field])]));
+export const initialSchedule = (intake = {}) => ({
+  ...Object.fromEntries(scheduleFields.map((field) => [field, toLocalInput(intake[field])])),
+  minEnrollment: intake.minEnrollment ?? 10,
+});
 
 export function schedulePayload(values, version, original) {
   const payload = Object.fromEntries(scheduleFields.map((field) => [field, toUtc(values[field], field, original?.[field])]));
-  if (!(payload.registrationOpensAt < payload.registrationClosesAt && payload.registrationClosesAt <= payload.startsAt && payload.startsAt < payload.endsAt)) {
-    invalid('registrationClosesAt', 'Registration must open before it closes; delivery must start at or after closing and end after it starts.');
+  if (!(payload.registrationOpensAt < payload.registrationClosesAt && new Date(payload.registrationClosesAt).getTime() <= new Date(payload.startsAt).getTime() - 10 * 86400000 && payload.startsAt < payload.endsAt)) {
+    invalid('registrationClosesAt', 'Registration must close at least 10 days before delivery starts.');
+  }
+  payload.minEnrollment = Number(values.minEnrollment);
+  if (!Number.isInteger(payload.minEnrollment) || payload.minEnrollment < 2 || payload.minEnrollment > 200) {
+    invalid('minEnrollment', 'Minimum enrollment must be 2 to 200.');
   }
   return version ? { ...payload, version } : payload;
 }
@@ -69,7 +76,7 @@ export function sessionPayload(values, intake, original) {
   const physicalBookingDeadline = values.physical ? toUtc(values.physicalBookingDeadline, 'physicalBookingDeadline', original?.physicalBookingDeadline) : null;
   if (values.physical) {
     if (!physicalAddress || physicalAddress.length > 512) invalid('physicalAddress', 'Enter a physical address of up to 512 characters.');
-    if (!Number.isInteger(physicalCapacity) || physicalCapacity < 1 || physicalCapacity > 2147483647) invalid('physicalCapacity', 'Enter a positive whole-number capacity.');
+    if (!Number.isInteger(physicalCapacity) || physicalCapacity < Number(intake.minEnrollment || 10) || physicalCapacity > 2147483647) invalid('physicalCapacity', 'Capacity must meet the Intake minimum enrollment.');
     if (physicalBookingDeadline > startsAt) invalid('physicalBookingDeadline', 'The physical booking deadline must be at or before the session start.');
   } else if (!meetingLink) invalid('meetingLink', 'Provide an online meeting link or enable a physical location.');
   return { label, startsAt, endsAt, meetingLink, physicalAddress, physicalCapacity, physicalBookingDeadline, version: intake.version };

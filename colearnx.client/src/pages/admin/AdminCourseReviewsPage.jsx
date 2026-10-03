@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import useAdminAuth from '../../auth/useAdminAuth';
 import { adminCourseReviewsApi } from '../../api';
 import Modal from '../../components/Modal';
+import { formatUtcDateTime } from '../businessPresentation';
 
 const FILTERS = [
   { value: 'PendingApproval', label: 'Pending approval' },
@@ -9,16 +10,8 @@ const FILTERS = [
   { value: 'Rejected', label: 'Rejected' },
   { value: 'All', label: 'All' },
 ];
-const DATE_FORMATTER = new Intl.DateTimeFormat('en-AU', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
 function formatDate(value) {
-  return value ? DATE_FORMATTER.format(new Date(value)) : '—';
+  return value ? formatUtcDateTime(value) : '—';
 }
 
 function formatStatus(status) {
@@ -246,6 +239,10 @@ export default function AdminCourseReviewsPage() {
               <strong>{selected.title}</strong>
               <small>{selected.category} · {selected.level} · {selected.creditCost} credits</small>
               {selected.description ? <p>{selected.description}</p> : null}
+              <p>Creator: {selected.creatorName || selected.submittedByName}</p>
+              <h3>Learning path</h3><p>{selected.learningPath || 'Not provided'}</p>
+              <h3>Learning outcomes</h3>
+              {selected.learningOutcomes?.length ? <ul>{selected.learningOutcomes.map((outcome, index) => <li key={index}>{outcome}</li>)}</ul> : <p>No learning outcomes provided.</p>}
             </div>
 
             <fieldset className="admin-decision-fieldset">

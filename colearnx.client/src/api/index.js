@@ -4,6 +4,7 @@ import { apiRequest, downloadFile } from './client';
 export const authApi = {
   forgotPassword: (email) => apiRequest('/api/auth/forgot-password', { method: 'POST', token: '', body: { email } }),
   resetPassword: (token, newPassword, email) => apiRequest('/api/auth/reset-password', { method: 'POST', token: '', body: { token, newPassword, email } }),
+  resetStatus: (token) => apiRequest('/api/auth/reset-password/status', { method: 'POST', token: '', body: { token } }),
   verifyEmail: (token) => apiRequest('/api/auth/verify-email', { method: 'POST', token: '', body: { token } }),
   resendVerification: (email) => apiRequest('/api/auth/resend-verification', { method: 'POST', token: '', body: { email } }),
   login: (email, password, activeRole) =>
@@ -91,6 +92,16 @@ export const coursesApi = {
   removeWishlist: (id) => apiRequest(`/api/courses/${id}/wishlist`, { method: 'DELETE' }),
 };
 
+export const interestsApi = {
+  tree: () => apiRequest('/api/interests'),
+  my: () => apiRequest('/api/users/me/interests'),
+  save: (body) => apiRequest('/api/users/me/interests', { method: 'PUT', body }),
+};
+
+export const recommendationsApi = {
+  my: () => apiRequest('/api/recommendations'),
+};
+
 export const creatorCoursesApi = {
   list: (token, signal) => apiRequest('/api/creator/courses', { token, signal }),
   options: (token, signal) => apiRequest('/api/creator/courses/options', { token, signal }),
@@ -102,6 +113,10 @@ export const creatorCoursesApi = {
 
 export const enrollmentsApi = {
   my: () => apiRequest('/api/enrollments/my'),
+  cancelReservation: (id) => apiRequest(`/api/enrollments/${encodeURIComponent(id)}/cancel-reservation`, { method: 'POST' }),
+  withdraw: (id) => apiRequest(`/api/enrollments/${encodeURIComponent(id)}/withdraw`, { method: 'POST' }),
+  acceptPostponement: (id, courseSessionId) => apiRequest(`/api/enrollments/${encodeURIComponent(id)}/accept-postponement`, { method: 'POST', body: { courseSessionId } }),
+  rate: (id, stars, comment) => apiRequest(`/api/enrollments/${encodeURIComponent(id)}/rating`, { method: 'POST', body: { stars, comment } }),
   materials: (id, token, signal) => apiRequest(`/api/enrollments/${encodeURIComponent(id)}/materials`, { token, signal }),
   recordings: (id, token, signal) => apiRequest(`/api/enrollments/${encodeURIComponent(id)}/recordings`, { token, signal }),
   downloadMaterial: (id, versionId, title, token) => downloadFile(`/api/enrollments/${encodeURIComponent(id)}/materials/${encodeURIComponent(versionId)}/file`, title, token),

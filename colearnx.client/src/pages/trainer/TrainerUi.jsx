@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { fieldMessages, formatDate, intakeLink, statusLabel } from './intakeForm';
 import '../../styles/trainer.css';
+import { friendlyFieldLabel, userFacingError } from '../businessPresentation';
 
 export function TrainerHeader({ eyebrow = 'Trainer workspace', title, children, action }) {
   useEffect(() => {
@@ -21,9 +22,9 @@ export function TrainerError({ error, onRetry, retryLabel = 'Try again' }) {
   useEffect(() => { if (error) ref.current?.focus(); }, [error]);
   if (!error) return null;
   return <div className="trainer-error" role="alert" tabIndex={-1} ref={ref}>
-    <strong>{error.message || 'The request could not reach the server. Please try again.'}</strong>
-    <code>{error.code || 'NETWORK_ERROR'}</code>
-    {Object.keys(error.fieldErrors || {}).length ? <ul>{Object.entries(error.fieldErrors).map(([field, messages]) => <li key={field}>{field}: {messages.join(' ')}</li>)}</ul> : null}
+    <strong>{userFacingError(error)}</strong>
+    {Object.keys(error.fieldErrors || {}).length ? <ul>{Object.entries(error.fieldErrors).map(([field, messages]) => <li key={field}>{friendlyFieldLabel(field)}: {messages.join(' ')}</li>)}</ul> : null}
+    {error.status >= 500 ? <p>The server could not confirm the result. Refresh this view before retrying.</p> : null}
     {error.status === 401 ? <p>Your session is no longer valid. Log out and sign in again.</p> : null}
     {error.status === 403 ? <p>An enabled Trainer role is required. Check your account permissions or sign in again.</p> : null}
     {onRetry ? <button type="button" className="btn btn-ghost" onClick={onRetry}>{retryLabel}</button> : null}

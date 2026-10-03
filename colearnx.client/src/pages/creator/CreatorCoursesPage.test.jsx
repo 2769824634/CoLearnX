@@ -52,6 +52,9 @@ describe('Creator Course workspace', () => {
 
   it('creates a draft and submits it for approval', async () => {
     vi.stubGlobal('fetch', vi.fn(async (path, options = {}) => {
+      if (path === '/api/interests') {
+        return json([{ id: 1, slug: 'design', name: 'Design', children: [{ id: 2, slug: 'sketching', name: 'Sketching', children: [] }] }]);
+      }
       if (path === '/api/creator/courses/options') {
         return json({
           courseLevels: [{ id: 1, name: 'Beginner' }],
@@ -88,9 +91,12 @@ describe('Creator Course workspace', () => {
     fireEvent.change(screen.getByLabelText('Credit cost'), { target: { value: '24' } });
     fireEvent.change(screen.getByLabelText('Course level'), { target: { value: '1' } });
     fireEvent.change(screen.getByLabelText('Learning path'), { target: { value: '3' } });
+    fireEvent.click(screen.getByLabelText('Sketching'));
     fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
 
     expect(await screen.findByRole('heading', { name: 'Inclusive Design' })).toBeTruthy();
+    const createRequest = globalThis.fetch.mock.calls.find(([path, options]) => path === '/api/creator/courses' && options.method === 'POST');
+    expect(JSON.parse(createRequest[1].body).interestIds).toEqual([2]);
     fireEvent.click(screen.getByRole('button', { name: 'Submit for approval' }));
     expect(await screen.findByText('PendingApproval')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();

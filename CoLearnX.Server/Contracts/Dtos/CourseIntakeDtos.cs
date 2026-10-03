@@ -5,11 +5,12 @@ namespace CoLearnX.Server.Contracts.Dtos;
 // UTC timestamps; ownership, status and confirmation fields are never client-writable.
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record CreateCourseIntakeRequest([property: JsonRequired] DateTime RegistrationOpensAt,
-    [property: JsonRequired] DateTime RegistrationClosesAt, [property: JsonRequired] DateTime StartsAt, [property: JsonRequired] DateTime EndsAt);
+    [property: JsonRequired] DateTime RegistrationClosesAt, [property: JsonRequired] DateTime StartsAt,
+    [property: JsonRequired] DateTime EndsAt, int MinEnrollment = 10);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record UpdateCourseIntakeRequest([property: JsonRequired] DateTime RegistrationOpensAt,
     [property: JsonRequired] DateTime RegistrationClosesAt, [property: JsonRequired] DateTime StartsAt,
-    [property: JsonRequired] DateTime EndsAt, [property: JsonRequired] Guid Version);
+    [property: JsonRequired] DateTime EndsAt, [property: JsonRequired] Guid Version, int? MinEnrollment = null);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record CreateCourseSessionRequest([property: JsonRequired] string Label, [property: JsonRequired] DateTime StartsAt,
     [property: JsonRequired] DateTime EndsAt, string? MeetingLink,
@@ -42,9 +43,12 @@ public record CourseIntakeChangeDto(int ApplicationId, string Status, string Res
 public record CourseIntakeDetailDto(int Id, int CourseId, int TrainerId, DateTime RegistrationOpensAt,
     DateTime RegistrationClosesAt, DateTime StartsAt, DateTime EndsAt, string Status, DateTime? SubmittedAt,
     int? ConfirmedByCreatorId, DateTime? ConfirmedAt, string? ConfirmationNote, Guid Version,
-    IReadOnlyList<CourseSessionDto> Sessions, CourseIntakeChangeDto? LatestChangeRequest = null);
+    IReadOnlyList<CourseSessionDto> Sessions, CourseIntakeChangeDto? LatestChangeRequest = null,
+    int MinEnrollment = 10, DateTime? ConfirmedToRunAt = null, DateTime? CancelledAt = null,
+    string? CancellationReason = null, int? ReplacementForIntakeId = null, int? ReplacementIntakeId = null,
+    DateTime? PostponementAvailableUntil = null);
 public record CreatorIntakeApplicationSummaryDto(int CourseIntakeId, int ApplicationId, int CourseId,
     string CourseCode, string CourseTitle, int TrainerId, string TrainerName, string Kind, string Status,
     DateTime SubmittedAt, Guid Version);
-public record CreatorIntakeApplicationDetailDto(CreatorIntakeApplicationSummaryDto Application,
+public record CreatorIntakeApplicationDetailDto(CreatorIntakeApplicationSummaryDto? Application,
     CourseIntakeDetailDto CurrentIntake, CourseIntakeChangeDto? ProposedChange);

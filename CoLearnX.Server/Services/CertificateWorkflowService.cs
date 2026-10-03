@@ -242,8 +242,15 @@ public sealed class CertificateWorkflowService(CoLearnXDbContext db) : ICertific
             reasons.Add(existing.Status == CertificateRequestStatus.Issued
                 ? "A certificate has already been issued for this enrollment."
                 : "A certificate request already exists for this enrollment; view its progress below.");
+        var progress = assessments.OrderBy(assessment => assessment.Id).Select(assessment =>
+        {
+            var result = results.SingleOrDefault(item => item.AssessmentId == assessment.Id);
+            return new CertificateAssessmentProgressDto(assessment.Id, assessment.Title, result?.Score, assessment.PassScore,
+                result is null ? "Not graded" : result.Score >= assessment.PassScore ? "Passed" : "Not passed");
+        }).ToList();
         return new CertificateEligibilityDto(enrollment.Id, enrollment.CourseId, enrollment.Course.Code, enrollment.Course.Title,
-            intakeId, reasons.Count == 0, reasons, attendanceRate, assessments.Count, passed, existing?.Id, existing?.Status.ToString());
+            intakeId, reasons.Count == 0, reasons, attendanceRate, assessments.Count, passed, existing?.Id, existing?.Status.ToString(),
+            enrollment.ProgressPercent, progress);
     }
 
     private void AddNotification(CertificateRequest request, Enrollment enrollment, string code, string title, string body)

@@ -4,6 +4,12 @@
 
 技术栈：React + Vite 前端，ASP.NET Core（`net10.0`）后端，EF Core + SQLite，JWT。Visual Studio F5 会同时拉起 API（默认 `https://localhost:7238`）和 Vite SPA（`https://localhost:55128`）；前端把 `/api` 代理到后端。
 
+## 升学推荐（2026-09-29 本地实现）
+
+`RecommendationSeed` 在启动时补齐两级英文兴趣词表（15 个大类、叶子标签）及演示课程的初始标签；已有数据库由 `EnsureSchemaAsync` 补列和 `CourseInterests` 表。Creator 在课程表单选 1–4 个叶子标签，草稿可暂不选，提交审批和批准发布时必须补齐。Member 首次进入 `/member/*` 会进入三步引导，选择学习目标、大类和最多 8 个叶子；Skip 会保存跳过状态，Account 可重新编辑。
+
+`RecommendationService` 通过 `/api/recommendations` 提供首页推荐。没有已完成课程时推荐可报名的 Beginner；完成课程后以最近完成课程的标签为轴，结合级别和考核结果选择下一级、同级或精进课程。候选须为 Published 且有开放、可报名的 Intake；评分只参与排序。`POST /api/trainer/enrollments/{id}/complete` 由负责该 Intake 的 Trainer 结课；Member 只能在完成后通过 `POST /api/enrollments/{id}/rating` 评分，课程列表和详情显示平均星级及票数。对应测试在 `RecommendationWorkflowTests.cs` 和 Member/Creator 页面测试中。
+
 ## 1. 仓库怎么分层
 
 ```text
@@ -84,13 +90,13 @@ Course  1──* CourseIntake  1──* CourseSession  1──* Enrollment
 | `CourseIntake` | Draft → PendingApproval（提交给 Creator）→ Published |
 | `CourseIntakeApplication` | Pending → Confirmed / Rejected |
 | `LearningMaterial` + `CourseMaterialVersion` | 上传即 PendingApproval → Admin Approve/Reject |
-| `Enrollment` | Active / Completed / Cancelled / Refunded |
+| `Enrollment` | Reserved → Active → Completed；取消后 Cancelled / Refunded |
 | `CertificateRequest` | Submitted → TrainerApproved → Admin Issued（Trainer 也可拒） |
 
 要点：
 
 - **Admin 不审核 Intake**。Trainer 提交后由该课的 Creator 确认。
-- Member 报名的是某个 **Published Intake 下的 Session**，扣 `User.CreditBalance`，写 `CreditTransaction`。
+- Member 报名的是某个 **Published Intake 下的 Session**。报名扣可用余额并增加 `HeldCredits`，占座且写 Hold；报名截止按最低人数整班 Capture 或 Release。线下容量为 0 不可用，线上容量为 0 表示不限制人数。
 - 资料必须有 `CourseMaterials` 行，不能当孤立文件。Trainer 只能把 **Approved** 且属于该 Intake 之 Course 的版本绑上去。
 
 SQLite 文件是 `CoLearnX.Server/colearnx-later-v1.db`。`SeedData.InitializeAsync` 用 `EnsureCreated`，**没有 EF migration**。旧库缺 `CreatorId` / later-phase 表会直接抛错，需要删 db 后重启。
@@ -101,7 +107,8 @@ SQLite 文件是 `CoLearnX.Server/colearnx-later-v1.db`。`SeedData.InitializeAs
 
 | 文件 | 负责 |
 |---|---|
-| `AppServices.cs` | 登录、目录、Creator 建课、报名、积分/PayPal、资料上传下载 |
+| `AppServices.cs` | 登录、目录、Creator 建课、报名 Hold/取消/自退、积分/PayPal、资料上传下载 |
+| `IntakeSettlementService.cs` | 截止日整班 Capture/Release、Trainer 取消、通知扫描 |
 | `CourseIntakeService.cs` | Trainer Intake/Session CRUD、提交、Creator 审核申请 |
 | `TrainerDeliveryService.cs` | 已发布 Intake 改会议链接 |
 | `MaterialVersionService.cs` | 材料版本、Admin 批准 |
@@ -160,7 +167,13 @@ Controller 按 URL 切开，不要在一个文件里找全部 API：
 2. 加 Session（线上要有会议链接，线下要有地址和容量）。提交校验至少 1 个 Session。
 3. 提交后 Intake=`PendingApproval`，生成 `CourseIntakeApplication`。
 4. Creator：`/creator/courses/intake-applications` → Confirm 则 Intake=`Published`。
-5. Member 目录来自 `GET /api/courses`（已发布）。`EnrollmentService.EnrolAsync` 扣积分、占座。`SeatsTaken >= PhysicalCapacity` 即满员，**容量 0 永远报满**。
+5. Member 目录来自 `GET /api/courses`（已发布）。`EnrollmentService.EnrolAsync` 检查报名窗口、线下预订截止、座位与可用积分；成功后占座并将可用积分转为冻结，报名状态为 `Reserved`。线下 `SeatsTaken >= PhysicalCapacity` 为满员；线上容量 0 不限人数。
+
+`CourseIntake.MinEnrollment` 默认 10，范围 2–200；报名必须至少在开课前 10 天截止，线下容量不得小于最低人数。截止日后台结算：达到最低人数则全班 Capture，`Reserved → Active`；未达到则全班 Release，积分回可用且 Intake 取消。确认前 Member 可取消预约并全额解冻；确认后距开课 6–10 个自然日自退，退还 70%，剩余 30% 记 Forfeit；五天内不能自退。Trainer 整班取消则释放冻结或全额退还已扣积分。`GET /api/auth/me` 给出可用、冻结及合计，Member 的 Programs 和 Payment 分别展示报名状态与流水。
+
+Member 公共顶栏通过已有 AuthContext 显示可用积分与 `On hold`，链接到 Payment；预约后的用户刷新会同步钱包。Catalog 卡片显示平均星级和评价数，无评分显示 `New`。课程详情返回已发布、进行中、已完成及已取消班次，继续隐藏草稿、待审核和被拒绝班次；每个 Session 附带整班 `Reserved + Active` 报名人数及最低人数。`sessionAvailability.js` 统一处理状态、默认可报名场次选择和按钮禁用；满员、无场次、未开放、截止、取消或已确认开班均不可预约，后端继续执行最终校验。验证记录见 [20260930-member-ui.md](verification/20260930-member-ui.md)。
+
+通知现已携带 Intake ID 并跳转对应 Trainer/Creator 详情；最低人数不足通知解释 7 天延期窗口。业务邮件复用账号邮件通道，通过事务后待发记录和后台扫描发送。Huang 演示偏好及 2051/2002 的评分种子已补齐。修改范围、配置和验证见 [通知、邮件与演示数据记录](verification/20261001-notifications-mail-demo.md)。
 
 ### 6.4 资料出现在别人页面
 
@@ -177,7 +190,7 @@ Trainer later-phase：按 Intake/Session 写出勤、建 Assessment、给 Enroll
 ## 7. 启动时务必看的几处
 
 - `Program.cs`：选 Azure 还是本地存储，并打 `File storage: ...` 日志。
-- `SeedData.cs`：演示账号（密码 `Password123!`）和种子课。Admin 邮箱在 `AdminAccounts`，不在 `Users`。
+- `SeedData.cs`：Development 演示账号和种子课；使用本地配置的账号，不在本文公开密码。Admin 邮箱在 `AdminAccounts`，不在 `Users`。
 - `vite.config.js`：`allowedHosts: true` 是为了 Dev Tunnel。
 - 测试：`CoLearnX.Server.Tests`（工厂里强制 `LocalFileStorage`）；前端有 Creator 课程表单和若干 Intake/API 单测。F5 占用 `CoLearnX.Server.exe` 时，测后端用 `dotnet test -p:UseAppHost=false`。
 

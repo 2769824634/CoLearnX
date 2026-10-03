@@ -14,7 +14,7 @@ export default function RequireAdmin() {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/admin/login" replace state={{ from: location }} />;
+    return <Navigate to="/admin/login" replace state={{ from: location, accessNotice: 'Administrator access is required for this workspace.' }} />;
   }
 
   return <Outlet />;

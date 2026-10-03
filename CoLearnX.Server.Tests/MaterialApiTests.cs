@@ -114,10 +114,61 @@ public class MaterialApiTests : IClassFixture<CoLearnXApiFactory>
         Assert.NotNull(pending);
         var queued = Assert.Single(pending, item => item.Title == title && item.Status == "PendingApproval" && item.CreatorName == "Zou Ruiqi");
         Assert.Equal(courseId, queued.CourseId);
+        Assert.False(string.IsNullOrWhiteSpace(queued.FileName));
+        Assert.True(queued.FileSizeBytes > 0);
 
         var download = await admin.GetAsync($"/api/admin/material-versions/{queued.VersionId}/file");
         Assert.Equal(HttpStatusCode.OK, download.StatusCode);
         Assert.Equal("application/pdf", download.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Theory]
+    [InlineData(Domain.Enums.CourseStatus.PendingApproval)]
+    [InlineData(Domain.Enums.CourseStatus.Published)]
+    public async Task Small_png_upload_creates_pending_version_with_downloadable_metadata(Domain.Enums.CourseStatus status)
+    {
+        var creator = await ApiClient.AsCreatorAsync(_factory);
+        var courseId = await CreateOwnedCourseAsync(creator);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+            var course = await db.Courses.SingleAsync(item => item.Id == courseId);
+            course.Status = status;
+            await db.SaveChangesAsync();
+        }
+
+        var title = $"PNG regression {Guid.NewGuid():N}";
+        var payload = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC");
+        using var form = new MultipartFormDataContent();
+        form.Add(new StringContent(title), "title");
+        form.Add(new StringContent(courseId.ToString()), "courseId");
+        form.Add(new StringContent("Testing"), "category");
+        var file = new ByteArrayContent(payload);
+        file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        form.Add(file, "file", "small-regression.png");
+
+        var upload = await creator.PostAsync("/api/materials", form);
+        Assert.Equal(HttpStatusCode.Created, upload.StatusCode);
+        var material = await upload.Content.ReadFromJsonAsync<MaterialDto>(ApiJson.Options);
+        Assert.NotNull(material);
+        Assert.Equal(courseId, material.CourseId);
+        Assert.Equal("PNG", material.Format);
+
+        var admin = await ApiClient.AsOperationsAdminAsync(_factory);
+        var pending = await admin.GetFromJsonAsync<List<MaterialVersionDto>>(
+            "/api/admin/material-versions?status=PendingApproval", ApiJson.Options);
+        var queued = Assert.Single(pending!, item => item.Title == title);
+        Assert.Equal("PendingApproval", queued.Status);
+        Assert.Equal(courseId, queued.CourseId);
+        Assert.Equal("Material host course", queued.CourseTitle);
+        Assert.Equal(status.ToString(), queued.CourseStatus);
+        Assert.False(string.IsNullOrWhiteSpace(queued.FileName));
+        Assert.Equal(payload.LongLength, queued.FileSizeBytes);
+
+        var download = await admin.GetAsync($"/api/admin/material-versions/{queued.VersionId}/file");
+        Assert.Equal(HttpStatusCode.OK, download.StatusCode);
+        Assert.Equal("image/png", download.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(payload, await download.Content.ReadAsByteArrayAsync());
     }
 
     [Fact]

@@ -18,6 +18,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     public DbSet<CreatorProfile> CreatorProfiles => Set<CreatorProfile>();
     public DbSet<Interest> Interests => Set<Interest>();
     public DbSet<UserInterest> UserInterests => Set<UserInterest>();
+    public DbSet<CourseInterest> CourseInterests => Set<CourseInterest>();
     public DbSet<RoleRequest> RoleRequests => Set<RoleRequest>();
     public DbSet<CourseLevel> CourseLevels => Set<CourseLevel>();
     public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
@@ -82,6 +83,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
 
         modelBuilder.Entity<User>(e =>
         {
+            e.ToTable("Users", table => table.HasCheckConstraint("CK_Users_Credits_NonNegative", "CreditBalance >= 0 AND HeldCredits >= 0"));
             e.HasIndex(x => x.Email).IsUnique();
             e.Property(x => x.Email).HasMaxLength(256);
             e.Property(x => x.FullName).HasMaxLength(128);
@@ -115,6 +117,21 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
         modelBuilder.Entity<UserInterest>(e =>
         {
             e.HasKey(x => new { x.UserId, x.InterestId });
+            e.HasOne(x => x.Interest).WithMany().HasForeignKey(x => x.InterestId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Interest>(e =>
+        {
+            e.HasIndex(x => x.Slug).IsUnique();
+            e.Property(x => x.Slug).HasMaxLength(100);
+            e.HasOne(x => x.Parent).WithMany(x => x.Children).HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<CourseInterest>(e =>
+        {
+            e.HasKey(x => new { x.CourseId, x.InterestId });
+            e.HasOne(x => x.Course).WithMany(x => x.Interests).HasForeignKey(x => x.CourseId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Interest).WithMany().HasForeignKey(x => x.InterestId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<RoleRequest>(e =>
@@ -197,6 +214,9 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
         modelBuilder.Entity<CreditTransaction>(e =>
         {
             e.HasOne(x => x.User).WithMany(u => u.CreditTransactions).HasForeignKey(x => x.UserId);
+            e.HasIndex(x => new { x.RelatedEnrollmentId, x.Type }).IsUnique()
+                .HasFilter(sqlite ? "\"RelatedEnrollmentId\" IS NOT NULL AND \"Type\" IN (6, 7, 8)"
+                    : "[RelatedEnrollmentId] IS NOT NULL AND [Type] IN (6, 7, 8)");
         });
 
         modelBuilder.Entity<LearningMaterial>(e =>

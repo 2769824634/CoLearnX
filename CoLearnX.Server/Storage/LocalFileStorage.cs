@@ -38,6 +38,18 @@ public sealed class LocalFileStorage : IFileStorage
     public Task<Uri?> TryCreateReadUriAsync(string key, TimeSpan lifetime, CancellationToken ct = default)
         => Task.FromResult<Uri?>(null);
 
+    public Task DeleteAsync(string key, CancellationToken ct = default)
+    {
+        File.Delete(Resolve(key));
+        return Task.CompletedTask;
+    }
+
+    public Task<StorageFileInfo?> GetInfoAsync(string key, CancellationToken ct = default)
+    {
+        var info = new FileInfo(Resolve(key));
+        return Task.FromResult(info.Exists ? new StorageFileInfo(info.Length) : null);
+    }
+
     private string Resolve(string key)
     {
         if (string.IsNullOrWhiteSpace(key) || key.Contains("..", StringComparison.Ordinal) || Path.IsPathRooted(key))

@@ -11,8 +11,24 @@ namespace CoLearnX.Server.Controllers;
 [Route("api/trainer")]
 [Authorize(Policy = TrainerAuthorization.PolicyName)]
 [TrainerApiErrors]
-public sealed class TrainerIntakesController(ICourseIntakeService intakes, ITrainerDeliveryService delivery) : ControllerBase
+public sealed class TrainerIntakesController(ICourseIntakeService intakes, ITrainerDeliveryService delivery,
+    IIntakeSettlementService settlement) : ControllerBase
 {
+    [HttpPost("intakes/{courseIntakeId:int}/postpone")]
+    public async Task<ActionResult<CourseIntakeDetailDto>> Postpone(int courseIntakeId,
+        [FromBody] CreateCourseIntakeRequest request, CancellationToken ct)
+    {
+        var result = await intakes.PostponeAsync(User.GetUserId(), courseIntakeId, request, ct);
+        return CreatedAtAction(nameof(Get), new { courseIntakeId = result.Id }, result);
+    }
+
+    [HttpPost("intakes/{courseIntakeId:int}/cancel")]
+    public async Task<ActionResult<IntakeSettlementResult>> Cancel(int courseIntakeId, CancellationToken ct)
+    {
+        try { return Ok(await settlement.CancelIntakeAsync(User.GetUserId(), courseIntakeId, ct)); }
+        catch (CourseException error) { return StatusCode(error.StatusCode, new ApiError(error.Code, error.Message)); }
+    }
+
     [HttpGet("intakes")]
     public async Task<ActionResult<IReadOnlyList<CourseIntakeSummaryDto>>> List(CancellationToken ct)
         => Ok(await intakes.ListOwnedAsync(User.GetUserId(), ct));

@@ -20,7 +20,7 @@ namespace CoLearnX.Server.Tests;
 public sealed class B4WorkflowIntegrationTests
 {
     private static readonly DateTime Start = new(2027, 4, 1, 9, 0, 0, DateTimeKind.Utc);
-    private static CreateCourseIntakeRequest Draft => new(Start.AddDays(-30), Start.AddDays(-2), Start, Start.AddDays(2));
+    private static CreateCourseIntakeRequest Draft => new(Start.AddDays(-30), Start.AddDays(-10), Start, Start.AddDays(2));
 
     [Fact]
     public async Task CreatorApplicationQueue_IsAvailableToCreator()
@@ -71,7 +71,8 @@ public sealed class B4WorkflowIntegrationTests
         Assert.Equal("Advanced workshop", Assert.Single(pending.LatestChangeRequest!.Sessions).Label);
 
         application = await creator.GetFromJsonAsync<CreatorIntakeApplicationDetailDto>($"/api/creator/intake-applications/{intake.Id}");
-        Assert.Equal("Change", application!.Application.Kind);
+        Assert.NotNull(application!.Application);
+        Assert.Equal("Change", application.Application.Kind);
         Assert.Equal(changedEnd, application.ProposedChange!.EndsAt);
         intake = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{intake.Id}/review",
             new ReviewIntakeApplicationRequest("Confirm", null, application.Application.Version)));

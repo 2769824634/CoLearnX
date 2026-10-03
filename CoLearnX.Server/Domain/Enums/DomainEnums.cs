@@ -61,7 +61,8 @@ public enum EnrollmentStatus
     Active = 0,
     Completed = 1,
     Cancelled = 2,
-    Refunded = 3
+    Refunded = 3,
+    Reserved = 4
 }
 
 public enum RoleRequestStatus
@@ -77,7 +78,11 @@ public enum CreditTransactionType
     Enrolment = 2,
     Refund = 3,
     Royalty = 4,
-    AdminAdjustment = 5
+    AdminAdjustment = 5,
+    Hold = 6,
+    Capture = 7,
+    Release = 8,
+    Forfeit = 9
 }
 
 public enum DisputeStatus

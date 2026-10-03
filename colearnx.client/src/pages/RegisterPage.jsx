@@ -3,21 +3,8 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 import { authApi } from '../api';
 import { useAuth } from '../auth/AuthContext';
-
-const CHECKS = [
-  { id: 'len', label: '10–72 characters', test: (p) => p.length >= 10 && p.length <= 72 },
-  { id: 'case', label: 'Upper and lowercase letters', test: (p) => /[a-z]/.test(p) && /[A-Z]/.test(p) },
-  { id: 'num', label: 'A number', test: (p) => /\d/.test(p) },
-  { id: 'sym', label: 'A symbol', test: (p) => /[^A-Za-z0-9]/.test(p) },
-];
-
-function passwordReady(password, email) {
-  if (!CHECKS.every((item) => item.test(password))) return false;
-  const local = email.split('@')[0] || '';
-  if (email && password.toLowerCase().includes(email.toLowerCase())) return false;
-  if (local.length >= 3 && password.toLowerCase().includes(local.toLowerCase())) return false;
-  return true;
-}
+import { maskEmail } from '../data/memberMock';
+import { PASSWORD_RULES, passwordIssues } from './passwordRules';
 
 export default function RegisterPage() {
   const { register, isAuthenticated, activeRole, booting } = useAuth();
@@ -43,15 +30,17 @@ export default function RegisterPage() {
       setError('Passwords do not match.');
       return;
     }
-    if (!passwordReady(password, email)) {
-      setError('Choose a stronger password that does not include your email.');
+    const issues = passwordIssues(password, email);
+    if (issues.length > 0) {
+      setError(issues.join(' '));
       return;
     }
     setBusy(true);
     try {
       const result = await register({ email, password, fullName });
       if (result.emailVerificationRequired) {
-        setMessage(result.message || 'Check your email to verify your account before signing in.');
+        const serverMessage = result.message || 'Check your email to verify your account before signing in.';
+        setMessage(email.trim() ? serverMessage.replaceAll(email.trim(), maskEmail(email.trim())) : serverMessage);
         return;
       }
       navigate(`/${(result.activeRole || 'Member').toLowerCase()}/home`);
@@ -72,6 +61,8 @@ export default function RegisterPage() {
           <div className="auth-body">
             <h2>Check your email</h2>
             <p className="callout" role="status">{message}</p>
+            <p>We sent the verification link to <strong>{maskEmail(email.trim())}</strong> when the account is eligible.</p>
+            <p>Check your inbox and spam or junk folder. Delivery can take a few minutes.</p>
             {resendNote ? <p className="callout" role="status">{resendNote}</p> : null}
             <button
               type="button"
@@ -99,24 +90,24 @@ export default function RegisterPage() {
           <p className="auth-lead">New accounts start as Member. Trainer and Creator roles are granted later.</p>
           <div className="form-group">
             <label htmlFor="register-name">Full name</label>
-            <input id="register-name" name="name" autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} required minLength={2} maxLength={80} />
+            <input id="register-name" name="name" autoComplete="name" value={fullName} onChange={(e) => { setFullName(e.target.value); setError(''); }} required minLength={2} maxLength={80} />
           </div>
           <div className="form-group">
             <label htmlFor="register-email">Email</label>
-            <input id="register-email" name="email" type="email" autoComplete="username" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} required maxLength={254} />
+            <input id="register-email" name="email" type="email" autoComplete="username" spellCheck={false} value={email} onChange={(e) => { setEmail(e.target.value); setError(''); }} required maxLength={254} />
           </div>
           <div className="form-group">
             <label htmlFor="register-password">Password</label>
-            <input id="register-password" name="new-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={10} maxLength={72} />
+            <input id="register-password" name="new-password" type="password" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} required minLength={10} maxLength={72} />
           </div>
           <ul className="password-checks">
-            {CHECKS.map((item) => (
-              <li key={item.id} className={item.test(password) ? 'ok' : ''}>{item.label}</li>
+            {PASSWORD_RULES.map((item) => (
+              <li key={item.id} className={item.test(password) ? 'ok' : ''}>{item.hint}</li>
             ))}
           </ul>
           <div className="form-group">
             <label htmlFor="register-confirm">Confirm password</label>
-            <input id="register-confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={10} maxLength={72} />
+            <input id="register-confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(''); }} required minLength={10} maxLength={72} />
           </div>
           {error ? (
             <div className="callout warn" style={{ marginBottom: 12 }}>

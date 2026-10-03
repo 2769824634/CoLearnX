@@ -75,9 +75,9 @@ export default function MemberPaymentPage() {
 
         <div className="card purple-bg" style={{ maxWidth: 300, marginBottom: 20 }}>
           <div className="card-body">
-            <div style={{ fontSize: 12, color: 'var(--slate)' }}>Current Balance</div>
+            <div style={{ fontSize: 12, color: 'var(--slate)' }}>Available credits</div>
             <div style={{ fontSize: 40, fontWeight: 700, color: 'var(--purple)' }}>{state.credits}</div>
-            <div style={{ fontSize: 12, color: 'var(--teal)' }}>Credits Available</div>
+            <div style={{ fontSize: 12, color: 'var(--teal)' }}>On hold: {state.heldCredits ?? 0} · Total: {state.totalCredits ?? state.credits}</div>
           </div>
         </div>
 
@@ -144,6 +144,7 @@ export default function MemberPaymentPage() {
                   <th>Description</th>
                   <th>Credits</th>
                   <th>Balance</th>
+                  <th>On hold</th>
                 </tr>
               </thead>
               <tbody>
@@ -157,6 +158,7 @@ export default function MemberPaymentPage() {
                       {l.delta}
                     </td>
                     <td>{l.balance}</td>
+                    <td>{l.heldAfter ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>

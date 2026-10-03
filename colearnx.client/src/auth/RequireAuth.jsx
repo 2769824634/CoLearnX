@@ -21,7 +21,15 @@ export function RequireAuth({ role }) {
   }
 
   if (role && activeRole !== role) {
-    return <Navigate to={`/${activeRole}/home`} replace />;
+    const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
+    const activeLabel = activeRole ? activeRole.charAt(0).toUpperCase() + activeRole.slice(1) : 'active';
+    return (
+      <Navigate
+        to={`/${activeRole}/home`}
+        replace
+        state={{ accessNotice: `This page requires the ${roleLabel} workspace. You were returned to your ${activeLabel} workspace.` }}
+      />
+    );
   }
 
   return <Outlet />;

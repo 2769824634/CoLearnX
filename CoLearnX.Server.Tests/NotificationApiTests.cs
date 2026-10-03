@@ -12,13 +12,14 @@ namespace CoLearnX.Server.Tests;
 public class NotificationApiTests
 {
     [Fact]
-    public async Task Revoked_members_cannot_read_or_mutate_notifications_with_old_tokens()
+    public async Task Inactive_users_cannot_read_or_mutate_notifications_with_old_tokens()
     {
         using var factory = new CoLearnXApiFactory();
         using var member = await ApiClient.AsMemberAsync(factory);
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-        await db.UserRoles.Where(r => r.User.Email == SeedData.MemberEmail).ExecuteDeleteAsync();
+        await db.Users.Where(u => u.Email == SeedData.MemberEmail)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(u => u.IsActive, false));
         Assert.Equal(HttpStatusCode.Forbidden, (await member.GetAsync("/api/notifications/my")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await member.PutAsync("/api/notifications/1/read", null)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await member.PutAsync("/api/notifications/read-all", null)).StatusCode);
@@ -68,14 +69,14 @@ public class NotificationApiTests
     }
 
     [Fact]
-    public async Task Notification_endpoints_reject_anonymous_and_other_roles()
+    public async Task Notification_endpoints_allow_active_trainer_and_reject_anonymous_admin()
     {
         using var factory = new CoLearnXApiFactory();
         using var anonymous = ApiClient.Anonymous(factory);
         using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");
         using var admin = await ApiClient.AsOperationsAdminAsync(factory);
         Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/notifications/my")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await trainer.GetAsync("/api/notifications/my")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await trainer.GetAsync("/api/notifications/my")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await admin.GetAsync("/api/notifications/my")).StatusCode);
     }
 }

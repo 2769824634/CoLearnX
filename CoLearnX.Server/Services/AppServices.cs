@@ -47,6 +47,9 @@ public interface ICourseService
 public interface IEnrollmentService
 {
     Task<EnrolResultDto> EnrolAsync(int userId, EnrolRequest request, CancellationToken ct = default);
+    Task<EnrolResultDto> AcceptPostponementAsync(int userId, int enrollmentId, AcceptPostponementRequest request, CancellationToken ct = default);
+    Task<EnrollmentDto> CancelReservationAsync(int userId, int enrollmentId, CancellationToken ct = default);
+    Task<EnrollmentDto> WithdrawAsync(int userId, int enrollmentId, CancellationToken ct = default);
     Task<IReadOnlyList<EnrollmentDto>> GetMyAsync(int userId, CancellationToken ct = default);
 }
 
@@ -267,7 +270,11 @@ public class AuthService(
             user.CreatorProfile?.ExpertiseTags,
             user.CreatorProfile?.Headline,
             user.Preference?.EmailNotifications ?? true,
-            user.AvatarUrl is null ? null : $"/api/users/{user.Id}/avatar?v={Path.GetFileNameWithoutExtension(user.AvatarUrl)}");
+            user.AvatarUrl is null ? null : $"/api/users/{user.Id}/avatar?v={Path.GetFileNameWithoutExtension(user.AvatarUrl)}",
+            user.Preference?.OnboardingCompletedAt,
+            user.Preference?.OnboardingSkippedAt,
+            user.HeldCredits,
+            user.CreditBalance + user.HeldCredits);
     }
 }
 
@@ -439,6 +446,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         };
         ApplyCourseFields(course, input.Code, request.Title, request.Description, request.Category,
             request.CreditCost, request.LearningOutcomes, input.Level, input.Path);
+        course.Interests = await ValidateInterestsAsync(request.InterestIds, ct);
         db.Courses.Add(course);
         await db.SaveChangesAsync(ct);
 
@@ -461,8 +469,21 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         var input = await ValidateCourseInputAsync(
             courseId, request.Code, request.CourseLevelId, request.LearningPathId, ct);
         db.CourseLearningOutcomes.RemoveRange(course.LearningOutcomes);
+        var selectedInterestIds = request.InterestIds;
         ApplyCourseFields(course, input.Code, request.Title, request.Description, request.Category,
             request.CreditCost, request.LearningOutcomes, input.Level, input.Path);
+        if (selectedInterestIds is not null)
+        {
+            var validated = await ValidateInterestsAsync(selectedInterestIds, ct);
+            var ids = validated.Select(i => i.InterestId).ToHashSet();
+            foreach (var removed in course.Interests.Where(i => !ids.Contains(i.InterestId)).ToList())
+            {
+                course.Interests.Remove(removed);
+                db.CourseInterests.Remove(removed);
+            }
+            foreach (var id in ids.Where(id => course.Interests.All(i => i.InterestId != id)))
+                course.Interests.Add(new CourseInterest { CourseId = course.Id, InterestId = id });
+        }
         await db.SaveChangesAsync(ct);
 
         var reasons = await LatestReviewReasonsAsync([course.Id], ct);
@@ -479,6 +500,9 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             .SingleOrDefaultAsync(item => item.Id == courseId && item.CreatorId == creatorUserId, ct)
             ?? throw new CourseException("COURSE_NOT_FOUND", "Course was not found.", 404);
         EnsureEditable(course);
+
+        if (course.Interests.Count is < 1 or > 4)
+            throw new CourseException("COURSE_INTERESTS_REQUIRED", "Choose one to four leaf interests before submitting.");
 
         course.Status = CourseStatus.PendingApproval;
         db.AuditLogs.Add(new AuditLog
@@ -498,6 +522,10 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
     {
         var query = db.Courses.AsNoTracking()
             .Include(c => c.Trainer)
+            .Include(c => c.Creator)
+            .Include(c => c.LearningPath)
+            .Include(c => c.Intakes).ThenInclude(i => i.Trainer)
+            .Include(c => c.Interests).ThenInclude(i => i.Interest)
             .Where(c => c.Status == CourseStatus.Published);
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -520,24 +548,48 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             : await db.WishlistItems.Where(w => w.UserId == userId).Select(w => w.CourseId).ToHashSetAsync(ct);
 
         var list = await query.OrderBy(c => c.Code).ToListAsync(ct);
+        var ids = list.Select(c => c.Id).ToArray();
+        var ratings = await db.ProgramRatings.AsNoTracking().Where(r => ids.Contains(r.Enrollment.CourseId))
+            .Select(r => new { r.Enrollment.CourseId, r.Stars }).ToListAsync(ct);
+        var stars = ratings.GroupBy(r => r.CourseId).ToDictionary(g => g.Key,
+            g => (Count: g.Count(), Average: (double?)g.Average(r => r.Stars)));
         return list.Select(c => new CourseListItemDto(
             c.Id, c.Code, c.Title, c.Trainer.FullName, c.CreditCost, c.Level, c.Category, c.IsFeatured,
-            wishlist.Contains(c.Id))).ToList();
+            wishlist.Contains(c.Id), CourseTags(c), stars.GetValueOrDefault(c.Id).Average,
+            stars.GetValueOrDefault(c.Id).Count,
+            CreatorName: c.Creator.FullName, TrainerNames: PublicTrainerNames(c), LearningPath: c.LearningPath?.Name)).ToList();
     }
 
     public async Task<CourseDetailDto?> GetByIdAsync(int courseId, int? userId, CancellationToken ct = default)
     {
         var course = await db.Courses.AsNoTracking()
             .Include(c => c.Trainer)
-            .Include(c => c.Intakes.Where(i => i.Status == CourseIntakeStatus.Published)).ThenInclude(i => i.Sessions)
+            .Include(c => c.Creator)
+            .Include(c => c.LearningPath)
+            .Include(c => c.Intakes).ThenInclude(i => i.Trainer)
+            .Include(c => c.Intakes.Where(i => i.Status == CourseIntakeStatus.Published
+                || i.Status == CourseIntakeStatus.InProgress || i.Status == CourseIntakeStatus.Completed
+                || i.Status == CourseIntakeStatus.Cancelled)).ThenInclude(i => i.Sessions)
             .Include(c => c.LearningOutcomes)
+            .Include(c => c.Interests).ThenInclude(i => i.Interest)
             .FirstOrDefaultAsync(c => c.Id == courseId && c.Status == CourseStatus.Published, ct);
         if (course is null) return null;
+
+        // Count the entire Intake, not just the displayed Session; do not load learner identities.
+        var enrollmentCounts = await db.Enrollments.AsNoTracking()
+            .Where(e => e.CourseId == courseId
+                && (e.Status == EnrollmentStatus.Reserved || e.Status == EnrollmentStatus.Active))
+            .GroupBy(e => e.CourseSession.CourseIntakeId)
+            .Select(group => new { IntakeId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.IntakeId, item => item.Count, ct);
 
         var inWishlist = userId is not null &&
             await db.WishlistItems.AnyAsync(w => w.UserId == userId && w.CourseId == courseId, ct);
         var enrolled = userId is not null &&
-            await db.Enrollments.AnyAsync(e => e.UserId == userId && e.CourseId == courseId && e.Status == EnrollmentStatus.Active, ct);
+            await db.Enrollments.AnyAsync(e => e.UserId == userId && e.CourseId == courseId
+                && (e.Status == EnrollmentStatus.Active || e.Status == EnrollmentStatus.Reserved), ct);
+        var stars = await db.ProgramRatings.AsNoTracking().Where(r => r.Enrollment.CourseId == courseId)
+            .Select(r => r.Stars).ToListAsync(ct);
 
         return new CourseDetailDto(
             course.Id,
@@ -552,10 +604,23 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             course.LearningOutcomes.OrderBy(o => o.SortOrder).Select(o => o.Text).ToList(),
             course.Intakes.SelectMany(i => i.Sessions).OrderBy(s => s.StartsAt).Select(s => new CourseSessionDto(
                 s.Id, s.Label, s.StartsAt, s.EndsAt, s.PhysicalCapacity, s.SeatsLeft,
-                s.CourseIntakeId, s.MeetingLink, s.PhysicalAddress, s.PhysicalCapacity, s.PhysicalBookingDeadline)).ToList(),
+                s.CourseIntakeId, s.CourseIntake.Status == CourseIntakeStatus.Published ? s.MeetingLink : null,
+                s.PhysicalAddress, s.PhysicalCapacity, s.PhysicalBookingDeadline,
+                s.CourseIntake.RegistrationOpensAt, s.CourseIntake.RegistrationClosesAt, s.CourseIntake.MinEnrollment,
+                s.CourseIntake.Status.ToString(), enrollmentCounts.GetValueOrDefault(s.CourseIntakeId),
+                s.CourseIntake.ConfirmedToRunAt, s.CourseIntake.CancelledAt)).ToList(),
             inWishlist,
-            enrolled);
+            enrolled,
+            CourseTags(course), stars.Count == 0 ? null : stars.Average(), stars.Count,
+            course.Intakes.OrderBy(i => i.RegistrationClosesAt).FirstOrDefault()?.MinEnrollment ?? 10,
+            course.Intakes.OrderBy(i => i.RegistrationClosesAt).FirstOrDefault()?.RegistrationOpensAt,
+            course.Intakes.OrderBy(i => i.RegistrationClosesAt).FirstOrDefault()?.RegistrationClosesAt,
+            course.Creator.FullName, PublicTrainerNames(course), course.LearningPath?.Name);
     }
+
+    private static IReadOnlyList<string> PublicTrainerNames(Course course)
+        => course.Intakes.Where(i => i.Status is CourseIntakeStatus.Published or CourseIntakeStatus.InProgress or CourseIntakeStatus.Completed)
+            .Select(i => i.Trainer.FullName).Distinct().OrderBy(name => name).ToList();
 
     public async Task<WishlistResultDto> AddToWishlistAsync(int userId, int courseId, CancellationToken ct = default)
     {
@@ -603,6 +668,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             .Include(course => course.CourseLevel)
             .Include(course => course.LearningPath)
             .Include(course => course.LearningOutcomes)
+            .Include(course => course.Interests).ThenInclude(i => i.Interest)
             .AsQueryable();
         return tracked ? query : query.AsNoTracking();
     }
@@ -633,6 +699,23 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
                 $"A Course in {course.Status} status cannot be edited or submitted.",
                 409);
     }
+
+    private async Task<ICollection<CourseInterest>> ValidateInterestsAsync(IReadOnlyList<int>? interestIds, CancellationToken ct)
+    {
+        var ids = (interestIds ?? []).Distinct().ToArray();
+        if (ids.Length > 4 || (interestIds?.Count ?? 0) != ids.Length)
+            throw new CourseException("INTEREST_LIMIT", "Choose up to four distinct leaf interests.");
+        var selected = await db.Interests.Where(i => ids.Contains(i.Id)).ToListAsync(ct);
+        if (selected.Count != ids.Length || selected.Any(i => !i.IsActive))
+            throw new CourseException("INTEREST_NOT_FOUND", "Choose interests from the current list.");
+        if (selected.Any(i => i.ParentId is null))
+            throw new CourseException("INTEREST_NOT_LEAF", "Choose leaf interests, not categories.");
+        return ids.Select(id => new CourseInterest { InterestId = id }).ToList();
+    }
+
+    private static IReadOnlyList<CourseInterestDto> CourseTags(Course course)
+        => course.Interests.OrderBy(i => i.Interest.SortOrder)
+            .Select(i => new CourseInterestDto(i.InterestId, i.Interest.Slug, i.Interest.Name)).ToList();
 
     private async Task<(string Code, CourseLevel Level, LearningPath Path)> ValidateCourseInputAsync(
         int? currentCourseId,
@@ -708,90 +791,8 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             course.Status.ToString(),
             course.LearningOutcomes.OrderBy(outcome => outcome.SortOrder).Select(outcome => outcome.Text).ToList(),
             course.CreatedAt,
-            course.Status == CourseStatus.Rejected ? reviewReason : null);
-}
-
-public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
-{
-    public async Task<EnrolResultDto> EnrolAsync(int userId, EnrolRequest request, CancellationToken ct = default)
-    {
-        // BR-04: only Member can enrol — enforced by controller Authorize(Roles=Member)
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct)
-            ?? throw new KeyNotFoundException("User not found.");
-        var course = await db.Courses.FirstOrDefaultAsync(c => c.Id == request.CourseId && c.Status == CourseStatus.Published, ct)
-            ?? throw new InvalidOperationException("Course not available.");
-        // Legacy Session-based adapter only. A still owns the full Intake enrolment conversion.
-        var session = await db.CourseSessions.FirstOrDefaultAsync(s => s.Id == request.CourseSessionId
-            && s.CourseIntake.CourseId == course.Id && s.CourseIntake.Status == CourseIntakeStatus.Published, ct)
-            ?? throw new InvalidOperationException("Session not found.");
-
-        if (session.PhysicalCapacity > 0 && session.SeatsTaken >= session.PhysicalCapacity)
-            throw new InvalidOperationException("Session is full."); // BR-05; online sessions use capacity 0 as unlimited.
-
-        if (await db.Enrollments.AnyAsync(e => e.UserId == userId && e.CourseId == course.Id && e.Status == EnrollmentStatus.Active, ct))
-            throw new InvalidOperationException("Already enrolled.");
-
-        if (user.CreditBalance < course.CreditCost)
-            throw new InvalidOperationException("INSUFFICIENT_CREDITS"); // BR-01
-
-        user.CreditBalance -= course.CreditCost;
-        session.SeatsTaken += 1;
-
-        var enrollment = new Enrollment
-        {
-            UserId = userId,
-            CourseId = course.Id,
-            CourseSessionId = session.Id,
-            Status = EnrollmentStatus.Active,
-            ProgressPercent = 0,
-            CreditsSpent = course.CreditCost,
-        };
-        db.Enrollments.Add(enrollment);
-
-        // BR-02
-        db.CreditTransactions.Add(new CreditTransaction
-        {
-            UserId = userId,
-            Type = CreditTransactionType.Enrolment,
-            Description = $"{course.Code} — {course.Title}",
-            Delta = -course.CreditCost,
-            BalanceAfter = user.CreditBalance,
-        });
-
-        db.Notifications.Add(new Notification
-        {
-            UserId = userId,
-            Code = "N-01",
-            Title = "Enrolment confirmed",
-            Body = $"You enrolled in {course.Code}.",
-        });
-
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-
-        return new EnrolResultDto(enrollment.Id, course.CreditCost, user.CreditBalance, course.Code, course.Title);
-    }
-
-    public async Task<IReadOnlyList<EnrollmentDto>> GetMyAsync(int userId, CancellationToken ct = default)
-    {
-        return await db.Enrollments.AsNoTracking()
-            .Include(e => e.Course).ThenInclude(c => c.Trainer)
-            .Where(e => e.UserId == userId)
-            .OrderByDescending(e => e.EnrolledAt)
-            .Select(e => new EnrollmentDto(
-                e.Id,
-                e.CourseId,
-                e.Course.Code,
-                e.Course.Title,
-                e.Course.Trainer.FullName,
-                e.Status.ToString(),
-                e.ProgressPercent,
-                e.CourseSessionId,
-                e.CourseSession.MeetingLink))
-            .ToListAsync(ct);
-    }
+            course.Status == CourseStatus.Rejected ? reviewReason : null,
+            course.Interests.Select(i => i.InterestId).ToList());
 }
 
 public class CreditService(CoLearnXDbContext db, IPayPalClient payPal, Microsoft.Extensions.Options.IOptions<PayPalOptions> payPalOptions) : ICreditService
@@ -816,7 +817,8 @@ public class CreditService(CoLearnXDbContext db, IPayPalClient payPal, Microsoft
         return await db.CreditTransactions.AsNoTracking()
             .Where(t => t.UserId == userId)
             .OrderByDescending(t => t.CreatedAt)
-            .Select(t => new CreditLedgerItemDto(t.Id, t.CreatedAt, t.Type.ToString(), t.Description, t.Delta, t.BalanceAfter))
+            .Select(t => new CreditLedgerItemDto(t.Id, t.CreatedAt, t.Type.ToString(), t.Description,
+                t.Delta, t.BalanceAfter, t.HeldAfter, t.RelatedEnrollmentId))
             .ToListAsync(ct);
     }
 
@@ -826,37 +828,43 @@ public class CreditService(CoLearnXDbContext db, IPayPalClient payPal, Microsoft
         var package = await db.CreditPackages.FirstOrDefaultAsync(p => p.Id == request.CreditPackageId && p.IsActive, ct)
             ?? throw new InvalidOperationException("Invalid credit package.");
 
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        var user = await db.Users.FirstAsync(u => u.Id == userId, ct);
-
-        var payment = new PaymentTransaction
+        return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
-            UserId = userId,
-            CreditPackageId = package.Id,
-            Provider = "PayPal-Sim",
-            ProviderReference = request.ProviderReference ?? $"SIM-{Guid.NewGuid():N}",
-            AmountAudCents = package.PayAudCents,
-            CreditsGranted = package.Credits,
-            Status = PaymentStatus.Completed,
-        };
-        db.PaymentTransactions.Add(payment);
+            db.ChangeTracker.Clear();
+            await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+            var user = await db.Users.FirstAsync(u => u.Id == userId, ct);
 
-        user.CreditBalance += package.Credits;
-        var ledger = new CreditTransaction
-        {
-            UserId = userId,
-            Type = CreditTransactionType.TopUp,
-            Description = $"Simulated PayPal package ${package.PayAudCents / 100m:0} → +{package.Credits}",
-            Delta = package.Credits,
-            BalanceAfter = user.CreditBalance,
-            RelatedPaymentId = payment.Id,
-        };
-        db.CreditTransactions.Add(ledger);
+            var payment = new PaymentTransaction
+            {
+                UserId = userId,
+                CreditPackageId = package.Id,
+                Provider = "PayPal-Sim",
+                ProviderReference = request.ProviderReference ?? $"SIM-{Guid.NewGuid():N}",
+                AmountAudCents = package.PayAudCents,
+                CreditsGranted = package.Credits,
+                Status = PaymentStatus.Completed,
+            };
+            db.PaymentTransactions.Add(payment);
+            await db.SaveChangesAsync(ct);
 
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+            user.CreditBalance += package.Credits;
+            var ledger = new CreditTransaction
+            {
+                UserId = userId,
+                Type = CreditTransactionType.TopUp,
+                Description = $"Simulated PayPal package ${package.PayAudCents / 100m:0} → +{package.Credits}",
+                Delta = package.Credits,
+                BalanceAfter = user.CreditBalance,
+                HeldAfter = user.HeldCredits,
+                RelatedPaymentId = payment.Id,
+            };
+            db.CreditTransactions.Add(ledger);
 
-        return new CreditLedgerItemDto(ledger.Id, ledger.CreatedAt, ledger.Type.ToString(), ledger.Description, ledger.Delta, ledger.BalanceAfter);
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+
+            return new CreditLedgerItemDto(ledger.Id, ledger.CreatedAt, ledger.Type.ToString(), ledger.Description, ledger.Delta, ledger.BalanceAfter, ledger.HeldAfter);
+        });
     }
 
     public async Task<CreatePayPalOrderResponse> CreatePayPalOrderAsync(int userId, CreatePayPalOrderRequest request, CancellationToken ct = default)
@@ -902,59 +910,64 @@ public class CreditService(CoLearnXDbContext db, IPayPalClient payPal, Microsoft
         if (!ok)
             throw new InvalidOperationException($"PayPal capture status was {status}.");
 
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        completed = await FindCompletedCaptureAsync(userId, request.OrderId, ct);
-        if (completed is not null)
+        return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
+            db.ChangeTracker.Clear();
+            await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+            completed = await FindCompletedCaptureAsync(userId, request.OrderId, ct);
+            if (completed is not null)
+            {
+                await tx.CommitAsync(ct);
+                return completed;
+            }
+
+            var payment = await db.PaymentTransactions
+                .FirstOrDefaultAsync(p => p.UserId == userId && p.ProviderReference == request.OrderId && p.Provider == "PayPal", ct)
+                ?? throw new InvalidOperationException("Payment order not found.");
+
+            if (payment.Status == PaymentStatus.Completed)
+            {
+                await tx.CommitAsync(ct);
+                return completed ?? new CreditLedgerItemDto(
+                    0,
+                    payment.CreatedAt,
+                    CreditTransactionType.TopUp.ToString(),
+                    "PayPal capture already completed.",
+                    payment.CreditsGranted,
+                    0);
+            }
+
+            var user = await db.Users.FirstAsync(u => u.Id == userId, ct);
+            user.CreditBalance += payment.CreditsGranted;
+            payment.Status = PaymentStatus.Completed;
+
+            var ledger = new CreditTransaction
+            {
+                UserId = userId,
+                Type = CreditTransactionType.TopUp,
+                Description = string.IsNullOrWhiteSpace(captureId)
+                    ? $"PayPal package ${payment.AmountAudCents / 100m:0} → +{payment.CreditsGranted}"
+                    : $"PayPal package ${payment.AmountAudCents / 100m:0} → +{payment.CreditsGranted} (capture {captureId})",
+                Delta = payment.CreditsGranted,
+                BalanceAfter = user.CreditBalance,
+                HeldAfter = user.HeldCredits,
+                RelatedPaymentId = payment.Id,
+            };
+            db.CreditTransactions.Add(ledger);
+
+            db.Notifications.Add(new Notification
+            {
+                UserId = userId,
+                Code = "N-topup",
+                Title = "Credits topped up",
+                Body = $"+{payment.CreditsGranted} credits via PayPal.",
+            });
+
+            await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
-            return completed;
-        }
 
-        var payment = await db.PaymentTransactions
-            .FirstOrDefaultAsync(p => p.UserId == userId && p.ProviderReference == request.OrderId && p.Provider == "PayPal", ct)
-            ?? throw new InvalidOperationException("Payment order not found.");
-
-        if (payment.Status == PaymentStatus.Completed)
-        {
-            await tx.CommitAsync(ct);
-            return completed ?? new CreditLedgerItemDto(
-                0,
-                payment.CreatedAt,
-                CreditTransactionType.TopUp.ToString(),
-                "PayPal capture already completed.",
-                payment.CreditsGranted,
-                0);
-        }
-
-        var user = await db.Users.FirstAsync(u => u.Id == userId, ct);
-        user.CreditBalance += payment.CreditsGranted;
-        payment.Status = PaymentStatus.Completed;
-
-        var ledger = new CreditTransaction
-        {
-            UserId = userId,
-            Type = CreditTransactionType.TopUp,
-            Description = string.IsNullOrWhiteSpace(captureId)
-                ? $"PayPal package ${payment.AmountAudCents / 100m:0} → +{payment.CreditsGranted}"
-                : $"PayPal package ${payment.AmountAudCents / 100m:0} → +{payment.CreditsGranted} (capture {captureId})",
-            Delta = payment.CreditsGranted,
-            BalanceAfter = user.CreditBalance,
-            RelatedPaymentId = payment.Id,
-        };
-        db.CreditTransactions.Add(ledger);
-
-        db.Notifications.Add(new Notification
-        {
-            UserId = userId,
-            Code = "N-topup",
-            Title = "Credits topped up",
-            Body = $"+{payment.CreditsGranted} credits via PayPal.",
+            return new CreditLedgerItemDto(ledger.Id, ledger.CreatedAt, ledger.Type.ToString(), ledger.Description, ledger.Delta, ledger.BalanceAfter, ledger.HeldAfter);
         });
-
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-
-        return new CreditLedgerItemDto(ledger.Id, ledger.CreatedAt, ledger.Type.ToString(), ledger.Description, ledger.Delta, ledger.BalanceAfter);
     }
 
     private async Task<CreditLedgerItemDto?> FindCompletedCaptureAsync(int userId, string orderId, CancellationToken ct)
@@ -971,7 +984,7 @@ public class CreditService(CoLearnXDbContext db, IPayPalClient payPal, Microsoft
             .FirstOrDefaultAsync(ct);
         return existing is null
             ? null
-            : new CreditLedgerItemDto(existing.Id, existing.CreatedAt, existing.Type.ToString(), existing.Description, existing.Delta, existing.BalanceAfter);
+            : new CreditLedgerItemDto(existing.Id, existing.CreatedAt, existing.Type.ToString(), existing.Description, existing.Delta, existing.BalanceAfter, existing.HeldAfter);
     }
 }
 
@@ -997,7 +1010,8 @@ public class CertificateService(CoLearnXDbContext db) : ICertificateService
     }
 }
 
-public class MaterialService(CoLearnXDbContext db, IFileStorage files, IMaterialVersionService versions) : IMaterialService
+public class MaterialService(CoLearnXDbContext db, IFileStorage files, IMaterialVersionService versions,
+    ILogger<MaterialService>? logger = null) : IMaterialService
 {
     public async Task<IReadOnlyList<CreatorMaterialUsageDto>> ListCreatorUsageAsync(int creatorId, CancellationToken ct = default)
     {
@@ -1008,12 +1022,15 @@ public class MaterialService(CoLearnXDbContext db, IFileStorage files, IMaterial
         return await (from log in db.MaterialUsageLogs.AsNoTracking()
                   join course in db.Courses.AsNoTracking() on log.CourseId equals course.Id
                   join trainer in db.Users.AsNoTracking() on log.TrainerId equals trainer.Id
+                  join intake in db.CourseIntakes.AsNoTracking() on log.CourseIntakeId equals (int?)intake.Id into intakes
+                  from intake in intakes.DefaultIfEmpty()
                   where log.LearningMaterial.CreatorId == creatorId
                   orderby log.UsedAt descending, log.Id descending
                   select new CreatorMaterialUsageDto(
                       log.Id, log.LearningMaterialId, log.LearningMaterial.Title,
                       course.Id, course.Code, course.Title,
-                      trainer.Id, trainer.FullName, log.UsedAt)).ToListAsync(ct);
+                      trainer.Id, trainer.FullName, log.UsedAt,
+                      log.CourseIntakeId, intake == null ? null : intake.StartsAt, intake == null ? null : intake.EndsAt)).ToListAsync(ct);
     }
 
     public async Task<IReadOnlyList<MaterialDto>> ListAsync(int userId, MaterialStatus? status, int? courseId = null, CancellationToken ct = default)
@@ -1057,19 +1074,38 @@ public class MaterialService(CoLearnXDbContext db, IFileStorage files, IMaterial
             throw new LaterPhaseException("COURSE_NOT_FOUND", "Course was not found.", 404, "courseId");
 
         var key = $"materials/{creatorId}/{Guid.NewGuid():N}{ext}";
-        await using (var stream = file.OpenReadStream())
-            await files.SaveAsync(key, stream, MaterialFiles.ContentType(ext), ct);
-
-        var submitted = await versions.CreateAsync(
-            creatorId,
-            new CreateMaterialVersionRequest(
-                title.Trim(),
-                string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
-                key,
-                MaterialFiles.FormatLabel(ext),
-                string.IsNullOrWhiteSpace(category) ? "General" : category.Trim(),
-                courseId),
-            ct);
+        MaterialVersionDto submitted;
+        try
+        {
+            await using (var stream = file.OpenReadStream())
+                await files.SaveAsync(key, stream, MaterialFiles.ContentType(ext), ct);
+            submitted = await versions.CreateAsync(
+                creatorId,
+                new CreateMaterialVersionRequest(
+                    title.Trim(),
+                    string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                    key,
+                    MaterialFiles.FormatLabel(ext),
+                    string.IsNullOrWhiteSpace(category) ? "General" : category.Trim(),
+                    courseId),
+                ct);
+        }
+        catch
+        {
+            // A request cancellation must not cancel compensation for a partially saved upload.
+            // A lost commit acknowledgement may leave a valid database reference; never delete it.
+            try
+            {
+                var referenced = await db.CourseMaterialVersions.AsNoTracking()
+                    .AnyAsync(version => version.FilePath == key, CancellationToken.None);
+                if (!referenced) await files.DeleteAsync(key, CancellationToken.None);
+            }
+            catch (Exception cleanupError)
+            {
+                logger?.LogError(cleanupError, "Material upload cleanup failed for storage key {Key}", key);
+            }
+            throw;
+        }
 
         return new MaterialDto(
             submitted.LearningMaterialId,

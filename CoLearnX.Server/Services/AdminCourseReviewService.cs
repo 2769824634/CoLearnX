@@ -33,6 +33,9 @@ public sealed class AdminCourseReviewService(
         var query = db.Courses
             .AsNoTracking()
             .Include(course => course.Trainer)
+            .Include(course => course.Creator)
+            .Include(course => course.LearningPath)
+            .Include(course => course.LearningOutcomes)
             .AsQueryable();
 
         if (status.HasValue)
@@ -86,6 +89,9 @@ public sealed class AdminCourseReviewService(
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
             var course = await db.Courses
                 .Include(item => item.Trainer)
+                .Include(item => item.Creator)
+                .Include(item => item.LearningPath)
+                .Include(item => item.LearningOutcomes)
                 .SingleOrDefaultAsync(item => item.Id == courseId, ct)
                 ?? throw new KeyNotFoundException("Course was not found.");
 
@@ -105,6 +111,10 @@ public sealed class AdminCourseReviewService(
                 throw new AdminReviewValidationException(
                     "REJECTION_REASON_REQUIRED",
                     "A reason is required when rejecting a course.");
+            if (decision == AdminReviewDecision.Approve
+                && await db.CourseInterests.CountAsync(i => i.CourseId == course.Id, ct) is < 1 or > 4)
+                throw new AdminReviewValidationException(
+                    "COURSE_INTERESTS_REQUIRED", "A Course needs one to four leaf interests before publication.");
 
             course.Status = targetStatus;
             await auditLogs.AppendAdminAsync(
@@ -137,9 +147,9 @@ public sealed class AdminCourseReviewService(
             course.Code,
             course.Title,
             course.Description,
-            course.TrainerId,
-            course.Trainer.Email,
-            course.Trainer.FullName,
+            course.CreatorId,
+            course.Creator.Email,
+            course.Creator.FullName,
             course.CreditCost,
             course.Level,
             course.Category,
@@ -147,5 +157,8 @@ public sealed class AdminCourseReviewService(
             reviewLog?.Reason,
             reviewLog?.AdminAccountId,
             course.CreatedAt,
-            reviewLog?.CreatedAt);
+            reviewLog?.CreatedAt,
+            course.LearningOutcomes.OrderBy(outcome => outcome.SortOrder).Select(outcome => outcome.Text).ToList(),
+            course.LearningPath?.Name,
+            course.Creator.FullName);
 }

@@ -13,5 +13,7 @@ export const trainerIntakesApi = {
   updateSession: (token, id, sessionId, body) => apiRequest(`${intakePath(id)}/sessions/${encodeURIComponent(sessionId)}`, { method: 'PUT', token, body }),
   deleteSession: (token, id, sessionId, version) => apiRequest(`${intakePath(id)}/sessions/${encodeURIComponent(sessionId)}?${new URLSearchParams({ version })}`, { method: 'DELETE', token }),
   submit: (token, id, version) => apiRequest(`${intakePath(id)}/submit`, { method: 'POST', token, body: { version } }),
+  cancel: (token, id) => apiRequest(`${intakePath(id)}/cancel`, { method: 'POST', token }),
+  postpone: (token, id, body) => apiRequest(`${intakePath(id)}/postpone`, { method: 'POST', token, body }),
   requestChange: (token, id, body) => apiRequest(`${intakePath(id)}/change-requests`, { method: 'POST', token, body }),
 };

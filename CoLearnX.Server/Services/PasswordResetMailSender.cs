@@ -39,8 +39,21 @@ public interface IEmailVerificationMailSender
 }
 
 public class PasswordResetMailSender(IOptions<PasswordResetOptions> options, IWebHostEnvironment env)
-    : IPasswordResetMailSender, IEmailVerificationMailSender
+    : IPasswordResetMailSender, IEmailVerificationMailSender, IBusinessNotificationMailSender
 {
+    public bool IsAvailable => PasswordResetOptions.CanDeliver(options.Value, env) && ClientOrigin() != null;
+
+    private Uri? ClientOrigin() => Uri.TryCreate(options.Value.ClientBaseUrl, UriKind.Absolute, out var origin)
+        && (origin.Scheme == Uri.UriSchemeHttps || origin.Scheme == Uri.UriSchemeHttp)
+        && string.IsNullOrEmpty(origin.UserInfo) ? origin : null;
+
+    Task IBusinessNotificationMailSender.SendAsync(string email, string title, string body, string targetPath, CancellationToken ct)
+    {
+        var origin = ClientOrigin() ?? throw new InvalidOperationException("Business mail client URL is not configured.");
+        var link = new Uri(origin, targetPath).AbsoluteUri;
+        return SendMessageAsync(email, AccountMail.BusinessNotification(title, body, link, options.Value.FromAddress), ct);
+    }
+
     public async Task SendAsync(string email, string resetLink, CancellationToken ct)
     {
         var composed = AccountMail.PasswordReset(resetLink, options.Value.LifetimeMinutes, options.Value.FromAddress);

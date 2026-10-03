@@ -15,6 +15,10 @@ public static class AccountMail
 
     public sealed record Message(string Subject, string HtmlBody, string PlainTextBody);
 
+    public static Message BusinessNotification(string title, string body, string link, string? contactEmail = null) =>
+        Compose($"CoLearnX: {title}", title, body, "View details", "",
+            "You can manage email notifications in My Account.", link, contactEmail);
+
     public static Message Verification(string link, int lifetimeHours = 24, string? contactEmail = null) =>
         Compose(
             "Verify your CoLearnX account",
@@ -43,13 +47,16 @@ public static class AccountMail
         {
             From = new MailAddress(fromAddress, FromDisplayName),
             Subject = composed.Subject,
-            Body = composed.HtmlBody,
-            IsBodyHtml = true,
+            SubjectEncoding = Encoding.UTF8,
+            HeadersEncoding = Encoding.UTF8,
+            BodyEncoding = Encoding.UTF8,
         };
         message.To.Add(to);
         message.ReplyToList.Add(new MailAddress(fromAddress, ContactName));
         message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(
             composed.PlainTextBody, Encoding.UTF8, MediaTypeNames.Text.Plain));
+        message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(
+            composed.HtmlBody, Encoding.UTF8, MediaTypeNames.Text.Html));
         return message;
     }
 

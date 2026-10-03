@@ -33,6 +33,7 @@ export default function AvatarEditor() {
     </div>
     <label className="btn btn-ghost btn-sm" htmlFor="account-avatar">{busy ? 'Uploading…' : 'Upload avatar'}</label>
     <input id="account-avatar" type="file" accept="image/png,image/jpeg,image/webp" onChange={upload} disabled={busy} style={{ display: 'none' }} />
+    <p style={{ fontSize: 11, color: 'var(--slate)', margin: '8px 0 0' }}>Accepted formats: PNG, JPEG or WebP. Maximum size: 2 MB.</p>
     {error ? <p role="alert" className="trainer-error">{error}</p> : null}
   </div>;
 }

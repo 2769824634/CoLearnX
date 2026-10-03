@@ -5,6 +5,7 @@ import { useMemberNotifications } from '../../components/memberNotificationsStat
 import { certificatesApi } from '../../api';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { utcDate } from '../../utils/utcDates';
+import { userFacingError } from '../businessPresentation';
 
 async function loadCertificates(token, _key, signal) {
   const [certificates, eligibility, requests] = await Promise.all([
@@ -30,12 +31,12 @@ export default function MemberBadgesPage() {
       query.setData({ ...query.data, requests: [request, ...query.data.requests.filter((item) => item.id !== request.id)],
         eligibility: query.data.eligibility.map((item) => item.enrollmentId === enrollmentId ? { ...item, existingRequestId: request.id, existingRequestStatus: request.status } : item) });
       setAction(null); notifications?.refresh();
-    } catch (error) { setAction({ token: query.token, error: error.message || 'Unable to request a certificate. Please try again.' }); }
+    } catch (error) { setAction({ token: query.token, error: userFacingError(error, 'Unable to request a certificate. Please try again.') }); }
     finally { inFlight.current = false; }
   }
   return <MemberShell title="Badges & Certificates" subtitle="Your achievements and certificate applications, in one place.">
     <div className="certificate-intro"><p>Stages shown here come from your issued certificates. Separate badge awards are not currently configured.</p><button className="btn btn-ghost" onClick={query.refresh} disabled={query.loading || busy}>Refresh</button></div>
-    {query.loading ? <p role="status">Loading certificates…</p> : query.error ? <div className="callout warn"><p role="alert">{query.error.message}</p><button className="btn btn-primary" onClick={query.refresh}>Retry</button></div> : <>
+    {query.loading ? <p role="status">Loading certificates…</p> : query.error ? <div className="callout warn"><p role="alert">{userFacingError(query.error, 'Could not load certificates. Please retry.')}</p><button className="btn btn-primary" onClick={query.refresh}>Retry</button></div> : <>
       <section aria-labelledby="issued-heading"><h2 id="issued-heading">Issued certificates</h2>
         {!query.data.certificates.length ? <div className="card card-body"><p>No certificates yet. Complete a program and meet its attendance and assessment requirements to apply.</p><Link to="/member/programs">View my programs</Link></div> : <div className="certificate-grid">{query.data.certificates.map((certificate) => <article key={certificate.id} className="card certificate-card">
           <span className="pill">Stage {certificate.stageNumber} · {certificate.stageName}</span><h3>{certificate.title}</h3>
@@ -46,7 +47,10 @@ export default function MemberBadgesPage() {
       <section className="certificate-section" aria-labelledby="apply-heading"><h2 id="apply-heading">Request a certificate</h2><p>Eligibility is checked by the server using completion, attendance and assessment results.</p>
         {!query.data.eligibility.length ? <p>No enrolled programs available. <Link to="/member/courses">Explore courses</Link></p> : <div className="certificate-grid">{query.data.eligibility.map((item) => <article key={item.enrollmentId} className="card certificate-card">
           <h3>{item.courseTitle}</h3><p>{item.courseCode} · Enrollment #{item.enrollmentId}</p>
+          <p>{item.progressPercent != null ? `Progress ${item.progressPercent}% · Required 100%` : 'Progress unavailable · Required 100%'}</p>
           {item.attendanceRate != null ? <p>Attendance {item.attendanceRate}% · Assessments passed {item.passedAssessmentCount}/{item.assessmentCount}</p> : null}
+          <p>Attendance required: 80% · All assessments must pass.</p>
+          {item.assessments?.length ? <ul className="certificate-assessments">{item.assessments.map((assessment) => <li key={assessment.id}><strong>{assessment.title}</strong><span>{assessment.status || (assessment.score == null ? 'Not graded' : assessment.score >= assessment.passScore ? 'Passed' : 'Not passed')}</span><small>Score: {assessment.score ?? '—'} · Pass score: {assessment.passScore}</small></li>)}</ul> : <p>No assessment details available.</p>}
           {item.reasons?.length ? <ul>{item.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul> : <p>{item.existingRequestId ? 'Your application is listed below.' : 'Eligible to apply'}</p>}
           <button className="btn btn-primary" disabled={busy || !item.isEligible || Boolean(item.existingRequestId)} onClick={() => submit(item.enrollmentId)}>{item.existingRequestId ? 'Already requested' : busy ? 'Submitting…' : 'Request certificate'}</button>
         </article>)}</div>}

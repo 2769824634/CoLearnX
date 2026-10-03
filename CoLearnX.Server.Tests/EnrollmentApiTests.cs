@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
+using CoLearnX.Server.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -41,6 +42,7 @@ public class EnrollmentApiTests : IClassFixture<CoLearnXApiFactory>
 
         var member = await ApiClient.AsMemberAsync(_factory, email);
         var (courseId, sessionId) = await FirstPublishedSessionAsync(member);
+        await OpenForRegistrationAsync(courseId, sessionId);
 
         var response = await member.PostAsJsonAsync(
             "/api/enrollments",
@@ -70,6 +72,7 @@ public class EnrollmentApiTests : IClassFixture<CoLearnXApiFactory>
         var detail = await member.GetFromJsonAsync<CourseDetailDto>($"/api/courses/{target.Id}", ApiJson.Options)
             ?? throw new InvalidOperationException("Course detail missing.");
         var session = detail.Sessions[0];
+        await OpenForRegistrationAsync(target.Id, session.Id);
         var balanceBefore = (await member.GetFromJsonAsync<UserMeDto>("/api/auth/me", ApiJson.Options))!.CreditBalance;
 
         var response = await member.PostAsJsonAsync(
@@ -102,6 +105,13 @@ public class EnrollmentApiTests : IClassFixture<CoLearnXApiFactory>
             session.PhysicalBookingDeadline = null;
             session.MeetingLink = "https://meet.example.com/demo";
             session.SeatsTaken = 0;
+            session.CourseIntake.RegistrationOpensAt = DateTime.UtcNow.AddDays(-1);
+            session.CourseIntake.RegistrationClosesAt = DateTime.UtcNow.AddDays(5);
+            session.CourseIntake.StartsAt = DateTime.UtcNow.AddDays(20);
+            session.CourseIntake.EndsAt = session.CourseIntake.StartsAt.AddDays(1);
+            session.CourseIntake.Status = CourseIntakeStatus.Published;
+            session.StartsAt = session.CourseIntake.StartsAt;
+            session.EndsAt = session.StartsAt.AddHours(2);
             await db.SaveChangesAsync();
             courseId = session.CourseIntake.CourseId;
             sessionId = session.Id;
@@ -123,5 +133,23 @@ public class EnrollmentApiTests : IClassFixture<CoLearnXApiFactory>
         var detail = await client.GetFromJsonAsync<CourseDetailDto>($"/api/courses/{catalog[0].Id}", ApiJson.Options)
             ?? throw new InvalidOperationException("Course detail missing.");
         return (detail.Id, detail.Sessions[0].Id);
+    }
+
+    private async Task OpenForRegistrationAsync(int courseId, int sessionId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        var session = await db.CourseSessions.Include(s => s.CourseIntake)
+            .SingleAsync(s => s.Id == sessionId && s.CourseIntake.CourseId == courseId);
+        var intake = session.CourseIntake;
+        intake.RegistrationOpensAt = DateTime.UtcNow.AddDays(-1);
+        intake.RegistrationClosesAt = DateTime.UtcNow.AddDays(5);
+        intake.StartsAt = DateTime.UtcNow.AddDays(20);
+        intake.EndsAt = intake.StartsAt.AddDays(1);
+        intake.Status = CourseIntakeStatus.Published;
+        session.StartsAt = intake.StartsAt;
+        session.EndsAt = intake.StartsAt.AddHours(2);
+        if (session.PhysicalCapacity > 0) session.PhysicalBookingDeadline = DateTime.UtcNow.AddDays(5);
+        await db.SaveChangesAsync();
     }
 }

@@ -30,21 +30,23 @@ test('editing an unrelated field preserves the later occurrence of a repeated DS
   const previous = process.env.TZ;
   try {
     process.env.TZ = 'America/New_York';
-    const original = { ...intake, registrationOpensAt: '2026-10-01T00:00:00Z', registrationClosesAt: '2026-10-31T00:00:00Z', startsAt: '2026-11-01T06:30:00.000Z', endsAt: '2026-11-01T08:00:00.000Z' };
+    const original = { ...intake, registrationOpensAt: '2026-10-01T00:00:00Z', registrationClosesAt: '2026-10-20T00:00:00Z', startsAt: '2026-11-01T06:30:00.000Z', endsAt: '2026-11-01T08:00:00.000Z' };
     assert.equal(schedulePayload(initialSchedule(original), original.version, original).startsAt, original.startsAt);
     const originalSession = { ...session, startsAt: original.startsAt, endsAt: original.endsAt };
     assert.equal(sessionPayload(initialSession(originalSession, original), original, originalSession).startsAt, original.startsAt);
   } finally { if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous; }
 });
 
-test('Intake ordering permits closing at delivery start but rejects reversed registration', () => {
-  const values = initialSchedule({ ...intake, registrationOpensAt: '2026-10-01T00:00:00Z', registrationClosesAt: intake.startsAt });
+test('Intake ordering requires registration to close ten days before delivery', () => {
+  const close = '2026-09-30T00:00:00.000Z';
+  const values = initialSchedule({ ...intake, registrationOpensAt: '2026-09-01T00:00:00Z', registrationClosesAt: close });
   const body = schedulePayload({ ...values, status: 'Published', trainerId: 99 }, intake.version);
-  assert.equal(body.registrationClosesAt, intake.startsAt);
+  assert.equal(body.registrationClosesAt, close);
   assert.equal(body.version, intake.version);
   assert.equal('status' in body, false);
   assert.equal('trainerId' in body, false);
   assert.throws(() => schedulePayload({ ...values, registrationOpensAt: values.registrationClosesAt }), (error) => Boolean(error.fieldErrors.registrationClosesAt));
+  assert.throws(() => schedulePayload({ ...values, registrationClosesAt: toLocalInput('2026-10-01T00:00:00.000Z') }), (error) => Boolean(error.fieldErrors.registrationClosesAt));
 });
 
 test('switching physical delivery off clears hidden physical fields and retains the latest parent version', () => {

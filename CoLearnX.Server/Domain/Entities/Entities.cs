@@ -14,6 +14,7 @@ public class User
     public string? Bio { get; set; }
     public string? AvatarUrl { get; set; }
     public int CreditBalance { get; set; }
+    public int HeldCredits { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime? EmailVerifiedAt { get; set; }
     public Guid SessionStamp { get; set; }
@@ -49,6 +50,8 @@ public class UserPreference
     public bool EmailNotifications { get; set; } = true;
     public bool DarkMode { get; set; }
     public string? LearningGoals { get; set; }
+    public DateTime? OnboardingCompletedAt { get; set; }
+    public DateTime? OnboardingSkippedAt { get; set; }
 
     public User User { get; set; } = null!;
 }
@@ -75,8 +78,14 @@ public class CreatorProfile
 public class Interest
 {
     public int Id { get; set; }
+    public string Slug { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Category { get; set; }
+    public int? ParentId { get; set; }
+    public int SortOrder { get; set; }
+    public bool IsActive { get; set; } = true;
+    public Interest? Parent { get; set; }
+    public ICollection<Interest> Children { get; set; } = new List<Interest>();
 }
 
 public class CourseLevel
@@ -101,6 +110,14 @@ public class UserInterest
     public int InterestId { get; set; }
 
     public User User { get; set; } = null!;
+    public Interest Interest { get; set; } = null!;
+}
+
+public class CourseInterest
+{
+    public int CourseId { get; set; }
+    public int InterestId { get; set; }
+    public Course Course { get; set; } = null!;
     public Interest Interest { get; set; } = null!;
 }
 
@@ -150,6 +167,7 @@ public class Course
     public ICollection<CourseMaterial> CourseMaterials { get; set; } = new List<CourseMaterial>();
     public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
     public ICollection<CourseIntakeRequest> IntakeRequests { get; set; } = new List<CourseIntakeRequest>();
+    public ICollection<CourseInterest> Interests { get; set; } = new List<CourseInterest>();
 }
 
 public class CourseLearningOutcome
@@ -220,6 +238,7 @@ public class MaterialUsageLog
     public int LearningMaterialId { get; set; }
     public int CourseId { get; set; }
     public int TrainerId { get; set; }
+    public int? CourseIntakeId { get; set; }
     public DateTime UsedAt { get; set; } = DateTime.UtcNow;
     public int? RoyaltyCredits { get; set; }
 
@@ -238,6 +257,9 @@ public class Enrollment
     public int CreditsSpent { get; set; }
     public DateTime EnrolledAt { get; set; } = DateTime.UtcNow;
     public DateTime? CompletedAt { get; set; }
+
+    public bool PostponementEligible { get; set; }
+    public int? PostponedFromEnrollmentId { get; set; }
 
     public User User { get; set; } = null!;
     public Course Course { get; set; } = null!;
@@ -264,6 +286,7 @@ public class ProgramRating
     public string? Comment { get; set; }
     public bool AllowTrainerView { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
 
     public Enrollment Enrollment { get; set; } = null!;
 }
@@ -305,6 +328,7 @@ public class CreditTransaction
     public string Description { get; set; } = string.Empty;
     public int Delta { get; set; }
     public int BalanceAfter { get; set; }
+    public int? HeldAfter { get; set; }
     public int? RelatedEnrollmentId { get; set; }
     public int? RelatedPaymentId { get; set; }
     public int? RelatedDisputeId { get; set; }
@@ -374,6 +398,10 @@ public class Notification
     public string Body { get; set; } = string.Empty;
     public bool IsRead { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public int? IntakeId { get; set; }
+    public bool EmailPending { get; set; }
+    public DateTime? EmailAttemptedAt { get; set; }
+    public DateTime? EmailSentAt { get; set; }
 
     public User User { get; set; } = null!;
 }

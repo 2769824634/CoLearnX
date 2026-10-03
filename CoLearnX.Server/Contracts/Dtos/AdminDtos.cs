@@ -64,8 +64,14 @@ public record AdminCourseDto(
     string? ReviewReason,
     int? ReviewedByAdminAccountId,
     DateTime CreatedAt,
-    DateTime? ReviewedAt);
+    DateTime? ReviewedAt,
+    IReadOnlyList<string>? LearningOutcomes = null,
+    string? LearningPath = null,
+    string? CreatorName = null);
 
 public record AdminCourseReviewResultDto(
     AdminCourseDto Course,
     bool AlreadyReviewed);
+
+public record AdminUserSummaryDto(int Id, string FullName, string Email, int CreditBalance,
+    int HeldCredits, bool IsActive, IReadOnlyList<string> Roles);

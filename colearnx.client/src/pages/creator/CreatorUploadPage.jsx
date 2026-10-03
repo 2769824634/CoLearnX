@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ApiError } from '../../api/client';
 import { creatorCoursesApi, materialsApi } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import MaterialList from '../../components/MaterialList';
+import { userFacingError } from '../businessPresentation';
 
 // Creator upload + library list. Keep: CreatorUploadPage
 export default function CreatorUploadPage() {
@@ -14,7 +14,12 @@ export default function CreatorUploadPage() {
   const [courseId, setCourseId] = useState('');
   const [file, setFile] = useState(null);
   const [courses, setCourses] = useState([]);
-  const [items, setItems] = useState([]);
+  const [coursesLoading, setCoursesLoading] = useState(true);
+  const [coursesError, setCoursesError] = useState('');
+  const [librarySnapshot, setLibrarySnapshot] = useState(null);
+  const currentLibrary = librarySnapshot?.token === token && librarySnapshot?.courseId === courseId ? librarySnapshot : null;
+  const items = currentLibrary?.items || [];
+  const materialsLoading = Boolean(courseId) && !currentLibrary;
   const [storage, setStorage] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -27,27 +32,31 @@ export default function CreatorUploadPage() {
 
   async function load(selectedCourseId = courseId) {
     const list = await materialsApi.list(undefined, selectedCourseId || undefined, token);
-    setItems(list);
+    setLibrarySnapshot({ token, courseId: selectedCourseId, items: list });
   }
 
   useEffect(() => {
+    let cancelled = false;
     creatorCoursesApi.list(token)
-      .then(setCourses)
-      .catch((err) => setError(err.message || 'Failed to load courses'));
+      .then((list) => { if (!cancelled) setCourses(list); })
+      .catch((err) => { if (!cancelled) setCoursesError(userFacingError(err, 'Could not load your courses. Reload this page to retry.')); })
+      .finally(() => { if (!cancelled) setCoursesLoading(false); });
     materialsApi.storage(token).then(setStorage).catch(() => setStorage(null));
+    return () => { cancelled = true; };
   }, [token]);
 
   useEffect(() => {
     if (!courseId) return undefined;
     let cancelled = false;
     materialsApi.list(undefined, courseId, token)
-      .then((list) => { if (!cancelled) setItems(list); })
-      .catch((err) => { if (!cancelled) setError(err.message || 'Failed to load materials'); });
+      .then((list) => { if (!cancelled) setLibrarySnapshot({ token, courseId, items: list }); })
+      .catch((err) => { if (!cancelled) setLibrarySnapshot({ token, courseId, error: userFacingError(err, 'Could not load the course library.') }); });
     return () => { cancelled = true; };
   }, [token, courseId]);
 
   async function onSubmit(e) {
     e.preventDefault();
+    if (busy) return;
     setError('');
     if (!courseId) {
       setError('Choose the Course this material belongs to.');
@@ -68,7 +77,7 @@ export default function CreatorUploadPage() {
       await load(courseId);
       showToast('Uploaded.');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Upload failed.');
+      setError(userFacingError(err, 'The upload could not be confirmed. Check the course library before uploading again.'));
     } finally {
       setBusy(false);
     }
@@ -83,23 +92,23 @@ export default function CreatorUploadPage() {
         <div className="card-header">New material</div>
         <div className="card-body">
           {error ? (
-            <div className="callout" style={{ marginBottom: 12 }}>
-              <div className="callout-title">Could not upload</div>
+            <div className="callout" role="alert" style={{ marginBottom: 12 }}>
+              <div className="callout-title">Material operation needs attention</div>
               {error}
             </div>
           ) : null}
-          {!courses.length ? (
+          {coursesLoading ? <p role="status">Loading your courses…</p> : coursesError ? <p role="alert">{coursesError}</p> : !courses.length ? (
             <p className="page-sub" style={{ margin: 0 }}>
               Create a Course first, then upload materials onto it. <Link to="/creator/courses/new">Create Course</Link>
             </p>
           ) : (
-            <form onSubmit={onSubmit}>
+            <form onSubmit={onSubmit}><fieldset disabled={busy} style={{ border: 0, padding: 0, minWidth: 0 }}>
               <div className="form-group">
                 <label htmlFor="material-course">Course</label>
                 <select id="material-course" required value={courseId} onChange={(e) => {
                   const next = e.target.value;
                   setCourseId(next);
-                  if (!next) setItems([]);
+                  setError('');
                 }}>
                   <option value="">Choose a course</option>
                   {courses.map((course) => (
@@ -145,7 +154,7 @@ export default function CreatorUploadPage() {
               <button type="submit" className="btn btn-primary" disabled={busy}>
                 {busy ? 'Uploading…' : 'Upload'}
               </button>
-            </form>
+            </fieldset></form>
           )}
         </div>
       </div>
@@ -153,7 +162,7 @@ export default function CreatorUploadPage() {
       <div className="card">
         <div className="card-header">{courseId ? 'Course library' : 'Library'}</div>
         <div className="card-body" style={{ padding: items.length ? 0 : 16 }}>
-          <MaterialList items={items} cloudLinks={Boolean(storage?.cloudLinks)} onError={setError} onCopied={showToast} />
+          {!courseId ? <p>Choose a course to view its library.</p> : materialsLoading ? <p role="status">Loading course library…</p> : currentLibrary?.error ? <p role="alert">{currentLibrary.error}</p> : <MaterialList items={items} cloudLinks={Boolean(storage?.cloudLinks)} onError={(message) => setError(userFacingError({ message }, 'Could not download this material.'))} onCopied={showToast} />}
         </div>
       </div>
       {toast ? <div className="toast show">{toast}</div> : null}

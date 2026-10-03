@@ -14,10 +14,13 @@ public interface IAdminAuthService
 public class AdminAuthService(
     CoLearnXDbContext db,
     IAdminTokenService tokens,
-    IAuditLogService auditLogs) : IAdminAuthService
+    IAuditLogService auditLogs,
+    IHostEnvironment? environment = null) : IAdminAuthService
 {
     public async Task<AdminAuthResponse> LoginAsync(AdminLoginRequest request, CancellationToken ct = default)
     {
+        if (environment?.IsProduction() == true && request.Password == SeedData.DemoPassword)
+            throw new UnauthorizedAccessException("Invalid email or password.");
         var email = request.Email.Trim().ToLowerInvariant();
         var admin = await db.AdminAccounts.SingleOrDefaultAsync(account => account.Email == email, ct);
 

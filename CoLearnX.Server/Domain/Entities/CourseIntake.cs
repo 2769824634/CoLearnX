@@ -12,6 +12,13 @@ public class CourseIntake
     public DateTime StartsAt { get; set; }
     public DateTime EndsAt { get; set; }
     public CourseIntakeStatus Status { get; set; } = CourseIntakeStatus.Draft;
+    public int MinEnrollment { get; set; } = 10;
+    public DateTime? ConfirmedToRunAt { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public string? CancellationReason { get; set; }
+    public int? ReplacementForIntakeId { get; set; }
+    public CourseIntake? ReplacementForIntake { get; set; }
+    public CourseIntake? ReplacementIntake { get; set; }
     public DateTime? SubmittedAt { get; set; }
     public int? ConfirmedByCreatorId { get; set; }
     public DateTime? ConfirmedAt { get; set; }

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { authApi, roleRequestsApi } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import Modal from '../../components/Modal';
+import { countStatementWords } from './roleApplicationUtils';
 
 const APPLY_ROLES = [
   { id: 'Trainer', blurb: 'Run intakes, attendance and certificates.' },
@@ -17,36 +18,11 @@ function latestFor(requests, role) {
   return requests.find((item) => item.requestedRole === role);
 }
 
-export function countStatementWords(text) {
-  if (!text) return 0;
-  let count = 0;
-  let inLatin = false;
-  for (const ch of text) {
-    const code = ch.codePointAt(0);
-    const isHan = (code >= 0x3400 && code <= 0x4dbf)
-      || (code >= 0x4e00 && code <= 0x9fff)
-      || (code >= 0xf900 && code <= 0xfaff);
-    if (isHan) {
-      if (inLatin) {
-        count += 1;
-        inLatin = false;
-      }
-      count += 1;
-    } else if (/\s/.test(ch)) {
-      if (inLatin) {
-        count += 1;
-        inLatin = false;
-      }
-    } else if (/[\p{L}\p{N}]/u.test(ch)) {
-      inLatin = true;
-    }
-  }
-  if (inLatin) count += 1;
-  return count;
-}
-
 export default function RoleApplicationsPanel() {
   const { user, refreshUser } = useAuth();
+  const userRef = useRef(user);
+  const refreshUserRef = useRef(refreshUser);
+  const userId = user?.id;
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -60,6 +36,11 @@ export default function RoleApplicationsPanel() {
   const canSubmit = Boolean(resume && idDocument && statement.trim() && wordCount > 0 && wordCount <= MAX_STATEMENT_WORDS);
 
   useEffect(() => {
+    userRef.current = user;
+    refreshUserRef.current = refreshUser;
+  }, [user, refreshUser]);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -68,10 +49,10 @@ export default function RoleApplicationsPanel() {
         const items = await roleRequestsApi.my();
         if (cancelled) return;
         setRequests(items);
-        const owned = roleSet(user);
+        const owned = roleSet(userRef.current);
         if (items.some((item) => item.status === 'Approved' && !owned.has(item.requestedRole))) {
           const me = await authApi.me();
-          if (!cancelled) refreshUser(me);
+          if (!cancelled) refreshUserRef.current(me);
         }
       } catch (err) {
         if (!cancelled) setError(err.message || 'Role requests could not be loaded.');
@@ -82,7 +63,7 @@ export default function RoleApplicationsPanel() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [userId]);
 
   function openApply(role) {
     if (busyRole) return;
@@ -123,14 +104,14 @@ export default function RoleApplicationsPanel() {
       <div className="card-body">
         <p style={{ fontSize: 12, color: 'var(--slate)', marginTop: 0 }}>
           Apply for Trainer or Creator. After you click Apply, upload a resume, identity document and a short statement.
-          Files go to the role-requests store, not course materials. Approved roles appear in the workspace switcher.
+          Files are used only to review this role application. Approved roles appear in the workspace switcher.
         </p>
         {loading ? <p className="page-sub">Loading applications…</p> : null}
         {error && !applyRole ? <p className="trainer-error" role="alert">{error}</p> : null}
-        {APPLY_ROLES.map((role) => {
+        {!loading && (!error || applyRole) ? APPLY_ROLES.map((role) => {
           const latest = latestFor(requests, role.id);
           const owned = granted.has(role.id);
-          let statusText = 'Not requested';
+          let statusText = 'No application yet';
           let action = !owned ? (
             <button
               type="button"
@@ -167,7 +148,7 @@ export default function RoleApplicationsPanel() {
               {action}
             </div>
           );
-        })}
+        }) : null}
       </div>
 
       <Modal

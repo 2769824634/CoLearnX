@@ -27,12 +27,12 @@ public sealed class TrainerApiErrorsAttribute : ActionFilterAttribute, IExceptio
             context.Result = new ObjectResult(new ApiError(error.Code, error.Message, error.FieldErrors)) { StatusCode = error.StatusCode };
             context.ExceptionHandled = true;
         }
-        else if (context.Exception is DbUpdateException)
+        else if (context.Exception is not OperationCanceledException)
         {
             context.HttpContext.RequestServices.GetRequiredService<ILogger<TrainerApiErrorsAttribute>>()
-                .LogError(context.Exception, "Trainer Intake persistence failed");
-            context.Result = new ObjectResult(new ApiError("INTAKE_SAVE_FAILED", "The Intake could not be saved. Reload before trying again.",
-                new Dictionary<string, string[]>())) { StatusCode = StatusCodes.Status500InternalServerError };
+                .LogError(context.Exception, "Trainer Intake operation failed; traceId={TraceId}", context.HttpContext.TraceIdentifier);
+            context.Result = new ObjectResult(new ApiError("INTAKE_SAVE_FAILED", "The Intake result could not be confirmed. Reload your classes before trying again.",
+                new Dictionary<string, string[]>(), context.HttpContext.TraceIdentifier)) { StatusCode = StatusCodes.Status500InternalServerError };
             context.ExceptionHandled = true;
         }
     }

@@ -34,11 +34,12 @@ export default function MemberAccountPage() {
       <MemberShell
         title="Profile / My Account"
       >
-        <div className="grid-2-1" style={{ gridTemplateColumns: '240px 1fr' }}>
+        <div className="grid-2-1 member-account-grid">
           <div style={{ textAlign: 'center' }}>
             <AvatarEditor />
             <div style={{ fontWeight: 600 }}>{state.user.fullName}</div>
             <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 4 }}>Display name · {state.user.displayName}</div>
+            <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 4 }}>Shown in greetings and workspace navigation.</div>
             <div className="card" style={{ marginTop: 16, textAlign: 'left' }}>
               <div className="card-body">
                 <div style={{ fontSize: 12, color: 'var(--slate)' }}>Credit Balance</div>
@@ -50,12 +51,13 @@ export default function MemberAccountPage() {
             </div>
           </div>
           <div>
-            <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
               <div style={{ flex: 1 }}>
                 <h3 style={{ fontSize: 15, marginBottom: 4 }}>Account details</h3>
-                <p style={{ fontSize: 12, color: 'var(--slate)', margin: 0 }}>Privacy protected. Edit via modal.</p>
+                <p style={{ fontSize: 12, color: 'var(--slate)', margin: 0 }}>Privacy protected. Update profile details from Edit Profile.</p>
               </div>
               <button type="button" className="btn btn-primary" onClick={openEdit}>Edit Profile</button>
+              <button type="button" className="btn btn-ghost" onClick={() => navigate('/member/onboarding')}>Edit interests</button>
             </div>
             <div className="card" style={{ marginBottom: 12 }}>
               <div className="card-header">Personal info <span className="pill" style={{ marginLeft: 8 }}>Masked</span></div>

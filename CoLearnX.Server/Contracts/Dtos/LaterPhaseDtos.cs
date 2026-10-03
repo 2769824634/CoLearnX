@@ -27,7 +27,10 @@ public record MaterialVersionDto(
     bool AlreadyReviewed = false,
     int CourseId = 0,
     string? CourseCode = null,
-    string? CourseTitle = null);
+    string? CourseTitle = null,
+    string? CourseStatus = null,
+    string? FileName = null,
+    long? FileSizeBytes = null);
 
 public record AttachIntakeMaterialRequest([Range(1, int.MaxValue)] int MaterialVersionId);
 
@@ -66,7 +69,8 @@ public record TrainerLearnerDto(
     int AssessmentsGraded,
     int AssessmentsPassed,
     string? AttendanceStatus,
-    string? CertificateRequestStatus);
+    string? CertificateRequestStatus,
+    int AssessmentsTotal = 0);
 
 public record CreateAssessmentRequest(
     [Required, MaxLength(160)] string Title,
@@ -131,7 +135,11 @@ public record CertificateEligibilityDto(
     int AssessmentCount,
     int PassedAssessmentCount,
     int? ExistingRequestId,
-    string? ExistingRequestStatus);
+    string? ExistingRequestStatus,
+    int ProgressPercent = 0,
+    IReadOnlyList<CertificateAssessmentProgressDto>? Assessments = null);
+
+public record CertificateAssessmentProgressDto(int Id, string Title, int? Score, int PassScore, string Status);
 
 public record AdminCreditLedgerItemDto(
     int Id,
@@ -145,7 +153,8 @@ public record AdminCreditLedgerItemDto(
     int BalanceAfter,
     int? RelatedEnrollmentId,
     int? RelatedDisputeId,
-    int? AdminAccountId);
+    int? AdminAccountId,
+    int? HeldAfter = null);
 
 public record AdminCreditAdjustmentRequest(
     [Range(1, int.MaxValue)] int UserId,
@@ -187,4 +196,10 @@ public record DisputeDto(
     DateTime CreatedAt,
     DateTime? ResolvedAt,
     int? BalanceAfter = null,
-    bool Replayed = false);
+    bool Replayed = false,
+    int? CourseIntakeId = null,
+    int? CourseSessionId = null,
+    string? SessionLabel = null,
+    DateTime? StartsAt = null,
+    DateTime? EndsAt = null,
+    string? EnrollmentStatus = null);

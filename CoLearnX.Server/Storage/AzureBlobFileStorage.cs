@@ -67,4 +67,15 @@ public sealed class AzureBlobFileStorage : IFileStorage
         builder.SetPermissions(BlobSasPermissions.Read);
         return blob.GenerateSasUri(builder);
     }
+
+    public async Task DeleteAsync(string key, CancellationToken ct = default)
+        => await _container.GetBlobClient(key).DeleteIfExistsAsync(cancellationToken: ct);
+
+    public async Task<StorageFileInfo?> GetInfoAsync(string key, CancellationToken ct = default)
+    {
+        var blob = _container.GetBlobClient(key);
+        if (!await blob.ExistsAsync(ct)) return null;
+        var properties = await blob.GetPropertiesAsync(cancellationToken: ct);
+        return new StorageFileInfo(properties.Value.ContentLength);
+    }
 }

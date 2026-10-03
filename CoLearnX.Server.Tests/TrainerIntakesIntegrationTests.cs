@@ -28,7 +28,7 @@ public class TrainerIntakesIntegrationTests
 {
     private static readonly DateTime Start = new(2027, 2, 1, 9, 0, 0, DateTimeKind.Utc);
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-    private static CreateCourseIntakeRequest Draft => new(Start.AddDays(-20), Start.AddDays(-1), Start, Start.AddDays(3));
+    private static CreateCourseIntakeRequest Draft => new(Start.AddDays(-20), Start.AddDays(-10), Start, Start.AddDays(3));
     private static CreateCourseSessionRequest Session(Guid version) => new("Session 1", Start, Start.AddHours(1), "https://example.com/class", null, 0, null, version);
     private static string Intake(int id) => $"/api/trainer/intakes/{id}";
     private const string CreatePath = "/api/trainer/courses/100/intakes";

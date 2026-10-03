@@ -15,6 +15,7 @@ internal static class CourseIntakeModelConfiguration
             {
                 table.HasCheckConstraint("CK_CourseIntakes_Dates", "RegistrationOpensAt < RegistrationClosesAt AND RegistrationClosesAt <= StartsAt AND StartsAt < EndsAt");
                 table.HasCheckConstraint("CK_CourseIntakes_Status", "Status BETWEEN 0 AND 6");
+                table.HasCheckConstraint("CK_CourseIntakes_MinEnrollment", "MinEnrollment BETWEEN 2 AND 200");
             });
             e.Property(x => x.Version).IsConcurrencyToken();
             e.Property(x => x.RegistrationOpensAt).HasConversion(utc);
@@ -23,6 +24,12 @@ internal static class CourseIntakeModelConfiguration
             e.Property(x => x.EndsAt).HasConversion(utc);
             e.Property(x => x.SubmittedAt).HasConversion(utc);
             e.Property(x => x.ConfirmedAt).HasConversion(utc);
+            e.Property(x => x.ConfirmedToRunAt).HasConversion(utc);
+            e.Property(x => x.CancelledAt).HasConversion(utc);
+            e.Property(x => x.CancellationReason).HasMaxLength(64);
+            e.HasOne(x => x.ReplacementForIntake).WithOne(x => x.ReplacementIntake)
+                .HasForeignKey<CourseIntake>(x => x.ReplacementForIntakeId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.ReplacementForIntakeId).IsUnique().HasFilter("ReplacementForIntakeId IS NOT NULL");
             e.Property(x => x.ConfirmationNote).HasMaxLength(512);
             e.HasIndex(x => new { x.TrainerId, x.Status });
             e.HasOne(x => x.Course).WithMany(x => x.Intakes).HasForeignKey(x => x.CourseId).OnDelete(DeleteBehavior.Restrict);
@@ -66,5 +73,9 @@ internal static class CourseIntakeModelConfiguration
         });
         modelBuilder.Entity<AttendanceRecord>().HasOne(x => x.CourseSession).WithMany(x => x.AttendanceRecords)
             .HasForeignKey(x => x.CourseSessionId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Enrollment>().HasOne<Enrollment>().WithMany()
+            .HasForeignKey(x => x.PostponedFromEnrollmentId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Enrollment>().HasIndex(x => x.PostponedFromEnrollmentId).IsUnique()
+            .HasFilter("PostponedFromEnrollmentId IS NOT NULL");
     }
 }

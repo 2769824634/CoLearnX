@@ -28,9 +28,14 @@ export default function EmailVerificationPage() {
     <div className="auth-body">
       <h2>Verify your email</h2>
       {!message && !error ? <p role="status">Verifying…</p> : null}
-      {message ? <p className="callout" role="status">{message}</p> : null}
+      {message ? (
+        <>
+          <p className="callout" role="status">{message}</p>
+          <p>Email verification is complete. You can sign in now.</p>
+        </>
+      ) : null}
       {error ? <p className="callout warn" role="alert">{error}</p> : null}
-      <p className="auth-footer"><Link to="/login">Sign in</Link></p>
+      <p className="auth-footer"><Link className={message ? 'btn btn-primary' : undefined} to="/login">Sign in</Link></p>
     </div>
   </div></div>;
 }

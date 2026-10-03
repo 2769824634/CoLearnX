@@ -98,4 +98,49 @@ describe('Account registration', () => {
     expect(await screen.findByText('Check your email to verify your account before signing in.')).toBeTruthy();
     expect(auth.isAuthenticated).toBe(false);
   });
+
+  it('shows the exact password rule that failed and clears it after editing', async () => {
+    render(
+      <MemoryRouter initialEntries={['/register']}>
+        <AuthContext.Provider value={auth}>
+          <AppRouter />
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'New Learner' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'learner@example.test' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'weak' } });
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'weak' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(await screen.findByText(/Password must be 10–72 characters/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'StrongPass123!' } });
+    expect(screen.queryByText(/Password must be 10–72 characters/)).toBeNull();
+  });
+
+  it('masks the target mailbox and explains spam-folder delivery after registration', async () => {
+    auth.register.mockResolvedValue({
+      emailVerificationRequired: true,
+      message: 'Check your email to verify your account before signing in.',
+    });
+    render(
+      <MemoryRouter initialEntries={['/register']}>
+        <AuthContext.Provider value={auth}>
+          <AppRouter />
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'New Learner' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'learner@example.test' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'StrongPass123!' } });
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'StrongPass123!' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(await screen.findByText('l****r@example.test')).toBeTruthy();
+    expect(screen.getByText(/spam|junk/i)).toBeTruthy();
+    expect(screen.getByText(/few minutes|wait/i)).toBeTruthy();
+    expect(screen.queryByText('learner@example.test')).toBeNull();
+  });
 });

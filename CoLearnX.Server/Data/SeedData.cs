@@ -13,21 +13,34 @@ public static class SeedData
     public const string CreatorEmail = "zou.ruiqi@colearnx.com";
     public const string AdminEmail = "zhu.zirui@colearnx.com";
 
-    public static async Task InitializeAsync(CoLearnXDbContext db)
+    public static async Task InitializeAsync(CoLearnXDbContext db, bool seedDemoAdmin = true)
     {
         await db.Database.EnsureCreatedAsync();
         if (db.Database.IsSqlite())
             await EnsureSqliteCourseCoreSchemaAsync(db);
         else if (db.Database.IsSqlServer())
             await EnsureSqlServerAccountTokenSchemaAsync(db);
+        await RecommendationSeed.EnsureSchemaAsync(db);
+        await CreditReservationSchema.EnsureAsync(db);
+        await NotificationSchema.EnsureAsync(db);
+        await MaterialUsageSchema.EnsureAsync(db);
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
         var verifiedAt = DateTime.UtcNow;
 
         await EnsureCourseTaxonomyAsync(db);
+        await RecommendationSeed.EnsureInterestsAsync(db);
 
         var adminAccount = await db.AdminAccounts.SingleOrDefaultAsync(
             account => account.Email == AdminEmail);
-        if (adminAccount is null)
+        if (adminAccount is not null && !seedDemoAdmin
+            && BCrypt.Net.BCrypt.Verify(DemoPassword, adminAccount.PasswordHash))
+        {
+            adminAccount.IsActive = false;
+            adminAccount.SessionStamp = Guid.NewGuid();
+            adminAccount.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+        if (adminAccount is null && seedDemoAdmin)
         {
             adminAccount = new AdminAccount
             {
@@ -55,6 +68,8 @@ public static class SeedData
             await EnsureRoleRequestFixturesAsync(db);
             await EnsureCourseReviewFixturesAsync(db);
             await EnsureLaterPhaseFixturesAsync(db);
+            await RecommendationSeed.EnsureCourseTagsAsync(db);
+            await RecommendationSeed.EnsureDemoProfileAndRatingsAsync(db);
             return;
         }
 
@@ -392,6 +407,8 @@ public static class SeedData
         await EnsureRoleRequestFixturesAsync(db);
         await EnsureCourseReviewFixturesAsync(db);
         await EnsureLaterPhaseFixturesAsync(db);
+        await RecommendationSeed.EnsureCourseTagsAsync(db);
+        await RecommendationSeed.EnsureDemoProfileAndRatingsAsync(db);
     }
 
     private static async Task EnsureDemoWorkspaceRolesAsync(CoLearnXDbContext db)

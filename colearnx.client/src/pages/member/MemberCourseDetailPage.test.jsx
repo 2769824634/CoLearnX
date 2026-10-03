@@ -51,6 +51,44 @@ function renderDetail(course, { credits = 200 } = {}) {
 }
 
 describe('Member course enrolment', () => {
+  const baseCourse = { id: 15, code: 'STATUS-1', title: 'Registration states', trainer: 'Trainer',
+    credits: 20, outcomes: [], alreadyEnrolled: false };
+  const openSession = { id: 60, label: 'Open session', when: 'Upcoming', capacity: 10, seats: 3,
+    startsAt: '2099-02-01T01:00:00Z', endsAt: '2099-02-01T03:00:00Z',
+    physical: true, intakeStatus: 'Published', intakeEnrollmentCount: 7, minEnrollment: 10,
+    registrationOpensAt: '2000-01-01T00:00:00Z', registrationClosesAt: '2099-01-01T00:00:00Z' };
+
+  it.each([
+    [{ seats: 0 }, 'Session full'],
+    [{ intakeStatus: 'Cancelled' }, 'Class cancelled'],
+    [{ cancelledAt: '2026-01-01T00:00:00Z' }, 'Class cancelled'],
+    [{ registrationOpensAt: '2098-01-01T00:00:00Z' }, 'Registration not open'],
+    [{ registrationClosesAt: '2001-01-01T00:00:00Z' }, 'Registration closed'],
+    [{ physicalBookingDeadline: '2001-01-01T00:00:00Z' }, 'Physical booking closed'],
+    [{ confirmedToRunAt: '2026-01-01T00:00:00Z' }, 'Class confirmed'],
+    [{ intakeStatus: 'InProgress' }, 'Class in progress'],
+    [{ intakeStatus: 'Completed' }, 'Class completed'],
+  ])('disables reservations for unavailable sessions: %s', async (changes, label) => {
+    const { enrol } = renderDetail({ ...baseCourse, sessions: [{ ...openSession, ...changes }] });
+    const button = await screen.findByRole('button', { name: label, exact: true });
+    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
+    expect(enrol).not.toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: 'Confirm Enrolment' })).toBeNull();
+  });
+
+  it('selects an open alternative and shows the whole Intake count', async () => {
+    renderDetail({ ...baseCourse, sessions: [
+      { ...openSession, id: 59, label: 'Cancelled session', intakeStatus: 'Cancelled' },
+      openSession,
+    ] });
+    const reserve = await screen.findByRole('button', { name: 'Reserve place' });
+    expect(reserve.disabled).toBe(false);
+    expect(screen.getAllByText(/7 learners reserved or enrolled · Minimum 10/).length).toBe(2);
+    fireEvent.click(reserve);
+    expect(screen.getByRole('heading', { name: 'Confirm Enrolment' })).toBeTruthy();
+  });
+
   it('does not crash when a published course has no sessions yet', async () => {
     const { showToast, enrol } = renderDetail({
       id: 9,
@@ -64,10 +102,12 @@ describe('Member course enrolment', () => {
     });
 
     expect(await screen.findByRole('heading', { name: 'NEW-1 — Fresh Course' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Enrol Now' }));
+    const reserve = screen.getByRole('button', { name: 'No available sessions' });
+    expect(reserve.disabled).toBe(true);
+    fireEvent.click(reserve);
 
     expect(enrol).not.toHaveBeenCalled();
-    expect(showToast).toHaveBeenCalledWith(expect.stringMatching(/no published session/i));
+    expect(showToast).not.toHaveBeenCalled();
     expect(showToast).not.toHaveBeenCalledWith(expect.stringMatching(/Cannot read properties/i));
     expect(screen.queryByRole('heading', { name: 'Confirm Enrolment' })).toBeNull();
   });
@@ -87,6 +127,7 @@ describe('Member course enrolment', () => {
         seats: 0,
         capacity: 0,
         physical: false,
+        startsAt: '2099-02-01T01:00:00Z', endsAt: '2099-02-01T03:00:00Z',
       }],
       alreadyEnrolled: false,
     });
@@ -94,7 +135,7 @@ describe('Member course enrolment', () => {
     expect(await screen.findByRole('heading', { name: 'ONL-1 — Online Course' })).toBeTruthy();
     expect(screen.getByText('Online')).toBeTruthy();
     expect(screen.queryByText('Full')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Enrol Now' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reserve place' }));
     expect(showToast).not.toHaveBeenCalledWith('Session full');
     expect(enrol).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Confirm Enrolment' })).toBeTruthy();
@@ -115,12 +156,13 @@ describe('Member course enrolment', () => {
         seats: 8,
         capacity: 10,
         physical: true,
+        startsAt: '2099-02-01T01:00:00Z', endsAt: '2099-02-01T03:00:00Z',
       }],
       alreadyEnrolled: false,
     }, { credits: 5 });
 
     expect(await screen.findByRole('heading', { name: 'LOW-1 — Credit Course' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Enrol Now' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reserve place' }));
 
     expect(enrol).not.toHaveBeenCalled();
     expect(showToast).not.toHaveBeenCalled();

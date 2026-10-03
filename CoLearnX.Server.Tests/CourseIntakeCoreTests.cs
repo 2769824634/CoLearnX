@@ -12,9 +12,27 @@ namespace CoLearnX.Server.Tests;
 public class CourseIntakeCoreTests
 {
     private static readonly DateTime Start = new(2027, 1, 10, 9, 0, 0, DateTimeKind.Utc);
-    private static CreateCourseIntakeRequest DraftRequest => new(Start.AddDays(-10), Start.AddDays(-1), Start, Start.AddDays(2));
+    private static CreateCourseIntakeRequest DraftRequest => new(Start.AddDays(-20), Start.AddDays(-10), Start, Start.AddDays(2));
     private static CreateCourseSessionRequest SessionRequest(Guid version) => new("Session 1", Start, Start.AddHours(1),
         "https://example.com/meeting", null, 0, null, version);
+
+    [Fact]
+    public async Task MinimumEnrollmentRulesRejectLateClosingAndUndersizedPhysicalRoom()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var late = DraftRequest with { RegistrationClosesAt = Start.AddDays(-9) };
+        Assert.Equal("INVALID_INTAKE_DATES", (await Assert.ThrowsAsync<CourseIntakeException>(
+            () => f.Service.CreateAsync(1, 1, late))).Code);
+        var draft = await f.Service.CreateAsync(1, 1, DraftRequest);
+        var smallRoom = SessionRequest(draft.Version) with
+        {
+            MeetingLink = null, PhysicalAddress = "Room 1", PhysicalCapacity = 9,
+            PhysicalBookingDeadline = Start.AddDays(-11),
+        };
+        Assert.Equal("CAPACITY_BELOW_MIN_ENROLLMENT", (await Assert.ThrowsAsync<CourseIntakeException>(
+            () => f.Service.AddSessionAsync(1, draft.Id, smallRoom))).Code);
+        Assert.Empty(await f.Db.CourseSessions.ToListAsync());
+    }
 
     [Fact]
     public async Task DraftToPending_PersistsSingleHierarchy_AndUserAudit()
@@ -226,8 +244,8 @@ public class CourseIntakeCoreTests
         d = await f.Service.AddSessionAsync(1, d.Id, SessionRequest(d.Version));
         var detail = await new CourseService(f.Db).GetByIdAsync(1, 3);
         Assert.Empty(detail!.Sessions);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => new EnrollmentService(f.Db).EnrolAsync(3,
-            new EnrolRequest(1, Assert.Single(d.Sessions).Id)));
+        Assert.Equal("REGISTRATION_CLOSED", (await Assert.ThrowsAsync<CourseException>(() => new EnrollmentService(f.Db).EnrolAsync(3,
+            new EnrolRequest(1, Assert.Single(d.Sessions).Id)))).Code);
         Assert.Empty(await f.Db.Enrollments.ToListAsync());
         Assert.Empty(await f.Db.CreditTransactions.ToListAsync());
         Assert.Equal(100, (await f.Db.Users.FindAsync(3))!.CreditBalance);
@@ -241,18 +259,21 @@ public class CourseIntakeCoreTests
         d = await f.Service.AddSessionAsync(1, d.Id, SessionRequest(d.Version) with {
             PhysicalAddress = "Room 1", PhysicalCapacity = 10, PhysicalBookingDeadline = Start.AddDays(-1) });
         (await f.Db.CourseIntakes.SingleAsync()).Status = CourseIntakeStatus.Published; // compatibility fixture only
+        (await f.Db.CourseIntakes.SingleAsync()).RegistrationOpensAt = DateTime.UtcNow.AddDays(-1);
         await f.Db.SaveChangesAsync();
         Assert.Single((await new CourseService(f.Db).GetByIdAsync(1, 3))!.Sessions);
         var service = new EnrollmentService(f.Db);
         var request = new EnrolRequest(1, Assert.Single(d.Sessions).Id);
         var result = await service.EnrolAsync(3, request);
         Assert.Equal(80, result.BalanceAfter);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.EnrolAsync(3, request));
+        Assert.Equal("ALREADY_ENROLLED", (await Assert.ThrowsAsync<CourseException>(() => service.EnrolAsync(3, request))).Code);
         Assert.Equal(1, await f.Db.Enrollments.CountAsync());
         var ledger = await f.Db.CreditTransactions.SingleAsync();
+        Assert.Equal(CreditTransactionType.Hold, ledger.Type);
+        Assert.Equal(EnrollmentStatus.Reserved, (await f.Db.Enrollments.SingleAsync()).Status);
         Assert.Equal(-20, ledger.Delta);
         Assert.Equal(80, ledger.BalanceAfter);
-        Assert.Equal(1, (await f.Db.CourseSessions.SingleAsync()).SeatsTaken);
+        Assert.Equal(1, (await f.Db.CourseSessions.AsNoTracking().SingleAsync()).SeatsTaken);
     }
 
     [Fact]

@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { certificatesApi, coursesApi, creditsApi, enrollmentsApi, usersApi } from '../../api';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { authApi, certificatesApi, coursesApi, creditsApi, enrollmentsApi, usersApi } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { MemberDataContext } from './memberDataState';
+import { utcDate } from '../../utils/utcDates';
+import { formatUtcRange, userFacingError } from '../businessPresentation';
 
 // Loads member catalog / enrollments / credits from API.
 function mapCourseListItem(c) {
@@ -10,11 +12,16 @@ function mapCourseListItem(c) {
     code: c.code,
     title: c.title,
     trainer: c.trainerName,
+    creatorName: c.creatorName,
+    trainerNames: c.trainerNames || [],
     credits: c.creditCost,
     level: c.level,
     topic: c.category,
     category: c.category,
     featured: c.isFeatured,
+    interests: c.interests || [],
+    averageStars: c.averageStars,
+    ratingCount: c.ratingCount || 0,
     wishlisted: c.inWishlist,
     sessions: [],
   };
@@ -26,6 +33,9 @@ function mapCourseDetail(c) {
     code: c.code,
     title: c.title,
     trainer: c.trainerName,
+    creatorName: c.creatorName,
+    trainerNames: c.trainerNames || [],
+    learningPath: c.learningPath,
     credits: c.creditCost,
     level: c.level,
     topic: c.category,
@@ -34,21 +44,34 @@ function mapCourseDetail(c) {
     outcomes: c.learningOutcomes || [],
     inWishlist: c.inWishlist,
     alreadyEnrolled: c.alreadyEnrolled,
+    interests: c.interests || [],
+    averageStars: c.averageStars,
+    ratingCount: c.ratingCount || 0,
     sessions: (c.sessions || []).map((s) => ({
       id: s.id,
       label: s.label,
-      when: `${new Date(s.startsAt).toLocaleString()} – ${new Date(s.endsAt).toLocaleTimeString()}`,
+      when: formatUtcRange(s.startsAt, s.endsAt),
       seats: s.seatsLeft,
       capacity: s.physicalCapacity ?? s.capacity ?? 0,
       physical: Boolean(s.physicalAddress),
       startsAt: s.startsAt,
       endsAt: s.endsAt,
+      registrationOpensAt: s.registrationOpensAt,
+      registrationClosesAt: s.registrationClosesAt,
+      physicalBookingDeadline: s.physicalBookingDeadline,
+      minEnrollment: s.minEnrollment ?? 10,
+      intakeStatus: s.intakeStatus,
+      intakeEnrollmentCount: s.intakeEnrollmentCount,
+      confirmedToRunAt: s.confirmedToRunAt,
+      cancelledAt: s.cancelledAt,
     })),
   };
 }
 
 export function MemberDataProvider({ children }) {
   const { user, refreshUser } = useAuth();
+  const refreshUserRef = useRef(refreshUser);
+  useEffect(() => { refreshUserRef.current = refreshUser; }, [refreshUser]);
   const [courses, setCourses] = useState([]);
   const [enrolled, setEnrolled] = useState([]);
   const [packages, setPackages] = useState([]);
@@ -56,6 +79,7 @@ export function MemberDataProvider({ children }) {
   const [certificates, setCertificates] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [toast, setToast] = useState('');
   const [insufficientOpen, setInsufficientOpen] = useState(false);
 
@@ -76,14 +100,17 @@ export function MemberDataProvider({ children }) {
 
   const reload = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
-      const [courseList, myEnrol, pkgs, myLedger, certs] = await Promise.all([
+      const [me, courseList, myEnrol, pkgs, myLedger, certs] = await Promise.all([
+        authApi.me(),
         coursesApi.list(),
         enrollmentsApi.my(),
         creditsApi.packages(),
         creditsApi.myLedger(),
         certificatesApi.my(),
       ]);
+      refreshUserRef.current(me);
       setCourses(courseList.map(mapCourseListItem));
       setWishlist(courseList.filter((c) => c.inWishlist).map((c) => c.id));
       setEnrolled(
@@ -97,6 +124,11 @@ export function MemberDataProvider({ children }) {
           trainer: e.trainerName,
           sessionId: e.courseSessionId,
           meetingLink: e.meetingLink,
+          heldCredits: e.heldCredits ?? 0,
+          registrationClosesAt: e.registrationClosesAt,
+          startsAt: e.startsAt,
+          withdrawalRefundCredits: e.withdrawalRefundCredits ?? null,
+          postponementOptions: e.postponementOptions ?? [],
           cert: e.status === 'Completed' ? 'Earned' : undefined,
         })),
       );
@@ -111,7 +143,7 @@ export function MemberDataProvider({ children }) {
       );
       setLedger(
         myLedger.map((l) => ({
-          date: new Date(l.createdAt).toLocaleDateString('en-GB', {
+          date: utcDate(l.createdAt).toLocaleDateString('en-GB', {
             day: '2-digit',
             month: 'short',
             year: 'numeric',
@@ -120,11 +152,14 @@ export function MemberDataProvider({ children }) {
           desc: l.description,
           delta: l.delta,
           balance: l.balanceAfter,
+          heldAfter: l.heldAfter,
         })),
       );
       setCertificates(certs);
     } catch (e) {
-      showToast(e.message || 'Failed to load member data');
+      const message = userFacingError(e, 'Could not load member data. Please retry.');
+      setLoadError(message);
+      showToast(message);
     } finally {
       setLoading(false);
     }
@@ -138,6 +173,8 @@ export function MemberDataProvider({ children }) {
   const state = useMemo(
     () => ({
       credits: user?.creditBalance ?? 0,
+      heldCredits: user?.heldCredits ?? 0,
+      totalCredits: user?.totalCredits ?? (user?.creditBalance ?? 0) + (user?.heldCredits ?? 0),
       user: {
         id: user?.id,
         fullName: user?.fullName ?? '',
@@ -162,20 +199,37 @@ export function MemberDataProvider({ children }) {
       packages,
       certificates,
       loading,
+      loadError,
     }),
-    [user, enrolled, wishlist, ledger, courses, packages, certificates, loading],
+    [user, enrolled, wishlist, ledger, courses, packages, certificates, loading, loadError],
   );
 
-  async function loadCourseDetail(id) {
+  const loadCourseDetail = useCallback(async (id) => {
     const detail = await coursesApi.get(id);
     return mapCourseDetail(detail);
-  }
+  }, []);
 
   async function enrol(courseId, sessionId) {
     const result = await enrollmentsApi.enrol(courseId, sessionId);
-    refreshUser({ ...user, creditBalance: result.balanceAfter });
+    refreshUser({ ...user, creditBalance: result.balanceAfter, heldCredits: result.heldAfter,
+      totalCredits: result.balanceAfter + result.heldAfter });
     await reload();
-    return { ok: true, balance: result.balanceAfter, creditsSpent: result.creditsSpent };
+    return { ok: true, balance: result.balanceAfter, creditsSpent: result.creditsSpent,
+      heldAfter: result.heldAfter, status: result.status };
+  }
+
+  async function changeEnrollment(id, action) {
+    if (action === 'cancel') await enrollmentsApi.cancelReservation(id);
+    else await enrollmentsApi.withdraw(id);
+    refreshUser(await authApi.me());
+    await reload();
+  }
+
+  async function acceptPostponement(id, courseSessionId) {
+    const result = await enrollmentsApi.acceptPostponement(id, courseSessionId);
+    refreshUser({ ...user, creditBalance: result.balanceAfter, heldCredits: result.heldAfter,
+      totalCredits: result.balanceAfter + result.heldAfter });
+    await reload();
   }
 
   async function applyLedgerTopUp(row) {
@@ -211,7 +265,7 @@ export function MemberDataProvider({ children }) {
       );
       showToast(result.inWishlist ? 'Saved to wishlist' : 'Removed from wishlist');
     } catch (e) {
-      showToast(e.message || 'Wishlist update failed');
+      showToast(userFacingError(e, 'Could not update your wishlist. Please try again.'));
     }
   }
 
@@ -221,6 +275,8 @@ export function MemberDataProvider({ children }) {
     insufficientOpen,
     showToast,
     closeInsufficientCredits,
+    changeEnrollment,
+    acceptPostponement,
     reload,
     loadCourseDetail,
     enrol,

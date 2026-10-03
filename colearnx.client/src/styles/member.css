@@ -492,6 +492,31 @@ a {
   gap: 12px;
 }
 
+.member-wallet {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  background: var(--purple-soft);
+  color: var(--charcoal);
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.member-shell .topbar-actions { flex-wrap: wrap; }
+.member-shell .topbar-actions .btn { white-space: nowrap; }
+@media (min-width: 901px) {
+  .member-shell .topbar { grid-template-columns: minmax(120px, 0.6fr) minmax(160px, 1.4fr) auto; }
+}
+
+.member-wallet strong { color: var(--purple); font-size: 18px; }
+.member-wallet small { color: var(--slate); }
+.member-wallet:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+.course-rating { margin-top: 8px; }
+
 .topbar-actions .btn {
   padding: 10px 16px;
   font-size: 14px;
@@ -672,6 +697,11 @@ a {
   border-right: 1px solid var(--border);
   flex-shrink: 0;
   background: var(--chrome);
+}
+
+.nav-scroll-hint {
+  display: none;
+  margin: 0;
 }
 
 .nav-item {
@@ -907,6 +937,19 @@ a {
   border-color: var(--purple);
   background: var(--purple-soft);
 }
+
+.member-session-option {
+  width: 100%;
+  text-align: left;
+  flex-wrap: wrap;
+  background: var(--white);
+  color: var(--charcoal);
+  font-family: inherit;
+}
+
+.member-session-option:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+.member-session-status { color: var(--purple); font-weight: 600; }
+.member-session-summary { flex-basis: 100%; color: var(--slate); font-size: 12px; }
 
 .session-option.full {
   opacity: 0.5;
@@ -1340,6 +1383,16 @@ a {
     overflow-x: auto;
   }
 
+  .nav-scroll-hint {
+    display: block;
+    padding: 6px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--chrome);
+    color: var(--slate);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
   .nav-item {
     white-space: nowrap;
     border-left: none;
@@ -1363,6 +1416,14 @@ a {
 }
 
 /* Member achievements and inbox share the existing card and color tokens. */
+.member-account-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; }
+.member-account-grid > *, .grid-2-1 > * { min-width: 0; }
+.member-course-overview p { line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.member-session-option { white-space: normal; overflow-wrap: anywhere; }
+.certificate-assessments { padding-left: 20px; }
+.certificate-assessments li { margin-bottom: 12px; }
+.certificate-assessments :is(strong, span, small) { display: block; }
+@media (max-width: 900px) { .member-account-grid { grid-template-columns: minmax(0, 1fr); } }
 .certificate-intro,.certificate-heading,.notification-tools,.notification-item-actions { display:flex; align-items:center; gap:12px; justify-content:space-between; flex-wrap:wrap; }
 .certificate-intro { margin-bottom:24px; }
 .certificate-intro p { flex:1; min-width:220px; color:var(--slate); }

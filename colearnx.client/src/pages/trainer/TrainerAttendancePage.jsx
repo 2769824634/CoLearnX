@@ -3,15 +3,19 @@ import { trainerIntakesApi } from '../../api/trainerIntakes';
 import { trainerLaterPhaseApi } from '../../api/trainerLaterPhase';
 import { TrainerError, TrainerHeader, TrainerLoading } from './TrainerUi';
 import useTrainerQuery from './useTrainerQuery';
+import { formatUtcRange } from '../businessPresentation';
 
 async function loadAttendance(token, _key, signal) {
-  const summaries = await trainerIntakesApi.list(token, signal);
+  const [summaries, catalog] = await Promise.all([
+    trainerIntakesApi.list(token, signal), trainerIntakesApi.publishedCourses(token, signal),
+  ]);
   const cohorts = await Promise.all(summaries.map(async (summary) => {
     const [intake, learners] = await Promise.all([
       trainerIntakesApi.get(token, summary.id, signal),
       trainerLaterPhaseApi.learners(token, summary.id, signal),
     ]);
-    return { ...intake, learners };
+    const course = catalog.find((item) => item.id === intake.courseId);
+    return { ...intake, learners, courseCode: course?.code, courseTitle: course?.title };
   }));
   return cohorts;
 }
@@ -26,7 +30,8 @@ export default function TrainerAttendancePage() {
   const [notice, setNotice] = useState('');
   const intake = query.data?.find((item) => String(item.id) === intakeChoice) || query.data?.[0];
   const session = intake?.sessions.find((item) => String(item.id) === sessionChoice) || intake?.sessions[0];
-  const learners = useMemo(() => intake?.learners.filter((item) => item.courseSessionId === session?.id) || [], [intake, session]);
+  const learners = useMemo(() => intake?.learners.filter((item) => item.courseSessionId === session?.id
+    && ['Active', 'Completed'].includes(item.enrollmentStatus)) || [], [intake, session]);
 
   async function saveAttendance() {
     if (!intake || !session || !learners.length || saving) return;
@@ -54,12 +59,13 @@ export default function TrainerAttendancePage() {
     {query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <>
       <div className="trainer-toolbar later-toolbar">
         <div className="form-group"><label htmlFor="attendance-intake">Intake</label><select id="attendance-intake" value={intake?.id || ''} onChange={(event) => { setIntakeChoice(event.target.value); setSessionChoice(''); setDraft({}); }}>
-          {query.data.map((item) => <option key={item.id} value={item.id}>Intake #{item.id} · {item.status}</option>)}
+          {query.data.map((item) => <option key={item.id} value={item.id}>{item.courseCode || `Course #${item.courseId}`} — {item.courseTitle || 'Course'} · Intake #{item.id} · {item.status}</option>)}
         </select></div>
         <div className="form-group"><label htmlFor="attendance-session">Session</label><select id="attendance-session" value={session?.id || ''} onChange={(event) => { setSessionChoice(event.target.value); setDraft({}); }}>
-          {(intake?.sessions || []).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          {(intake?.sessions || []).map((item) => <option key={item.id} value={item.id}>{item.label} · {formatUtcRange(item.startsAt, item.endsAt)}</option>)}
         </select></div>
       </div>
+      {intake && session ? <p>{intake.courseCode || `Course #${intake.courseId}`} — {intake.courseTitle || 'Course'} · Intake #{intake.id} · {session.label} · {formatUtcRange(session.startsAt, session.endsAt)}</p> : null}
       {notice ? <p className="trainer-notice" role="status">{notice}</p> : null}
       <TrainerError error={mutationError} />
       {!query.data.length ? <div className="trainer-empty">No owned Intakes are available.</div> : !session ? <div className="trainer-empty">This Intake has no Sessions.</div> : !learners.length ? <div className="trainer-empty">No active learners are enrolled in this Session.</div> : <>

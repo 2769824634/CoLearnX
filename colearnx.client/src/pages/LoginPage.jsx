@@ -30,8 +30,12 @@ export default function LoginPage() {
   useEffect(() => {
     if (booting) return undefined;
     const replaced = consumeSessionReplacedMessage();
-    if (replaced) setError(replaced);
-    return undefined;
+    if (!replaced) return undefined;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setError(replaced);
+    });
+    return () => { active = false; };
   }, [booting]);
 
   if (!booting && isAuthenticated && activeRole) {
@@ -47,6 +51,11 @@ export default function LoginPage() {
       const roles = result.roles || [];
       if (roles.length === 0) {
         setError('No role is enabled for this account.');
+        return;
+      }
+      if (roles.length === 1) {
+        const user = await login(email, password, roles[0]);
+        navigate(`/${user.activeRole.toLowerCase()}/home`);
         return;
       }
       setAvailableRoles(roles);
@@ -85,12 +94,12 @@ export default function LoginPage() {
           <form className="auth-body" onSubmit={onSubmit}>
             <h2>Login to your account</h2>
             <div className="form-group">
-              <label>Email</label>
-              <input type="email" autoComplete="username" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <label htmlFor="login-email">Email</label>
+            <input id="login-email" type="email" autoComplete="username" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div className="form-group">
-              <label>Password</label>
-              <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <label htmlFor="login-password">Password</label>
+            <input id="login-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
             {error ? (
               <div className="callout warn" style={{ marginBottom: 12 }}>

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ApiError, apiRequest } from '../src/api/client.js';
+import { ApiError, apiRequest, downloadFile } from '../src/api/client.js';
 
 function memoryStorage() {
   const store = new Map();
@@ -32,13 +32,25 @@ if (typeof globalThis.CustomEvent === 'undefined') {
 test('validation errors retain code, HTTP status and field errors', async (t) => {
   const fields = { startsAt: ['The session must be within the Intake delivery period.'] };
   t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({
-    code: 'SESSION_OUTSIDE_INTAKE', message: 'Check session dates.', fieldErrors: fields,
+    code: 'SESSION_OUTSIDE_INTAKE', message: 'Check session dates.', fieldErrors: fields, traceId: 'trace-123',
   }), { status: 400 }));
   await assert.rejects(apiRequest('/api/trainer/intakes/1/sessions', { token: 'test-token' }), (error) => {
     assert.ok(error instanceof ApiError);
     assert.equal(error.status, 400);
     assert.equal(error.code, 'SESSION_OUTSIDE_INTAKE');
     assert.deepEqual(error.fieldErrors, fields);
+    assert.equal(error.traceId, 'trace-123');
+    return true;
+  });
+});
+
+test('download failures retain a support reference', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({
+    code: 'STORAGE_UNAVAILABLE', message: 'File could not be downloaded.', traceId: 'download-trace',
+  }), { status: 503 }));
+  await assert.rejects(downloadFile('/api/materials/1/file', 'test.pdf', 'test-token'), (error) => {
+    assert.equal(error.code, 'DOWNLOAD_FAILED');
+    assert.equal(error.traceId, 'download-trace');
     return true;
   });
 });

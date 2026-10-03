@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../auth/AuthContext';
 import MemberShell from './MemberShell';
@@ -44,5 +44,47 @@ describe('UserAvatar', () => {
         headers: expect.objectContaining({ Authorization: 'Bearer member-token' }),
       }));
     });
+  });
+
+  it('does not render the previous photo while the avatar identity changes', async () => {
+    let objectUrlNumber = 0;
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: vi.fn(() => `blob:avatar-${++objectUrlNumber}`),
+      revokeObjectURL: vi.fn(),
+    });
+    function deferred() {
+      let resolve;
+      const promise = new Promise((next) => { resolve = next; });
+      return { promise, resolve };
+    }
+    const first = deferred();
+    const second = deferred();
+    let requestNumber = 0;
+    vi.stubGlobal('fetch', vi.fn(() => {
+      requestNumber += 1;
+      return requestNumber === 1 ? first.promise : second.promise;
+    }));
+
+    const { rerender } = render(
+      <UserAvatar name="First User" avatarUrl="/api/users/4/avatar" token="member-token-a" />,
+    );
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      first.resolve(new Response(new Blob(['first'], { type: 'image/png' })));
+    });
+    expect((await screen.findByAltText('First User')).getAttribute('src')).toBe('blob:avatar-1');
+
+    rerender(
+      <UserAvatar name="Second User" avatarUrl="/api/users/4/avatar" token="member-token-b" />,
+    );
+    expect(screen.queryByAltText('First User')).toBeNull();
+    expect(screen.getByText('SU')).toBeTruthy();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:avatar-1');
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      second.resolve(new Response(new Blob(['second'], { type: 'image/png' })));
+    });
+    expect((await screen.findByAltText('Second User')).getAttribute('src')).toBe('blob:avatar-2');
   });
 });

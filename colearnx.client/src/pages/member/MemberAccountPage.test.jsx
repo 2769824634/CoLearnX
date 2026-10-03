@@ -63,6 +63,20 @@ afterEach(() => {
 });
 
 describe('Member role applications', () => {
+  it('does not show application actions or Not requested while requests are loading', async () => {
+    let release;
+    const pending = new Promise((resolve) => { release = resolve; });
+    renderAccount({}, async (path) => {
+      if (path === '/api/role-requests/my') return pending;
+      return json([]);
+    });
+
+    expect(await screen.findByText('Loading applications…')).toBeTruthy();
+    expect(screen.queryByText('Not requested')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Apply for Trainer' })).toBeNull();
+    release([]);
+  });
+
   it('shows a pending Creator request and submits a Trainer application', async () => {
     const requests = [
       {

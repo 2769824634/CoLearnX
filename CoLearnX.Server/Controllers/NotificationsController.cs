@@ -8,7 +8,7 @@ namespace CoLearnX.Server.Controllers;
 
 [ApiController]
 [Route("api/notifications")]
-[Authorize(Roles = "Member")]
+[Authorize]
 [LaterPhaseApiErrors]
 public class NotificationsController(NotificationService notifications) : ControllerBase
 {

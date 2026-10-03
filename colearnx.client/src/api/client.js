@@ -10,7 +10,7 @@ const SIGN_IN_PATHS = new Set([
 ]);
 
 export const SESSION_REPLACED_EVENT = 'colearnx:session-replaced';
-export const SESSION_REPLACED_MESSAGE = 'This account signed in on another device. You have been signed out.';
+export const SESSION_REPLACED_MESSAGE = 'Your session has expired. Please sign in again to continue.';
 
 export function getStoredToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -42,11 +42,12 @@ export function consumeSessionReplacedMessage(admin = false) {
 }
 
 export class ApiError extends Error {
-  constructor(code, message, status, fieldErrors = {}) {
+  constructor(code, message, status, fieldErrors = {}, traceId = null) {
     super(message);
     this.code = code;
     this.status = status;
     this.fieldErrors = fieldErrors;
+    this.traceId = traceId;
   }
 }
 
@@ -98,7 +99,7 @@ export async function apiRequest(path, { method = 'GET', body, token, signal, as
 
   if (!res.ok) {
     if (res.status === 401) notifySessionReplaced(path, auth);
-    throw new ApiError(data?.code || 'HTTP_ERROR', data?.message || data?.title || res.statusText, res.status, data?.fieldErrors ?? {});
+    throw new ApiError(data?.code || 'HTTP_ERROR', data?.message || data?.title || res.statusText, res.status, data?.fieldErrors ?? {}, data?.traceId ?? null);
   }
   return data;
 }
@@ -112,13 +113,15 @@ export async function downloadFile(path, fileName, token) {
   if (!res.ok) {
     if (res.status === 401) notifySessionReplaced(path, auth);
     let message = res.statusText;
+    let traceId = null;
     try {
       const data = await res.json();
       message = data?.message || message;
+      traceId = data?.traceId ?? null;
     } catch {
       /* not JSON */
     }
-    throw new ApiError('DOWNLOAD_FAILED', message, res.status);
+    throw new ApiError('DOWNLOAD_FAILED', message, res.status, {}, traceId);
   }
 
   const blob = await res.blob();

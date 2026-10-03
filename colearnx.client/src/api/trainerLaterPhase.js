@@ -16,6 +16,7 @@ export const trainerLaterPhaseApi = {
     method: 'POST', token, body,
   }),
   learners: (token, intakeId, signal) => apiRequest(`${intakePath(intakeId)}/learners`, { token, signal }),
+  complete: (token, enrollmentId) => apiRequest(`/api/trainer/enrollments/${encodeURIComponent(enrollmentId)}/complete`, { method: 'POST', token }),
   saveAttendance: (token, intakeId, sessionId, records) => apiRequest(`${intakePath(intakeId)}/sessions/${encodeURIComponent(sessionId)}/attendance`, {
     method: 'PUT', token, body: { records },
   }),

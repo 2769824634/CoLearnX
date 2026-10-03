@@ -14,4 +14,7 @@ public sealed class RoleRequestFileStorage(IFileStorage inner) : IRoleRequestFil
 
     public Task<Uri?> TryCreateReadUriAsync(string key, TimeSpan lifetime, CancellationToken ct = default)
         => inner.TryCreateReadUriAsync(key, lifetime, ct);
+
+    public Task DeleteAsync(string key, CancellationToken ct = default) => inner.DeleteAsync(key, ct);
+    public Task<StorageFileInfo?> GetInfoAsync(string key, CancellationToken ct = default) => inner.GetInfoAsync(key, ct);
 }

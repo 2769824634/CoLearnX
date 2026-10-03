@@ -18,10 +18,32 @@ public interface ITrainerLaterPhaseService
     Task<IReadOnlyList<AssessmentDto>> ListAssessmentsAsync(int trainerUserId, int intakeId, CancellationToken ct = default);
     Task<AssessmentDto> CreateAssessmentAsync(int trainerUserId, int intakeId, CreateAssessmentRequest request, CancellationToken ct = default);
     Task<AssessmentResultDto> GradeAsync(int trainerUserId, int assessmentId, int enrollmentId, GradeAssessmentRequest request, CancellationToken ct = default);
+    Task<EnrollmentCompletionDto> CompleteAsync(int trainerUserId, int enrollmentId, CancellationToken ct = default);
 }
 
 public sealed class TrainerLaterPhaseService(CoLearnXDbContext db, IMaterialVersionService materialVersions) : ITrainerLaterPhaseService
 {
+    public async Task<EnrollmentCompletionDto> CompleteAsync(int trainerUserId, int enrollmentId, CancellationToken ct = default)
+    {
+        var enrollment = await db.Enrollments.Include(e => e.CourseSession)
+            .SingleOrDefaultAsync(e => e.Id == enrollmentId, ct)
+            ?? throw new LaterPhaseException("ENROLLMENT_NOT_FOUND", "Enrollment was not found.", 404);
+        await RequireOwnedIntakeAsync(trainerUserId, enrollment.CourseSession.CourseIntakeId, ct);
+        if (enrollment.Status != EnrollmentStatus.Active)
+            throw new LaterPhaseException("ENROLLMENT_NOT_COMPLETABLE", "Only an active enrollment can be completed.", 409);
+        var rules = await db.Assessments.Where(a => a.CourseIntakeId == enrollment.CourseSession.CourseIntakeId)
+            .Select(a => new { a.Id, a.PassScore }).ToListAsync(ct);
+        var grades = await db.AssessmentResults.Where(r => r.EnrollmentId == enrollmentId)
+            .Select(r => new { r.AssessmentId, r.Score }).ToListAsync(ct);
+        if (rules.Any(rule => !grades.Any(g => g.AssessmentId == rule.Id && g.Score >= rule.PassScore)))
+            throw new LaterPhaseException("ENROLLMENT_NOT_COMPLETABLE", "All assessments must be passed before completion.", 409);
+        enrollment.ProgressPercent = 100;
+        enrollment.Status = EnrollmentStatus.Completed;
+        enrollment.CompletedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return new EnrollmentCompletionDto(enrollment.Id, enrollment.Status.ToString(), 100, enrollment.CompletedAt.Value);
+    }
+
     public async Task<IReadOnlyList<MaterialVersionDto>> ListAvailableMaterialsAsync(int trainerUserId, int? courseId = null, CancellationToken ct = default)
     {
         await RequireActiveTrainerAsync(trainerUserId, ct);
@@ -73,6 +95,7 @@ public sealed class TrainerLaterPhaseService(CoLearnXDbContext db, IMaterialVers
             {
                 LearningMaterialId = version.LearningMaterialId,
                 CourseId = intake.CourseId,
+                CourseIntakeId = intake.Id,
                 TrainerId = trainerUserId,
             });
             db.AuditLogs.Add(UserAudit(trainerUserId, "IntakeMaterialAttached", nameof(CourseIntake), intakeId, version.LearningMaterial.Title));
@@ -136,7 +159,7 @@ public sealed class TrainerLaterPhaseService(CoLearnXDbContext db, IMaterialVers
         var enrollmentIds = request.Records.Select(item => item.EnrollmentId).ToArray();
         var enrollments = await db.Enrollments.Include(item => item.User)
             .Where(item => enrollmentIds.Contains(item.Id) && item.CourseSessionId == sessionId
-                && item.Status != EnrollmentStatus.Cancelled && item.Status != EnrollmentStatus.Refunded)
+                && (item.Status == EnrollmentStatus.Active || item.Status == EnrollmentStatus.Completed))
             .ToDictionaryAsync(item => item.Id, ct);
         if (enrollments.Count != enrollmentIds.Length)
             throw new LaterPhaseException("ENROLLMENT_NOT_FOUND", "Every attendance row must belong to this Session.", 404, "records");
@@ -179,7 +202,8 @@ public sealed class TrainerLaterPhaseService(CoLearnXDbContext db, IMaterialVers
         var intake = await RequireOwnedIntakeAsync(trainerUserId, intakeId, ct);
         var sessionIds = await db.CourseSessions.Where(item => item.CourseIntakeId == intake.Id).Select(item => item.Id).ToListAsync(ct);
         var enrollments = await db.Enrollments.AsNoTracking().Include(item => item.User)
-            .Where(item => sessionIds.Contains(item.CourseSessionId) && item.Status != EnrollmentStatus.Cancelled)
+            .Where(item => sessionIds.Contains(item.CourseSessionId)
+                && (item.Status == EnrollmentStatus.Active || item.Status == EnrollmentStatus.Completed))
             .OrderBy(item => item.User.FullName).ThenBy(item => item.Id).ToListAsync(ct);
         var attendance = await db.AttendanceRecords.AsNoTracking().Where(item => sessionIds.Contains(item.CourseSessionId)).ToListAsync(ct);
         var assessmentRules = await db.Assessments.AsNoTracking().Where(item => item.CourseIntakeId == intake.Id)
@@ -193,13 +217,13 @@ public sealed class TrainerLaterPhaseService(CoLearnXDbContext db, IMaterialVers
         {
             var learnerAttendance = attendance.Where(item => item.UserId == enrollment.UserId).ToList();
             var attended = learnerAttendance.Count(item => item.Status is AttendanceStatus.Present or AttendanceStatus.Late);
-            var rate = learnerAttendance.Count == 0 ? 0 : attended * 100 / learnerAttendance.Count;
+            var rate = sessionIds.Count == 0 ? 0 : attended * 100 / sessionIds.Count;
             var learnerResults = results.Where(item => item.EnrollmentId == enrollment.Id).ToList();
             var passed = learnerResults.Count(result => result.Score >= assessmentRules[result.AssessmentId]);
             var enrollmentAttendance = learnerAttendance.FirstOrDefault(item => item.CourseSessionId == enrollment.CourseSessionId);
             return new TrainerLearnerDto(enrollment.Id, enrollment.CourseSessionId, enrollment.UserId, enrollment.User.FullName, enrollment.User.Email,
                 enrollment.Status.ToString(), enrollment.ProgressPercent, rate, learnerResults.Count, passed, enrollmentAttendance?.Status.ToString(),
-                requests.GetValueOrDefault(enrollment.Id)?.Status.ToString());
+                requests.GetValueOrDefault(enrollment.Id)?.Status.ToString(), assessmentRules.Count);
         }).ToList();
     }
 
@@ -246,7 +270,7 @@ public sealed class TrainerLaterPhaseService(CoLearnXDbContext db, IMaterialVers
             ?? throw new LaterPhaseException("ASSESSMENT_NOT_FOUND", "Owned assessment was not found.", 404);
         var enrollment = await db.Enrollments.Include(item => item.User).Include(item => item.CourseSession)
             .SingleOrDefaultAsync(item => item.Id == enrollmentId && item.CourseSession.CourseIntakeId == assessment.CourseIntakeId
-                && item.Status != EnrollmentStatus.Cancelled && item.Status != EnrollmentStatus.Refunded, ct)
+                && (item.Status == EnrollmentStatus.Active || item.Status == EnrollmentStatus.Completed), ct)
             ?? throw new LaterPhaseException("ENROLLMENT_NOT_FOUND", "Enrollment was not found in this Intake.", 404);
         if (request.Score < 0 || request.Score > assessment.MaxScore)
             throw new LaterPhaseException("INVALID_GRADE", $"Score must be between 0 and {assessment.MaxScore}.", field: "score");

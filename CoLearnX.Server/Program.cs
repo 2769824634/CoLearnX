@@ -64,6 +64,8 @@ builder.Services.AddScoped<EmailVerificationService>();
 builder.Services.AddSingleton<PasswordResetMailSender>();
 builder.Services.AddSingleton<IPasswordResetMailSender>(sp => sp.GetRequiredService<PasswordResetMailSender>());
 builder.Services.AddSingleton<IEmailVerificationMailSender>(sp => sp.GetRequiredService<PasswordResetMailSender>());
+builder.Services.AddSingleton<IBusinessNotificationMailSender>(sp => sp.GetRequiredService<PasswordResetMailSender>());
+builder.Services.AddScoped<NotificationEmailDispatcher>();
 builder.Services.AddScoped<IAdminAuthService, AdminAuthService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IAdminRoleRequestService, AdminRoleRequestService>();
@@ -76,6 +78,10 @@ builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<ICourseIntakeService, CourseIntakeService>();
 builder.Services.AddScoped<ITrainerDeliveryService, TrainerDeliveryService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
+builder.Services.AddScoped<IIntakeSettlementService, IntakeSettlementService>();
+if (!builder.Environment.IsEnvironment("Testing"))
+    builder.Services.AddHostedService<IntakeSettlementWorker>();
+builder.Services.AddScoped<RecommendationService>();
 builder.Services.AddScoped<IMemberLearningHubService, MemberLearningHubService>();
 builder.Services.AddScoped<ICreditService, CreditService>();
 builder.Services.AddScoped<ICertificateService, CertificateService>();
@@ -117,6 +123,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options =>
 {
+    options.AddPolicy("ActiveMember", policy =>
+    {
+        policy.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme);
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim(AuthTokenSubjects.ClaimType, AuthTokenSubjects.User);
+        policy.RequireClaim("active_role", "Member");
+        policy.RequireRole("Member");
+    });
     options.AddPolicy(TrainerAuthorization.PolicyName, policy =>
     {
         policy.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme);
@@ -198,7 +212,7 @@ app.UseRateLimiter();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-    await SeedData.InitializeAsync(db);
+    await SeedData.InitializeAsync(db, seedDemoAdmin: !app.Environment.IsProduction());
 }
 
 var storage = app.Services.GetRequiredService<IFileStorage>();

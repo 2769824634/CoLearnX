@@ -3,7 +3,7 @@ import { creditsApi } from '../api';
 
 const SDK_TIMEOUT_MS = 15000;
 
-export function isUsablePayPalClientId(clientId) {
+function isUsablePayPalClientId(clientId) {
   if (!clientId || typeof clientId !== 'string') return false;
   const trimmed = clientId.trim();
   if (trimmed.length < 20) return false;
@@ -49,7 +49,7 @@ function waitForPayPal(script) {
   });
 }
 
-export function loadPayPalSdk(clientId, currency) {
+function loadPayPalSdk(clientId, currency) {
   const existing = document.querySelector('script[data-colearnx-paypal]');
   if (existing) return waitForPayPal(existing);
 

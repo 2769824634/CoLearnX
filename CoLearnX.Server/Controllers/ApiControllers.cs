@@ -204,8 +204,15 @@ public class CoursesController(ICourseService courses) : ControllerBase
 [ApiController]
 [Route("api/enrollments")]
 [Authorize(Roles = "Member")]
-public class EnrollmentsController(IEnrollmentService enrollments, IMemberLearningHubService hub) : ControllerBase
+public class EnrollmentsController(IEnrollmentService enrollments, IMemberLearningHubService hub, RecommendationService recommendations) : ControllerBase
 {
+    [HttpPost("{enrollmentId:int}/rating")]
+    [Authorize(Policy = "ActiveMember")]
+    public async Task<ActionResult<ProgramRatingDto>> Rate(int enrollmentId, SubmitRatingRequest request, CancellationToken ct)
+    {
+        try { return Ok(await recommendations.RateAsync(User.GetUserId(), enrollmentId, request, ct)); }
+        catch (CourseException error) { return StatusCode(error.StatusCode, new ApiError(error.Code, error.Message)); }
+    }
     [HttpGet("{enrollmentId:int}/materials")]
     public async Task<ActionResult<IReadOnlyList<MemberHubMaterialDto>>> Materials(int enrollmentId, CancellationToken ct)
     {
@@ -233,6 +240,7 @@ public class EnrollmentsController(IEnrollmentService enrollments, IMemberLearni
     }
 
     [HttpPost]
+    [Authorize(Policy = "ActiveMember")]
     public async Task<ActionResult<EnrolResultDto>> Enrol([FromBody] EnrolRequest request, CancellationToken ct)
     {
         try
@@ -240,14 +248,39 @@ public class EnrollmentsController(IEnrollmentService enrollments, IMemberLearni
             var result = await enrollments.EnrolAsync(User.GetUserId(), request, ct);
             return Ok(result);
         }
-        catch (InvalidOperationException ex) when (ex.Message == "INSUFFICIENT_CREDITS")
-        {
-            return BadRequest(new ApiError("INSUFFICIENT_CREDITS", "Not enough credits to enrol."));
-        }
+        catch (CourseException ex) { return StatusCode(ex.StatusCode, new ApiError(ex.Code, ex.Message)); }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new ApiError("ENROL_FAILED", ex.Message));
+            HttpContext.RequestServices.GetRequiredService<ILogger<EnrollmentsController>>()
+                .LogError(ex, "Enrollment failed; traceId={TraceId}", HttpContext.TraceIdentifier);
+            return BadRequest(new ApiError("ENROL_FAILED", "Your enrollment could not be confirmed. Refresh your programs before trying again.",
+                TraceId: HttpContext.TraceIdentifier));
         }
+    }
+
+    [HttpPost("{enrollmentId:int}/accept-postponement")]
+    [Authorize(Policy = "ActiveMember")]
+    public async Task<ActionResult<EnrolResultDto>> AcceptPostponement(int enrollmentId,
+        [FromBody] AcceptPostponementRequest request, CancellationToken ct)
+    {
+        try { return Ok(await enrollments.AcceptPostponementAsync(User.GetUserId(), enrollmentId, request, ct)); }
+        catch (CourseException ex) { return StatusCode(ex.StatusCode, new ApiError(ex.Code, ex.Message)); }
+    }
+
+    [HttpPost("{enrollmentId:int}/cancel-reservation")]
+    [Authorize(Policy = "ActiveMember")]
+    public async Task<ActionResult<EnrollmentDto>> CancelReservation(int enrollmentId, CancellationToken ct)
+    {
+        try { return Ok(await enrollments.CancelReservationAsync(User.GetUserId(), enrollmentId, ct)); }
+        catch (CourseException ex) { return StatusCode(ex.StatusCode, new ApiError(ex.Code, ex.Message)); }
+    }
+
+    [HttpPost("{enrollmentId:int}/withdraw")]
+    [Authorize(Policy = "ActiveMember")]
+    public async Task<ActionResult<EnrollmentDto>> Withdraw(int enrollmentId, CancellationToken ct)
+    {
+        try { return Ok(await enrollments.WithdrawAsync(User.GetUserId(), enrollmentId, ct)); }
+        catch (CourseException ex) { return StatusCode(ex.StatusCode, new ApiError(ex.Code, ex.Message)); }
     }
 
     [HttpGet("my")]
@@ -401,7 +434,10 @@ public class MaterialsController(IMaterialService materials, IMaterialVersionSer
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new ApiError("UPLOAD_FAILED", ex.Message));
+            HttpContext.RequestServices.GetRequiredService<ILogger<MaterialsController>>()
+                .LogError(ex, "Material upload failed; traceId={TraceId}", HttpContext.TraceIdentifier);
+            return BadRequest(new ApiError("UPLOAD_FAILED", "The material could not be uploaded. Check its title, file type and 20 MB limit, then try again.",
+                TraceId: HttpContext.TraceIdentifier));
         }
     }
 

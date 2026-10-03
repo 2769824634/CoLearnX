@@ -50,7 +50,11 @@ public record UserMeDto(
     string? ExpertiseTags = null,
     string? CreatorHeadline = null,
     bool EmailNotifications = true,
-    string? AvatarUrl = null);
+    string? AvatarUrl = null,
+    DateTime? OnboardingCompletedAt = null,
+    DateTime? OnboardingSkippedAt = null,
+    int HeldCredits = 0,
+    int TotalCredits = 0);
 
 public record UpdateProfileRequest(
     string? FullName,
@@ -75,7 +79,16 @@ public record CourseListItemDto(
     string Level,
     string Category,
     bool IsFeatured,
-    bool InWishlist);
+    bool InWishlist,
+    IReadOnlyList<CourseInterestDto>? Interests = null,
+    double? AverageStars = null,
+    int RatingCount = 0,
+    int MinEnrollment = 10,
+    DateTime? RegistrationOpensAt = null,
+    DateTime? RegistrationClosesAt = null,
+    string? CreatorName = null,
+    IReadOnlyList<string>? TrainerNames = null,
+    string? LearningPath = null);
 
 public record CourseSessionDto(
     int Id,
@@ -88,7 +101,14 @@ public record CourseSessionDto(
     string? MeetingLink = null,
     string? PhysicalAddress = null,
     int PhysicalCapacity = 0,
-    DateTime? PhysicalBookingDeadline = null);
+    DateTime? PhysicalBookingDeadline = null,
+    DateTime? RegistrationOpensAt = null,
+    DateTime? RegistrationClosesAt = null,
+    int MinEnrollment = 10,
+    string IntakeStatus = "Published",
+    int IntakeEnrollmentCount = 0,
+    DateTime? ConfirmedToRunAt = null,
+    DateTime? CancelledAt = null);
 
 public record CourseDetailDto(
     int Id,
@@ -103,7 +123,16 @@ public record CourseDetailDto(
     IReadOnlyList<string> LearningOutcomes,
     IReadOnlyList<CourseSessionDto> Sessions,
     bool InWishlist,
-    bool AlreadyEnrolled);
+    bool AlreadyEnrolled,
+    IReadOnlyList<CourseInterestDto>? Interests = null,
+    double? AverageStars = null,
+    int RatingCount = 0,
+    int MinEnrollment = 10,
+    DateTime? RegistrationOpensAt = null,
+    DateTime? RegistrationClosesAt = null,
+    string? CreatorName = null,
+    IReadOnlyList<string>? TrainerNames = null,
+    string? LearningPath = null);
 
 public record WishlistResultDto(int CourseId, bool InWishlist);
 
@@ -116,7 +145,9 @@ public record EnrolResultDto(
     int CreditsSpent,
     int BalanceAfter,
     string CourseCode,
-    string CourseTitle);
+    string CourseTitle,
+    int HeldAfter = 0,
+    string Status = "Reserved");
 
 public record EnrollmentDto(
     int Id,
@@ -127,7 +158,16 @@ public record EnrollmentDto(
     string Status,
     int ProgressPercent,
     int CourseSessionId,
-    string? MeetingLink = null);
+    string? MeetingLink = null,
+    int HeldCredits = 0,
+    DateTime? RegistrationClosesAt = null,
+    DateTime? StartsAt = null,
+    IReadOnlyList<PostponementOptionDto>? PostponementOptions = null,
+    int? WithdrawalRefundCredits = null);
+
+public record AcceptPostponementRequest(int CourseSessionId);
+public record PostponementOptionDto(int IntakeId, int CourseSessionId, string Label, DateTime StartsAt,
+    DateTime EndsAt, DateTime RegistrationClosesAt, int CreditsRequired, int? SeatsLeft);
 
 public record MemberHubMaterialDto(int Id, string Title, string Format, DateTime AttachedAt);
 public record MemberHubRecordingDto(int Id, string Title, string RecordingUrl, DateTime CreatedAt);
@@ -146,7 +186,9 @@ public record CreditLedgerItemDto(
     string Type,
     string Description,
     int Delta,
-    int BalanceAfter);
+    int BalanceAfter,
+    int? HeldAfter = null,
+    int? RelatedEnrollmentId = null);
 
 public record TopUpRequest([Required] int CreditPackageId, string? ProviderReference);
 
@@ -182,7 +224,10 @@ public record CreatorMaterialUsageDto(
     string CourseTitle,
     int TrainerId,
     string TrainerName,
-    DateTime UsedAt);
+    DateTime UsedAt,
+    int? IntakeId = null,
+    DateTime? IntakeStartsAt = null,
+    DateTime? IntakeEndsAt = null);
 
 public record StorageStatusDto(string Provider, bool CloudLinks, string? Container);
 
@@ -203,4 +248,6 @@ public record RoleRequestDto(
 
 public record ApiError(string Code, string Message,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    IReadOnlyDictionary<string, string[]>? FieldErrors = null);
+    IReadOnlyDictionary<string, string[]>? FieldErrors = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    string? TraceId = null);

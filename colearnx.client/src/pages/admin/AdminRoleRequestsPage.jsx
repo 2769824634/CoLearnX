@@ -2,20 +2,9 @@ import { useEffect, useState } from 'react';
 import useAdminAuth from '../../auth/useAdminAuth';
 import { adminRoleRequestsApi } from '../../api';
 import Modal from '../../components/Modal';
+import { formatUtcDateTime, userFacingError } from '../businessPresentation';
 
 const FILTERS = ['Pending', 'Approved', 'Rejected', 'All'];
-const DATE_FORMATTER = new Intl.DateTimeFormat('en-AU', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
-function formatDate(value) {
-  return value ? DATE_FORMATTER.format(new Date(value)) : '—';
-}
-
 function hasCredentials(roleRequest) {
   return Boolean(roleRequest.degreeOrResumePath || roleRequest.idDocumentPath);
 }
@@ -33,6 +22,8 @@ export default function AdminRoleRequestsPage() {
   const [reason, setReason] = useState('');
   const [reviewError, setReviewError] = useState('');
   const [reviewing, setReviewing] = useState(false);
+  const [download, setDownload] = useState(null);
+  const downloadBusy = Boolean(download?.busy);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -47,7 +38,7 @@ export default function AdminRoleRequestsPage() {
       })
       .catch((error) => {
         if (!cancelled && error.name !== 'AbortError') {
-          setLoadError(error.message || 'Role requests could not be loaded.');
+          setLoadError(userFacingError(error, 'Role requests could not be loaded. Please retry.'));
         }
       })
       .finally(() => {
@@ -61,7 +52,7 @@ export default function AdminRoleRequestsPage() {
   }, [filter, revision, token]);
 
   function selectFilter(nextFilter) {
-    if (nextFilter === filter) return;
+    if (nextFilter === filter || reviewing || downloadBusy) return;
     setFilter(nextFilter);
     setLoading(true);
     setLoadError('');
@@ -69,6 +60,7 @@ export default function AdminRoleRequestsPage() {
   }
 
   function refresh() {
+    if (reviewing || downloadBusy) return;
     setLoading(true);
     setLoadError('');
     setReviewNotice('');
@@ -76,20 +68,23 @@ export default function AdminRoleRequestsPage() {
   }
 
   function openReview(roleRequest) {
+    if (reviewing || downloadBusy) return;
     setSelected(roleRequest);
     setDecision('Approve');
     setReason('');
     setReviewError('');
     setReviewNotice('');
+    setDownload(null);
   }
 
   function closeReview() {
-    if (reviewing) return;
+    if (reviewing || downloadBusy) return;
     setSelected(null);
   }
 
   async function submitReview(event) {
     event.preventDefault();
+    if (!selected || reviewing || downloadBusy) return;
     if (decision === 'Reject' && !reason.trim()) {
       setReviewError('Add a reason before rejecting this request.');
       return;
@@ -113,9 +108,23 @@ export default function AdminRoleRequestsPage() {
       setReviewNotice(`${reviewed.requestedRole} request ${reviewed.status.toLowerCase()}.`);
       setSelected(null);
     } catch (error) {
-      setReviewError(error.message || 'The review could not be saved.');
+      setReviewError(userFacingError(error, 'The review could not be confirmed. Refresh the queue before trying again.'));
     } finally {
       setReviewing(false);
+    }
+  }
+
+  async function downloadEvidence(kind) {
+    if (!selected || reviewing || downloadBusy) return;
+    const isResume = kind === 'resume';
+    if (!(isResume ? selected.degreeOrResumePath : selected.idDocumentPath)) return;
+    const label = isResume ? 'Resume' : 'ID document';
+    setDownload({ kind, busy: true });
+    try {
+      await (isResume ? adminRoleRequestsApi.downloadResume(token, selected.id) : adminRoleRequestsApi.downloadIdDocument(token, selected.id));
+      setDownload({ kind, message: `${label} download started. Check your browser downloads.` });
+    } catch (error) {
+      setDownload({ kind, error: userFacingError(error, `Could not download the ${label.toLowerCase()}. Retry or contact the applicant about this attachment.`) });
     }
   }
 
@@ -128,7 +137,7 @@ export default function AdminRoleRequestsPage() {
           <p>Review Trainer and Creator access with a traceable decision.</p>
         </div>
         <div className="admin-review-count" aria-live="polite">
-          <strong>{roleRequests.length}</strong>
+          <strong>{loading || loadError ? '—' : roleRequests.length}</strong>
           <span>{filter.toLowerCase()} records</span>
         </div>
       </header>
@@ -142,13 +151,14 @@ export default function AdminRoleRequestsPage() {
                 type="button"
                 className={item === filter ? 'active' : ''}
                 aria-pressed={item === filter}
+                disabled={reviewing || downloadBusy}
                 onClick={() => selectFilter(item)}
               >
                 {item}
               </button>
             ))}
           </div>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={refresh} disabled={loading}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={refresh} disabled={loading || reviewing || downloadBusy}>
             Refresh
           </button>
         </div>
@@ -185,7 +195,7 @@ export default function AdminRoleRequestsPage() {
                   <th scope="col">Applicant</th>
                   <th scope="col">Requested role</th>
                   <th scope="col">Evidence</th>
-                  <th scope="col">Submitted</th>
+                  <th scope="col">Submitted (UTC)</th>
                   <th scope="col">Status</th>
                   <th scope="col"><span className="sr-only">Action</span></th>
                 </tr>
@@ -199,7 +209,7 @@ export default function AdminRoleRequestsPage() {
                     </td>
                     <td><span className="admin-role-label">{roleRequest.requestedRole}</span></td>
                     <td>{hasCredentials(roleRequest) ? 'Attached' : 'Not supplied'}</td>
-                    <td>{formatDate(roleRequest.createdAt)}</td>
+                    <td>{formatUtcDateTime(roleRequest.createdAt)}</td>
                     <td>
                       <span className={`admin-status ${roleRequest.status.toLowerCase()}`}>
                         {roleRequest.status}
@@ -215,7 +225,7 @@ export default function AdminRoleRequestsPage() {
                           Review
                         </button>
                       ) : (
-                        <span className="admin-reviewed-at">{formatDate(roleRequest.reviewedAt)}</span>
+                        <span className="admin-reviewed-at">{formatUtcDateTime(roleRequest.reviewedAt)}</span>
                       )}
                     </td>
                   </tr>
@@ -236,16 +246,18 @@ export default function AdminRoleRequestsPage() {
             </div>
             {hasCredentials(selected) ? (
               <div className="trainer-actions" style={{ margin: '0 0 16px' }}>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => adminRoleRequestsApi.downloadResume(token, selected.id)}>
-                  Download resume
-                </button>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => adminRoleRequestsApi.downloadIdDocument(token, selected.id)}>
-                  Download ID document
-                </button>
+                {selected.degreeOrResumePath ? <button type="button" className="btn btn-ghost btn-sm" disabled={reviewing || downloadBusy} onClick={() => downloadEvidence('resume')}>
+                  {downloadBusy && download.kind === 'resume' ? 'Downloading…' : 'Download resume'}
+                </button> : null}
+                {selected.idDocumentPath ? <button type="button" className="btn btn-ghost btn-sm" disabled={reviewing || downloadBusy} onClick={() => downloadEvidence('id')}>
+                  {downloadBusy && download.kind === 'id' ? 'Downloading…' : 'Download ID document'}
+                </button> : null}
               </div>
             ) : (
               <p className="page-sub">No files were uploaded with this request.</p>
             )}
+            {downloadBusy ? <p role="status">Downloading {download.kind === 'resume' ? 'resume' : 'ID document'}…</p> : download?.message ? <p role="status">{download.message}</p> : null}
+            {download?.error ? <p role="alert" className="admin-review-inline-error">{download.error}</p> : null}
             {selected.applicantStatement ? (
               <div className="form-group">
                 <label>Applicant statement</label>
@@ -253,7 +265,7 @@ export default function AdminRoleRequestsPage() {
               </div>
             ) : null}
 
-            <fieldset className="admin-decision-fieldset">
+            <fieldset className="admin-decision-fieldset" disabled={reviewing || downloadBusy}>
               <legend>Decision</legend>
               <div className="admin-decision-options">
                 {['Approve', 'Reject'].map((item) => (
@@ -282,6 +294,7 @@ export default function AdminRoleRequestsPage() {
                 maxLength={512}
                 required={decision === 'Reject'}
                 value={reason}
+                disabled={reviewing || downloadBusy}
                 onChange={(event) => setReason(event.target.value)}
                 placeholder={decision === 'Reject'
                   ? 'Explain what the applicant needs to address.'
@@ -292,13 +305,13 @@ export default function AdminRoleRequestsPage() {
             {reviewError ? <div className="admin-review-inline-error" role="alert">{reviewError}</div> : null}
 
             <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={closeReview} disabled={reviewing}>
+              <button type="button" className="btn btn-ghost" onClick={closeReview} disabled={reviewing || downloadBusy}>
                 Cancel
               </button>
               <button
                 type="submit"
                 className={decision === 'Reject' ? 'btn admin-reject-button' : 'btn btn-primary'}
-                disabled={reviewing}
+                disabled={reviewing || downloadBusy}
               >
                 {reviewing ? 'Saving…' : `${decision} request`}
               </button>

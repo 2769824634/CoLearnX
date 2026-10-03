@@ -1,0 +1,21 @@
+import { afterEach, expect, it, vi } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import CreatorIntakeApplicationDetailPage from './CreatorIntakeApplicationDetailPage';
+
+const query = vi.hoisted(() => ({ data: null, loading: false, error: null }));
+vi.mock('../trainer/useTrainerQuery', () => ({ default: () => query }));
+afterEach(cleanup);
+
+it('opens a legacy Intake without an application as a read-only current schedule', () => {
+  query.data = { application: null, proposedChange: null, currentIntake: {
+    id: 42, courseId: 4, status: 'Cancelled', minEnrollment: 10,
+    registrationOpensAt: '2026-09-01T00:00:00Z', registrationClosesAt: '2026-09-20T00:00:00Z',
+    startsAt: '2026-10-20T00:00:00Z', endsAt: '2026-10-21T00:00:00Z', sessions: [],
+  } };
+  render(<MemoryRouter><CreatorIntakeApplicationDetailPage /></MemoryRouter>);
+  expect(screen.getByRole('heading', { name: 'Intake #42' })).toBeTruthy();
+  expect(screen.getByText('Cancelled')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Approve sessions' })).toBeNull();
+  expect(screen.getByText(/No application record/)).toBeTruthy();
+});

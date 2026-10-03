@@ -12,11 +12,16 @@
 .creator-section-heading { margin: 28px 0 12px; }
 .creator-section-heading h2 { margin: 0; font-size: 20px; }
 .creator-application-list { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-.creator-application-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto auto; gap: 18px; align-items: center; padding: 20px; }
+.creator-application-row { display: grid; grid-template-columns: minmax(80px, 140px) minmax(0, 1fr) auto auto; gap: 18px; align-items: center; padding: 20px; }
 .creator-application-row + .creator-application-row { border-top: 1px solid var(--border); }
 .creator-application-row h2 { margin: 2px 0 5px; font-size: 17px; }
 .creator-application-row p:last-child { margin: 0; color: var(--slate); font-size: 12px; }
-.creator-application-index { color: var(--purple); font-size: 18px; font-variant-numeric: tabular-nums; }
+.creator-application-index { min-width: 0; overflow-wrap: anywhere; color: var(--purple); font-size: 18px; font-variant-numeric: tabular-nums; }
+.creator-application-row > div { min-width: 0; overflow-wrap: anywhere; }
+.creator-course-definition { padding: 20px; }
+.creator-course-fields { min-width: 0; padding: 0; border: 0; }
+.creator-course-fields legend { margin-bottom: 18px; font-weight: 700; }
+.creator-course-fields:disabled :is(input, select, textarea) { opacity: 1; color: var(--charcoal); background: var(--chrome); }
 .creator-empty { padding: 44px 24px; border: 1px dashed var(--border); border-radius: var(--radius); background: var(--chrome); text-align: center; color: var(--slate); }
 .creator-error { display: grid; gap: 8px; margin: 16px 0; padding: 16px; border: 1px solid var(--warn); border-left-width: 4px; border-radius: var(--radius); overflow-wrap: anywhere; }
 .creator-error code { font-size: 11px; }
@@ -45,4 +50,4 @@
 .creator-review-desk textarea { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); resize: vertical; font: inherit; }
 .creator-review-actions { display: grid; gap: 8px; margin-top: 14px; }
 @media (max-width: 850px) { .creator-review-layout { grid-template-columns: 1fr; } .creator-review-desk { position: static; } }
-@media (max-width: 650px) { .creator-header { align-items: flex-start; flex-direction: column; } .creator-application-row { grid-template-columns: 42px minmax(0, 1fr); } .creator-application-row .creator-status, .creator-application-row > a { grid-column: 2; justify-self: start; } .creator-schedule { padding: 16px; } .creator-schedule dl { grid-template-columns: 1fr; } }
+@media (max-width: 650px) { .creator-header { align-items: flex-start; flex-direction: column; } .creator-application-row { grid-template-columns: minmax(70px, 110px) minmax(0, 1fr); } .creator-application-row .creator-status, .creator-application-row > a, .creator-application-row > time { grid-column: 2; justify-self: start; } .creator-schedule { padding: 16px; } .creator-schedule dl { grid-template-columns: 1fr; } }

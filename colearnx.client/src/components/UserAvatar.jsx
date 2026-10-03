@@ -7,29 +7,29 @@ function initialsFrom(name) {
 }
 
 export default function UserAvatar({ name, avatarUrl, token, size = '' }) {
-  const [imageUrl, setImageUrl] = useState(null);
+  const avatarIdentity = avatarUrl && token ? `${avatarUrl}\u0000${token}` : '';
+  const [image, setImage] = useState({ identity: '', url: null });
 
   useEffect(() => {
-    if (!avatarUrl || !token) {
-      setImageUrl(null);
-      return undefined;
-    }
+    if (!avatarIdentity) return undefined;
     const controller = new AbortController();
     let objectUrl;
     usersApi.avatar(avatarUrl, token, controller.signal)
       .then((blob) => {
         if (controller.signal.aborted) return;
         objectUrl = URL.createObjectURL(blob);
-        setImageUrl(objectUrl);
+        setImage({ identity: avatarIdentity, url: objectUrl });
       })
       .catch(() => {
-        if (!controller.signal.aborted) setImageUrl(null);
+        if (!controller.signal.aborted) setImage({ identity: avatarIdentity, url: null });
       });
     return () => {
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [avatarUrl, token]);
+  }, [avatarIdentity, avatarUrl, token]);
+
+  const imageUrl = image.identity === avatarIdentity ? image.url : null;
 
   return (
     <div className={`avatar${size ? ` ${size}` : ''}`}>

@@ -83,7 +83,7 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
     }
 
     [Fact]
-    public async Task Available_roles_for_trainer_returns_trainer_only()
+    public async Task Available_roles_for_trainer_returns_member_and_trainer()
     {
         var client = ApiClient.Anonymous(_factory);
 
@@ -95,11 +95,11 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<AvailableRolesDto>(ApiJson.Options);
         Assert.NotNull(body);
-        Assert.Equal(["Trainer"], body.Roles);
+        Assert.Equal(["Member", "Trainer"], body.Roles.Order());
     }
 
     [Fact]
-    public async Task Available_roles_for_creator_returns_creator_only()
+    public async Task Available_roles_for_creator_returns_creator_and_member()
     {
         var client = ApiClient.Anonymous(_factory);
 
@@ -111,7 +111,7 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<AvailableRolesDto>(ApiJson.Options);
         Assert.NotNull(body);
-        Assert.Equal(["Creator"], body.Roles);
+        Assert.Equal(["Creator", "Member"], body.Roles.Order());
     }
 
     [Fact]

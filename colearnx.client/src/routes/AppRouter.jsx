@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { RequireAuth } from '../auth/RequireAuth';
 import RequireAdmin from '../auth/RequireAdmin';
 import RoleShell, { AdminRoleShell } from '../layouts/RoleShell';
@@ -9,6 +9,7 @@ import AdminHomePage from '../pages/admin/AdminHomePage';
 import AdminApprovalsPage from '../pages/admin/AdminApprovalsPage';
 import AdminAuditLogsPage from '../pages/admin/AdminAuditLogsPage';
 import AdminAccountPage from '../pages/admin/AdminAccountPage';
+import AdminUsersPage from '../pages/admin/AdminUsersPage';
 import AdminCreditLedgerPage from '../pages/admin/AdminCreditLedgerPage';
 import AdminDisputesPage from '../pages/admin/AdminDisputesPage';
 import TrainerHomePage from '../pages/trainer/TrainerHomePage';
@@ -27,6 +28,8 @@ import CreatorIntakeApplicationDetailPage from '../pages/creator/CreatorIntakeAp
 import { MemberDataProvider } from '../pages/member/MemberDataContext';
 import { useMemberData } from '../pages/member/memberDataState';
 import MemberHomePage from '../pages/member/MemberHomePage';
+import MemberOnboardingPage from '../pages/member/MemberOnboardingPage';
+import { useAuth } from '../auth/AuthContext';
 import MemberCatalogPage from '../pages/member/MemberCatalogPage';
 import MemberCourseDetailPage from '../pages/member/MemberCourseDetailPage';
 import MemberProgramsPage from '../pages/member/MemberProgramsPage';
@@ -73,10 +76,15 @@ function MemberToastHost() {
 
 // Member routes under /member/*. Keep page component names below.
 function MemberArea() {
+  const { user } = useAuth();
+  const location = useLocation();
+  const needsOnboarding = user && 'onboardingCompletedAt' in user
+    && !user.onboardingCompletedAt && !user.onboardingSkippedAt;
   return (
     <MemberDataProvider>
       <MemberNotificationsProvider>
-      <Routes>
+      {needsOnboarding && location.pathname !== '/member/onboarding' ? <Navigate to="/member/onboarding" replace /> : <Routes>
+        <Route path="onboarding" element={<MemberOnboardingPage />} />
         <Route path="home" element={<MemberHomePage />} />
         <Route path="courses" element={<MemberCatalogPage />} />
         <Route path="courses/:courseId" element={<MemberCourseDetailPage />} />
@@ -86,7 +94,7 @@ function MemberArea() {
         <Route path="badges" element={<MemberBadgesPage />} />
         <Route path="account" element={<MemberAccountPage />} />
         <Route path="*" element={<Navigate to="home" replace />} />
-      </Routes>
+      </Routes>}
       <MemberToastHost />
       </MemberNotificationsProvider>
     </MemberDataProvider>
@@ -142,7 +150,7 @@ export default function AppRouter() {
           <Route path="/admin" element={<AdminRoleShell />}>
             <Route path="home" element={<AdminHomePage />} />
             <Route path="approvals" element={<AdminApprovalsPage />} />
-            <Route path="users" element={<Navigate to="/admin/approvals?queue=roles" replace />} />
+            <Route path="users" element={<AdminUsersPage />} />
             <Route path="ledger" element={<AdminCreditLedgerPage />} />
             <Route path="disputes" element={<AdminDisputesPage />} />
             <Route path="audit" element={<AdminAuditLogsPage />} />

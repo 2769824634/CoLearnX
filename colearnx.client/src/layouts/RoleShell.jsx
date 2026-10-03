@@ -1,8 +1,10 @@
-import { useEffect } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 import WorkspaceSwitcher from '../components/WorkspaceSwitcher';
 import UserAvatar from '../components/UserAvatar';
+import MemberNotifications from '../components/MemberNotifications';
+import { MemberNotificationsProvider } from '../components/MemberNotificationsProvider';
 import { useAuth } from '../auth/AuthContext';
 import useAdminAuth from '../auth/useAdminAuth';
 import '../styles/admin.css';
@@ -37,7 +39,66 @@ const NAV = {
   ],
 };
 
-function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspaceSwitcher = false, title, subtitle }) {
+function useAccessNotice() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const initialNotice = location.state?.accessNotice || '';
+  const [notice, setNotice] = useState(initialNotice);
+  const noticeRef = useRef(initialNotice);
+  const originPathRef = useRef(initialNotice ? `${location.pathname}${location.search}${location.hash}` : null);
+  const replacedRef = useRef(false);
+
+  useEffect(() => {
+    const incomingNotice = location.state?.accessNotice || '';
+
+    if (incomingNotice && incomingNotice !== noticeRef.current) {
+      noticeRef.current = incomingNotice;
+      originPathRef.current = `${location.pathname}${location.search}${location.hash}`;
+      replacedRef.current = false;
+      queueMicrotask(() => setNotice(incomingNotice));
+      return;
+    }
+
+    if (incomingNotice && !replacedRef.current) {
+      replacedRef.current = true;
+      navigate(`${location.pathname}${location.search}${location.hash}`, { replace: true, state: null });
+      return;
+    }
+
+    if (!incomingNotice && replacedRef.current) {
+      replacedRef.current = false;
+      return;
+    }
+
+    const currentPath = `${location.pathname}${location.search}${location.hash}`;
+    if (!incomingNotice && noticeRef.current && originPathRef.current !== currentPath) {
+      noticeRef.current = '';
+      originPathRef.current = null;
+      queueMicrotask(() => setNotice(''));
+    }
+  }, [location, navigate, notice]);
+
+  const dismiss = () => {
+    noticeRef.current = '';
+    originPathRef.current = null;
+    setNotice('');
+  };
+
+  return { notice, dismiss };
+}
+
+function AccessNotice({ notice, onDismiss }) {
+  if (!notice) return null;
+  return (
+    <div className="callout warn" role="status" aria-label="Access notice">
+      <div className="callout-title">Workspace access</div>
+      <div>{notice}</div>
+      <button type="button" className="btn btn-ghost" onClick={onDismiss}>Dismiss</button>
+    </div>
+  );
+}
+
+function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspaceSwitcher = false, title, subtitle, accessNotice, onDismissAccessNotice }) {
   const items = NAV[role] || [];
 
   return (
@@ -48,6 +109,7 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
         </div>
         <div className="topbar-search" />
         <div className="topbar-actions">
+          {role === 'trainer' || role === 'creator' ? <MemberNotifications /> : null}
           <button type="button" className="btn btn-ghost" onClick={logout}>
             Log out
           </button>
@@ -61,7 +123,7 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
         </div>
       </div>
       <div className="shell-body">
-        <nav className="sidebar">
+        <nav className="sidebar" aria-label={`${role} navigation`} aria-describedby={`${role}-nav-scroll-hint`}>
           {items.map((item) => (
             <NavLink
               key={item.to}
@@ -73,7 +135,9 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
             </NavLink>
           ))}
         </nav>
+        <p id={`${role}-nav-scroll-hint`} className="nav-scroll-hint">More navigation → Swipe or scroll sideways</p>
         <main className="content">
+          <AccessNotice notice={accessNotice} onDismiss={onDismissAccessNotice} />
           {title ? <h1 className="page-title">{title}</h1> : null}
           {subtitle ? <p className="page-sub">{subtitle}</p> : null}
           <Outlet />
@@ -86,7 +150,9 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
 // Trainer / Creator shell. Shared: RoleShell
 export default function RoleShell({ role, title, subtitle }) {
   const { user, token, logout } = useAuth();
+  const { notice: accessNotice, dismiss: dismissAccessNotice } = useAccessNotice();
   return (
+    <MemberNotificationsProvider>
     <ShellFrame
       identityName={user?.fullName}
       avatarUrl={user?.avatarUrl}
@@ -96,7 +162,10 @@ export default function RoleShell({ role, title, subtitle }) {
       showWorkspaceSwitcher
       title={title}
       subtitle={subtitle}
+      accessNotice={accessNotice}
+      onDismissAccessNotice={dismissAccessNotice}
     />
+    </MemberNotificationsProvider>
   );
 }
 

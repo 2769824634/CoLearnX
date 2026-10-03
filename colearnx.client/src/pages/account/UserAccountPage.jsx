@@ -100,17 +100,18 @@ export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summ
           <div>
             <p className="account-eyebrow">{eyebrow}</p>
             <h1>Profile / My Account</h1>
-            <p>Privacy protected · email/phone masked · edit via Edit Profile modal</p>
+            <p>Privacy protected · email/phone masked · profile updates are available from Edit Profile</p>
           </div>
           <button type="button" className="btn btn-primary" onClick={openEdit}>Edit Profile</button>
         </div>
-        <div className="grid-2-1" style={{ gridTemplateColumns: '240px 1fr' }}>
+        <div className="grid-2-1 account-page-grid">
           <div style={{ textAlign: 'center' }}>
             <AvatarEditor />
             <div style={{ fontWeight: 600 }}>{user?.fullName}</div>
             <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 4 }}>
               Display name · {user?.displayName || user?.fullName}
             </div>
+            <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 4 }}>Shown in greetings and workspace navigation.</div>
             {headline ? (
               <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 8 }}>{headline}</div>
             ) : null}
@@ -164,7 +165,7 @@ export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summ
               <div className="card-header">Identity visibility</div>
               <div className="card-body">
                 <p style={{ fontSize: 12, color: 'var(--slate)', marginTop: 0 }}>
-                  Edit Show/Hide and role fields only inside Edit Profile modal.
+                  Update visibility and role details from Edit Profile.
                 </p>
                 {IDENTITY_ROWS.map((row) => {
                   const hasRole = granted.has(row.key);

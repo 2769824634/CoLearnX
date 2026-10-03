@@ -1,0 +1,250 @@
+using CoLearnX.Server.Contracts.Dtos;
+using CoLearnX.Server.Data;
+using CoLearnX.Server.Domain.Entities;
+using CoLearnX.Server.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
+
+namespace CoLearnX.Server.Services;
+
+public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
+{
+    public async Task<EnrolResultDto> EnrolAsync(int userId, EnrolRequest request, CancellationToken ct = default)
+        => await ReserveAsync(userId, request, null, ct);
+
+    public async Task<EnrolResultDto> AcceptPostponementAsync(int userId, int enrollmentId,
+        AcceptPostponementRequest request, CancellationToken ct = default)
+        => await ReserveAsync(userId, new EnrolRequest(0, request.CourseSessionId), enrollmentId, ct);
+
+    private async Task<EnrolResultDto> ReserveAsync(int userId, EnrolRequest request, int? sourceEnrollmentId, CancellationToken ct)
+    {
+        return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            db.ChangeTracker.Clear();
+            await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+            var now = DateTime.UtcNow;
+            Enrollment? original = null;
+            if (sourceEnrollmentId is not null)
+            {
+                original = await db.Enrollments.AsNoTracking().Include(e => e.CourseSession).ThenInclude(s => s.CourseIntake)
+                    .SingleOrDefaultAsync(e => e.Id == sourceEnrollmentId && e.UserId == userId, ct)
+                    ?? throw new CourseException("ENROLLMENT_NOT_FOUND", "Enrollment was not found.", 404);
+                var source = original.CourseSession.CourseIntake;
+                if (!original.PostponementEligible || original.Status != EnrollmentStatus.Cancelled
+                    || source.CancellationReason != "MinimumEnrollmentNotMet" || source.CancelledAt is null
+                    || now > source.CancelledAt.Value.AddDays(7))
+                    throw new CourseException("POSTPONEMENT_NOT_AVAILABLE", "This reservation has no available postponement invitation.", 409);
+                if (await db.Enrollments.AnyAsync(e => e.PostponedFromEnrollmentId == original.Id, ct))
+                    throw new CourseException("POSTPONEMENT_ALREADY_ACCEPTED", "This postponement invitation was already accepted.", 409);
+                request = request with { CourseId = original.CourseId };
+            }
+            var course = await db.Courses.AsNoTracking().SingleOrDefaultAsync(c => c.Id == request.CourseId && c.Status == CourseStatus.Published, ct)
+                ?? throw new CourseException("COURSE_NOT_AVAILABLE", "Course is not available.", 404);
+            var session = await db.CourseSessions.AsNoTracking().Include(s => s.CourseIntake)
+                .SingleOrDefaultAsync(s => s.Id == request.CourseSessionId && s.CourseIntake.CourseId == course.Id, ct)
+                ?? throw new CourseException("SESSION_NOT_FOUND", "Session was not found.", 404);
+            var intake = session.CourseIntake;
+            if (original is not null && (intake.ReplacementForIntakeId != original.CourseSession.CourseIntakeId
+                || intake.Status != CourseIntakeStatus.Published || intake.ConfirmedToRunAt is not null))
+                throw new CourseException("POSTPONEMENT_NOT_AVAILABLE", "Choose a published replacement session for the original class.", 409);
+            if (intake.Status != CourseIntakeStatus.Published || intake.CancelledAt is not null
+                || intake.ConfirmedToRunAt is not null || now >= intake.RegistrationClosesAt)
+                throw new CourseException("REGISTRATION_CLOSED", "Registration is closed.");
+            if (now < intake.RegistrationOpensAt)
+                throw new CourseException("REGISTRATION_NOT_OPEN", "Registration is not open yet.");
+            if (session.PhysicalCapacity > 0 && session.PhysicalBookingDeadline < now)
+                throw new CourseException("PHYSICAL_BOOKING_CLOSED", "Physical booking is closed.");
+            if (await db.Enrollments.AnyAsync(e => e.UserId == userId && e.CourseId == course.Id
+                    && (e.Status == EnrollmentStatus.Active || e.Status == EnrollmentStatus.Reserved), ct))
+                throw new CourseException("ALREADY_ENROLLED", "You already have a place in this course.", 409);
+            var classSize = await db.Enrollments.CountAsync(e => e.CourseSession.CourseIntakeId == intake.Id
+                && (e.Status == EnrollmentStatus.Active || e.Status == EnrollmentStatus.Reserved), ct);
+
+            var cost = original?.CreditsSpent ?? course.CreditCost;
+
+            // Claim the aggregate version so a concurrent structural change cannot strand a new hold.
+            var claimed = await db.CourseIntakes.Where(i => i.Id == intake.Id && i.Version == intake.Version
+                && i.Status == CourseIntakeStatus.Published && i.ConfirmedToRunAt == null && i.CancelledAt == null
+                && i.RegistrationClosesAt > now)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(i => i.Version, Guid.NewGuid()), ct);
+            if (claimed != 1)
+                throw new CourseException("INTAKE_VERSION_CONFLICT", "The class changed. Refresh before reserving again.", 409);
+
+            var updatedUser = await db.Users.Where(u => u.Id == userId && u.IsActive && u.CreditBalance >= cost)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(u => u.CreditBalance, u => u.CreditBalance - cost)
+                    .SetProperty(u => u.HeldCredits, u => u.HeldCredits + cost), ct);
+            if (updatedUser != 1)
+                throw new CourseException("INSUFFICIENT_CREDITS", "Not enough available credits to reserve this place.");
+            var updatedSeat = await db.CourseSessions.Where(s => s.Id == session.Id
+                    && (s.PhysicalCapacity == 0 || s.SeatsTaken < s.PhysicalCapacity))
+                .ExecuteUpdateAsync(setters => setters.SetProperty(s => s.SeatsTaken, s => s.SeatsTaken + 1), ct);
+            if (updatedSeat != 1)
+                throw new CourseException("SESSION_FULL", "Session is full.");
+
+            var wallet = await db.Users.AsNoTracking().Where(u => u.Id == userId)
+                .Select(u => new { u.CreditBalance, u.HeldCredits }).SingleAsync(ct);
+            var enrollment = new Enrollment { UserId = userId, CourseId = course.Id, CourseSessionId = session.Id,
+                Status = EnrollmentStatus.Reserved, ProgressPercent = 0, CreditsSpent = cost,
+                PostponedFromEnrollmentId = original?.Id };
+            db.Enrollments.Add(enrollment);
+            await db.SaveChangesAsync(ct);
+            db.CreditTransactions.Add(new CreditTransaction { UserId = userId, Type = CreditTransactionType.Hold,
+                Description = $"Reserved {course.Code} — {course.Title}", Delta = -cost,
+                BalanceAfter = wallet.CreditBalance, HeldAfter = wallet.HeldCredits, RelatedEnrollmentId = enrollment.Id });
+            db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "EnrollmentReserved",
+                EntityType = nameof(Enrollment), EntityId = enrollment.Id.ToString(), Result = "Succeeded",
+                Reason = $"Held {cost} credits for {course.Code}" });
+            db.Notifications.Add(new Notification { UserId = userId, IntakeId = intake.Id, Code = "N-01", Title = "Place reserved",
+                Body = $"{cost} credits are on hold for {course.Code}." });
+            if (session.PhysicalCapacity > 0 && session.SeatsTaken + 1 == session.PhysicalCapacity)
+                db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, Code = "N-session-full",
+                    Title = "Session is full", Body = $"{course.Code} Intake #{intake.Id} has reached physical capacity." });
+            if (classSize + 1 == intake.MinEnrollment)
+            {
+                var body = $"{course.Code} Intake #{intake.Id} has enough learners to run.";
+                if (!await db.Notifications.AnyAsync(n => n.UserId == intake.TrainerId
+                    && n.Code == "N-min-reached" && n.Body == body, ct))
+                    db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, Code = "N-min-reached",
+                        Title = "Minimum enrollment reached", Body = body });
+            }
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+            return new EnrolResultDto(enrollment.Id, cost, wallet.CreditBalance,
+                course.Code, course.Title, wallet.HeldCredits);
+        });
+    }
+
+    public async Task<EnrollmentDto> CancelReservationAsync(int userId, int enrollmentId, CancellationToken ct = default)
+    {
+        return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            db.ChangeTracker.Clear();
+            await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+            var enrollment = await db.Enrollments.Include(e => e.Course).ThenInclude(c => c.Trainer)
+                .Include(e => e.CourseSession).ThenInclude(s => s.CourseIntake).ThenInclude(i => i.Trainer)
+                .SingleOrDefaultAsync(e => e.Id == enrollmentId && e.UserId == userId, ct)
+                ?? throw new CourseException("ENROLLMENT_NOT_FOUND", "Enrollment was not found.", 404);
+            if (enrollment.Status != EnrollmentStatus.Reserved || enrollment.CourseSession.CourseIntake.ConfirmedToRunAt is not null)
+                throw new CourseException("RESERVATION_NOT_CANCELLABLE", "Only an unconfirmed reservation can be cancelled.", 409);
+            var wallet = await db.Users.SingleAsync(u => u.Id == userId, ct);
+            if (wallet.HeldCredits < enrollment.CreditsSpent || enrollment.CourseSession.SeatsTaken <= 0)
+                throw new CourseException("RESERVATION_BALANCE_CONFLICT", "Reservation balances need review before cancellation.", 409);
+            wallet.HeldCredits -= enrollment.CreditsSpent;
+            wallet.CreditBalance += enrollment.CreditsSpent;
+            enrollment.Status = EnrollmentStatus.Cancelled;
+            enrollment.CourseSession.SeatsTaken -= 1;
+            db.CreditTransactions.Add(new CreditTransaction { UserId = userId, Type = CreditTransactionType.Release,
+                Description = $"Released {enrollment.Course.Code} reservation", Delta = enrollment.CreditsSpent,
+                BalanceAfter = wallet.CreditBalance, HeldAfter = wallet.HeldCredits, RelatedEnrollmentId = enrollment.Id });
+            db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "ReservationCancelled",
+                EntityType = nameof(Enrollment), EntityId = enrollment.Id.ToString(), Result = "Succeeded",
+                Reason = $"Released {enrollment.CreditsSpent} credits" });
+            db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, Code = "N-hold-released", Title = "Credits released",
+                Body = $"{enrollment.CreditsSpent} credits are available again." });
+            var intake = enrollment.CourseSession.CourseIntake;
+            if (enrollment.CourseSession.PhysicalCapacity > 0
+                && enrollment.CourseSession.SeatsTaken + 1 == enrollment.CourseSession.PhysicalCapacity
+                && DateTime.UtcNow < intake.RegistrationClosesAt)
+                db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, Code = "N-session-reopened",
+                    Title = "Session has a place available", Body = $"{enrollment.Course.Code} Intake #{intake.Id} has a free physical place." });
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+            return ToEnrollmentDto(enrollment);
+        });
+    }
+
+    public async Task<EnrollmentDto> WithdrawAsync(int userId, int enrollmentId, CancellationToken ct = default)
+    {
+        return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            db.ChangeTracker.Clear();
+            await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+            var enrollment = await db.Enrollments.Include(e => e.Course).ThenInclude(c => c.Trainer)
+                .Include(e => e.CourseSession).ThenInclude(s => s.CourseIntake).ThenInclude(i => i.Trainer)
+                .SingleOrDefaultAsync(e => e.Id == enrollmentId && e.UserId == userId, ct)
+                ?? throw new CourseException("ENROLLMENT_NOT_FOUND", "Enrollment was not found.", 404);
+            if (enrollment.Status != EnrollmentStatus.Active)
+                throw new CourseException("WITHDRAW_NOT_ALLOWED", "Only an active enrollment can be withdrawn.", 409);
+            var daysLeft = (enrollment.CourseSession.CourseIntake.StartsAt.Date - DateTime.UtcNow.Date).Days;
+            if (daysLeft <= 5)
+                throw new CourseException("WITHDRAW_TOO_LATE", "Withdrawal closes five calendar days before the class starts.", 409);
+            if (daysLeft > 10)
+                throw new CourseException("WITHDRAW_NOT_OPEN", "Confirmed enrollment withdrawal opens ten calendar days before the class starts.", 409);
+            var refund = (int)Math.Round(enrollment.CreditsSpent * 0.7m, MidpointRounding.AwayFromZero);
+            var forfeited = enrollment.CreditsSpent - refund;
+            var user = await db.Users.SingleAsync(u => u.Id == userId, ct);
+            if (enrollment.CourseSession.SeatsTaken <= 0)
+                throw new CourseException("ENROLLMENT_SEAT_CONFLICT", "Enrollment seats need review before withdrawal.", 409);
+            user.CreditBalance += refund;
+            enrollment.Status = EnrollmentStatus.Refunded;
+            enrollment.CourseSession.SeatsTaken -= 1;
+            db.CreditTransactions.Add(new CreditTransaction { UserId = userId, Type = CreditTransactionType.Refund,
+                Description = $"Withdrawal refund: {enrollment.Course.Code}", Delta = refund,
+                BalanceAfter = user.CreditBalance, HeldAfter = user.HeldCredits, RelatedEnrollmentId = enrollment.Id });
+            db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "EnrollmentWithdrawn",
+                EntityType = nameof(Enrollment), EntityId = enrollment.Id.ToString(), Result = "Succeeded",
+                Reason = $"Refunded {refund}; forfeited {forfeited} credits" });
+            if (forfeited > 0)
+                db.CreditTransactions.Add(new CreditTransaction { UserId = userId, Type = CreditTransactionType.Forfeit,
+                    Description = $"{forfeited} credits retained after withdrawal from {enrollment.Course.Code}", Delta = 0,
+                    BalanceAfter = user.CreditBalance, HeldAfter = user.HeldCredits, RelatedEnrollmentId = enrollment.Id });
+            db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, Code = "N-withdraw-70", Title = "Enrollment withdrawn",
+                Body = $"{refund} credits were refunded for {enrollment.Course.Code}." });
+            db.Notifications.Add(new Notification { UserId = enrollment.CourseSession.CourseIntake.TrainerId,
+                IntakeId = enrollment.CourseSession.CourseIntakeId,
+                Code = "N-learner-withdrew", Title = "Learner withdrew",
+                Body = $"A learner withdrew from {enrollment.Course.Code}." });
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+            return ToEnrollmentDto(enrollment);
+        });
+    }
+
+    public async Task<IReadOnlyList<EnrollmentDto>> GetMyAsync(int userId, CancellationToken ct = default)
+    {
+        var enrollments = await db.Enrollments.AsNoTracking()
+            .Include(e => e.Course).ThenInclude(c => c.Trainer)
+            .Include(e => e.CourseSession).ThenInclude(s => s.CourseIntake).ThenInclude(i => i.Trainer)
+            .Where(e => e.UserId == userId)
+            .OrderByDescending(e => e.EnrolledAt)
+            .ToListAsync(ct);
+        var now = DateTime.UtcNow;
+        var eligible = enrollments.Where(e => e.PostponementEligible && e.Status == EnrollmentStatus.Cancelled
+            && e.CourseSession.CourseIntake.CancelledAt?.AddDays(7) >= now
+            && !enrollments.Any(next => next.PostponedFromEnrollmentId == e.Id)
+            && !enrollments.Any(active => active.CourseId == e.CourseId
+                && active.Status is EnrollmentStatus.Active or EnrollmentStatus.Reserved)).ToList();
+        var sourceIds = eligible.Select(e => e.CourseSession.CourseIntakeId).ToList();
+        var replacements = await db.CourseSessions.AsNoTracking().Include(s => s.CourseIntake)
+            .Where(s => s.CourseIntake.ReplacementForIntakeId != null
+                && sourceIds.Contains(s.CourseIntake.ReplacementForIntakeId.Value)
+                && s.CourseIntake.Status == CourseIntakeStatus.Published && s.CourseIntake.Course.Status == CourseStatus.Published
+                && s.CourseIntake.CancelledAt == null && s.CourseIntake.ConfirmedToRunAt == null
+                && s.CourseIntake.RegistrationOpensAt <= now && s.CourseIntake.RegistrationClosesAt > now
+                && (s.PhysicalCapacity == 0 || (s.SeatsTaken < s.PhysicalCapacity && s.PhysicalBookingDeadline >= now)))
+            .OrderBy(s => s.StartsAt).ToListAsync(ct);
+        return enrollments.Select(e => ToEnrollmentDto(e) with
+        {
+            PostponementOptions = eligible.Contains(e) ? replacements
+                .Where(s => s.CourseIntake.ReplacementForIntakeId == e.CourseSession.CourseIntakeId)
+                .Select(s => new PostponementOptionDto(s.CourseIntakeId, s.Id, s.Label, s.StartsAt, s.EndsAt,
+                    s.CourseIntake.RegistrationClosesAt, e.CreditsSpent,
+                    s.PhysicalCapacity == 0 ? null : s.PhysicalCapacity - s.SeatsTaken)).ToList() : [],
+        }).ToList();
+    }
+
+    private static EnrollmentDto ToEnrollmentDto(Enrollment e)
+        => new(e.Id, e.CourseId, e.Course.Code, e.Course.Title, e.CourseSession.CourseIntake.Trainer.FullName,
+            e.Status.ToString(), e.ProgressPercent, e.CourseSessionId,
+            e.Status == EnrollmentStatus.Reserved ? null : e.CourseSession.MeetingLink,
+            e.Status == EnrollmentStatus.Reserved ? e.CreditsSpent : 0,
+            e.CourseSession.CourseIntake.RegistrationClosesAt,
+            e.CourseSession.CourseIntake.StartsAt, [], WithdrawalRefund(e));
+
+    private static int? WithdrawalRefund(Enrollment e)
+    {
+        var days = (e.CourseSession.CourseIntake.StartsAt.Date - DateTime.UtcNow.Date).Days;
+        return e.Status == EnrollmentStatus.Active && days is > 5 and <= 10
+            ? (int)Math.Round(e.CreditsSpent * 0.7m, MidpointRounding.AwayFromZero) : null;
+    }
+}

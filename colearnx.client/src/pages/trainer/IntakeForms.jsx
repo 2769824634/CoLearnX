@@ -6,7 +6,7 @@ function FormActions({ busy, blocked, onCancel, label }) {
   return <div className="trainer-actions"><button type="submit" className="btn btn-primary" disabled={busy || blocked}>{busy ? 'Saving…' : label}</button>{onCancel ? <button type="button" className="btn btn-ghost" disabled={busy} onClick={onCancel}>Cancel</button> : null}</div>;
 }
 
-export function ScheduleForm({ intake, courses, onSave, onCancel, busy, blocked, error, onError }) {
+export function ScheduleForm({ intake, courses, onSave, onCancel, busy, blocked, error, onError, allowMinEnrollment = true, submitLabel }) {
   const [values, setValues] = useState(() => initialSchedule(intake));
   const [courseId, setCourseId] = useState('');
   const change = (event) => setValues((current) => ({ ...current, [event.target.name]: event.target.value }));
@@ -19,9 +19,10 @@ export function ScheduleForm({ intake, courses, onSave, onCancel, busy, blocked,
       <p>Use local time ({localTimezone}). Dates are saved in UTC.</p>
       {!intake ? <TrainerField name="courseId" label="Published course" value={courseId} onChange={(event) => setCourseId(event.target.value)} required error={error}><option value="">Choose a published course</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.code} — {course.title}</option>)}</TrainerField> : null}
       <div className="trainer-form-grid">{[['registrationOpensAt', 'Registration opens'], ['registrationClosesAt', 'Registration closes'], ['startsAt', 'Delivery starts'], ['endsAt', 'Delivery ends']].map(([name, label]) => <TrainerField key={name} name={name} label={label} type="datetime-local" step="60" value={values[name]} onChange={change} required error={error} />)}</div>
-      <p className="trainer-help">Registration opens before it closes. Delivery starts at or after registration closes. All Sessions must fit inside the delivery period.</p>
+      {allowMinEnrollment ? <TrainerField name="minEnrollment" label="Minimum enrollment" type="number" min="2" max="200" step="1" value={values.minEnrollment} onChange={change} required error={error} /> : null}
+      <p className="trainer-help">Registration must close at least 10 days before delivery starts. All Sessions must fit inside the delivery period.</p>
     </fieldset>
-    <FormActions busy={busy} blocked={blocked} onCancel={onCancel} label={intake ? 'Save schedule' : 'Create Draft'} />
+    <FormActions busy={busy} blocked={blocked} onCancel={onCancel} label={submitLabel || (intake ? 'Save schedule' : 'Create Draft')} />
   </form>;
 }
 
