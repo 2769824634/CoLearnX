@@ -38,19 +38,7 @@ export const initialSchedule = (intake = {}) => ({
 
 export function schedulePayload(values, version, original) {
   const payload = Object.fromEntries(scheduleFields.map((field) => [field, toUtc(values[field], field, original?.[field])]));
-  if (!(payload.registrationOpensAt < payload.registrationClosesAt)) {
-    invalid('registrationClosesAt', 'Registration must close after it opens.');
-  }
-  if (!(payload.startsAt < payload.endsAt)) {
-    invalid('endsAt', 'Delivery must end after it starts.');
-  }
-  if (!(new Date(payload.registrationClosesAt).getTime() <= new Date(payload.startsAt).getTime() - 10 * 86400000)) {
-    invalid('registrationClosesAt', 'Registration must close at least 10 days before delivery starts.');
-  }
   payload.minEnrollment = Number(values.minEnrollment);
-  if (!Number.isInteger(payload.minEnrollment) || payload.minEnrollment < 2 || payload.minEnrollment > 200) {
-    invalid('minEnrollment', 'Minimum enrollment must be 2 to 200.');
-  }
   return version ? { ...payload, version } : payload;
 }
 
@@ -65,26 +53,12 @@ export function initialSession(session, intake) {
 
 export function sessionPayload(values, intake, original) {
   const label = values.label.trim();
-  if (!label || label.length > 128) invalid('label', 'Enter a session label of up to 128 characters.');
   const startsAt = toUtc(values.startsAt, 'startsAt', original?.startsAt);
   const endsAt = toUtc(values.endsAt, 'endsAt', original?.endsAt);
-  if (!(startsAt < endsAt && new Date(startsAt) >= new Date(intake.startsAt) && new Date(endsAt) <= new Date(intake.endsAt))) {
-    invalid('startsAt', 'The session must start before it ends and fit within the Intake delivery period.');
-  }
   const meetingLink = values.meetingLink.trim() || null;
-  if (meetingLink) {
-    let url;
-    try { url = new URL(meetingLink); } catch { invalid('meetingLink', 'Enter an absolute HTTP or HTTPS meeting link.'); }
-    if (!['https:', 'http:'].includes(url.protocol) || meetingLink.length > 2048) invalid('meetingLink', 'Enter an absolute HTTP or HTTPS meeting link, up to 2048 characters.');
-  }
   const physicalAddress = values.physical ? values.physicalAddress.trim() : null;
   const physicalCapacity = values.physical ? Number(values.physicalCapacity) : 0;
   const physicalBookingDeadline = values.physical ? toUtc(values.physicalBookingDeadline, 'physicalBookingDeadline', original?.physicalBookingDeadline) : null;
-  if (values.physical) {
-    if (!physicalAddress || physicalAddress.length > 512) invalid('physicalAddress', 'Enter a physical address of up to 512 characters.');
-    if (!Number.isInteger(physicalCapacity) || physicalCapacity < Number(intake.minEnrollment || 10) || physicalCapacity > 2147483647) invalid('physicalCapacity', 'Capacity must meet the Intake minimum enrollment.');
-    if (physicalBookingDeadline > startsAt) invalid('physicalBookingDeadline', 'The physical booking deadline must be at or before the session start.');
-  } else if (!meetingLink) invalid('meetingLink', 'Provide an online meeting link or enable a physical location.');
   return { label, startsAt, endsAt, meetingLink, physicalAddress, physicalCapacity, physicalBookingDeadline, version: intake.version };
 }
 

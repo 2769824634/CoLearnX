@@ -37,7 +37,7 @@ test('editing an unrelated field preserves the later occurrence of a repeated DS
   } finally { if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous; }
 });
 
-test('Intake ordering requires registration to close ten days before delivery', () => {
+test('schedule payload converts local times and forwards minEnrollment without local business rules', () => {
   const close = '2026-09-30T00:00:00.000Z';
   const values = initialSchedule({ ...intake, registrationOpensAt: '2026-09-01T00:00:00Z', registrationClosesAt: close });
   const body = schedulePayload({ ...values, status: 'Published', trainerId: 99 }, intake.version);
@@ -45,15 +45,9 @@ test('Intake ordering requires registration to close ten days before delivery', 
   assert.equal(body.version, intake.version);
   assert.equal('status' in body, false);
   assert.equal('trainerId' in body, false);
-  assert.throws(() => schedulePayload({ ...values, registrationOpensAt: values.registrationClosesAt }), (error) => (
-    Boolean(error.fieldErrors.registrationClosesAt) && /close after it opens/.test(error.message)
-  ));
-  assert.throws(() => schedulePayload({ ...values, endsAt: values.startsAt }), (error) => (
-    Boolean(error.fieldErrors.endsAt) && /end after it starts/.test(error.message)
-  ));
-  assert.throws(() => schedulePayload({ ...values, registrationClosesAt: toLocalInput('2026-10-01T00:00:00.000Z') }), (error) => (
-    Boolean(error.fieldErrors.registrationClosesAt) && /10 days/.test(error.message)
-  ));
+  const inverted = schedulePayload({ ...values, registrationOpensAt: values.registrationClosesAt, registrationClosesAt: values.registrationOpensAt }, intake.version);
+  assert.ok(inverted.registrationOpensAt);
+  assert.ok(inverted.registrationClosesAt);
 });
 
 test('switching physical delivery off clears hidden physical fields and retains the latest parent version', () => {
@@ -66,7 +60,7 @@ test('switching physical delivery off clears hidden physical fields and retains 
   assert.equal(body.startsAt, session.startsAt);
 });
 
-test('physical-only and hybrid sessions validate capacity and deadline', () => {
+test('physical-only and hybrid sessions assemble capacity and deadline for the server', () => {
   const values = { ...initialSession(session, intake), meetingLink: '', physical: true, physicalAddress: '  Room 3  ', physicalCapacity: '12', physicalBookingDeadline: toLocalInput(session.startsAt) };
   const body = sessionPayload(values, intake);
   assert.equal(body.physicalAddress, 'Room 3');
@@ -74,21 +68,20 @@ test('physical-only and hybrid sessions validate capacity and deadline', () => {
   assert.equal(body.meetingLink, null);
   assert.equal(body.physicalBookingDeadline, session.startsAt);
   assert.ok(sessionPayload({ ...values, meetingLink: session.meetingLink }, intake).meetingLink);
-  assert.throws(() => sessionPayload({ ...values, physicalCapacity: '1.5' }, intake), (error) => Boolean(error.fieldErrors.physicalCapacity));
-  assert.throws(() => sessionPayload({ ...values, physicalBookingDeadline: toLocalInput(session.endsAt) }, intake), (error) => Boolean(error.fieldErrors.physicalBookingDeadline));
 });
 
-test('sessions cannot escape the parent delivery period or omit a location', () => {
+test('sessions still assemble when location or window would be rejected by the server', () => {
   const values = initialSession(session, intake);
-  assert.throws(() => sessionPayload({ ...values, startsAt: toLocalInput('2026-10-01T00:00:00Z') }, intake), (error) => Boolean(error.fieldErrors.startsAt));
-  assert.throws(() => sessionPayload({ ...values, endsAt: values.startsAt }, intake), (error) => Boolean(error.fieldErrors.startsAt));
-  assert.throws(() => sessionPayload({ ...values, meetingLink: '' }, intake), (error) => Boolean(error.fieldErrors.meetingLink));
+  const outside = sessionPayload({ ...values, startsAt: toLocalInput('2026-10-01T00:00:00Z') }, intake);
+  assert.ok(outside.startsAt);
+  const emptyLocation = sessionPayload({ ...values, meetingLink: '' }, intake);
+  assert.equal(emptyLocation.meetingLink, null);
 });
 
-test('executable/non-HTTP links are never submitted or rendered as links', () => {
+test('executable/non-HTTP links are never rendered as links; payload still forwards the raw value', () => {
   for (const link of ['javascript:alert(1)', 'data:text/html,test', 'file:///C:/test', 'not a URL']) {
     assert.equal(safeMeetingLink(link), null);
-    assert.throws(() => sessionPayload({ ...initialSession(session, intake), meetingLink: link }, intake), (error) => Boolean(error.fieldErrors.meetingLink));
+    assert.equal(sessionPayload({ ...initialSession(session, intake), meetingLink: link }, intake).meetingLink, link);
   }
   assert.equal(safeMeetingLink(session.meetingLink), session.meetingLink);
 });
