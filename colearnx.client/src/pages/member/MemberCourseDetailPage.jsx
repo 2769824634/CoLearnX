@@ -4,7 +4,7 @@ import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
 import { enrollmentsApi } from '../../api';
 import { useMemberData } from './memberDataState';
-import { formatUtcDateTime, formatUtcRange, userFacingError } from '../businessPresentation';
+import { formatCount, formatUtcDateTime, formatUtcRange, userFacingError } from '../businessPresentation';
 import { sessionAvailability } from './sessionAvailability';
 
 // Course detail + enrol.
@@ -98,10 +98,11 @@ export default function MemberCourseDetailPage() {
     setEnrolBusy(true);
     try {
       const result = await enrol(course.id, session.id);
+      const updated = await loadCourseDetail(course.id);
       setEnrolOpen(false);
-      setSuccessMsg(`${result.creditsSpent} credits on hold · ${result.balance} available · ${result.heldAfter} on hold in total`);
+      setSuccessMsg(`${formatCount(result.creditsSpent, 'credit')} on hold · ${result.balance} available · ${result.heldAfter} on hold in total`);
       setSuccessOpen(true);
-      setCourse((c) => ({ ...c, alreadyEnrolled: true }));
+      setCourse(updated);
     } catch (e) {
       setEnrolOpen(false);
       if (e?.code === 'INSUFFICIENT_CREDITS') setInsufficientOpen(true);
@@ -147,10 +148,10 @@ export default function MemberCourseDetailPage() {
                     onClick={() => setSessionIdx(i)}
                   >
                     <strong>{s.label}</strong> · {s.startsAt && s.endsAt ? formatUtcRange(s.startsAt, s.endsAt) : 'Schedule unavailable'}
-                    <span className="seats">{(s.capacity ?? 0) > 0 ? `${s.seats} seats left` : 'Online'}</span>
+                    <span className="seats">{(s.capacity ?? 0) > 0 ? `${formatCount(s.seats, 'seat')} left` : 'Online'}</span>
                     <span className="member-session-status">{sessionAvailability(s, now).label}</span>
-                    <span className="member-session-summary">{s.intakeEnrollmentCount ?? '—'} learners reserved or enrolled · Minimum {s.minEnrollment ?? 10}</span>
-                    <span className="member-session-summary">Delivery: {s.physical ? 'Physical' : 'Online'}</span>
+                    <span className="member-session-summary">{formatCount(s.intakeEnrollmentCount ?? 0, 'learner')} reserved or enrolled · Minimum {s.minEnrollment ?? 10}</span>
+                    <span className="member-session-summary">Delivery: {s.physical && s.online ? 'Physical and online (shared place; choosing a mode is not available yet)' : s.physical ? 'Physical' : 'Online'}</span>
                     {s.registrationClosesAt ? <span className="member-session-summary">Registration closes {formatUtcDateTime(s.registrationClosesAt)}</span> : null}
                   </button>
                 ))}
@@ -168,7 +169,7 @@ export default function MemberCourseDetailPage() {
             <div className="card" style={{ marginBottom: 12 }}>
               <div className="card-header">Course Fee</div>
               <div className="card-body">
-                <strong style={{ color: 'var(--purple)', fontSize: 18 }}>{course.credits} Credits</strong>
+                <strong style={{ color: 'var(--purple)', fontSize: 18 }}>{formatCount(course.credits, 'credit')}</strong>
                 <p className="page-sub">Certificate applications require 100% completion, at least 80% attendance and all assessments passed, followed by Trainer and Admin approval.</p>
               </div>
             </div>
@@ -186,7 +187,7 @@ export default function MemberCourseDetailPage() {
         </div>
 
         <div className="enrol-bar">
-          <span className="credits">{course.credits} Credits</span>
+          <span className="credits">{formatCount(course.credits, 'credit')}</span>
           <span style={{ fontSize: 13, color: 'var(--slate)' }}>{course.code}</span>
           <span style={{ flex: 1 }} />
           {course.alreadyEnrolled ? (
@@ -202,7 +203,7 @@ export default function MemberCourseDetailPage() {
           <div className="card-body">
             <strong>{course.code} — {course.title}</strong>
             <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 6 }}>
-              {session ? formatUtcRange(session.startsAt, session.endsAt) : ''} · <span style={{ color: 'var(--purple)', fontWeight: 600 }}>{course.credits} Credits</span>
+              {session ? formatUtcRange(session.startsAt, session.endsAt) : ''} · <span style={{ color: 'var(--purple)', fontWeight: 600 }}>{formatCount(course.credits, 'credit')}</span>
             </div>
           </div>
         </div>

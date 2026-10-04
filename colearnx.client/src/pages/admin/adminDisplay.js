@@ -18,6 +18,12 @@ export function actionLabel(action) {
 }
 
 export function resultClass(result) {
-  return ['Approved', 'Published', 'Succeeded'].includes(result) ? 'approved'
-    : ['Rejected', 'Failed'].includes(result) ? 'rejected' : '';
+  const key = String(result || '').toLowerCase();
+  return ['approved', 'published', 'succeeded'].includes(key) ? 'approved'
+    : ['rejected', 'failed'].includes(key) ? 'rejected'
+      : ['pendingapproval', 'pending'].includes(key) ? 'pendingapproval' : '';
+}
+
+export function resultLabel(result) {
+  return result === 'PendingApproval' ? 'Pending approval' : result || '—';
 }

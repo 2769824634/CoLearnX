@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { adminAuditApi, adminCourseReviewsApi, adminRoleRequestsApi } from '../../api';
 import useAdminQuery from './useAdminQuery';
 import AdminDataState from './AdminDataState';
-import { actionLabel, auditActor, formatAuditTime, resultClass } from './adminDisplay';
+import { actionLabel, auditActor, formatAuditTime, resultClass, resultLabel } from './adminDisplay';
 
 async function loadOverview(token, _queryKey, signal) {
   const [roles, courses, activity] = await Promise.all([
@@ -61,7 +61,7 @@ export default function AdminHomePage() {
                   {log.reason ? <p>{log.reason}</p> : null}
                 </div>
                 <div className="admin-activity-meta">
-                  <span className={`admin-status ${resultClass(log.result)}`}>{log.result}</span>
+                  <span className={`admin-status ${resultClass(log.result)}`}>{resultLabel(log.result)}</span>
                   <time>{formatAuditTime(log.createdAt)}</time>
                 </div>
               </li>)}

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { creatorIntakeApplicationsApi } from '../../api/creatorIntakeApplications';
 import { reviewPayload } from '../trainer/b4Workflow';
-import { formatDate } from '../trainer/intakeForm';
+import { safeMeetingLink } from '../trainer/intakeForm';
+import { formatUtcDateTime } from '../businessPresentation';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 
@@ -10,8 +11,16 @@ const loadCreatorApplication = (token, id, signal) => creatorIntakeApplicationsA
 
 function Schedule({ title, intake, accent = false }) {
   return <section className={`creator-schedule${accent ? ' proposed' : ''}`}><div className="creator-section-heading"><div><p className="creator-eyebrow">{accent ? 'Awaiting your decision' : `Intake status: ${intake.status}`}</p><h2>{title}</h2></div></div>
-    <dl>{[['Registration opens', intake.registrationOpensAt], ['Registration closes', intake.registrationClosesAt], ['Delivery starts', intake.startsAt], ['Delivery ends', intake.endsAt]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{formatDate(value)}</dd></div>)}</dl>
-    <div className="creator-session-list">{intake.sessions.map((session, index) => <article key={session.id || `${session.label}-${index}`}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{session.label}</strong><p>{formatDate(session.startsAt)} → {formatDate(session.endsAt)}</p><small>{session.meetingLink ? 'Online' : ''}{session.meetingLink && session.physicalAddress ? ' + ' : ''}{session.physicalAddress ? `${session.physicalAddress} · ${session.physicalCapacity} seats` : ''}</small></div></article>)}</div>
+    <dl>{[['Registration opens', intake.registrationOpensAt], ['Registration closes', intake.registrationClosesAt], ['Delivery starts', intake.startsAt], ['Delivery ends', intake.endsAt]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{formatUtcDateTime(value)}</dd></div>)}
+      <div><dt>Minimum enrollment</dt><dd>{intake.minEnrollment ?? 'Not provided'}</dd></div>
+    </dl>
+    <div className="creator-session-list">{intake.sessions.map((session, index) => {
+      const meetingLink = safeMeetingLink(session.meetingLink);
+      return <article key={session.id || `${session.label}-${index}`}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{session.label}</strong><p>{formatUtcDateTime(session.startsAt)} → {formatUtcDateTime(session.endsAt)}</p>
+        <small>{meetingLink ? <a href={meetingLink} target="_blank" rel="noopener noreferrer">{meetingLink}</a> : (session.meetingLink ? 'Invalid meeting link' : 'No online meeting link')}</small>
+        <small>{session.physicalAddress ? `${session.physicalAddress} · ${session.physicalCapacity} seats · Booking closes ${session.physicalBookingDeadline ? formatUtcDateTime(session.physicalBookingDeadline) : 'not set'}` : 'No physical location'}</small>
+      </div></article>;
+    })}</div>
   </section>;
 }
 

@@ -16,6 +16,27 @@ it('opens a legacy Intake without an application as a read-only current schedule
   render(<MemoryRouter><CreatorIntakeApplicationDetailPage /></MemoryRouter>);
   expect(screen.getByRole('heading', { name: 'Intake #42' })).toBeTruthy();
   expect(screen.getByText('Cancelled')).toBeTruthy();
+  expect(screen.getByText('10')).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Approve sessions' })).toBeNull();
   expect(screen.getByText(/No application record/)).toBeTruthy();
+});
+
+it('shows minimum enrollment, meeting URL and physical booking deadline for review', () => {
+  query.data = { application: {
+    courseIntakeId: 7, courseCode: 'CLXL1004R1', courseTitle: 'Local repair course', trainerName: 'Trainer G',
+    kind: 'New', status: 'Pending', version: 'v1',
+  }, proposedChange: null, currentIntake: {
+    id: 7, courseId: 7, status: 'PendingApproval', minEnrollment: 2, confirmationNote: null,
+    registrationOpensAt: '2026-09-01T00:00:00Z', registrationClosesAt: '2026-09-20T00:00:00Z',
+    startsAt: '2026-10-20T01:00:00Z', endsAt: '2026-10-20T03:00:00Z',
+    sessions: [{
+      id: 9, label: 'Session 9', startsAt: '2026-10-20T01:00:00Z', endsAt: '2026-10-20T03:00:00Z',
+      meetingLink: 'https://meet.example.test/room-9', physicalAddress: 'Studio 3', physicalCapacity: 3,
+      physicalBookingDeadline: '2026-10-19T01:00:00Z',
+    }],
+  } };
+  render(<MemoryRouter><CreatorIntakeApplicationDetailPage /></MemoryRouter>);
+  expect(screen.getByText('2')).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'https://meet.example.test/room-9' })).toBeTruthy();
+  expect(screen.getByText(/Booking closes/)).toBeTruthy();
 });

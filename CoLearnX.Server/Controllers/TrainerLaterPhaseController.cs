@@ -31,6 +31,13 @@ public sealed class TrainerLaterPhaseController(
         [FromBody] AttachIntakeMaterialRequest request, CancellationToken ct)
         => Ok(await trainer.AttachMaterialAsync(User.GetUserId(), courseIntakeId, request, ct));
 
+    [HttpGet("intakes/{courseIntakeId:int}/learning-materials/{materialVersionId:int}/file")]
+    public async Task<IActionResult> DownloadIntakeMaterial(int courseIntakeId, int materialVersionId, CancellationToken ct)
+    {
+        var file = await trainer.OpenAttachedMaterialAsync(User.GetUserId(), courseIntakeId, materialVersionId, ct);
+        return File(file.Stream, file.ContentType, file.DownloadName);
+    }
+
     [HttpGet("intakes/{courseIntakeId:int}/sessions/{courseSessionId:int}/recordings")]
     public async Task<ActionResult<IReadOnlyList<SessionRecordingDto>>> Recordings(int courseIntakeId, int courseSessionId,
         CancellationToken ct)

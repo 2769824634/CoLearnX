@@ -41,6 +41,7 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
   const [materials, setMaterials] = useState(initialMaterials || []);
   const [pendingFiles, setPendingFiles] = useState([]);
   const [form, setForm] = useState(() => toForm(initialCourse || emptyCourse));
+  const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(toPayload(toForm(initialCourse || emptyCourse))));
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const editable = !course || course.status === 'Draft' || course.status === 'Rejected';
@@ -69,6 +70,7 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
         const updated = await creatorCoursesApi.update(token, course.id, payload);
         setCourse(updated);
         setForm(toForm(updated));
+        setSavedSnapshot(JSON.stringify(toPayload(toForm(updated))));
         if (pendingFiles.length) await uploadFiles(updated.id, pendingFiles);
       } else {
         const created = await creatorCoursesApi.create(token, payload);
@@ -87,6 +89,14 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
   }
 
   async function submitForApproval() {
+    if (JSON.stringify(toPayload(form)) !== savedSnapshot) {
+      setError({
+        code: 'UNSAVED_CHANGES',
+        status: 400,
+        message: 'Save your changes before submitting for approval.',
+      });
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -202,20 +212,32 @@ function CourseMaterialsCard({ course, materials, pendingFiles, setPendingFiles,
 
 function CourseFields({ form, options, setForm }) {
   const change = (field) => (event) => setForm((value) => ({ ...value, [field]: event.target.value }));
+  const [interestQuery, setInterestQuery] = useState('');
+  const selectedLeaves = (options.interestTree || []).flatMap((category) => category.children || [])
+    .filter((leaf) => form.interestIds.includes(leaf.id));
   const toggleInterest = (id) => setForm((value) => ({ ...value,
     interestIds: value.interestIds.includes(id) ? value.interestIds.filter((item) => item !== id)
       : value.interestIds.length < 4 ? [...value.interestIds, id] : value.interestIds }));
+  const atLimit = form.interestIds.length >= 4;
   return <>
     <div className="form-group"><label htmlFor="creator-course-code">Course code</label><input id="creator-course-code" required value={form.code} onChange={change('code')} /></div>
     <div className="form-group"><label htmlFor="creator-course-title">Title</label><input id="creator-course-title" required value={form.title} onChange={change('title')} /></div>
     <div className="form-group"><label htmlFor="creator-course-description">Description</label><textarea id="creator-course-description" value={form.description} onChange={change('description')} /></div>
     <div className="form-group"><label htmlFor="creator-course-level">Course level</label><select id="creator-course-level" required value={form.courseLevelId} onChange={change('courseLevelId')}><option value="">Choose a level</option>{options.courseLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-    <div className="form-group"><label>Course interests (choose 1–4 leaves before submitting)</label>
-      {(options.interestTree || []).map((category) => <fieldset key={category.id}><legend>{category.name}</legend>
-        <div className="grid-2">{category.children.map((leaf) => <label key={leaf.id}>
-          <input type="checkbox" checked={form.interestIds.includes(leaf.id)} disabled={!form.interestIds.includes(leaf.id) && form.interestIds.length >= 4} onChange={() => toggleInterest(leaf.id)} /> {leaf.name}
-        </label>)}</div>
-      </fieldset>)}
+    <div className="form-group"><label htmlFor="creator-interest-search">Course interests (choose 1–4 leaves before submitting)</label>
+      <p>Selected {form.interestIds.length} of 4{atLimit ? '. Uncheck one interest before choosing another.' : '.'}</p>
+      {selectedLeaves.length ? <p>Selected: {selectedLeaves.map((leaf) => leaf.name).join(', ')}</p> : <p>No interests selected yet.</p>}
+      <input id="creator-interest-search" type="search" value={interestQuery} onChange={(event) => setInterestQuery(event.target.value)} placeholder="Search interests" />
+      {(options.interestTree || []).map((category) => {
+        const leaves = (category.children || []).filter((leaf) => leaf.name.toLowerCase().includes(interestQuery.trim().toLowerCase()));
+        if (!leaves.length) return null;
+        return <details key={category.id} open={Boolean(interestQuery.trim()) || selectedLeaves.some((leaf) => leaves.some((item) => item.id === leaf.id))}>
+          <summary>{category.name}</summary>
+          <div className="grid-2">{leaves.map((leaf) => <label key={leaf.id}>
+            <input type="checkbox" checked={form.interestIds.includes(leaf.id)} disabled={!form.interestIds.includes(leaf.id) && atLimit} onChange={() => toggleInterest(leaf.id)} /> {leaf.name}
+          </label>)}</div>
+        </details>;
+      })}
     </div>
     <div className="form-group"><label htmlFor="creator-learning-path">Learning path</label><select id="creator-learning-path" required value={form.learningPathId} onChange={change('learningPathId')}><option value="">Choose a path</option>{options.learningPaths.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
     <div className="form-group"><label htmlFor="creator-course-category">Category</label><input id="creator-course-category" required value={form.category} onChange={change('category')} /></div>

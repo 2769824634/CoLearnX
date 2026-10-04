@@ -21,8 +21,8 @@ const NAV = {
   ],
   creator: [
     { to: '/creator/home', label: 'Home' },
-    { to: '/creator/courses', label: 'Courses' },
-    { to: '/creator/courses/new', label: 'Create Course' },
+    { to: '/creator/courses', label: 'Courses', match: 'courses' },
+    { to: '/creator/courses/new', label: 'Create Course', end: true },
     { to: '/creator/courses/intake-applications', label: 'Session approvals' },
     { to: '/creator/upload', label: 'Upload Material' },
     { to: '/creator/usage', label: 'Usage Records' },
@@ -98,7 +98,19 @@ function AccessNotice({ notice, onDismiss }) {
   );
 }
 
+function isNavActive(item, pathname, isActive) {
+  if (item.match === 'courses') {
+    return pathname === '/creator/courses' || /^\/creator\/courses\/\d+$/.test(pathname);
+  }
+  if (item.to === '/creator/courses/new') return pathname === item.to;
+  if (item.to === '/creator/courses/intake-applications') {
+    return pathname === item.to || pathname.startsWith(`${item.to}/`);
+  }
+  return isActive;
+}
+
 function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspaceSwitcher = false, title, subtitle, accessNotice, onDismissAccessNotice }) {
+  const location = useLocation();
   const items = NAV[role] || [];
 
   return (
@@ -129,7 +141,7 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
               key={item.to}
               to={item.to}
               end={Boolean(item.end)}
-              className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+              className={({ isActive }) => `nav-item${isNavActive(item, location.pathname, isActive) ? ' active' : ''}`}
             >
               {item.label}
             </NavLink>
@@ -171,11 +183,6 @@ export default function RoleShell({ role, title, subtitle }) {
 
 export function AdminRoleShell({ title, subtitle }) {
   const { admin, logout } = useAdminAuth();
-  useEffect(() => {
-    const previousTitle = document.title;
-    document.title = 'CoLearnX — Administration';
-    return () => { document.title = previousTitle; };
-  }, []);
   return (
     <ShellFrame
       identityName={admin?.email}

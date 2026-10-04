@@ -48,6 +48,7 @@ describe('Creator Course workspace', () => {
     expect(screen.getByRole('link', { name: 'Session approvals' })).toBeTruthy();
     expect(screen.getByRole('link', { name: /Approve Trainer sessions/i })).toBeTruthy();
     expect(screen.getAllByRole('link', { name: /Create Course/i }).length).toBeGreaterThan(0);
+    expect(screen.getByText('24 credits')).toBeTruthy();
   });
 
   it('creates a draft and submits it for approval', async () => {
@@ -100,6 +101,50 @@ describe('Creator Course workspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit for approval' }));
     expect(await screen.findByText('PendingApproval')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
+  });
+
+  it('warns when submitting unsaved edits and keeps the current title', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (path) => {
+      if (path === '/api/interests') {
+        return json([
+          { id: 1, slug: 'design', name: 'Design', children: [
+            { id: 2, slug: 'sketching', name: 'Sketching', children: [] },
+            { id: 3, slug: 'typography', name: 'Typography', children: [] },
+            { id: 4, slug: 'color', name: 'Colour', children: [] },
+            { id: 5, slug: 'layout', name: 'Layout', children: [] },
+          ] },
+        ]);
+      }
+      if (path === '/api/creator/courses/options') {
+        return json({
+          courseLevels: [{ id: 1, name: 'Beginner' }],
+          learningPaths: [{ id: 3, name: 'Design' }],
+        });
+      }
+      if (path === '/api/creator/courses/44/submit') {
+        return json(course({ id: 44, status: 'PendingApproval' }));
+      }
+      if (String(path).startsWith('/api/materials')) {
+        return json([]);
+      }
+      return json(course({ id: 44, interestIds: [2] }));
+    }));
+
+    render(
+      <MemoryRouter initialEntries={['/creator/courses/44']}>
+        <AuthContext.Provider value={auth}>
+          <AppRouter />
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Inclusive Design' })).toBeTruthy();
+    expect(screen.getByText(/Selected 1 of 4/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Unsaved title' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit for approval' }));
+    expect(await screen.findByText('Save your changes before submitting for approval.')).toBeTruthy();
+    expect(globalThis.fetch.mock.calls.some(([path]) => path === '/api/creator/courses/44/submit')).toBe(false);
+    expect(screen.getByLabelText('Title').value).toBe('Unsaved title');
   });
 });
 

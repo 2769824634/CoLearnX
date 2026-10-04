@@ -78,3 +78,29 @@ it('shows and consumes the same notice in the Member shell', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
   await waitFor(() => expect(screen.queryByRole('status', { name: 'Access notice' })).toBeNull());
 });
+
+it.each([
+  ['/creator/courses', 'Courses'],
+  ['/creator/courses/17', 'Courses'],
+  ['/creator/courses/new', 'Create Course'],
+  ['/creator/courses/intake-applications', 'Session approvals'],
+  ['/creator/courses/intake-applications/7', 'Session approvals'],
+])('highlights only %s in Creator navigation for %s', (path, label) => {
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <AuthContext.Provider value={auth}>
+        <Routes>
+          <Route element={<RoleShell role="creator" />}>
+            <Route path="*" element={<div>Workspace</div>} />
+          </Route>
+        </Routes>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  );
+  const current = screen.getByRole('link', { name: label });
+  expect(current.className).toMatch(/active/);
+  for (const name of ['Courses', 'Create Course', 'Session approvals']) {
+    if (name === label) continue;
+    expect(screen.getByRole('link', { name }).className).not.toMatch(/active/);
+  }
+});

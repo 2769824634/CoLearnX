@@ -211,6 +211,9 @@ public class MaterialApiTests : IClassFixture<CoLearnXApiFactory>
         var error = await ApiClient.ReadErrorAsync(response);
         Assert.NotNull(error);
         Assert.Equal("UPLOAD_FAILED", error.Code);
+        Assert.Contains("Allowed types", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(error.FieldErrors);
+        Assert.True(error.FieldErrors.ContainsKey("file"));
     }
 
     [Fact]

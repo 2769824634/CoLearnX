@@ -5,11 +5,6 @@ import '../../styles/trainer.css';
 import { friendlyFieldLabel, userFacingError } from '../businessPresentation';
 
 export function TrainerHeader({ eyebrow = 'Trainer workspace', title, children, action }) {
-  useEffect(() => {
-    const previous = document.title;
-    document.title = 'CoLearnX — Trainer';
-    return () => { document.title = previous; };
-  }, []);
   return <header className="trainer-header"><div><p className="trainer-eyebrow">{eyebrow}</p><h1>{title}</h1><p>{children}</p></div>{action}</header>;
 }
 

@@ -168,3 +168,9 @@ it('counts every required assessment while distinguishing the ungraded count', a
   expect(await screen.findByText('0/1 passed')).toBeTruthy();
   expect(screen.getByText('0 graded')).toBeTruthy();
 });
+
+it('explains reserved progress when the official learner list is empty', async () => {
+  mount(<TrainerLearnersPage />, {}, '/', async (url) => json(url === '/api/trainer/intakes' ? [{ id: 8 }] : url.endsWith('/learners') ? [] : url.endsWith('/assessments') ? [] : url.includes('/certificate-requests') ? [] : { id: 8, status: 'Published', minEnrollment: 2 }));
+  expect(await screen.findByText(/Reserved places are not shown here/)).toBeTruthy();
+  expect(screen.getByText(/needs at least 2 learners/)).toBeTruthy();
+});

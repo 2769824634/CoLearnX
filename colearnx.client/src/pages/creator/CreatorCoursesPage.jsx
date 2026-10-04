@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { creatorCoursesApi } from '../../api';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { CreatorError, CreatorHeader } from './CreatorUi';
+import { formatCount } from '../businessPresentation';
 
 const loadCourses = (token, key, signal) => creatorCoursesApi.list(token, signal);
 
@@ -25,7 +26,7 @@ export default function CreatorCoursesPage() {
         : courses.length === 0 ? <div className="creator-empty"><strong>No Courses yet</strong><p>Create a draft to begin.</p></div>
           : <div className="creator-application-list">{courses.map((course) => <article className="creator-application-row" key={course.id}>
             <div className="creator-application-index">{course.code}</div>
-            <div><p className="creator-eyebrow">{course.learningPathName} · {course.courseLevelName}</p><h2>{course.title}</h2><p>{course.creditCost} credits</p></div>
+            <div><p className="creator-eyebrow">{course.learningPathName} · {course.courseLevelName}</p><h2>{course.title}</h2><p>{formatCount(course.creditCost, 'credit')}</p></div>
             <span className={`creator-status ${course.status.toLowerCase()}`}>{course.status}</span>
             <Link to={`/creator/courses/${course.id}`}>Open →</Link>
           </article>)}</div>}

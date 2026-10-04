@@ -1,6 +1,10 @@
-import { apiRequest } from './client.js';
+import { apiRequest, downloadFile } from './client.js';
 
 const intakePath = (id) => `/api/trainer/intakes/${encodeURIComponent(id)}`;
+
+export function canPreviewMaterial(format) {
+  return /^(png|jpe?g|gif|webp|pdf)$/i.test(String(format || '').replace(/^\./, ''));
+}
 
 export const trainerLaterPhaseApi = {
   availableMaterials: (token, signal, courseId) => apiRequest(
@@ -11,6 +15,11 @@ export const trainerLaterPhaseApi = {
   attachMaterial: (token, intakeId, materialVersionId) => apiRequest(`${intakePath(intakeId)}/learning-materials`, {
     method: 'POST', token, body: { materialVersionId },
   }),
+  downloadMaterial: (token, intakeId, versionId, fileName) => downloadFile(
+    `${intakePath(intakeId)}/learning-materials/${encodeURIComponent(versionId)}/file`,
+    fileName,
+    token,
+  ),
   recordings: (token, intakeId, sessionId, signal) => apiRequest(`${intakePath(intakeId)}/sessions/${encodeURIComponent(sessionId)}/recordings`, { token, signal }),
   addRecording: (token, intakeId, sessionId, body) => apiRequest(`${intakePath(intakeId)}/sessions/${encodeURIComponent(sessionId)}/recordings`, {
     method: 'POST', token, body,

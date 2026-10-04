@@ -54,6 +54,7 @@ function mapCourseDetail(c) {
       seats: s.seatsLeft,
       capacity: s.physicalCapacity ?? s.capacity ?? 0,
       physical: Boolean(s.physicalAddress),
+      online: Boolean(s.meetingLink),
       startsAt: s.startsAt,
       endsAt: s.endsAt,
       registrationOpensAt: s.registrationOpensAt,

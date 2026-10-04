@@ -14,7 +14,11 @@ it.each(['/trainer/courses/intakes/42', '/creator/courses/intake-applications/42
   expect(screen.getByRole('link', { name: 'Open related page' }).getAttribute('href')).toBe(path);
 });
 
-it.each(['//example.com', '/trainer/courses/intakes/0', '/trainer/courses/intakes/42/../43', '/trainer/courses/intakes/42?next=https://example.com', '/creator/courses/intake-applications/42#other', '/trainer/courses/intakes/%34%32'])('rejects an unapproved notification path: %s', (path) => {
+it.each(['/member/programs', '/member/programs?tab=reserved', '/member/programs?tab=active&enrollmentId=11'])('opens an approved Member programs path: %s', (path) => {
+  expect(safeNotificationPath(path)).toBe(path);
+});
+
+it.each(['//example.com', '/trainer/courses/intakes/0', '/trainer/courses/intakes/42/../43', '/trainer/courses/intakes/42?next=https://example.com', '/creator/courses/intake-applications/42#other', '/trainer/courses/intakes/%34%32', '/member/programs?tab=unknown', '/member/programs?next=https://example.com'])('rejects an unapproved notification path: %s', (path) => {
   expect(safeNotificationPath(path)).toBeNull();
 });
 

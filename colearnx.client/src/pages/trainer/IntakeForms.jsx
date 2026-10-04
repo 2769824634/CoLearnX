@@ -9,7 +9,16 @@ function FormActions({ busy, blocked, onCancel, label }) {
 export function ScheduleForm({ intake, courses, onSave, onCancel, busy, blocked, error, onError, allowMinEnrollment = true, submitLabel }) {
   const [values, setValues] = useState(() => initialSchedule(intake));
   const [courseId, setCourseId] = useState('');
-  const change = (event) => setValues((current) => ({ ...current, [event.target.name]: event.target.value }));
+  function clearField(name) {
+    if (!error?.fieldErrors?.[name]) return;
+    const fieldErrors = { ...error.fieldErrors };
+    delete fieldErrors[name];
+    onError(Object.keys(fieldErrors).length ? { ...error, fieldErrors } : null);
+  }
+  const change = (event) => {
+    setValues((current) => ({ ...current, [event.target.name]: event.target.value }));
+    clearField(event.target.name);
+  };
   function submit(event) {
     event.preventDefault();
     try { onSave(schedulePayload(values, intake?.version, intake), courseId); } catch (failure) { onError(failure); }
@@ -28,7 +37,16 @@ export function ScheduleForm({ intake, courses, onSave, onCancel, busy, blocked,
 
 export function SessionForm({ session, intake, onSave, onCancel, busy, blocked, error, onError }) {
   const [values, setValues] = useState(() => initialSession(session, intake));
-  const change = (event) => setValues((current) => ({ ...current, [event.target.name]: event.target.type === 'checkbox' ? event.target.checked : event.target.value }));
+  function clearField(name) {
+    if (!error?.fieldErrors?.[name]) return;
+    const fieldErrors = { ...error.fieldErrors };
+    delete fieldErrors[name];
+    onError(Object.keys(fieldErrors).length ? { ...error, fieldErrors } : null);
+  }
+  const change = (event) => {
+    setValues((current) => ({ ...current, [event.target.name]: event.target.type === 'checkbox' ? event.target.checked : event.target.value }));
+    clearField(event.target.name);
+  };
   function submit(event) {
     event.preventDefault();
     try { onSave(sessionPayload(values, intake, session)); } catch (failure) { onError(failure); }
