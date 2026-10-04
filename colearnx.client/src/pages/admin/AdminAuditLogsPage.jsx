@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { adminAuditApi } from '../../api';
 import useAdminQuery from './useAdminQuery';
 import AdminDataState from './AdminDataState';
-import { actionLabel, auditActor, formatAuditTime, resultClass } from './adminDisplay';
+import { actionLabel, auditActor, formatAuditTime, resultClass, resultLabel } from './adminDisplay';
 
 const PAGE_SIZE = 25;
 const EMPTY_FILTERS = { entityType: '', result: '', actorType: '' };
@@ -76,7 +76,7 @@ export default function AdminAuditLogsPage() {
               <td><strong>#{log.id}</strong><span>{formatAuditTime(log.createdAt)}</span></td>
               <td>{auditActor(log)}</td>
               <td><strong>{actionLabel(log.action)}</strong><span>{log.entityType} {log.entityId ? `#${log.entityId}` : ''}</span></td>
-              <td><span className={`admin-status ${resultClass(log.result)}`}>{log.result}</span></td>
+              <td><span className={`admin-status ${resultClass(log.result)}`}>{resultLabel(log.result)}</span></td>
               <td className="admin-audit-reason">{log.reason || '—'}</td>
             </tr>)}</tbody>
           </table>

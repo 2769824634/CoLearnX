@@ -57,7 +57,10 @@ export default function MaterialList({ items, cloudLinks, onError, onCopied }) {
             <td>{item.courseCode ? `${item.courseCode} — ${item.courseTitle}` : '—'}</td>
             <td>{item.format}</td>
             <td>
-              <span className={`pill${item.status === 'Approved' ? ' success' : ' muted'}`}>{item.status}</span>
+              <span className={`pill${item.status === 'Approved' ? ' success' : ' muted'}`}>
+                {{ PendingReview: 'Pending review', PendingApproval: 'Pending approval' }[item.status] || item.status}
+                {item.version != null ? ` · v${item.version}` : ''}
+              </span>
             </td>
             <td>{item.creatorName}</td>
             <td>

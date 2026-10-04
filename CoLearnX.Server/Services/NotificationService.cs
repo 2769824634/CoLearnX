@@ -44,8 +44,9 @@ public sealed class NotificationService(CoLearnXDbContext db)
     {
         "CertificateSubmitted" or "CertificateTrainerApproved" or "CertificateTrainerRejected"
             or "CertificateIssued" or "CertificateAdminRejected" => "/member/badges",
-        "N-01" => "/member/programs",
-        "N-class-confirmed" or "N-class-reminder" or "N-class-cancelled" or "N-postpone-offer" or "N-postponement-offered" => "/member/programs",
+        "N-01" => "/member/programs?tab=reserved",
+        "N-class-confirmed" or "N-class-reminder" => "/member/programs?tab=active",
+        "N-class-cancelled" or "N-postpone-offer" or "N-postponement-offered" => "/member/programs?tab=history",
         "N-hold-released" or "N-withdraw-70" => "/member/payment",
         "N-session-full" or "N-session-reopened" or "N-min-reached" or "N-under-enrolled" or "N-intake-confirmed" or "N-intake-cancelled"
             => intakeId > 0 ? $"/trainer/courses/intakes/{intakeId}" : "/trainer/courses",

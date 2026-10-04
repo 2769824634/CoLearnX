@@ -3,6 +3,7 @@ import { RequireAuth } from '../auth/RequireAuth';
 import RequireAdmin from '../auth/RequireAdmin';
 import RoleShell, { AdminRoleShell } from '../layouts/RoleShell';
 import LoginPage from '../pages/LoginPage';
+import PublicHomePage from '../pages/PublicHomePage';
 import RegisterPage from '../pages/RegisterPage';
 import AdminLoginPage from '../pages/admin/AdminLoginPage';
 import AdminHomePage from '../pages/admin/AdminHomePage';
@@ -112,7 +113,7 @@ export default function AppRouter() {
         <Route path="/verify-email" element={<EmailVerificationPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<PublicHomePage />} />
 
         <Route element={<RequireAuth role="member" />}>
           <Route path="/member/*" element={<MemberArea />} />

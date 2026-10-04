@@ -70,8 +70,10 @@ public class IntakeNotificationTests
     }
 
     [Theory]
-    [InlineData("N-class-cancelled", "/member/programs")]
-    [InlineData("N-postponement-offered", "/member/programs")]
+    [InlineData("N-01", "/member/programs?tab=reserved")]
+    [InlineData("N-class-confirmed", "/member/programs?tab=active")]
+    [InlineData("N-class-cancelled", "/member/programs?tab=history")]
+    [InlineData("N-postponement-offered", "/member/programs?tab=history")]
     public async Task LearnerCancellationAndReplacementEventsHaveDestinations(string code, string path)
     {
         using var factory = new CoLearnXApiFactory();

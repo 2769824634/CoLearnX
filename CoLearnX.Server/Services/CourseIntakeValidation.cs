@@ -21,7 +21,11 @@ internal static class CourseIntakeValidation
 
     public static void Dates(DateTime opens, DateTime closes, DateTime starts, DateTime ends)
     {
-        if (!(opens < closes && closes <= starts.AddDays(-10) && starts < ends))
+        if (!(opens < closes))
+            throw new CourseIntakeException("INVALID_INTAKE_DATES", "Registration must close after it opens.", field: "registrationClosesAt");
+        if (!(starts < ends))
+            throw new CourseIntakeException("INVALID_INTAKE_DATES", "Delivery must end after it starts.", field: "endsAt");
+        if (!(closes <= starts.AddDays(-10)))
             throw new CourseIntakeException("INVALID_INTAKE_DATES", "Registration must close at least ten days before delivery starts.", field: "registrationClosesAt");
     }
 

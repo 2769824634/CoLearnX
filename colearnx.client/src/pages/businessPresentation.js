@@ -5,6 +5,12 @@ const utcFormatter = new Intl.DateTimeFormat('en-GB', {
   hour12: false, timeZone: 'UTC', timeZoneName: 'short',
 });
 
+export function formatCount(count, singular, plural = `${singular}s`) {
+  const value = Number(count);
+  const amount = Number.isFinite(value) ? value : 0;
+  return `${amount} ${amount === 1 ? singular : plural}`;
+}
+
 export function formatUtcDateTime(value) {
   if (!value) return 'Date unavailable';
   const date = utcDate(value);

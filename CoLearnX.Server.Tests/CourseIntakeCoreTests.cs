@@ -105,6 +105,24 @@ public class CourseIntakeCoreTests
         var error = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.CreateAsync(1, 1, r));
         Assert.Equal(400, error.StatusCode);
         Assert.NotEmpty(error.FieldErrors);
+        if (scenario == 0)
+        {
+            Assert.Equal("INVALID_INTAKE_DATES", error.Code);
+            Assert.True(error.FieldErrors.ContainsKey("registrationClosesAt"));
+            Assert.Contains("close after it opens", error.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        else if (scenario == 1)
+        {
+            Assert.Equal("INVALID_INTAKE_DATES", error.Code);
+            Assert.True(error.FieldErrors.ContainsKey("registrationClosesAt"));
+            Assert.Contains("ten days", error.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        else if (scenario == 2)
+        {
+            Assert.Equal("INVALID_INTAKE_DATES", error.Code);
+            Assert.True(error.FieldErrors.ContainsKey("endsAt"));
+            Assert.Contains("end after it starts", error.Message, StringComparison.OrdinalIgnoreCase);
+        }
         Assert.Empty(await f.Db.CourseIntakes.ToListAsync());
         Assert.Empty(await f.Db.AuditLogs.ToListAsync());
     }

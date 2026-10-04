@@ -2,6 +2,7 @@ using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
+using CoLearnX.Server.Storage;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoLearnX.Server.Services;
@@ -15,13 +16,14 @@ public interface ITrainerLaterPhaseService
     Task<SessionRecordingDto> AddRecordingAsync(int trainerUserId, int intakeId, int sessionId, CreateSessionRecordingRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<AttendanceItemDto>> SaveAttendanceAsync(int trainerUserId, int intakeId, int sessionId, SaveAttendanceRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<TrainerLearnerDto>> ListLearnersAsync(int trainerUserId, int intakeId, CancellationToken ct = default);
+    Task<MaterialFileResult> OpenAttachedMaterialAsync(int trainerUserId, int intakeId, int versionId, CancellationToken ct = default);
     Task<IReadOnlyList<AssessmentDto>> ListAssessmentsAsync(int trainerUserId, int intakeId, CancellationToken ct = default);
     Task<AssessmentDto> CreateAssessmentAsync(int trainerUserId, int intakeId, CreateAssessmentRequest request, CancellationToken ct = default);
     Task<AssessmentResultDto> GradeAsync(int trainerUserId, int assessmentId, int enrollmentId, GradeAssessmentRequest request, CancellationToken ct = default);
     Task<EnrollmentCompletionDto> CompleteAsync(int trainerUserId, int enrollmentId, CancellationToken ct = default);
 }
 
-public sealed class TrainerLaterPhaseService(CoLearnXDbContext db, IMaterialVersionService materialVersions) : ITrainerLaterPhaseService
+public sealed class TrainerLaterPhaseService(CoLearnXDbContext db, IMaterialVersionService materialVersions, IFileStorage files) : ITrainerLaterPhaseService
 {
     public async Task<EnrollmentCompletionDto> CompleteAsync(int trainerUserId, int enrollmentId, CancellationToken ct = default)
     {
@@ -103,6 +105,23 @@ public sealed class TrainerLaterPhaseService(CoLearnXDbContext db, IMaterialVers
         }
         return new IntakeMaterialDto(version.Id, version.LearningMaterialId, version.LearningMaterial.Title,
             version.Format, version.FilePath, link.AttachedAt);
+    }
+
+    public async Task<MaterialFileResult> OpenAttachedMaterialAsync(int trainerUserId, int intakeId, int versionId,
+        CancellationToken ct = default)
+    {
+        await RequireOwnedIntakeAsync(trainerUserId, intakeId, ct);
+        var version = await db.CourseIntakeMaterials.AsNoTracking()
+            .Where(link => link.CourseIntakeId == intakeId
+                && link.CourseMaterialVersionId == versionId
+                && link.CourseMaterialVersion.Status == MaterialVersionStatus.Approved)
+            .Select(link => new { link.CourseMaterialVersion.FilePath, link.CourseMaterialVersion.LearningMaterial.Title })
+            .SingleOrDefaultAsync(ct)
+            ?? throw new LaterPhaseException("MATERIAL_NOT_FOUND", "The attached material version was not found.", 404);
+        var stream = await files.OpenAsync(version.FilePath, ct)
+            ?? throw new LaterPhaseException("MATERIAL_NOT_FOUND", "The attached material file was not found.", 404);
+        return new MaterialFileResult(stream, MaterialFiles.ContentType(Path.GetExtension(version.FilePath)),
+            MaterialFiles.DownloadName(version.Title, version.FilePath));
     }
 
     public async Task<IReadOnlyList<SessionRecordingDto>> ListRecordingsAsync(int trainerUserId, int intakeId, int sessionId,

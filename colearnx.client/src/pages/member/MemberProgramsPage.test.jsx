@@ -58,3 +58,11 @@ it('loads the selected enrollment learning hub and shows its materials and recor
   fireEvent.click(screen.getByRole('button', { name: 'Refresh resources' }));
   expect(globalThis.fetch).toHaveBeenCalledWith('/api/enrollments/3/materials', expect.anything());
 });
+
+it('opens the Reserved tab from a notification query without moving confirmed classes', () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response('[]', { headers: { 'Content-Type': 'application/json' } })));
+  const auth = { user: { id: 1, fullName: 'Learner', roles: ['Member'] }, token: 'member-token', logout: vi.fn() };
+  const member = { state: { enrolled: [{ enrollmentId: 11, courseCode: 'CLXL1004R1', courseTitle: 'Local', trainer: 'Teacher', progress: 0, status: 'reserved', heldCredits: 1, registrationClosesAt: '2099-01-01T00:00:00Z' }] }, showToast: vi.fn() };
+  render(<MemoryRouter initialEntries={['/member/programs?tab=reserved']}><AuthContext.Provider value={auth}><MemberDataContext.Provider value={member}><MemberProgramsPage /></MemberDataContext.Provider></AuthContext.Provider></MemoryRouter>);
+  expect(screen.getByText(/credits are on hold until this class is confirmed/)).toBeTruthy();
+});

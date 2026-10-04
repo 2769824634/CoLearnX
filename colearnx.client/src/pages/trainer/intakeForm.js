@@ -38,7 +38,13 @@ export const initialSchedule = (intake = {}) => ({
 
 export function schedulePayload(values, version, original) {
   const payload = Object.fromEntries(scheduleFields.map((field) => [field, toUtc(values[field], field, original?.[field])]));
-  if (!(payload.registrationOpensAt < payload.registrationClosesAt && new Date(payload.registrationClosesAt).getTime() <= new Date(payload.startsAt).getTime() - 10 * 86400000 && payload.startsAt < payload.endsAt)) {
+  if (!(payload.registrationOpensAt < payload.registrationClosesAt)) {
+    invalid('registrationClosesAt', 'Registration must close after it opens.');
+  }
+  if (!(payload.startsAt < payload.endsAt)) {
+    invalid('endsAt', 'Delivery must end after it starts.');
+  }
+  if (!(new Date(payload.registrationClosesAt).getTime() <= new Date(payload.startsAt).getTime() - 10 * 86400000)) {
     invalid('registrationClosesAt', 'Registration must close at least 10 days before delivery starts.');
   }
   payload.minEnrollment = Number(values.minEnrollment);

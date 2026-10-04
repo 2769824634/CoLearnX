@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuthContext } from '../../auth/AuthContext';
 import { MemberDataContext } from './memberDataState';
@@ -26,16 +26,17 @@ afterEach(() => {
   cleanup();
 });
 
-function renderDetail(course, { credits = 200 } = {}) {
+function renderDetail(course, { credits = 200, loadCourseDetail, enrol } = {}) {
   const showToast = vi.fn();
-  const enrol = vi.fn();
+  const enrolFn = enrol || vi.fn().mockResolvedValue({ creditsSpent: 20, balance: 180, heldAfter: 20 });
+  const loadFn = loadCourseDetail || vi.fn().mockResolvedValue(course);
   render(
     <AuthContext.Provider value={auth}>
       <MemberDataContext.Provider value={{
         state: { credits, wishlist: [] },
         showToast,
-        loadCourseDetail: vi.fn().mockResolvedValue(course),
-        enrol,
+        loadCourseDetail: loadFn,
+        enrol: enrolFn,
         toggleWish: vi.fn(),
       }}>
         <MemoryRouter initialEntries={[`/member/courses/${course.id}`]}>
@@ -47,7 +48,7 @@ function renderDetail(course, { credits = 200 } = {}) {
       </MemberDataContext.Provider>
     </AuthContext.Provider>,
   );
-  return { showToast, enrol };
+  return { showToast, enrol: enrolFn, loadCourseDetail: loadFn };
 }
 
 describe('Member course enrolment', () => {
@@ -173,5 +174,22 @@ describe('Member course enrolment', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Go to Payment' }));
     expect(await screen.findByRole('heading', { name: 'Credit Wallet' })).toBeTruthy();
+  });
+
+  it('refreshes the Intake count after a successful reservation without submitting again', async () => {
+    const after = {
+      ...baseCourse,
+      alreadyEnrolled: true,
+      sessions: [{ ...openSession, seats: 2, intakeEnrollmentCount: 8 }],
+    };
+    const loadCourseDetail = vi.fn()
+      .mockResolvedValueOnce({ ...baseCourse, sessions: [openSession] })
+      .mockResolvedValueOnce(after);
+    const { enrol } = renderDetail({ ...baseCourse, sessions: [openSession] }, { loadCourseDetail });
+    fireEvent.click(await screen.findByRole('button', { name: 'Reserve place' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Enrolment' }));
+    expect(await screen.findByText(/8 learners reserved or enrolled · Minimum 10/)).toBeTruthy();
+    expect(enrol).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(loadCourseDetail).toHaveBeenCalledTimes(2));
   });
 });

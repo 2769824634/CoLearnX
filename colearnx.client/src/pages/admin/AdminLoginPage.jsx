@@ -18,12 +18,6 @@ export default function AdminLoginPage() {
     ? `${requestedPath}${from.search || ''}` : '/admin/home';
 
   useEffect(() => {
-    const previousTitle = document.title;
-    document.title = 'CoLearnX — Administrator sign-in';
-    return () => { document.title = previousTitle; };
-  }, []);
-
-  useEffect(() => {
     if (booting) return undefined;
     const replaced = consumeSessionReplacedMessage(true);
     if (!replaced) return undefined;

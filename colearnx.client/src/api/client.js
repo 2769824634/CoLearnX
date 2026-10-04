@@ -133,4 +133,5 @@ export async function downloadFile(path, fileName, token) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+  return blob;
 }

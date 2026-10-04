@@ -45,8 +45,15 @@ test('Intake ordering requires registration to close ten days before delivery', 
   assert.equal(body.version, intake.version);
   assert.equal('status' in body, false);
   assert.equal('trainerId' in body, false);
-  assert.throws(() => schedulePayload({ ...values, registrationOpensAt: values.registrationClosesAt }), (error) => Boolean(error.fieldErrors.registrationClosesAt));
-  assert.throws(() => schedulePayload({ ...values, registrationClosesAt: toLocalInput('2026-10-01T00:00:00.000Z') }), (error) => Boolean(error.fieldErrors.registrationClosesAt));
+  assert.throws(() => schedulePayload({ ...values, registrationOpensAt: values.registrationClosesAt }), (error) => (
+    Boolean(error.fieldErrors.registrationClosesAt) && /close after it opens/.test(error.message)
+  ));
+  assert.throws(() => schedulePayload({ ...values, endsAt: values.startsAt }), (error) => (
+    Boolean(error.fieldErrors.endsAt) && /end after it starts/.test(error.message)
+  ));
+  assert.throws(() => schedulePayload({ ...values, registrationClosesAt: toLocalInput('2026-10-01T00:00:00.000Z') }), (error) => (
+    Boolean(error.fieldErrors.registrationClosesAt) && /10 days/.test(error.message)
+  ));
 });
 
 test('switching physical delivery off clears hidden physical fields and retains the latest parent version', () => {

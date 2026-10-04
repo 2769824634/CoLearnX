@@ -436,9 +436,25 @@ public class MaterialsController(IMaterialService materials, IMaterialVersionSer
         {
             HttpContext.RequestServices.GetRequiredService<ILogger<MaterialsController>>()
                 .LogError(ex, "Material upload failed; traceId={TraceId}", HttpContext.TraceIdentifier);
-            return BadRequest(new ApiError("UPLOAD_FAILED", "The material could not be uploaded. Check its title, file type and 20 MB limit, then try again.",
-                TraceId: HttpContext.TraceIdentifier));
+            return BadRequest(UploadFailure(ex.Message, HttpContext.TraceIdentifier));
         }
+    }
+
+    internal static ApiError UploadFailure(string message, string traceId)
+    {
+        var field = message switch
+        {
+            "Title is required." => "title",
+            "A file is required." => "file",
+            "File must be 20 MB or smaller." => "file",
+            "Allowed types: PDF, PPTX, DOCX, PNG, JPG." => "file",
+            _ => null,
+        };
+        if (field is null)
+            return new ApiError("UPLOAD_FAILED", "The material could not be uploaded. Check its title, file type and 20 MB limit, then try again.",
+                TraceId: traceId);
+        return new ApiError("UPLOAD_FAILED", message,
+            new Dictionary<string, string[]> { [field] = [message] }, traceId);
     }
 
     [HttpGet("{id:int}/file")]
