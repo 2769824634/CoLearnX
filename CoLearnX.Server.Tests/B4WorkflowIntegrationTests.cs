@@ -119,7 +119,7 @@ public sealed class B4WorkflowIntegrationTests
     }
 
     [Fact]
-    public async Task CreatorCannotSelfReview_AndTrainerCannotUseAdminOrCreatorBoundaries()
+    public async Task CourseCreatorCanApproveIntakeTheyTeach_AndRolesStaySeparate()
     {
         using var factory = new B4ApiFactory();
         await factory.InitializeAsync();
@@ -129,8 +129,10 @@ public sealed class B4WorkflowIntegrationTests
             new CreateCourseSessionRequest("Session 1", Start, Start.AddHours(2), "https://example.com", null, 0, null, draft.Version)));
         var pending = await Detail(await dual.PostAsJsonAsync($"/api/trainer/intakes/{draft.Id}/submit", new SubmitCourseIntakeRequest(draft.Version)));
         using var dualCreator = factory.UserClient(105, AppRole.Creator, AppRole.Trainer, AppRole.Creator);
-        await Error(await dualCreator.PostAsJsonAsync($"/api/creator/intake-applications/{draft.Id}/review",
-            new ReviewIntakeApplicationRequest("Confirm", null, pending.Version)), 403, "CREATOR_SELF_REVIEW_FORBIDDEN");
+        var published = await Detail(await dualCreator.PostAsJsonAsync($"/api/creator/intake-applications/{draft.Id}/review",
+            new ReviewIntakeApplicationRequest("Confirm", null, pending.Version)));
+        Assert.Equal("Published", published.Status);
+        Assert.Equal(105, published.ConfirmedByCreatorId);
         await Error(await dual.GetAsync("/api/creator/intake-applications"), 403, "CREATOR_REQUIRED");
         await Error(await dualCreator.GetAsync("/api/trainer/intakes"), 403, "TRAINER_REQUIRED");
         using var member = factory.UserClient(102, AppRole.Member);

@@ -412,6 +412,8 @@ public sealed class LaterPhaseWorkflowIntegrationTests
     {
         using var factory = new LaterPhaseApiFactory();
         await factory.InitializeAsync();
+        await factory.ReadAsync(db => db.CourseSessions.Where(item => item.Id == 200)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.SeatsTaken, 1)));
         using var member = factory.UserClient(204, AppRole.Member);
         using var admin = factory.AdminClient();
 

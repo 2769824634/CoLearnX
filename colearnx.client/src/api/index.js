@@ -31,6 +31,7 @@ export const adminAuthApi = {
   login: (email, password) =>
     apiRequest('/api/admin/auth/login', {
       method: 'POST',
+      token: '',
       body: { email, password },
     }),
   me: (token) => apiRequest('/api/admin/auth/me', { token }),

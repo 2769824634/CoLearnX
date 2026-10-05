@@ -42,16 +42,11 @@ public sealed class MemberLearningHubService(CoLearnXDbContext db, IFileStorage 
     public async Task<MaterialFileResult> OpenMaterialAsync(int userId, int enrollmentId, int versionId, CancellationToken ct = default)
     {
         var enrollment = await RequireEnrollmentAsync(userId, enrollmentId, ct);
-        var version = await db.CourseIntakeMaterials.AsNoTracking()
-            .Where(item => item.CourseIntakeId == enrollment.CourseSession.CourseIntakeId
-                && item.CourseMaterialVersionId == versionId
-                && item.CourseMaterialVersion.Status == MaterialVersionStatus.Approved)
-            .Select(item => new { item.CourseMaterialVersion.FilePath, item.CourseMaterialVersion.LearningMaterial.Title })
-            .SingleOrDefaultAsync(ct) ?? throw new FileNotFoundException("Material not found.");
-        var stream = await files.OpenAsync(version.FilePath, ct)
-            ?? throw new FileNotFoundException("Material not found.");
-        return new MaterialFileResult(stream, MaterialFiles.ContentType(Path.GetExtension(version.FilePath)),
-            MaterialFiles.DownloadName(version.Title, version.FilePath));
+        var access = new MaterialFileAccess(db, files);
+        var missing = new FileNotFoundException("Material not found.");
+        var (filePath, title) = await access.RequireAttachedApprovedAsync(
+            enrollment.CourseSession.CourseIntakeId, versionId, missing, ct);
+        return await access.OpenStoredAsync(filePath, title, missing, ct);
     }
 
     private async Task<Enrollment> RequireEnrollmentAsync(int userId, int enrollmentId, CancellationToken ct)

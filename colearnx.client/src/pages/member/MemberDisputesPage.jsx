@@ -3,13 +3,13 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { disputesApi } from '../../api';
 import MemberShell from '../../components/MemberShell';
 import useTrainerQuery from '../trainer/useTrainerQuery';
-import { useMemberData } from './memberDataState';
+import { useMemberSlices } from './memberDataState';
 import { userFacingError } from '../businessPresentation';
 
 const loadDisputes = (token, _key, signal) => disputesApi.my(token, signal);
 
 export default function MemberDisputesPage() {
-  const { state } = useMemberData();
+  const { state } = useMemberSlices('enrollments');
   const [params] = useSearchParams();
   const [chosenId, setChosenId] = useState(params.get('enrollmentId') || '');
   const [reason, setReason] = useState('');

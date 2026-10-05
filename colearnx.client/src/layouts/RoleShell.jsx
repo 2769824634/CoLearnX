@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import Logo from '../components/Logo';
+import { Outlet, useLocation } from 'react-router-dom';
 import WorkspaceSwitcher from '../components/WorkspaceSwitcher';
-import UserAvatar from '../components/UserAvatar';
 import MemberNotifications from '../components/MemberNotifications';
 import { MemberNotificationsProvider } from '../components/MemberNotificationsProvider';
 import { useAuth } from '../auth/AuthContext';
 import useAdminAuth from '../auth/useAdminAuth';
+import { ShellChrome, ShellNavLink } from './ShellChrome';
+import { useAccessNotice } from './shellAccessNotice';
 import '../styles/admin.css';
 import '../styles/admin-operations.css';
 import '../styles/later-phase.css';
@@ -39,65 +38,6 @@ const NAV = {
   ],
 };
 
-function useAccessNotice() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const initialNotice = location.state?.accessNotice || '';
-  const [notice, setNotice] = useState(initialNotice);
-  const noticeRef = useRef(initialNotice);
-  const originPathRef = useRef(initialNotice ? `${location.pathname}${location.search}${location.hash}` : null);
-  const replacedRef = useRef(false);
-
-  useEffect(() => {
-    const incomingNotice = location.state?.accessNotice || '';
-
-    if (incomingNotice && incomingNotice !== noticeRef.current) {
-      noticeRef.current = incomingNotice;
-      originPathRef.current = `${location.pathname}${location.search}${location.hash}`;
-      replacedRef.current = false;
-      queueMicrotask(() => setNotice(incomingNotice));
-      return;
-    }
-
-    if (incomingNotice && !replacedRef.current) {
-      replacedRef.current = true;
-      navigate(`${location.pathname}${location.search}${location.hash}`, { replace: true, state: null });
-      return;
-    }
-
-    if (!incomingNotice && replacedRef.current) {
-      replacedRef.current = false;
-      return;
-    }
-
-    const currentPath = `${location.pathname}${location.search}${location.hash}`;
-    if (!incomingNotice && noticeRef.current && originPathRef.current !== currentPath) {
-      noticeRef.current = '';
-      originPathRef.current = null;
-      queueMicrotask(() => setNotice(''));
-    }
-  }, [location, navigate, notice]);
-
-  const dismiss = () => {
-    noticeRef.current = '';
-    originPathRef.current = null;
-    setNotice('');
-  };
-
-  return { notice, dismiss };
-}
-
-function AccessNotice({ notice, onDismiss }) {
-  if (!notice) return null;
-  return (
-    <div className="callout warn" role="status" aria-label="Access notice">
-      <div className="callout-title">Workspace access</div>
-      <div>{notice}</div>
-      <button type="button" className="btn btn-ghost" onClick={onDismiss}>Dismiss</button>
-    </div>
-  );
-}
-
 function isNavActive(item, pathname, isActive) {
   if (item.match === 'courses') {
     return pathname === '/creator/courses' || /^\/creator\/courses\/\d+$/.test(pathname);
@@ -114,52 +54,36 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
   const items = NAV[role] || [];
 
   return (
-    <div className={`shell${role === 'admin' ? ' admin-shell' : ''}`}>
-      <div className="topbar">
-        <div className="topbar-brand">
-          <Logo />
-        </div>
-        <div className="topbar-search" />
-        <div className="topbar-actions">
-          {role === 'trainer' || role === 'creator' ? <MemberNotifications /> : null}
-          <button type="button" className="btn btn-ghost" onClick={logout}>
-            Log out
-          </button>
-          <div className="user-chip">
-            <UserAvatar name={identityName} avatarUrl={avatarUrl} token={token} />
-            <div>
-              <div className="user-chip-name">{identityName}</div>
-              {showWorkspaceSwitcher ? <WorkspaceSwitcher /> : <div className="role">Administrator</div>}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="shell-body">
-        <nav className="sidebar" aria-label={`${role} navigation`} aria-describedby={`${role}-nav-scroll-hint`}>
-          {items.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={Boolean(item.end)}
-              className={({ isActive }) => `nav-item${isNavActive(item, location.pathname, isActive) ? ' active' : ''}`}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-        <p id={`${role}-nav-scroll-hint`} className="nav-scroll-hint">More navigation → Swipe or scroll sideways</p>
-        <main className="content">
-          <AccessNotice notice={accessNotice} onDismiss={onDismissAccessNotice} />
-          {title ? <h1 className="page-title">{title}</h1> : null}
-          {subtitle ? <p className="page-sub">{subtitle}</p> : null}
-          <Outlet />
-        </main>
-      </div>
-    </div>
+    <ShellChrome
+      shellClassName={`shell${role === 'admin' ? ' admin-shell' : ''}`}
+      identityName={identityName}
+      avatarUrl={avatarUrl}
+      token={token}
+      logout={logout}
+      extraActions={role === 'trainer' || role === 'creator' ? <MemberNotifications /> : null}
+      identityMeta={showWorkspaceSwitcher ? <WorkspaceSwitcher /> : <div className="role">Administrator</div>}
+      navLabel={`${role} navigation`}
+      navHintId={`${role}-nav-scroll-hint`}
+      navItems={items.map((item) => (
+        <ShellNavLink
+          key={item.to}
+          to={item.to}
+          end={Boolean(item.end)}
+          className={({ isActive }) => `nav-item${isNavActive(item, location.pathname, isActive) ? ' active' : ''}`}
+        >
+          {item.label}
+        </ShellNavLink>
+      ))}
+      title={title}
+      subtitle={subtitle}
+      accessNotice={accessNotice}
+      onDismissAccessNotice={onDismissAccessNotice}
+    >
+      <Outlet />
+    </ShellChrome>
   );
 }
 
-// Trainer / Creator shell. Shared: RoleShell
 export default function RoleShell({ role, title, subtitle }) {
   const { user, token, logout } = useAuth();
   const { notice: accessNotice, dismiss: dismissAccessNotice } = useAccessNotice();

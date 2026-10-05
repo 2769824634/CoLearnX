@@ -63,4 +63,17 @@ public class MemberLearningHubTests
         Assert.Equal(HttpStatusCode.NotFound, (await otherMember.GetAsync($"/api/enrollments/{enrollment.Id}/recordings")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await otherMember.GetAsync($"/api/enrollments/{enrollment.Id}/materials/{version.Id}/file")).StatusCode);
     }
+
+    [Fact]
+    public async Task Reserved_enrollment_cannot_open_attached_material()
+    {
+        using var factory = new CoLearnXApiFactory();
+        using var member = await ApiClient.AsMemberAsync(factory);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        var enrollment = await db.Enrollments.FirstAsync(item => item.User.Email == SeedData.MemberEmail);
+        enrollment.Status = EnrollmentStatus.Reserved;
+        await db.SaveChangesAsync();
+        Assert.Equal(HttpStatusCode.NotFound, (await member.GetAsync($"/api/enrollments/{enrollment.Id}/materials/1/file")).StatusCode);
+    }
 }

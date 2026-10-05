@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation } from 'react-router-dom';
 import Logo from '../../components/Logo';
 import { consumeSessionReplacedMessage, SESSION_REPLACED_MESSAGE } from '../../api/client';
 import useAdminAuth from '../../auth/useAdminAuth';
+import { useNoCredentialAutofill } from '../../auth/noCredentialAutofill';
 import '../../styles/admin.css';
 
 export default function AdminLoginPage() {
@@ -12,6 +13,8 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const emailAutofill = useNoCredentialAutofill();
+  const passwordAutofill = useNoCredentialAutofill();
   const from = location.state?.from;
   const requestedPath = from?.pathname;
   const destination = requestedPath?.startsWith('/admin/') && requestedPath !== '/admin/login'
@@ -65,7 +68,7 @@ export default function AdminLoginPage() {
           </div>
         </section>
 
-        <form className="admin-auth-form" onSubmit={onSubmit}>
+        <form className="admin-auth-form" autoComplete="off" onSubmit={onSubmit}>
           <div>
             <p className="admin-form-eyebrow">Restricted workspace</p>
             <h2>Sign in as administrator</h2>
@@ -78,11 +81,10 @@ export default function AdminLoginPage() {
             <input
               id="admin-email"
               type="email"
-              autoComplete="username"
               value={email}
               onChange={(event) => { setEmail(event.target.value); setError(''); }}
               required
-              autoFocus
+              {...emailAutofill}
             />
           </div>
           <div className="form-group">
@@ -90,10 +92,10 @@ export default function AdminLoginPage() {
             <input
               id="admin-password"
               type="password"
-              autoComplete="current-password"
               value={password}
               onChange={(event) => { setPassword(event.target.value); setError(''); }}
               required
+              {...passwordAutofill}
             />
           </div>
           {error ? (

@@ -30,7 +30,7 @@ public sealed class NotificationEmailDispatcher(CoLearnXDbContext db, IBusinessN
                 .ExecuteUpdateAsync(s => s.SetProperty(n => n.EmailAttemptedAt, attemptedAt), ct);
             if (claimed != 1) continue;
             var ownedLease = db.Notifications.Where(n => n.Id == notice.Id && n.EmailPending && n.EmailAttemptedAt == attemptedAt);
-            var path = NotificationService.TargetPath(notice.Code, notice.IntakeId);
+            var path = NotificationTargetPath.For(notice.Code, notice.IntakeId);
             var cancelled = notice.IntakeId != null && (notice.Code is "N-class-confirmed" or "N-class-reminder")
                 && await db.CourseIntakes.AnyAsync(i => i.Id == notice.IntakeId && i.CancelledAt != null, ct);
             if (!notice.User.IsActive || notice.User.Preference?.EmailNotifications == false || path == null || cancelled)

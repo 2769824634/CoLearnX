@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { AuthContext } from '../../auth/AuthContext';
 import CreatorIntakeApplicationDetailPage from './CreatorIntakeApplicationDetailPage';
 
 const query = vi.hoisted(() => ({ data: null, loading: false, error: null }));
@@ -13,7 +14,7 @@ it('opens a legacy Intake without an application as a read-only current schedule
     registrationOpensAt: '2026-09-01T00:00:00Z', registrationClosesAt: '2026-09-20T00:00:00Z',
     startsAt: '2026-10-20T00:00:00Z', endsAt: '2026-10-21T00:00:00Z', sessions: [],
   } };
-  render(<MemoryRouter><CreatorIntakeApplicationDetailPage /></MemoryRouter>);
+  render(<AuthContext.Provider value={{ user: { id: 8 } }}><MemoryRouter><CreatorIntakeApplicationDetailPage /></MemoryRouter></AuthContext.Provider>);
   expect(screen.getByRole('heading', { name: 'Intake #42' })).toBeTruthy();
   expect(screen.getByText('Cancelled')).toBeTruthy();
   expect(screen.getByText('10')).toBeTruthy();
@@ -23,7 +24,7 @@ it('opens a legacy Intake without an application as a read-only current schedule
 
 it('shows minimum enrollment, meeting URL and physical booking deadline for review', () => {
   query.data = { application: {
-    courseIntakeId: 7, courseCode: 'CLXL1004R1', courseTitle: 'Local repair course', trainerName: 'Trainer G',
+    courseIntakeId: 7, courseCode: 'CLXL1004R1', courseTitle: 'Local repair course', trainerId: 8, trainerName: 'Trainer G',
     kind: 'New', status: 'Pending', version: 'v1',
   }, proposedChange: null, currentIntake: {
     id: 7, courseId: 7, status: 'PendingApproval', minEnrollment: 2, confirmationNote: null,
@@ -35,8 +36,9 @@ it('shows minimum enrollment, meeting URL and physical booking deadline for revi
       physicalBookingDeadline: '2026-10-19T01:00:00Z',
     }],
   } };
-  render(<MemoryRouter><CreatorIntakeApplicationDetailPage /></MemoryRouter>);
+  render(<AuthContext.Provider value={{ user: { id: 8 } }}><MemoryRouter><CreatorIntakeApplicationDetailPage /></MemoryRouter></AuthContext.Provider>);
   expect(screen.getByText('2')).toBeTruthy();
   expect(screen.getByRole('link', { name: 'https://meet.example.test/room-9' })).toBeTruthy();
   expect(screen.getByText(/Booking closes/)).toBeTruthy();
+  expect(screen.getByText(/You teach this course/)).toBeTruthy();
 });

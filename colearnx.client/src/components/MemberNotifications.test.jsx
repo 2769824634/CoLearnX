@@ -18,7 +18,7 @@ it.each(['/member/programs', '/member/programs?tab=reserved', '/member/programs?
   expect(safeNotificationPath(path)).toBe(path);
 });
 
-it.each(['//example.com', '/trainer/courses/intakes/0', '/trainer/courses/intakes/42/../43', '/trainer/courses/intakes/42?next=https://example.com', '/creator/courses/intake-applications/42#other', '/trainer/courses/intakes/%34%32', '/member/programs?tab=unknown', '/member/programs?next=https://example.com'])('rejects an unapproved notification path: %s', (path) => {
+it.each(['//example.com', '/trainer/courses/intakes/0', '/trainer/courses/intakes/42/../43', '/trainer/courses/intakes/42?next=https://example.com', '/creator/courses/intake-applications/42#other', '/trainer/courses/intakes/%34%32', '/member/programs?tab=unknown', '/member/programs?next=https://example.com', '/member/home', '/member/account', '/member/courses'])('rejects an unapproved notification path: %s', (path) => {
   expect(safeNotificationPath(path)).toBeNull();
 });
 
