@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { creatorIntakeApplicationsApi } from '../../api/creatorIntakeApplications';
 import { reviewPayload } from '../trainer/b4Workflow';
 import { safeMeetingLink } from '../trainer/intakeForm';
-import { formatUtcDateTime } from '../businessPresentation';
+import { formatCount, formatUtcDateTime } from '../businessPresentation';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 
@@ -18,7 +18,7 @@ function Schedule({ title, intake, accent = false }) {
       const meetingLink = safeMeetingLink(session.meetingLink);
       return <article key={session.id || `${session.label}-${index}`}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{session.label}</strong><p>{formatUtcDateTime(session.startsAt)} → {formatUtcDateTime(session.endsAt)}</p>
         <small>{meetingLink ? <a href={meetingLink} target="_blank" rel="noopener noreferrer">{meetingLink}</a> : (session.meetingLink ? 'Invalid meeting link' : 'No online meeting link')}</small>
-        <small>{session.physicalAddress ? `${session.physicalAddress} · ${session.physicalCapacity} seats · Booking closes ${session.physicalBookingDeadline ? formatUtcDateTime(session.physicalBookingDeadline) : 'not set'}` : 'No physical location'}</small>
+        <small>{session.physicalAddress ? `${session.physicalAddress} · ${formatCount(session.physicalCapacity, 'seat')} · Booking closes ${session.physicalBookingDeadline ? formatUtcDateTime(session.physicalBookingDeadline) : 'not set'}` : 'No physical location'}</small>
       </div></article>;
     })}</div>
   </section>;

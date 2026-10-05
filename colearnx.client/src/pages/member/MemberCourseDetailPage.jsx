@@ -11,7 +11,7 @@ import { sessionAvailability } from './sessionAvailability';
 export default function MemberCourseDetailPage() {
   const { courseId } = useParams();
   const navigate = useNavigate();
-  const { state, showToast, loadCourseDetail, enrol, toggleWish } = useMemberData();
+  const { state, showToast, reload, loadCourseDetail, enrol, toggleWish } = useMemberData();
   const [courseSnapshot, setCourseSnapshot] = useState(null);
   const currentSnapshot = courseSnapshot?.courseId === courseId ? courseSnapshot : null;
   const course = currentSnapshot?.course;
@@ -27,6 +27,9 @@ export default function MemberCourseDetailPage() {
   const [comment, setComment] = useState('');
   const [ratingBusy, setRatingBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [syncNotice, setSyncNotice] = useState('');
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [savedEnrollmentId, setSavedEnrollmentId] = useState(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60000);
@@ -54,6 +57,24 @@ export default function MemberCourseDetailPage() {
       ? { ...snapshot, course: typeof update === 'function' ? update(snapshot.course) : update } : snapshot);
   }
 
+  async function refreshReservationView() {
+    if (syncBusy || !course) return;
+    setSyncBusy(true);
+    let memberDataRefreshed = true;
+    try {
+      if (reload) memberDataRefreshed = await reload();
+      const updated = await loadCourseDetail(course.id);
+      setCourse({ ...updated, alreadyEnrolled: true });
+      setSyncNotice(memberDataRefreshed === false
+        ? 'Your reservation was saved, but some member data could not refresh. Try again or open My Programs to verify it.'
+        : '');
+    } catch {
+      setSyncNotice('Your reservation was saved, but this course page could not refresh. Try again or open My Programs to verify it.');
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
   if (!course) {
     return (
       <MemberShell title="Course" subtitle="Loading…">
@@ -65,6 +86,7 @@ export default function MemberCourseDetailPage() {
   const sessions = course.sessions || [];
   const session = sessions[sessionIdx] || sessions[0];
   const afterBalance = state.credits - course.credits;
+  const programsPath = savedEnrollmentId ? `/member/programs?tab=reserved&enrollmentId=${encodeURIComponent(savedEnrollmentId)}` : '/member/programs?tab=reserved';
   const completedEnrollment = (state.enrolled || []).find((item) => item.id === course.id && item.status === 'completed');
   const noPublishedSession = 'This course has no published session yet. A Trainer must open an Intake and the Creator must confirm it.';
   const availability = sessionAvailability(session, now);
@@ -96,13 +118,23 @@ export default function MemberCourseDetailPage() {
       return;
     }
     setEnrolBusy(true);
+    setSyncNotice('');
     try {
       const result = await enrol(course.id, session.id);
-      const updated = await loadCourseDetail(course.id);
+      if (result.enrollmentId != null) setSavedEnrollmentId(result.enrollmentId);
+      setCourse((current) => current ? { ...current, alreadyEnrolled: true } : current);
       setEnrolOpen(false);
-      setSuccessMsg(`${formatCount(result.creditsSpent, 'credit')} on hold · ${result.balance} available · ${result.heldAfter} on hold in total`);
+      setSuccessMsg(`${formatCount(result.creditsSpent, 'credit')} on hold · ${formatCount(result.balance, 'credit')} available · ${formatCount(result.heldAfter, 'credit')} on hold in total`);
       setSuccessOpen(true);
-      setCourse(updated);
+      let detailRefreshed = true;
+      try {
+        const updated = await loadCourseDetail(course.id);
+        setCourse({ ...updated, alreadyEnrolled: true });
+      } catch {
+        detailRefreshed = false;
+      }
+      if (result.memberDataRefreshed === false) setSyncNotice('Your reservation was saved, but some member data could not refresh. Try again or open My Programs to verify it.');
+      else if (!detailRefreshed) setSyncNotice('Your reservation was saved, but this course page could not refresh. Try again or open My Programs to verify it.');
     } catch (e) {
       setEnrolOpen(false);
       if (e?.code === 'INSUFFICIENT_CREDITS') setInsufficientOpen(true);
@@ -117,6 +149,11 @@ export default function MemberCourseDetailPage() {
       <MemberShell
         title={`${course.code} — ${course.title}`}
       >
+        {syncNotice ? <div className="callout warn" role="alert">
+          <div className="callout-title">Reservation saved</div>
+          <p>{syncNotice}</p>
+          <div className="btn-row"><button type="button" className="btn btn-ghost" disabled={syncBusy} onClick={() => { void refreshReservationView(); }}>{syncBusy ? 'Refreshing…' : 'Refresh course'}</button><button type="button" className="btn btn-ghost" onClick={() => navigate(programsPath)}>Open My Programs</button></div>
+        </div> : null}
         <div className="grid-2-1">
           <div>
             <section className="card member-course-overview" style={{ marginBottom: 16 }}>
@@ -150,7 +187,7 @@ export default function MemberCourseDetailPage() {
                     <strong>{s.label}</strong> · {s.startsAt && s.endsAt ? formatUtcRange(s.startsAt, s.endsAt) : 'Schedule unavailable'}
                     <span className="seats">{(s.capacity ?? 0) > 0 ? `${formatCount(s.seats, 'seat')} left` : 'Online'}</span>
                     <span className="member-session-status">{sessionAvailability(s, now).label}</span>
-                    <span className="member-session-summary">{formatCount(s.intakeEnrollmentCount ?? 0, 'learner')} reserved or enrolled · Minimum {s.minEnrollment ?? 10}</span>
+                    <span className="member-session-summary">{formatCount(s.intakeEnrollmentCount ?? 0, 'learner')} reserved or enrolled · Minimum {formatCount(s.minEnrollment ?? 10, 'learner')}</span>
                     <span className="member-session-summary">Delivery: {s.physical && s.online ? 'Physical and online (shared place; choosing a mode is not available yet)' : s.physical ? 'Physical' : 'Online'}</span>
                     {s.registrationClosesAt ? <span className="member-session-summary">Registration closes {formatUtcDateTime(s.registrationClosesAt)}</span> : null}
                   </button>
@@ -176,7 +213,7 @@ export default function MemberCourseDetailPage() {
             <div className="card" style={{ marginBottom: 12 }}><div className="card-header">Course topics and rating</div>
               <div className="card-body">
                 <div>{course.interests?.map((tag) => <span className="pill neutral" key={tag.id} style={{ marginRight: 6 }}>{tag.name}</span>)}</div>
-                <p>{course.ratingCount ? `${Number(course.averageStars).toFixed(1)} ★ from ${course.ratingCount} rating(s)` : 'New · No ratings yet'}</p>
+                <p>{course.ratingCount ? `${Number(course.averageStars).toFixed(1)} ★ from ${formatCount(course.ratingCount, 'rating')}` : 'New · No ratings yet'}</p>
                 {completedEnrollment ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRatingOpen(true)}>Rate this course</button> : null}
               </div>
             </div>
@@ -209,13 +246,13 @@ export default function MemberCourseDetailPage() {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
           <span style={{ color: 'var(--slate)' }}>Current balance</span>
-          <strong style={{ color: 'var(--teal)' }}>{state.credits}</strong>
+          <strong style={{ color: 'var(--teal)' }}>{formatCount(state.credits, 'credit')}</strong>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 12 }}>
           <span style={{ color: 'var(--slate)' }}>Available after hold</span>
-          <strong>{afterBalance}</strong>
+          <strong>{formatCount(afterBalance, 'credit')}</strong>
         </div>
-        <p className="page-sub">{course.credits} credits will be held until the class is confirmed at registration close. If it does not run, or you cancel before confirmation, they return to your available balance. The minimum is {session?.minEnrollment ?? 10} learners. After confirmation, withdrawal 6–10 calendar days before the start refunds 70%; within five days it is closed.</p>
+        <p className="page-sub">{formatCount(course.credits, 'credit')} will be held until the class is confirmed at registration close. If it does not run, or you cancel before confirmation, they return to your available balance. The minimum is {formatCount(session?.minEnrollment ?? 10, 'learner')}. After confirmation, withdrawal 6–10 calendar days before the start refunds 70%; within five days it is closed.</p>
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" disabled={enrolBusy} onClick={() => setEnrolOpen(false)}>Cancel</button>
           <button type="button" className="btn btn-primary" disabled={enrolBusy || !availability.canReserve} onClick={confirmEnrol}>{enrolBusy ? 'Reserving…' : 'Confirm Enrolment'}</button>
@@ -225,7 +262,7 @@ export default function MemberCourseDetailPage() {
       <Modal open={insufficientOpen} title="Insufficient Credits" onClose={() => setInsufficientOpen(false)} width={440}>
         <div className="callout warn">
           <div className="callout-title">Cannot enrol</div>
-          You need {course.credits} credits to enrol. Current balance is {state.credits}.
+          You need {formatCount(course.credits, 'credit')} to enrol. Current balance is {formatCount(state.credits, 'credit')}.
           Top up in Payment, then return to complete enrolment.
         </div>
         <div className="modal-actions">
@@ -250,7 +287,7 @@ export default function MemberCourseDetailPage() {
           <p style={{ fontSize: 13, color: 'var(--slate)' }}>{successMsg}</p>
           <div className="modal-actions">
             <button type="button" className="btn btn-ghost" onClick={() => { setSuccessOpen(false); navigate('/member/courses'); }}>Browse More</button>
-            <button type="button" className="btn btn-primary" onClick={() => { setSuccessOpen(false); navigate('/member/programs?tab=reserved'); }}>Go to My Programs</button>
+            <button type="button" className="btn btn-primary" onClick={() => { setSuccessOpen(false); navigate(programsPath); }}>Go to My Programs</button>
           </div>
         </div>
       </Modal>

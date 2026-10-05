@@ -101,7 +101,7 @@ public sealed class AdminFinanceService(CoLearnXDbContext db, ILogger<AdminFinan
                     EntityType = nameof(User),
                     EntityId = user.Id.ToString(),
                     Result = "Succeeded",
-                    Reason = $"{request.Delta:+#;-#;0} credits: {reason}",
+                    Reason = $"{(request.Delta > 0 ? "+" : "")}{BusinessText.Credits(request.Delta)}: {reason}",
                 });
                 await db.SaveChangesAsync(ct);
                 await transaction.CommitAsync(ct);
@@ -276,7 +276,7 @@ public sealed class AdminFinanceService(CoLearnXDbContext db, ILogger<AdminFinan
                         UserId = dispute.RaisedByUserId,
                         Code = "N-09",
                         Title = "Refund processed",
-                        Body = $"{credits} credits were restored for dispute #{dispute.Id}.",
+                        Body = $"Restored {BusinessText.Credits(credits)} for dispute #{dispute.Id}.",
                     });
                 }
                 else

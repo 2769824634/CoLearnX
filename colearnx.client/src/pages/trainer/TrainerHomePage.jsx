@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import useTrainerQuery, { loadTrainerOverview } from './useTrainerQuery';
 import { IntakeRows, TrainerError, TrainerHeader, TrainerLoading } from './TrainerUi';
-import { isEditable, localTimezone } from './intakeForm';
+import { isEditable } from './intakeForm';
 
 export default function TrainerHomePage() {
   const { user } = useAuth();
@@ -22,7 +22,7 @@ export default function TrainerHomePage() {
       <div className="trainer-section-heading"><div><p className="trainer-eyebrow">Planning desk</p><h2>Pick up where you left off</h2></div><Link to="/trainer/courses">All Intakes →</Link></div>
       <TrainerError error={query.data.catalogError} onRetry={query.refresh} retryLabel="Reload course names" />
       <IntakeRows intakes={needsWork.slice(0, 5)} courses={query.data.courses} empty="Your planning queue is clear. Create an Intake when you are ready for the next cohort." />
-      <div className="trainer-workflow-note"><strong>Your path to delivery</strong><p>Prepare a Draft → Add Sessions → Submit to Creator → Wait for confirmation.</p><span>Submitting does not publish an Intake. All dates are shown in {localTimezone}.</span></div>
+      <div className="trainer-workflow-note"><strong>Your path to delivery</strong><p>Prepare a Draft → Add Sessions → Submit to Creator → Wait for confirmation.</p><span>Submitting does not publish an Intake. All displayed dates use UTC.</span></div>
     </>}
   </section>;
 }

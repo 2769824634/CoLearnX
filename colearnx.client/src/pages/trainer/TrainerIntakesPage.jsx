@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import useTrainerQuery, { loadTrainerOverview } from './useTrainerQuery';
 import { IntakeRows, TrainerError, TrainerHeader, TrainerLoading } from './TrainerUi';
-import { intakeStatuses, isEditable, localTimezone, statusLabel } from './intakeForm';
+import { intakeStatuses, isEditable, statusLabel } from './intakeForm';
 
 export default function TrainerIntakesPage() {
   const query = useTrainerQuery(loadTrainerOverview);
@@ -28,7 +28,7 @@ export default function TrainerIntakesPage() {
     </div>
     {query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <>
       <TrainerError error={query.data.catalogError} onRetry={query.refresh} retryLabel="Reload course names" />
-      <p className="trainer-result-count">{intakes.length} {intakes.length === 1 ? 'Intake' : 'Intakes'} · Times in {localTimezone}</p>
+      <p className="trainer-result-count">{intakes.length} {intakes.length === 1 ? 'Intake' : 'Intakes'} · Times in UTC</p>
       <IntakeRows intakes={intakes} courses={courses} empty={status || term ? 'No Intakes match these filters.' : undefined} />
     </>}
   </section>;

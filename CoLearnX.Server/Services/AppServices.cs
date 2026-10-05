@@ -960,7 +960,7 @@ public class CreditService(CoLearnXDbContext db, IPayPalClient payPal, Microsoft
                 UserId = userId,
                 Code = "N-topup",
                 Title = "Credits topped up",
-                Body = $"+{payment.CreditsGranted} credits via PayPal.",
+                Body = $"+{BusinessText.Credits(payment.CreditsGranted)} via PayPal.",
             });
 
             await db.SaveChangesAsync(ct);

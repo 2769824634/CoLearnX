@@ -40,13 +40,22 @@ public record IntakeMaterialDto(
     string Title,
     string Format,
     string FilePath,
-    DateTime AttachedAt);
+    DateTime AttachedAt,
+    int VersionNumber = 0);
 
 public record CreateSessionRecordingRequest(
     [Required, MaxLength(160)] string Title,
     [Required, MaxLength(1024)] string RecordingUrl);
 
 public record SessionRecordingDto(int Id, int CourseSessionId, string Title, string RecordingUrl, DateTime CreatedAt);
+
+public record SessionMaterialDto(
+    int Id,
+    int CourseSessionId,
+    string SessionLabel,
+    string Title,
+    string Format,
+    DateTime UploadedAt);
 
 public record AttendanceItemRequest(
     [Range(1, int.MaxValue)] int EnrollmentId,

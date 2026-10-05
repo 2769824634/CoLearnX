@@ -24,7 +24,22 @@ export const trainerLaterPhaseApi = {
   addRecording: (token, intakeId, sessionId, body) => apiRequest(`${intakePath(intakeId)}/sessions/${encodeURIComponent(sessionId)}/recordings`, {
     method: 'POST', token, body,
   }),
+  sessionMaterials: (token, intakeId, sessionId, signal) => apiRequest(`${intakePath(intakeId)}/sessions/${encodeURIComponent(sessionId)}/materials`, { token, signal }),
+  uploadSessionMaterial: (token, intakeId, sessionId, title, file) => {
+    const body = new FormData();
+    body.append('title', title);
+    body.append('file', file);
+    return apiRequest(`${intakePath(intakeId)}/sessions/${encodeURIComponent(sessionId)}/materials`, {
+      method: 'POST', token, body, asForm: true,
+    });
+  },
+  downloadSessionMaterial: (token, intakeId, sessionId, materialId, fileName) => downloadFile(
+    `${intakePath(intakeId)}/sessions/${encodeURIComponent(sessionId)}/materials/${encodeURIComponent(materialId)}/file`,
+    fileName,
+    token,
+  ),
   learners: (token, intakeId, signal) => apiRequest(`${intakePath(intakeId)}/learners`, { token, signal }),
+  reservations: (token, intakeId, signal) => apiRequest(`${intakePath(intakeId)}/reservations`, { token, signal }),
   complete: (token, enrollmentId) => apiRequest(`/api/trainer/enrollments/${encodeURIComponent(enrollmentId)}/complete`, { method: 'POST', token }),
   saveAttendance: (token, intakeId, sessionId, records) => apiRequest(`${intakePath(intakeId)}/sessions/${encodeURIComponent(sessionId)}/attendance`, {
     method: 'PUT', token, body: { records },

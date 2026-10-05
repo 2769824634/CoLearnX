@@ -255,6 +255,31 @@ public class CourseIntakeCoreTests
     }
 
     [Fact]
+    public async Task SessionWithUploadedMaterial_CannotBeDeleted_AndMaterialRowIsPreserved()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var draft = await f.Service.CreateAsync(1, 1, DraftRequest);
+        draft = await f.Service.AddSessionAsync(1, draft.Id, SessionRequest(draft.Version));
+        var sessionId = Assert.Single(draft.Sessions).Id;
+        f.Db.SessionMaterials.Add(new SessionMaterial
+        {
+            CourseSessionId = sessionId,
+            AddedByTrainerId = 1,
+            Title = "Uploaded handout",
+            FilePath = $"session-materials/1/{sessionId}/handout.pdf",
+            Format = "PDF",
+        });
+        await f.Db.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<CourseIntakeException>(() =>
+            f.Service.DeleteSessionAsync(1, draft.Id, sessionId, draft.Version));
+
+        Assert.Equal("SESSION_HAS_MATERIALS", error.Code);
+        Assert.True(await f.Db.CourseSessions.AnyAsync(item => item.Id == sessionId));
+        Assert.True(await f.Db.SessionMaterials.AnyAsync(item => item.CourseSessionId == sessionId));
+    }
+
+    [Fact]
     public async Task LegacyCatalogAndEnrolment_DoNotExposeDraftSessions()
     {
         await using var f = await Fixture.CreateAsync();

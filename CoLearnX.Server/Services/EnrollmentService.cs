@@ -93,9 +93,9 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
                 BalanceAfter = wallet.CreditBalance, HeldAfter = wallet.HeldCredits, RelatedEnrollmentId = enrollment.Id });
             db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "EnrollmentReserved",
                 EntityType = nameof(Enrollment), EntityId = enrollment.Id.ToString(), Result = "Succeeded",
-                Reason = $"Held {cost} credits for {course.Code}" });
-            db.Notifications.Add(new Notification { UserId = userId, IntakeId = intake.Id, Code = "N-01", Title = "Place reserved",
-                Body = $"{cost} credits are on hold for {course.Code}." });
+                Reason = $"Held {BusinessText.Credits(cost)} for {course.Code}" });
+            db.Notifications.Add(new Notification { UserId = userId, IntakeId = intake.Id, EnrollmentId = enrollment.Id, Code = "N-01", Title = "Place reserved",
+                Body = $"{BusinessText.Credits(cost)} {(cost == 1 ? "is" : "are")} on hold for {course.Code}." });
             if (session.PhysicalCapacity > 0 && session.SeatsTaken + 1 == session.PhysicalCapacity)
                 db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, Code = "N-session-full",
                     Title = "Session is full", Body = $"{course.Code} Intake #{intake.Id} has reached physical capacity." });
@@ -138,9 +138,9 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
                 BalanceAfter = wallet.CreditBalance, HeldAfter = wallet.HeldCredits, RelatedEnrollmentId = enrollment.Id });
             db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "ReservationCancelled",
                 EntityType = nameof(Enrollment), EntityId = enrollment.Id.ToString(), Result = "Succeeded",
-                Reason = $"Released {enrollment.CreditsSpent} credits" });
-            db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, Code = "N-hold-released", Title = "Credits released",
-                Body = $"{enrollment.CreditsSpent} credits are available again." });
+                Reason = $"Released {BusinessText.Credits(enrollment.CreditsSpent)}" });
+            db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, EnrollmentId = enrollment.Id, Code = "N-hold-released", Title = "Credits released",
+                Body = $"{BusinessText.Credits(enrollment.CreditsSpent)} {(enrollment.CreditsSpent == 1 ? "is" : "are")} available again." });
             var intake = enrollment.CourseSession.CourseIntake;
             if (enrollment.CourseSession.PhysicalCapacity > 0
                 && enrollment.CourseSession.SeatsTaken + 1 == enrollment.CourseSession.PhysicalCapacity
@@ -183,13 +183,13 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
                 BalanceAfter = user.CreditBalance, HeldAfter = user.HeldCredits, RelatedEnrollmentId = enrollment.Id });
             db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "EnrollmentWithdrawn",
                 EntityType = nameof(Enrollment), EntityId = enrollment.Id.ToString(), Result = "Succeeded",
-                Reason = $"Refunded {refund}; forfeited {forfeited} credits" });
+                Reason = $"Refunded {BusinessText.Credits(refund)}; forfeited {BusinessText.Credits(forfeited)}" });
             if (forfeited > 0)
                 db.CreditTransactions.Add(new CreditTransaction { UserId = userId, Type = CreditTransactionType.Forfeit,
-                    Description = $"{forfeited} credits retained after withdrawal from {enrollment.Course.Code}", Delta = 0,
+                    Description = $"{BusinessText.Credits(forfeited)} retained after withdrawal from {enrollment.Course.Code}", Delta = 0,
                     BalanceAfter = user.CreditBalance, HeldAfter = user.HeldCredits, RelatedEnrollmentId = enrollment.Id });
-            db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, Code = "N-withdraw-70", Title = "Enrollment withdrawn",
-                Body = $"{refund} credits were refunded for {enrollment.Course.Code}." });
+            db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, EnrollmentId = enrollment.Id, Code = "N-withdraw-70", Title = "Enrollment withdrawn",
+                Body = $"{BusinessText.Credits(refund)} {(refund == 1 ? "was" : "were")} refunded for {enrollment.Course.Code}." });
             db.Notifications.Add(new Notification { UserId = enrollment.CourseSession.CourseIntake.TrainerId,
                 IntakeId = enrollment.CourseSession.CourseIntakeId,
                 Code = "N-learner-withdrew", Title = "Learner withdrew",

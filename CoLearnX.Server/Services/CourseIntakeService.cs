@@ -90,7 +90,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db) : ICourseIntakeSer
             // reported after commit, a strategy replay returns the committed
             // Intake instead of creating a second aggregate.
             var existing = await db.CourseIntakes
-                .Include(item => item.Sessions)
+                .Include(item => item.Sessions).ThenInclude(session => session.Enrollments)
                 .Include(item => item.Applications)
                 .SingleOrDefaultAsync(item => item.CourseId == courseId && item.TrainerId == trainerUserId
                     && item.Version == creationVersion, ct);
@@ -315,9 +315,10 @@ public sealed class CourseIntakeService(CoLearnXDbContext db) : ICourseIntakeSer
             if (intake.StartsAt <= original.StartsAt || intake.RegistrationClosesAt <= DateTime.UtcNow)
                 throw new CourseIntakeException("INVALID_POSTPONEMENT_DATES", "The replacement must start later and still accept registrations.", 409);
             var learners = await db.Enrollments.Where(e => e.CourseSession.CourseIntakeId == original.Id
-                && e.PostponementEligible && e.Status == EnrollmentStatus.Cancelled).Select(e => e.UserId).Distinct().ToListAsync(ct);
+                && e.PostponementEligible && e.Status == EnrollmentStatus.Cancelled)
+                .Select(e => new { e.UserId, e.Id }).ToListAsync(ct);
             foreach (var learner in learners)
-                db.Notifications.Add(new Notification { UserId = learner, IntakeId = intake.Id, EmailPending = true, Code = "N-postponement-offered",
+                db.Notifications.Add(new Notification { UserId = learner.UserId, IntakeId = intake.Id, EnrollmentId = learner.Id, EmailPending = true, Code = "N-postponement-offered",
                     Title = "Postponed class available", Body = $"Intake #{intake.Id} replaces Intake #{original.Id}. Choose a session in My Programs to reserve again using your available credits." });
         }
 
@@ -369,7 +370,8 @@ public sealed class CourseIntakeService(CoLearnXDbContext db) : ICourseIntakeSer
     private async Task<CourseIntake> LoadOwnedAsync(int userId, int id, CancellationToken ct)
     {
         await RequireTrainerAsync(userId, ct);
-        return await db.CourseIntakes.Include(i => i.Sessions).Include(i => i.Applications).Include(i => i.ReplacementIntake).AsSplitQuery()
+        return await db.CourseIntakes.Include(i => i.Sessions).ThenInclude(session => session.Enrollments)
+            .Include(i => i.Applications).Include(i => i.ReplacementIntake).AsSplitQuery()
             .SingleOrDefaultAsync(i => i.Id == id && i.TrainerId == userId, ct)
             ?? throw new CourseIntakeException("INTAKE_NOT_FOUND", "Owned Intake was not found.", 404);
     }
@@ -377,7 +379,8 @@ public sealed class CourseIntakeService(CoLearnXDbContext db) : ICourseIntakeSer
     private async Task<CourseIntake> LoadForCreatorAsync(int userId, int id, CancellationToken ct)
     {
         await RequireCreatorAsync(userId, ct);
-        return await db.CourseIntakes.Include(i => i.Sessions).Include(i => i.Applications).Include(i => i.ReplacementIntake).AsSplitQuery()
+        return await db.CourseIntakes.Include(i => i.Sessions).ThenInclude(session => session.Enrollments)
+            .Include(i => i.Applications).Include(i => i.ReplacementIntake).AsSplitQuery()
             .Include(i => i.Course).Include(i => i.Trainer)
             .SingleOrDefaultAsync(i => i.Id == id && i.Course.CreatorId == userId, ct)
             ?? throw new CourseIntakeException("INTAKE_APPLICATION_NOT_FOUND", "The Intake application was not found.", 404);
@@ -396,6 +399,9 @@ public sealed class CourseIntakeService(CoLearnXDbContext db) : ICourseIntakeSer
 
     private async Task RequireNoHistoryAsync(int id, CancellationToken ct)
     {
+        if (await db.SessionMaterials.AnyAsync(material => material.CourseSessionId == id, ct))
+            throw new CourseIntakeException("SESSION_HAS_MATERIALS",
+                "A session with uploaded materials cannot be structurally changed or deleted.", 409);
         if (await db.Enrollments.AnyAsync(e => e.CourseSessionId == id, ct)
             || await db.AttendanceRecords.AnyAsync(a => a.CourseSessionId == id, ct)
             || await db.CourseSessions.AnyAsync(s => s.Id == id && s.SeatsTaken > 0, ct))
@@ -548,14 +554,21 @@ public sealed class CourseIntakeService(CoLearnXDbContext db) : ICourseIntakeSer
     }
 
     private static CourseIntakeDetailDto ToDto(CourseIntake i)
-        => new(i.Id, i.CourseId, i.TrainerId, i.RegistrationOpensAt, i.RegistrationClosesAt, i.StartsAt, i.EndsAt,
+    {
+        var enrollments = i.Sessions.SelectMany(session => session.Enrollments);
+        var reserved = enrollments.Count(item => item.Status == EnrollmentStatus.Reserved);
+        var active = enrollments.Count(item => item.Status == EnrollmentStatus.Active);
+        var remaining = Math.Max(0, i.MinEnrollment - reserved - active);
+        return new(i.Id, i.CourseId, i.TrainerId, i.RegistrationOpensAt, i.RegistrationClosesAt, i.StartsAt, i.EndsAt,
             i.Status.ToString(), i.SubmittedAt, i.ConfirmedByCreatorId, i.ConfirmedAt, i.ConfirmationNote, i.Version,
             i.Sessions.OrderBy(s => s.StartsAt).ThenBy(s => s.Id).Select(s => new CourseSessionDto(s.Id, s.Label, s.StartsAt,
                 s.EndsAt, s.PhysicalCapacity, s.SeatsLeft, s.CourseIntakeId, s.MeetingLink, s.PhysicalAddress, s.PhysicalCapacity, s.PhysicalBookingDeadline)).ToList(),
             i.Applications.Where(a => a.Kind == CourseIntakeApplicationKind.Change).OrderByDescending(a => a.Id)
                 .Select(ToChangeDto).FirstOrDefault(), i.MinEnrollment, i.ConfirmedToRunAt, i.CancelledAt,
             i.CancellationReason, i.ReplacementForIntakeId, i.ReplacementIntake?.Id,
-            i.CancellationReason == "MinimumEnrollmentNotMet" ? i.CancelledAt?.AddDays(7) : null);
+            i.CancellationReason == "MinimumEnrollmentNotMet" ? i.CancelledAt?.AddDays(7) : null,
+            reserved, active, remaining);
+    }
 
     private static CreatorIntakeApplicationSummaryDto ToCreatorSummary(CourseIntakeApplication application)
     {

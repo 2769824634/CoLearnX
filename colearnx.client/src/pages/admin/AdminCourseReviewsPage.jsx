@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import useAdminAuth from '../../auth/useAdminAuth';
 import { adminCourseReviewsApi } from '../../api';
+import { adminLaterPhaseApi } from '../../api/adminLaterPhase';
 import Modal from '../../components/Modal';
-import { formatUtcDateTime } from '../businessPresentation';
+import { formatCount, formatUtcDateTime } from '../businessPresentation';
 
 const FILTERS = [
   { value: 'PendingApproval', label: 'Pending approval' },
@@ -18,6 +19,14 @@ function formatStatus(status) {
   return status === 'PendingApproval' ? 'Pending approval' : status;
 }
 
+function materialDownloadName(material) {
+  const title = String(material.title || 'material')
+    .replace(/[\\/:*?"<>|]+/g, '_')
+    .trim() || 'material';
+  const extension = String(material.format || 'bin').replace(/[^a-z0-9]/gi, '').toLowerCase() || 'bin';
+  return `${title}.${extension}`;
+}
+
 export default function AdminCourseReviewsPage() {
   const { token } = useAdminAuth();
   const [filter, setFilter] = useState('PendingApproval');
@@ -31,6 +40,8 @@ export default function AdminCourseReviewsPage() {
   const [reason, setReason] = useState('');
   const [reviewError, setReviewError] = useState('');
   const [reviewing, setReviewing] = useState(false);
+  const [materialDownloadId, setMaterialDownloadId] = useState(null);
+  const [materialDownloadError, setMaterialDownloadError] = useState('');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -79,6 +90,7 @@ export default function AdminCourseReviewsPage() {
     setReason('');
     setReviewError('');
     setReviewNotice('');
+    setMaterialDownloadError('');
   }
 
   function closeReview() {
@@ -114,6 +126,20 @@ export default function AdminCourseReviewsPage() {
       setReviewError(error.message || 'The course review could not be saved.');
     } finally {
       setReviewing(false);
+    }
+  }
+
+  async function downloadMaterial(material) {
+    if (materialDownloadId !== null) return;
+    setMaterialDownloadId(material.versionId);
+    setMaterialDownloadError('');
+    try {
+      await adminLaterPhaseApi.downloadMaterial(token, material.versionId, materialDownloadName(material));
+    } catch (error) {
+      const reference = error?.traceId ? ` Reference: ${error.traceId}` : '';
+      setMaterialDownloadError(`Could not download this material.${reference}`);
+    } finally {
+      setMaterialDownloadId(null);
     }
   }
 
@@ -237,12 +263,48 @@ export default function AdminCourseReviewsPage() {
             <div className="admin-review-summary admin-course-summary">
               <span>{selected.code}</span>
               <strong>{selected.title}</strong>
-              <small>{selected.category} · {selected.level} · {selected.creditCost} credits</small>
+              <small>{selected.category} · {selected.level} · {formatCount(selected.creditCost, 'credit')}</small>
               {selected.description ? <p>{selected.description}</p> : null}
               <p>Creator: {selected.creatorName || selected.submittedByName}</p>
+              <h3>Interests</h3>
+              {selected.interests?.length ? (
+                <ul>
+                  {selected.interests.map((interest) => <li key={interest.id}>{interest.name}</li>)}
+                </ul>
+              ) : <p>No interests provided.</p>}
               <h3>Learning path</h3><p>{selected.learningPath || 'Not provided'}</p>
               <h3>Learning outcomes</h3>
               {selected.learningOutcomes?.length ? <ul>{selected.learningOutcomes.map((outcome, index) => <li key={index}>{outcome}</li>)}</ul> : <p>No learning outcomes provided.</p>}
+              <h3>Learning materials</h3>
+              <p>{formatCount(selected.materialVersionCount ?? selected.materialVersions?.length ?? 0, 'material version')}</p>
+              {Object.entries(selected.materialVersionStatusCounts || {}).length ? (
+                <ul>
+                  {Object.entries(selected.materialVersionStatusCounts).map(([status, count]) => (
+                    <li key={status}>{count} {formatStatus(status)}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {selected.materialVersions?.length ? (
+                <ul>
+                  {selected.materialVersions.map((material) => (
+                    <li key={material.versionId}>
+                      <span>{material.title} · </span>
+                      <span>v{material.versionNumber}</span>
+                      <span> · {formatStatus(material.status)}</span>{' '}
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        aria-label={`Download ${material.title} v${material.versionNumber}`}
+                        onClick={() => downloadMaterial(material)}
+                        disabled={materialDownloadId !== null}
+                      >
+                        {materialDownloadId === material.versionId ? 'Downloading…' : 'Download'}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p>No learning materials linked.</p>}
+              {materialDownloadError ? <p className="admin-review-inline-error" role="alert">{materialDownloadError}</p> : null}
             </div>
 
             <fieldset className="admin-decision-fieldset">

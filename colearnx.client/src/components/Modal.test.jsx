@@ -57,3 +57,34 @@ it('closes on Escape and restores the trigger focus after the modal unmounts', (
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open' }));
 });
+
+it('keeps the current field and caret while an open form draft changes', () => {
+  function Harness() {
+    const [draft, setDraft] = React.useState(null);
+    return (
+      <>
+        <button type="button" onClick={() => setDraft({ name: '', bio: '' })}>Edit</button>
+        <Modal open={draft} title="Profile" onClose={() => setDraft(null)}>
+          {draft && <>
+            <input aria-label="Name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+            <input aria-label="Bio" value={draft.bio} onChange={(event) => setDraft({ ...draft, bio: event.target.value })} />
+          </>}
+        </Modal>
+      </>
+    );
+  }
+
+  render(<Harness />);
+  const trigger = screen.getByRole('button', { name: 'Edit' });
+  trigger.focus();
+  fireEvent.click(trigger);
+  const bio = screen.getByLabelText('Bio');
+  bio.focus();
+  for (const value of ['L', 'Le', 'Learning']) {
+    fireEvent.change(bio, { target: { value, selectionStart: value.length, selectionEnd: value.length } });
+    expect(document.activeElement).toBe(bio);
+    expect(bio.selectionStart).toBe(value.length);
+  }
+  fireEvent.keyDown(bio, { key: 'Escape' });
+  expect(document.activeElement).toBe(trigger);
+});

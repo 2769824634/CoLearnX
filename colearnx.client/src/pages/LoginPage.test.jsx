@@ -25,3 +25,21 @@ it('logs a single-role account in directly without an identity chooser', async (
   await waitFor(() => expect(auth.login).toHaveBeenCalledWith('member@example.test', 'StrongPass123!', 'Member'));
   expect(screen.queryByRole('dialog', { name: 'Continue as' })).toBeNull();
 });
+
+it('lets the user reveal and hide the login password without changing focus', () => {
+  const auth = {
+    booting: false,
+    isAuthenticated: false,
+    activeRole: null,
+    login: vi.fn(),
+  };
+  render(<MemoryRouter><AuthContext.Provider value={auth}><LoginPage /></AuthContext.Provider></MemoryRouter>);
+  const password = screen.getByLabelText('Password');
+  expect(password.type).toBe('password');
+  fireEvent.change(password, { target: { value: 'StrongPass123!' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+  expect(password.type).toBe('text');
+  expect(password.value).toBe('StrongPass123!');
+  fireEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+  expect(password.type).toBe('password');
+});

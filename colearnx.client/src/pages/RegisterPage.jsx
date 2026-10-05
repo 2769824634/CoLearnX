@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
+import PasswordInput from '../components/PasswordInput';
 import { authApi } from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { maskEmail } from '../data/memberMock';
@@ -97,8 +98,17 @@ export default function RegisterPage() {
             <input id="register-email" name="email" type="email" autoComplete="username" spellCheck={false} value={email} onChange={(e) => { setEmail(e.target.value); setError(''); }} required maxLength={254} />
           </div>
           <div className="form-group">
-            <label htmlFor="register-password">Password</label>
-            <input id="register-password" name="new-password" type="password" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} required minLength={10} maxLength={72} />
+            <PasswordInput
+              id="register-password"
+              label="Password"
+              name="new-password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setError(''); }}
+              required
+              minLength={10}
+              maxLength={72}
+            />
           </div>
           <ul className="password-checks">
             {PASSWORD_RULES.map((item) => (
@@ -106,8 +116,16 @@ export default function RegisterPage() {
             ))}
           </ul>
           <div className="form-group">
-            <label htmlFor="register-confirm">Confirm password</label>
-            <input id="register-confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(''); }} required minLength={10} maxLength={72} />
+            <PasswordInput
+              id="register-confirm"
+              label="Confirm password"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => { setConfirm(e.target.value); setError(''); }}
+              required
+              minLength={10}
+              maxLength={72}
+            />
           </div>
           {error ? (
             <div className="callout warn" style={{ marginBottom: 12 }}>

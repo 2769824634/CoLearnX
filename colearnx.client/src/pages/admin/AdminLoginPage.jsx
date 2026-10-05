@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import Logo from '../../components/Logo';
+import PasswordInput from '../../components/PasswordInput';
 import { consumeSessionReplacedMessage, SESSION_REPLACED_MESSAGE } from '../../api/client';
 import useAdminAuth from '../../auth/useAdminAuth';
 import '../../styles/admin.css';
@@ -86,10 +87,9 @@ export default function AdminLoginPage() {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="admin-password">Password</label>
-            <input
+            <PasswordInput
               id="admin-password"
-              type="password"
+              label="Password"
               autoComplete="current-password"
               value={password}
               onChange={(event) => { setPassword(event.target.value); setError(''); }}

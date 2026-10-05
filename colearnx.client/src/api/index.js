@@ -3,7 +3,12 @@ import { apiRequest, downloadFile } from './client';
 // API modules — keep export names: authApi, coursesApi, enrollmentsApi, creditsApi
 export const authApi = {
   forgotPassword: (email) => apiRequest('/api/auth/forgot-password', { method: 'POST', token: '', body: { email } }),
-  resetPassword: (token, newPassword, email) => apiRequest('/api/auth/reset-password', { method: 'POST', token: '', body: { token, newPassword, email } }),
+  resetPassword: (token, newPassword, email) => {
+    const body = { token, newPassword };
+    // Keep the legacy third argument usable while allowing token-only reset links.
+    if (email) body.email = email;
+    return apiRequest('/api/auth/reset-password', { method: 'POST', token: '', body });
+  },
   resetStatus: (token) => apiRequest('/api/auth/reset-password/status', { method: 'POST', token: '', body: { token } }),
   verifyEmail: (token) => apiRequest('/api/auth/verify-email', { method: 'POST', token: '', body: { token } }),
   resendVerification: (email) => apiRequest('/api/auth/resend-verification', { method: 'POST', token: '', body: { email } }),
@@ -118,8 +123,10 @@ export const enrollmentsApi = {
   acceptPostponement: (id, courseSessionId) => apiRequest(`/api/enrollments/${encodeURIComponent(id)}/accept-postponement`, { method: 'POST', body: { courseSessionId } }),
   rate: (id, stars, comment) => apiRequest(`/api/enrollments/${encodeURIComponent(id)}/rating`, { method: 'POST', body: { stars, comment } }),
   materials: (id, token, signal) => apiRequest(`/api/enrollments/${encodeURIComponent(id)}/materials`, { token, signal }),
+  sessionMaterials: (id, token, signal) => apiRequest(`/api/enrollments/${encodeURIComponent(id)}/session-materials`, { token, signal }),
   recordings: (id, token, signal) => apiRequest(`/api/enrollments/${encodeURIComponent(id)}/recordings`, { token, signal }),
   downloadMaterial: (id, versionId, title, token) => downloadFile(`/api/enrollments/${encodeURIComponent(id)}/materials/${encodeURIComponent(versionId)}/file`, title, token),
+  downloadSessionMaterial: (id, materialId, title, token) => downloadFile(`/api/enrollments/${encodeURIComponent(id)}/session-materials/${encodeURIComponent(materialId)}/file`, title, token),
   enrol: (courseId, courseSessionId) =>
     apiRequest('/api/enrollments', {
       method: 'POST',

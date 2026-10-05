@@ -39,6 +39,18 @@ internal static class LaterPhaseModelConfiguration
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<SessionMaterial>(entity =>
+        {
+            entity.ToTable("SessionMaterials");
+            entity.HasIndex(item => new { item.CourseSessionId, item.UploadedAt });
+            entity.Property(item => item.Title).HasMaxLength(160);
+            entity.Property(item => item.FilePath).HasMaxLength(512);
+            entity.Property(item => item.Format).HasMaxLength(32);
+            entity.HasOne(item => item.CourseSession).WithMany(session => session.Materials)
+                .HasForeignKey(item => item.CourseSessionId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<AttendanceRecord>(entity =>
         {
             entity.HasIndex(item => new { item.CourseSessionId, item.UserId }).IsUnique();

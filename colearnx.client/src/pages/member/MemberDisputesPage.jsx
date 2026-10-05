@@ -4,7 +4,7 @@ import { disputesApi } from '../../api';
 import MemberShell from '../../components/MemberShell';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { useMemberData } from './memberDataState';
-import { userFacingError } from '../businessPresentation';
+import { formatCount, userFacingError } from '../businessPresentation';
 
 const loadDisputes = (token, _key, signal) => disputesApi.my(token, signal);
 
@@ -66,7 +66,7 @@ export default function MemberDisputesPage() {
         <p>Status: <span>{item.status}</span></p>
         <p>Reason: {item.reason}</p>
         {item.resolutionNote ? <p>Admin resolution: {item.resolutionNote}</p> : null}
-        {item.status === 'ResolvedRefund' && item.refundCredits != null ? <p>Refunded: {item.refundCredits} credits</p> : null}
+        {item.status === 'ResolvedRefund' && item.refundCredits != null ? <p>Refunded: {formatCount(item.refundCredits, 'credit')}</p> : null}
       </article>)}
     </div></div>
   </MemberShell>;

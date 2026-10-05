@@ -8,6 +8,7 @@ public static class NotificationSchema
     {
         foreach (var (name, sqlite, sqlServer) in new[] {
             ("IntakeId", "INTEGER NULL", "int NULL"),
+            ("EnrollmentId", "INTEGER NULL", "int NULL"),
             ("EmailPending", "INTEGER NOT NULL DEFAULT 0", "bit NOT NULL DEFAULT 0"),
             ("EmailAttemptedAt", "TEXT NULL", "datetime2 NULL"),
             ("EmailSentAt", "TEXT NULL", "datetime2 NULL") })

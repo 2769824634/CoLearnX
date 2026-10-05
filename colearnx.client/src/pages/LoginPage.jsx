@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 import Modal from '../components/Modal';
+import PasswordInput from '../components/PasswordInput';
 import { authApi } from '../api';
 import { consumeSessionReplacedMessage, SESSION_REPLACED_MESSAGE } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -98,8 +99,14 @@ export default function LoginPage() {
             <input id="login-email" type="email" autoComplete="username" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div className="form-group">
-            <label htmlFor="login-password">Password</label>
-            <input id="login-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <PasswordInput
+              id="login-password"
+              label="Password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
             </div>
             {error ? (
               <div className="callout warn" style={{ marginBottom: 12 }}>

@@ -1,4 +1,12 @@
-# CoLearnX v7 — 本地功能增量与问题修复
+# CoLearnX 20261005_v9
+
+本版本基于 `20261005_v8` 的完整源码和未提交改动，增加单节课资料上传、免重复填写邮箱的邮件密码重置、密码显示按钮，并修复个人信息编辑时的焦点跳转。版本名记录在 [VERSION](VERSION)，本轮范围和验证结果见 [v9 功能与验收记录](docs/20261005-v9-session-materials-and-account.md)。v8 的上一轮处理记录保留在 [v8 PDF 修复记录](docs/20261005-v8-pdf-fixes.md)。
+
+本地预览可在仓库根目录运行 `powershell -ExecutionPolicy Bypass -File scripts/Start-V9Preview.ps1`，然后打开 `https://localhost:5099`。脚本先构建前后端，使用独立 SQLite 数据库、上传目录和本地邮件捕获；`Testing` 环境不自动执行定时成班结算。停止服务使用 `Ctrl+C`。运行前需有 Node.js 与 .NET 10，并完成 `npm.cmd ci`（在 `colearnx.client`）及 `dotnet restore CoLearnX.Server.Tests/CoLearnX.Server.Tests.csproj -p:SkipSpaPublish=true`。
+
+以下为 v7 历史交付记录。历史路径、测试数量和发布状态仅对应当时版本，v9 当前结果以本轮验收记录为准。
+
+## v7 本地功能增量与问题修复（历史）
 
 本文记录 2026-09-23 至 2026-10-03 多轮开发在本地 v7 中实现的功能、首轮 PDF 问题修复、已有验证证据和运行方式。功能状态以当前代码为准；设计稿用于对照需求，PDF 用于对照问题与复测结果。
 

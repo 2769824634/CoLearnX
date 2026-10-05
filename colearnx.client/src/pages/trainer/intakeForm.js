@@ -1,16 +1,44 @@
 import { ApiError } from '../../api/client.js';
+import { utcDate } from '../../utils/utcDates.js';
+import { formatUtcDateTime } from '../businessPresentation.js';
 
 export const intakeStatuses = ['Draft', 'PendingApproval', 'Published', 'InProgress', 'Completed', 'Rejected', 'Cancelled'];
 export const statusLabel = (status) => ({ PendingApproval: 'Pending approval', InProgress: 'In progress' })[status] || status;
 export const isEditable = (status) => status === 'Draft' || status === 'Rejected';
 export const intakeLink = (id) => `/trainer/courses/intakes/${id}`;
 export const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-export const formatDate = (value) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+export const formatDate = (value) => value ? formatUtcDateTime(value) : '—';
+
+const nonDismissibleErrorCodes = new Set([
+  'UNAUTHENTICATED', 'TRAINER_REQUIRED', 'INTAKE_VERSION_CONFLICT', 'INTAKE_NOT_EDITABLE', 'INTAKE_NOT_FOUND',
+]);
+
+export function normalizeFieldKey(field) {
+  return String(field || '').split('.').at(-1).replace(/\[\d+\]/g, '').toLowerCase();
+}
+
+export function clearFieldErrors(error, name) {
+  if (!error || nonDismissibleErrorCodes.has(error.code) || [401, 403].includes(Number(error.status))) return error;
+  const fieldEntries = Object.entries(error.fieldErrors || {});
+  if (!fieldEntries.length) {
+    return [400, 422].includes(Number(error.status)) || ['INVALID_FORM', 'INVALID_INPUT'].includes(error.code) ? null : error;
+  }
+  const target = normalizeFieldKey(name);
+  const fieldErrors = Object.fromEntries(fieldEntries.filter(([field]) => normalizeFieldKey(field) !== target));
+  if (Object.keys(fieldErrors).length === fieldEntries.length) return error;
+  if (!Object.keys(fieldErrors).length) return null;
+  const remainingMessages = Object.values(fieldErrors).flatMap((messages) => Array.isArray(messages) ? messages : [messages]).filter(Boolean);
+  return {
+    ...error,
+    message: remainingMessages.length ? `Please correct the remaining fields: ${remainingMessages.join(' ')}` : 'Please correct the remaining fields.',
+    fieldErrors,
+  };
+}
 
 // datetime-local has no zone. Minute precision only — never include seconds.
 export function toLocalInput(value) {
   if (!value) return '';
-  const date = new Date(value);
+  const date = value instanceof Date ? value : utcDate(value);
   if (!Number.isFinite(date.getTime())) return '';
   const pad = (part) => String(part).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -26,7 +54,7 @@ export function toUtc(value, field, original) {
   // Reject local times skipped by daylight-saving changes instead of silently moving them.
   if (toLocalInput(date).slice(0, 16) !== value.slice(0, 16)) invalid(field, 'This local time does not exist in your time zone.');
   // In a repeated DST hour, an unchanged field must retain its original offset.
-  if (original && toLocalInput(original) === toLocalInput(date)) return new Date(original).toISOString();
+  if (original && toLocalInput(original) === toLocalInput(date)) return utcDate(original).toISOString();
   return date.toISOString();
 }
 
@@ -68,7 +96,7 @@ export function sessionPayload(values, intake, original) {
   if (!label || label.length > 128) invalid('label', 'Enter a session label of up to 128 characters.');
   const startsAt = toUtc(values.startsAt, 'startsAt', original?.startsAt);
   const endsAt = toUtc(values.endsAt, 'endsAt', original?.endsAt);
-  if (!(startsAt < endsAt && new Date(startsAt) >= new Date(intake.startsAt) && new Date(endsAt) <= new Date(intake.endsAt))) {
+  if (!(startsAt < endsAt && utcDate(startsAt) >= utcDate(intake.startsAt) && utcDate(endsAt) <= utcDate(intake.endsAt))) {
     invalid('startsAt', 'The session must start before it ends and fit within the Intake delivery period.');
   }
   const meetingLink = values.meetingLink.trim() || null;
@@ -89,7 +117,8 @@ export function sessionPayload(values, intake, original) {
 }
 
 export function fieldMessages(error, name) {
-  return Object.entries(error?.fieldErrors || {}).filter(([key]) => key.split('.').at(-1).toLowerCase() === name.toLowerCase()).flatMap(([, messages]) => messages);
+  const target = normalizeFieldKey(name);
+  return Object.entries(error?.fieldErrors || {}).filter(([key]) => normalizeFieldKey(key) === target).flatMap(([, messages]) => messages);
 }
 
 export function safeMeetingLink(value) {

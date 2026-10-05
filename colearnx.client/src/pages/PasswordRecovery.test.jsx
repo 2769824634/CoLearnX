@@ -20,8 +20,9 @@ it('removes the token from the address and consumes it only after matching passw
   authApi.resetPassword.mockResolvedValue({ message: 'Password updated. Sign in with your new password.' });
   render(<MemoryRouter><ResetPasswordPage /></MemoryRouter>);
   expect(window.location.hash).toBe('');
-  fireEvent.change(await screen.findByLabelText('Account email'), { target: { value: 'learner@example.test' } });
-  fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'StrongPass123!' } });
+  const newPassword = await screen.findByLabelText('New password');
+  expect(screen.queryByLabelText('Account email')).toBeNull();
+  fireEvent.change(newPassword, { target: { value: 'StrongPass123!' } });
   fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'WrongPass123!' } });
   fireEvent.click(screen.getByRole('button', { name: 'Reset password' }));
   expect(await screen.findByText('Passwords do not match.')).toBeTruthy();
@@ -29,7 +30,7 @@ it('removes the token from the address and consumes it only after matching passw
   fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'StrongPass123!' } });
   fireEvent.click(screen.getByRole('button', { name: 'Reset password' }));
   expect(await screen.findByText('Password updated. Sign in with your new password.')).toBeTruthy();
-  expect(authApi.resetPassword).toHaveBeenCalledWith('one-time-token', 'StrongPass123!', 'learner@example.test');
+  expect(authApi.resetPassword).toHaveBeenCalledWith('one-time-token', 'StrongPass123!');
   expect(authApi.resetStatus).toHaveBeenCalledWith('one-time-token');
 });
 it('explains missing credentials and provides a fresh-link route', () => {
@@ -42,7 +43,7 @@ it('keeps the reset form available when link preflight is temporarily unavailabl
   window.history.replaceState({}, '', '/reset-password#token=one-time-token');
   authApi.resetStatus.mockRejectedValue(new Error('network unavailable'));
   render(<MemoryRouter><ResetPasswordPage /></MemoryRouter>);
-  expect(await screen.findByLabelText('Account email')).toBeTruthy();
+  expect(await screen.findByLabelText('New password')).toBeTruthy();
   expect(screen.getByText(/could not verify this link right now/i)).toBeTruthy();
 });
 
@@ -62,4 +63,20 @@ it('offers an independent show and hide control for each reset password field', 
   fireEvent.click(screen.getByRole('button', { name: 'Hide confirmation' }));
   expect(newPassword.type).toBe('password');
   expect(confirmation.type).toBe('password');
+});
+
+it('does not put an account email back into the reset request or address', async () => {
+  window.history.replaceState({}, '', '/reset-password#token=one-time-token');
+  authApi.resetStatus.mockResolvedValue({ valid: true });
+  authApi.resetPassword.mockResolvedValue({ message: 'Password updated. Sign in with your new password.' });
+  render(<MemoryRouter><ResetPasswordPage /></MemoryRouter>);
+
+  fireEvent.change(await screen.findByLabelText('New password'), { target: { value: 'StrongPass123!' } });
+  fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'StrongPass123!' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Reset password' }));
+
+  await screen.findByText('Password updated. Sign in with your new password.');
+  expect(authApi.resetPassword).toHaveBeenCalledWith('one-time-token', 'StrongPass123!');
+  expect(window.location.href).not.toContain('learner@example.test');
+  expect(window.location.hash).toBe('');
 });

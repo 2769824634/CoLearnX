@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { buildChangeRequest, initialChangeProposal } from './b4Workflow';
 import { ScheduleForm, SessionForm } from './IntakeForms';
+import { formatUtcRange } from '../businessPresentation';
 
 const nextKey = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
 
@@ -36,7 +37,7 @@ export default function ChangeRequestEditor({ intake, busy, blocked, error, onEr
     <div className="trainer-section-heading"><h3>Proposed Sessions <span className="trainer-count">{proposal.sessions.length}</span></h3>{!editor ? <button type="button" className="btn btn-ghost" onClick={() => setEditor({ type: 'session' })}>+ Add proposed Session</button> : null}</div>
     {editor ? <SessionForm key={editing?._key || 'new-change-session'} session={editing} intake={intakeShape} error={error} onError={onError} busy={busy} blocked={blocked} onCancel={() => setEditor(null)} onSave={saveSession} /> : null}
     <div className="trainer-change-session-list">{proposal.sessions.map((session) => <article key={session._key}>
-      <div><strong>{session.label}</strong><small>{new Date(session.startsAt).toLocaleString()} → {new Date(session.endsAt).toLocaleString()}</small></div>
+      <div><strong>{session.label}</strong><small>{formatUtcRange(session.startsAt, session.endsAt)}</small></div>
       {!editor ? <div className="trainer-actions"><button type="button" className="btn btn-ghost" onClick={() => setEditor({ type: 'session', session })}>Edit proposal</button><button type="button" className="btn btn-ghost" onClick={() => setProposal((current) => ({ ...current, sessions: current.sessions.filter((item) => item._key !== session._key) }))}>Remove</button></div> : null}
     </article>)}</div>
     <div className="trainer-submit-panel"><div><h3>Submit complete proposal</h3><p>The Creator will compare this proposal against the currently confirmed schedule.</p></div><button type="button" className="btn btn-primary" disabled={busy || blocked || Boolean(editor) || !proposal.sessions.length} onClick={() => onSubmit(buildChangeRequest(intake, proposal))}>{busy ? 'Submitting…' : 'Send change request'}</button></div>

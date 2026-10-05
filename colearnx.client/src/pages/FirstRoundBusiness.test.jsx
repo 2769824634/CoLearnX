@@ -170,7 +170,10 @@ it('counts every required assessment while distinguishing the ungraded count', a
 });
 
 it('explains reserved progress when the official learner list is empty', async () => {
-  mount(<TrainerLearnersPage />, {}, '/', async (url) => json(url === '/api/trainer/intakes' ? [{ id: 8 }] : url.endsWith('/learners') ? [] : url.endsWith('/assessments') ? [] : url.includes('/certificate-requests') ? [] : { id: 8, status: 'Published', minEnrollment: 2 }));
-  expect(await screen.findByText(/Reserved places are not shown here/)).toBeTruthy();
+  mount(<TrainerLearnersPage />, {}, '/', async (url) => json(url === '/api/trainer/intakes' ? [{ id: 8 }] : url.endsWith('/learners') ? [] : url.endsWith('/assessments') ? [] : url.includes('/certificate-requests') ? [] : { id: 8, status: 'Published', minEnrollment: 2, reservedEnrollmentCount: 1, activeEnrollmentCount: 0, remainingToMinimum: 1 }));
+  expect(await screen.findByText(/Reserved places are shown separately above/)).toBeTruthy();
   expect(screen.getByText(/needs at least 2 learners/)).toBeTruthy();
+  expect(screen.getByText('1 reserved')).toBeTruthy();
+  expect(screen.getByText('1 more learner needed')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'View reserved places' })).toBeTruthy();
 });

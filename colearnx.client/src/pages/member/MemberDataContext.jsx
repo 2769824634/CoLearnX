@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { authApi, certificatesApi, coursesApi, creditsApi, enrollmentsApi, usersApi } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { MemberDataContext } from './memberDataState';
-import { utcDate } from '../../utils/utcDates';
-import { formatUtcRange, userFacingError } from '../businessPresentation';
+import { formatUtcDate, formatUtcRange, userFacingError } from '../businessPresentation';
 
 // Loads member catalog / enrollments / credits from API.
 function mapCourseListItem(c) {
@@ -144,11 +143,7 @@ export function MemberDataProvider({ children }) {
       );
       setLedger(
         myLedger.map((l) => ({
-          date: utcDate(l.createdAt).toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          }),
+          date: formatUtcDate(l.createdAt),
           type: l.type,
           desc: l.description,
           delta: l.delta,
@@ -157,10 +152,12 @@ export function MemberDataProvider({ children }) {
         })),
       );
       setCertificates(certs);
+      return true;
     } catch (e) {
       const message = userFacingError(e, 'Could not load member data. Please retry.');
       setLoadError(message);
       showToast(message);
+      return false;
     } finally {
       setLoading(false);
     }
@@ -214,9 +211,14 @@ export function MemberDataProvider({ children }) {
     const result = await enrollmentsApi.enrol(courseId, sessionId);
     refreshUser({ ...user, creditBalance: result.balanceAfter, heldCredits: result.heldAfter,
       totalCredits: result.balanceAfter + result.heldAfter });
-    await reload();
-    return { ok: true, balance: result.balanceAfter, creditsSpent: result.creditsSpent,
-      heldAfter: result.heldAfter, status: result.status };
+    let memberDataRefreshed;
+    try {
+      memberDataRefreshed = await reload();
+    } catch {
+      memberDataRefreshed = false;
+    }
+    return { ok: true, enrollmentId: result.enrollmentId, balance: result.balanceAfter, creditsSpent: result.creditsSpent,
+      heldAfter: result.heldAfter, status: result.status, memberDataRefreshed };
   }
 
   async function changeEnrollment(id, action) {

@@ -119,6 +119,26 @@ describe('Account registration', () => {
     expect(screen.queryByText(/Password must be 10–72 characters/)).toBeNull();
   });
 
+  it('lets the user reveal each registration password independently', () => {
+    render(
+      <MemoryRouter initialEntries={['/register']}>
+        <AuthContext.Provider value={auth}>
+          <AppRouter />
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    );
+
+    const password = screen.getByLabelText('Password');
+    const confirmation = screen.getByLabelText('Confirm password');
+    fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(password.type).toBe('text');
+    expect(confirmation.type).toBe('password');
+    fireEvent.click(screen.getByRole('button', { name: 'Show confirmation' }));
+    expect(confirmation.type).toBe('text');
+    fireEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(password.type).toBe('password');
+  });
+
   it('masks the target mailbox and explains spam-folder delivery after registration', async () => {
     auth.register.mockResolvedValue({
       emailVerificationRequired: true,

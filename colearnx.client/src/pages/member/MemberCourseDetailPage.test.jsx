@@ -85,7 +85,7 @@ describe('Member course enrolment', () => {
     ] });
     const reserve = await screen.findByRole('button', { name: 'Reserve place' });
     expect(reserve.disabled).toBe(false);
-    expect(screen.getAllByText(/7 learners reserved or enrolled · Minimum 10/).length).toBe(2);
+    expect(screen.getAllByText(/7 learners reserved or enrolled · Minimum 10 learners/).length).toBe(2);
     fireEvent.click(reserve);
     expect(screen.getByRole('heading', { name: 'Confirm Enrolment' })).toBeTruthy();
   });
@@ -188,8 +188,49 @@ describe('Member course enrolment', () => {
     const { enrol } = renderDetail({ ...baseCourse, sessions: [openSession] }, { loadCourseDetail });
     fireEvent.click(await screen.findByRole('button', { name: 'Reserve place' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm Enrolment' }));
-    expect(await screen.findByText(/8 learners reserved or enrolled · Minimum 10/)).toBeTruthy();
+    expect(await screen.findByText(/8 learners reserved or enrolled · Minimum 10 learners/)).toBeTruthy();
     expect(enrol).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(loadCourseDetail).toHaveBeenCalledTimes(2));
+  });
+
+  it('keeps a successful reservation visible when the post-write detail refresh fails', async () => {
+    const loadCourseDetail = vi.fn()
+      .mockResolvedValueOnce({ ...baseCourse, sessions: [openSession] })
+      .mockRejectedValueOnce(new Error('detail refresh unavailable'))
+      .mockRejectedValueOnce(new Error('detail refresh still unavailable'));
+    const { enrol, showToast } = renderDetail({ ...baseCourse, sessions: [openSession] }, { loadCourseDetail });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reserve place' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Enrolment' }));
+
+    expect(await screen.findByRole('heading', { name: 'Enrolment Successful' })).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toMatch(/reservation was saved/i);
+    expect(screen.getByRole('button', { name: 'Open My Programs' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Reserve place' })).toBeNull();
+    expect(showToast).not.toHaveBeenCalledWith(expect.stringMatching(/Could not reserve your place/i));
+    expect(enrol).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('button', { name: 'Reserve place' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh course' }));
+    await waitFor(() => expect(loadCourseDetail).toHaveBeenCalledTimes(3));
+    expect(enrol).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the sync prompt when member data reload reports failure after reservation', async () => {
+    const enrol = vi.fn().mockResolvedValue({ creditsSpent: 20, balance: 180, heldAfter: 20, memberDataRefreshed: false });
+    const loadCourseDetail = vi.fn()
+      .mockResolvedValueOnce({ ...baseCourse, sessions: [openSession] })
+      .mockResolvedValue({ ...baseCourse, alreadyEnrolled: true, sessions: [{ ...openSession, intakeEnrollmentCount: 8 }] });
+    const { loadCourseDetail: loadDetail } = renderDetail({ ...baseCourse, sessions: [openSession] }, {
+      enrol,
+      loadCourseDetail,
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reserve place' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Enrolment' }));
+
+    expect(await screen.findByRole('heading', { name: 'Enrolment Successful' })).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toMatch(/member data could not refresh/i);
+    expect(loadDetail).toHaveBeenCalledTimes(2);
   });
 });
