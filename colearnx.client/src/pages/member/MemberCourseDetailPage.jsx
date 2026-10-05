@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
 import { enrollmentsApi } from '../../api';
-import { useMemberData } from './memberDataState';
+import { useMemberSlices } from './memberDataState';
 import { formatCount, formatUtcDateTime, formatUtcRange, userFacingError } from '../businessPresentation';
 import { sessionAvailability } from './sessionAvailability';
 
@@ -11,8 +11,10 @@ import { sessionAvailability } from './sessionAvailability';
 export default function MemberCourseDetailPage() {
   const { courseId } = useParams();
   const navigate = useNavigate();
-  const { state, showToast, loadCourseDetail, enrol, toggleWish } = useMemberData();
-  const [courseSnapshot, setCourseSnapshot] = useState(null);
+  const { state, showToast, loadCourseDetail, peekCourseDetail, enrol, toggleWish } = useMemberSlices('enrollments');
+  const numericCourseId = Number(courseId);
+  const peeked = peekCourseDetail?.(numericCourseId) || null;
+  const [courseSnapshot, setCourseSnapshot] = useState(() => (peeked ? { courseId, course: peeked } : null));
   const currentSnapshot = courseSnapshot?.courseId === courseId ? courseSnapshot : null;
   const course = currentSnapshot?.course;
   const loadError = currentSnapshot?.error || '';
@@ -34,8 +36,15 @@ export default function MemberCourseDetailPage() {
   }, []);
 
   useEffect(() => {
+    const cached = peekCourseDetail?.(numericCourseId);
+    if (cached) {
+      setCourseSnapshot({ courseId, course: cached });
+      const firstOpen = (cached.sessions || []).findIndex((item) => sessionAvailability(item, Date.now()).canReserve);
+      setSessionIdx(Math.max(0, firstOpen));
+      return undefined;
+    }
     let cancelled = false;
-    loadCourseDetail(Number(courseId))
+    loadCourseDetail(numericCourseId)
       .then((c) => {
         if (!cancelled) {
           setCourseSnapshot({ courseId, course: c });
@@ -47,7 +56,7 @@ export default function MemberCourseDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [courseId, loadCourseDetail, showToast]);
+  }, [courseId, loadCourseDetail, numericCourseId, peekCourseDetail, showToast]);
 
   function setCourse(update) {
     setCourseSnapshot((snapshot) => snapshot?.courseId === courseId
@@ -98,7 +107,7 @@ export default function MemberCourseDetailPage() {
     setEnrolBusy(true);
     try {
       const result = await enrol(course.id, session.id);
-      const updated = await loadCourseDetail(course.id);
+      const updated = await loadCourseDetail(course.id, { fresh: true });
       setEnrolOpen(false);
       setSuccessMsg(`${formatCount(result.creditsSpent, 'credit')} on hold · ${result.balance} available · ${result.heldAfter} on hold in total`);
       setSuccessOpen(true);

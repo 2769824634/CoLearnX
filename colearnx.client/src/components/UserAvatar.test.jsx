@@ -3,9 +3,10 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../auth/AuthContext';
 import MemberShell from './MemberShell';
-import UserAvatar from './UserAvatar';
+import UserAvatar, { clearAvatarCache } from './UserAvatar';
 
 afterEach(() => {
+  clearAvatarCache();
   cleanup();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -86,5 +87,23 @@ describe('UserAvatar', () => {
       second.resolve(new Response(new Blob(['second'], { type: 'image/png' })));
     });
     expect((await screen.findByAltText('Second User')).getAttribute('src')).toBe('blob:avatar-2');
+  });
+
+  it('keeps the loaded photo when the top bar remounts', async () => {
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: vi.fn(() => 'blob:avatar-kept'),
+      revokeObjectURL: vi.fn(),
+    });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Blob(['img'], { type: 'image/png' }))));
+    const props = { name: 'Huang Yousheng', avatarUrl: '/api/users/4/avatar?v=abc', token: 'member-token' };
+
+    const first = render(<UserAvatar {...props} />);
+    expect((await screen.findByAltText('Huang Yousheng')).getAttribute('src')).toBe('blob:avatar-kept');
+    first.unmount();
+
+    render(<UserAvatar {...props} />);
+    expect(screen.getByAltText('Huang Yousheng').getAttribute('src')).toBe('blob:avatar-kept');
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

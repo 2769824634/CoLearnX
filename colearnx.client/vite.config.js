@@ -51,6 +51,9 @@ export default defineConfig(({ command }) => ({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  test: {
+    setupFiles: './src/testSetup.js',
+  },
   server:
     command === 'serve'
       ? {

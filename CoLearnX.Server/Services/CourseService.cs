@@ -158,20 +158,15 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         int? userId, string? search, string? category, string? level, bool? featured, CancellationToken ct = default)
     {
         var query = db.Courses.AsNoTracking()
-            .Include(c => c.Trainer)
-            .Include(c => c.Creator)
-            .Include(c => c.LearningPath)
-            .Include(c => c.Intakes).ThenInclude(i => i.Trainer)
-            .Include(c => c.Interests).ThenInclude(i => i.Interest)
             .Where(c => c.Status == CourseStatus.Published);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var q = search.Trim().ToLower();
+            var pattern = ContainsPattern(search);
             query = query.Where(c =>
-                c.Code.ToLower().Contains(q) ||
-                c.Title.ToLower().Contains(q) ||
-                c.Trainer.FullName.ToLower().Contains(q));
+                EF.Functions.Like(c.Code, pattern, "\\") ||
+                EF.Functions.Like(c.Title, pattern, "\\") ||
+                EF.Functions.Like(c.Trainer.FullName, pattern, "\\"));
         }
         if (!string.IsNullOrWhiteSpace(category))
             query = query.Where(c => c.Category == category);
@@ -180,21 +175,58 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         if (featured == true)
             query = query.Where(c => c.IsFeatured);
 
-        var wishlist = userId is null
-            ? new HashSet<int>()
-            : await db.WishlistItems.Where(w => w.UserId == userId).Select(w => w.CourseId).ToHashSetAsync(ct);
+        var courses = await query.OrderBy(c => c.Code)
+            .Select(c => new CourseListRow(
+                c.Id,
+                c.Code,
+                c.Title,
+                c.Trainer.FullName,
+                c.CreditCost,
+                c.Level,
+                c.Category,
+                c.IsFeatured,
+                c.Creator.FullName,
+                c.LearningPath == null ? null : c.LearningPath.Name))
+            .ToListAsync(ct);
+        if (courses.Count == 0) return [];
 
-        var list = await query.OrderBy(c => c.Code).ToListAsync(ct);
-        var ids = list.Select(c => c.Id).ToArray();
-        var ratings = await db.ProgramRatings.AsNoTracking().Where(r => ids.Contains(r.Enrollment.CourseId))
-            .Select(r => new { r.Enrollment.CourseId, r.Stars }).ToListAsync(ct);
-        var stars = ratings.GroupBy(r => r.CourseId).ToDictionary(g => g.Key,
-            g => (Count: g.Count(), Average: (double?)g.Average(r => r.Stars)));
-        return list.Select(c => new CourseListItemDto(
-            c.Id, c.Code, c.Title, c.Trainer.FullName, c.CreditCost, c.Level, c.Category, c.IsFeatured,
-            wishlist.Contains(c.Id), CourseTags(c), stars.GetValueOrDefault(c.Id).Average,
-            stars.GetValueOrDefault(c.Id).Count,
-            CreatorName: c.Creator.FullName, TrainerNames: PublicTrainerNames(c), LearningPath: c.LearningPath?.Name)).ToList();
+        var ids = courses.Select(c => c.Id).ToArray();
+        var wishlist = userId is null
+            ? []
+            : await db.WishlistItems.AsNoTracking().Where(w => w.UserId == userId).Select(w => w.CourseId).ToListAsync(ct);
+        var wished = wishlist.ToHashSet();
+        var interestRows = await db.CourseInterests.AsNoTracking()
+            .Where(i => ids.Contains(i.CourseId))
+            .Select(i => new { i.CourseId, i.InterestId, i.Interest.Slug, i.Interest.Name, i.Interest.SortOrder })
+            .ToListAsync(ct);
+        var trainerRows = await db.CourseIntakes.AsNoTracking()
+            .Where(i => ids.Contains(i.CourseId)
+                && (i.Status == CourseIntakeStatus.Published
+                    || i.Status == CourseIntakeStatus.InProgress
+                    || i.Status == CourseIntakeStatus.Completed))
+            .Select(i => new { i.CourseId, Name = i.Trainer.FullName })
+            .ToListAsync(ct);
+        var ratingRows = await db.ProgramRatings.AsNoTracking()
+            .Where(r => ids.Contains(r.Enrollment.CourseId))
+            .GroupBy(r => r.Enrollment.CourseId)
+            .Select(g => new { CourseId = g.Key, Count = g.Count(), Average = (double?)g.Average(r => (double)r.Stars) })
+            .ToListAsync(ct);
+
+        var tags = interestRows.GroupBy(row => row.CourseId).ToDictionary(
+            group => group.Key,
+            group => (IReadOnlyList<CourseInterestDto>)group.OrderBy(row => row.SortOrder)
+                .Select(row => new CourseInterestDto(row.InterestId, row.Slug, row.Name)).ToList());
+        var trainerNames = trainerRows.GroupBy(row => row.CourseId).ToDictionary(
+            group => group.Key,
+            group => (IReadOnlyList<string>)group.Select(row => row.Name).Distinct().OrderBy(name => name).ToList());
+        var stars = ratingRows.ToDictionary(row => row.CourseId, row => (Count: row.Count, Average: row.Average));
+
+        return courses.Select(c => new CourseListItemDto(
+            c.Id, c.Code, c.Title, c.TrainerName, c.CreditCost, c.Level, c.Category, c.IsFeatured,
+            wished.Contains(c.Id), tags.GetValueOrDefault(c.Id) ?? [],
+            stars.GetValueOrDefault(c.Id).Average, stars.GetValueOrDefault(c.Id).Count,
+            CreatorName: c.CreatorName, TrainerNames: trainerNames.GetValueOrDefault(c.Id) ?? [],
+            LearningPath: c.LearningPath)).ToList();
     }
 
     public async Task<CourseDetailDto?> GetByIdAsync(int courseId, int? userId, CancellationToken ct = default)
@@ -225,8 +257,11 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         var enrolled = userId is not null &&
             await db.Enrollments.AnyAsync(e => e.UserId == userId && e.CourseId == courseId
                 && (e.Status == EnrollmentStatus.Active || e.Status == EnrollmentStatus.Reserved), ct);
-        var stars = await db.ProgramRatings.AsNoTracking().Where(r => r.Enrollment.CourseId == courseId)
-            .Select(r => r.Stars).ToListAsync(ct);
+        var rating = await db.ProgramRatings.AsNoTracking()
+            .Where(r => r.Enrollment.CourseId == courseId)
+            .GroupBy(r => r.Enrollment.CourseId)
+            .Select(g => new { Count = g.Count(), Average = (double?)g.Average(r => (double)r.Stars) })
+            .FirstOrDefaultAsync(ct);
 
         return new CourseDetailDto(
             course.Id,
@@ -248,12 +283,34 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
                 s.CourseIntake.ConfirmedToRunAt, s.CourseIntake.CancelledAt)).ToList(),
             inWishlist,
             enrolled,
-            CourseTags(course), stars.Count == 0 ? null : stars.Average(), stars.Count,
+            CourseTags(course), rating?.Average, rating?.Count ?? 0,
             course.Intakes.OrderBy(i => i.RegistrationClosesAt).FirstOrDefault()?.MinEnrollment ?? 10,
             course.Intakes.OrderBy(i => i.RegistrationClosesAt).FirstOrDefault()?.RegistrationOpensAt,
             course.Intakes.OrderBy(i => i.RegistrationClosesAt).FirstOrDefault()?.RegistrationClosesAt,
             course.Creator.FullName, PublicTrainerNames(course), course.LearningPath?.Name);
     }
+
+    private static string ContainsPattern(string search)
+    {
+        var escaped = search.Trim()
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal)
+            .Replace("[", "\\[", StringComparison.Ordinal);
+        return $"%{escaped}%";
+    }
+
+    private sealed record CourseListRow(
+        int Id,
+        string Code,
+        string Title,
+        string TrainerName,
+        int CreditCost,
+        string Level,
+        string Category,
+        bool IsFeatured,
+        string CreatorName,
+        string? LearningPath);
 
     private static IReadOnlyList<string> PublicTrainerNames(Course course)
         => course.Intakes.Where(i => i.Status is CourseIntakeStatus.Published or CourseIntakeStatus.InProgress or CourseIntakeStatus.Completed)

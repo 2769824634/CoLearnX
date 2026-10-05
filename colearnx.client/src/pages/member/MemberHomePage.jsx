@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import { recommendationsApi } from '../../api';
 import { userFacingError } from '../businessPresentation';
-import { useMemberData } from './memberDataState';
+import { useMemberSlices } from './memberDataState';
 
 // Dashboard: credits, continue learning, progression recommendations.
 export default function MemberHomePage() {
   const navigate = useNavigate();
-  const { state, toggleWish, reload } = useMemberData();
+  const { state, toggleWish, reload } = useMemberSlices('catalog', 'enrollments', 'certificates');
   const active = state.enrolled.filter((e) => e.status === 'active');
   const completed = state.enrolled.filter((e) => e.status === 'completed');
   const [recommendations, setRecommendations] = useState(null);

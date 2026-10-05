@@ -286,8 +286,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db) : ICourseIntakeSer
         ReviewIntakeApplicationRequest request, CancellationToken ct = default)
     {
         var intake = await LoadForCreatorAsync(creatorUserId, courseIntakeId, ct);
-        if (intake.TrainerId == creatorUserId)
-            throw new CourseIntakeException("CREATOR_SELF_REVIEW_FORBIDDEN", "A Creator cannot review an Intake they submitted as Trainer.", 403);
+        // The course creator is the only reviewer. When they also teach the course, they confirm their own sessions.
         var application = intake.Applications.OrderByDescending(a => a.Id).FirstOrDefault()
             ?? throw new CourseIntakeException("INTAKE_APPLICATION_NOT_FOUND", "The Intake application was not found.", 404);
         if (application.ApplicationVersion != request.Version)

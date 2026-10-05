@@ -1,6 +1,21 @@
 import { useEffect, useState } from 'react';
 import { usersApi } from '../api';
 
+const avatarCache = new Map();
+
+export function clearAvatarCache() {
+  for (const url of avatarCache.values()) URL.revokeObjectURL(url);
+  avatarCache.clear();
+}
+
+function dropOtherAvatars(identity) {
+  for (const [key, url] of avatarCache) {
+    if (key === identity) continue;
+    URL.revokeObjectURL(url);
+    avatarCache.delete(key);
+  }
+}
+
 function initialsFrom(name) {
   return (name || 'U').split(/\s+/).filter(Boolean).slice(0, 2)
     .map((part) => part[0]).join('').toUpperCase();
@@ -8,28 +23,24 @@ function initialsFrom(name) {
 
 export default function UserAvatar({ name, avatarUrl, token, size = '' }) {
   const avatarIdentity = avatarUrl && token ? `${avatarUrl}\u0000${token}` : '';
-  const [image, setImage] = useState({ identity: '', url: null });
+  const [, redraw] = useState(0);
+  const imageUrl = avatarIdentity ? avatarCache.get(avatarIdentity) : null;
 
   useEffect(() => {
     if (!avatarIdentity) return undefined;
+    dropOtherAvatars(avatarIdentity);
+    if (avatarCache.has(avatarIdentity)) return undefined;
+
     const controller = new AbortController();
-    let objectUrl;
     usersApi.avatar(avatarUrl, token, controller.signal)
       .then((blob) => {
         if (controller.signal.aborted) return;
-        objectUrl = URL.createObjectURL(blob);
-        setImage({ identity: avatarIdentity, url: objectUrl });
+        avatarCache.set(avatarIdentity, URL.createObjectURL(blob));
+        redraw((version) => version + 1);
       })
-      .catch(() => {
-        if (!controller.signal.aborted) setImage({ identity: avatarIdentity, url: null });
-      });
-    return () => {
-      controller.abort();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
+      .catch(() => undefined);
+    return () => controller.abort();
   }, [avatarIdentity, avatarUrl, token]);
-
-  const imageUrl = image.identity === avatarIdentity ? image.url : null;
 
   return (
     <div className={`avatar${size ? ` ${size}` : ''}`}>

@@ -96,9 +96,11 @@ export default function Modal({ open, title, onClose, children, width }) {
       >
         <div className="modal-header">
           <h2 id={title ? titleId : undefined} style={{ margin: 0, font: 'inherit' }}>{title}</h2>
-          <button type="button" className="modal-close" onClick={() => onCloseRef.current?.()} aria-label="Close">
-            ✕
-          </button>
+          {onClose ? (
+            <button type="button" className="modal-close" onClick={() => onCloseRef.current?.()} aria-label="Close">
+              ✕
+            </button>
+          ) : null}
         </div>
         <div className="modal-body">{children}</div>
       </div>

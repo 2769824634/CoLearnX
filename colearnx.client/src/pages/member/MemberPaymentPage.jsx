@@ -3,18 +3,19 @@ import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
 import PayPalPackageButtons from '../../components/PayPalPackageButtons';
 import { creditsApi } from '../../api';
-import { useMemberData } from './memberDataState';
+import { useMemberSlices } from './memberDataState';
 
 // Fixed credit packages + PayPal.
 export default function MemberPaymentPage() {
-  const { state, showToast, applyLedgerTopUp } = useMemberData();
+  const { state, showToast, applyLedgerTopUp, reload } = useMemberSlices('billing');
   const [tab, setTab] = useState('topup');
   const [selectedId, setSelectedId] = useState(null);
   const [success, setSuccess] = useState(null);
   const [payError, setPayError] = useState('');
   const capturingReturn = useRef(false);
 
-  const selected = state.packages.find((p) => p.id === selectedId) || state.packages[0];
+  const packages = state.packages || [];
+  const selected = packages.find((p) => p.id === selectedId) || packages[0];
 
   const onCaptured = useCallback(
     async (ledger) => {
@@ -81,12 +82,15 @@ export default function MemberPaymentPage() {
           </div>
         </div>
 
+        {state.loading && !(state.packages || []).length ? <p role="status">Loading packages…</p> : null}
+        {state.loadError ? <div className="callout warn" role="alert">{state.loadError} <button type="button" className="btn btn-ghost" onClick={reload}>Retry</button></div> : null}
+
         {tab === 'topup' ? (
           <>
             <h3 style={{ fontSize: 15, marginBottom: 12 }}>Choose a Credit Package</h3>
             <div className="grid-3" style={{ marginBottom: 20 }}>
-              {state.packages.map((p) => {
-                const active = (selectedId ?? state.packages[0]?.id) === p.id;
+              {packages.map((p) => {
+                const active = (selectedId ?? packages[0]?.id) === p.id;
                 return (
                   <button
                     key={p.id}

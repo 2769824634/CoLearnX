@@ -48,7 +48,7 @@ export default function MemberShell({
       navItems={MEMBER_NAV.map((item) => (
         <ShellNavLink
           key={item.id}
-          to={`/member/${item.id === 'catalog' ? 'courses' : item.id === 'my-programs' ? 'programs' : item.id === 'profile' ? 'account' : item.id}`}
+          to={item.id === 'home' ? '/' : `/member/${item.id === 'catalog' ? 'courses' : item.id === 'my-programs' ? 'programs' : item.id === 'profile' ? 'account' : item.id}`}
           className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
           end={item.id === 'home'}
         >

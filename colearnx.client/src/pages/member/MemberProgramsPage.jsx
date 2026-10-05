@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
-import { useMemberData } from './memberDataState';
+import { useMemberSlices } from './memberDataState';
 import { enrollmentsApi } from '../../api';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { utcDate } from '../../utils/utcDates';
@@ -40,7 +40,7 @@ function PostponementPicker({ enrollment, busy, onReserve }) {
 export default function MemberProgramsPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const { state, showToast, changeEnrollment, acceptPostponement, reload } = useMemberData();
+  const { state, showToast, changeEnrollment, acceptPostponement, reload } = useMemberSlices('enrollments');
   const tab = ['active', 'reserved', 'completed', 'history'].includes(params.get('tab')) ? params.get('tab') : 'active';
   const selectedId = Number(params.get('enrollmentId'));
   const [refreshFor, setRefreshFor] = useState(null);

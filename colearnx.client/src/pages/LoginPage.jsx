@@ -5,6 +5,7 @@ import Modal from '../components/Modal';
 import { authApi } from '../api';
 import { consumeSessionReplacedMessage, SESSION_REPLACED_MESSAGE } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { useNoCredentialAutofill } from '../auth/noCredentialAutofill';
 
 const ROLE_META = {
   Member: { label: 'Member', desc: 'Learn & enrol with credits' },
@@ -26,6 +27,8 @@ export default function LoginPage() {
   const [roleOpen, setRoleOpen] = useState(false);
   const [availableRoles, setAvailableRoles] = useState([]);
   const [pickedRole, setPickedRole] = useState('');
+  const emailAutofill = useNoCredentialAutofill();
+  const passwordAutofill = useNoCredentialAutofill();
 
   useEffect(() => {
     if (booting) return undefined;
@@ -91,15 +94,15 @@ export default function LoginPage() {
           <div className="auth-header">
             <Logo />
           </div>
-          <form className="auth-body" onSubmit={onSubmit}>
+          <form className="auth-body" autoComplete="off" onSubmit={onSubmit}>
             <h2>Login to your account</h2>
             <div className="form-group">
             <label htmlFor="login-email">Email</label>
-            <input id="login-email" type="email" autoComplete="username" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input id="login-email" type="email" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} required {...emailAutofill} />
             </div>
             <div className="form-group">
             <label htmlFor="login-password">Password</label>
-            <input id="login-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required {...passwordAutofill} />
             </div>
             {error ? (
               <div className="callout warn" style={{ marginBottom: 12 }}>

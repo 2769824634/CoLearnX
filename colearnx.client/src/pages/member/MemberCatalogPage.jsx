@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
-import { useMemberData } from './memberDataState';
+import { useMemberSlices } from './memberDataState';
 
 // Program catalog + left filters.
 export default function MemberCatalogPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { state, toggleWish, reload } = useMemberData();
+  const { state, toggleWish, reload } = useMemberSlices('catalog');
   const [tab, setTab] = useState('all');
   const [search, setSearch] = useState(params.get('q') || '');
   const [topic, setTopic] = useState('');
