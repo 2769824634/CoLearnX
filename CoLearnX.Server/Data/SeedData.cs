@@ -24,6 +24,7 @@ public static class SeedData
         await CreditReservationSchema.EnsureAsync(db);
         await NotificationSchema.EnsureAsync(db);
         await MaterialUsageSchema.EnsureAsync(db);
+        await SessionMaterialSchema.EnsureAsync(db);
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
         var verifiedAt = DateTime.UtcNow;
 

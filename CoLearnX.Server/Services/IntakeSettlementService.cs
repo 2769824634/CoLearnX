@@ -52,9 +52,9 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
                     credits.Release(enrollment.User, enrollment, description, inconsistentHoldIsDataError: true);
                 else
                     credits.Refund(enrollment.User, enrollment, enrollment.CreditsSpent, description);
-                db.Notifications.Add(new Notification { UserId = enrollment.UserId, IntakeId = intake.Id, EmailPending = true,
+                db.Notifications.Add(new Notification { UserId = enrollment.UserId, IntakeId = intake.Id, EnrollmentId = enrollment.Id, EmailPending = true,
                     Code = reserved ? "N-hold-released" : "N-class-cancelled",
-                    Title = "Class cancelled", Body = $"{enrollment.CreditsSpent} credits were returned for {enrollment.Course.Code}." });
+                    Title = "Class cancelled", Body = $"{BusinessText.Credits(enrollment.CreditsSpent)} {(enrollment.CreditsSpent == 1 ? "was" : "were")} returned for {enrollment.Course.Code}." });
             }
             var course = await db.Courses.AsNoTracking().SingleAsync(c => c.Id == intake.CourseId, ct);
             db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, EmailPending = true, Code = "N-intake-cancelled",
@@ -121,7 +121,7 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
                 + (string.IsNullOrWhiteSpace(place) ? " Check your program for details." : $" Location: {place}");
             if (!await db.Notifications.AnyAsync(n => n.UserId == enrollment.UserId
                 && n.Code == "N-class-reminder" && n.Body == body, ct))
-                db.Notifications.Add(new Notification { UserId = enrollment.UserId, IntakeId = intake.Id, EmailPending = true, Code = "N-class-reminder",
+                db.Notifications.Add(new Notification { UserId = enrollment.UserId, IntakeId = intake.Id, EnrollmentId = enrollment.Id, EmailPending = true, Code = "N-class-reminder",
                     Title = "Class starts soon", Body = body });
         }
         await db.SaveChangesAsync(ct);
@@ -173,11 +173,11 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
                         inconsistentHoldIsDataError: true);
                     enrollment.PostponementEligible = true;
                 }
-                db.Notifications.Add(new Notification { UserId = user.Id, IntakeId = intake.Id, EmailPending = true,
+                db.Notifications.Add(new Notification { UserId = user.Id, IntakeId = intake.Id, EnrollmentId = enrollment.Id, EmailPending = true,
                     Code = confirmed ? "N-class-confirmed" : "N-hold-released",
                     Title = confirmed ? "Class confirmed" : "Credits released",
                     Body = confirmed ? $"Your place in {enrollment.Course.Code} is confirmed."
-                        : $"{enrollment.CreditsSpent} credits are available again because {enrollment.Course.Code} Intake #{intake.Id} did not meet the minimum enrollment. "
+                        : $"{BusinessText.Credits(enrollment.CreditsSpent)} {(enrollment.CreditsSpent == 1 ? "is" : "are")} available again because {enrollment.Course.Code} Intake #{intake.Id} did not meet the minimum enrollment. "
                             + $"You can wait up to 7 days (until {now.AddDays(7):u}) for a postponed class. "
                             + "If one is published, open My Programs to choose a session and reserve again using your available credits. A replacement is not guaranteed; your credits remain available until you reserve again." });
             }

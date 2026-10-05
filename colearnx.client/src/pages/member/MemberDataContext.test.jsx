@@ -44,6 +44,23 @@ function CatalogProbe() {
   return <p>catalog</p>;
 }
 
+function BillingDatesProbe() {
+  const { state } = useMemberSlices('billing');
+  return <p>{state.ledger.map((item) => item.date).join(', ')}</p>;
+}
+
+it('maps a real wallet entry to a UTC date through the cached billing slice', async () => {
+  creditsApi.packages.mockResolvedValue([]);
+  creditsApi.myLedger.mockResolvedValue([{
+    id: 1, createdAt: '2026-10-04T23:30:00', type: 'TopUp', delta: 10,
+    balanceAfter: 110, heldAfter: 5, description: 'Top-up',
+  }]);
+  mount(<BillingDatesProbe />);
+  expect(await screen.findByText('04 Oct 2026, UTC')).toBeTruthy();
+  expect(creditsApi.myLedger).toHaveBeenCalledTimes(1);
+  expect(coursesApi.list).not.toHaveBeenCalled();
+});
+
 function EnrolProbe() {
   const { enrol } = useMemberSlices('enrollments');
   return <button type="button" onClick={() => enrol(4, 8)}>Enrol</button>;

@@ -3,6 +3,7 @@ using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
 using CoLearnX.Server.Storage;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoLearnX.Server.Services;
@@ -12,8 +13,12 @@ public interface ITrainerLaterPhaseService
     Task<IReadOnlyList<MaterialVersionDto>> ListAvailableMaterialsAsync(int trainerUserId, int? courseId = null, CancellationToken ct = default);
     Task<IReadOnlyList<IntakeMaterialDto>> ListMaterialsAsync(int trainerUserId, int intakeId, CancellationToken ct = default);
     Task<IntakeMaterialDto> AttachMaterialAsync(int trainerUserId, int intakeId, AttachIntakeMaterialRequest request, CancellationToken ct = default);
+    Task<IReadOnlyList<TrainerReservationDto>> ListReservationsAsync(int trainerUserId, int intakeId, CancellationToken ct = default);
     Task<IReadOnlyList<SessionRecordingDto>> ListRecordingsAsync(int trainerUserId, int intakeId, int sessionId, CancellationToken ct = default);
     Task<SessionRecordingDto> AddRecordingAsync(int trainerUserId, int intakeId, int sessionId, CreateSessionRecordingRequest request, CancellationToken ct = default);
+    Task<IReadOnlyList<SessionMaterialDto>> ListSessionMaterialsAsync(int trainerUserId, int intakeId, int sessionId, CancellationToken ct = default);
+    Task<SessionMaterialDto> UploadSessionMaterialAsync(int trainerUserId, int intakeId, int sessionId, string? title, IFormFile? file, CancellationToken ct = default);
+    Task<MaterialFileResult> OpenSessionMaterialAsync(int trainerUserId, int intakeId, int sessionId, int materialId, CancellationToken ct = default);
     Task<IReadOnlyList<AttendanceItemDto>> SaveAttendanceAsync(int trainerUserId, int intakeId, int sessionId, SaveAttendanceRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<TrainerLearnerDto>> ListLearnersAsync(int trainerUserId, int intakeId, CancellationToken ct = default);
     Task<MaterialFileResult> OpenAttachedMaterialAsync(int trainerUserId, int intakeId, int versionId, CancellationToken ct = default);

@@ -6,6 +6,7 @@ using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
+using CoLearnX.Server.Storage;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -85,6 +86,103 @@ public sealed class B4WorkflowIntegrationTests
         Assert.Contains(logs, log => log.Action == "CourseIntakeConfirmed" && log.UserId == 103);
         Assert.Contains(logs, log => log.Action == "CourseSessionDeliveryUpdated" && log.UserId == 100);
         Assert.Contains(logs, log => log.Action == "CourseIntakeChangeRequested" && log.UserId == 100);
+    }
+
+    [Fact]
+    public async Task ChangeRequest_CannotRemoveSessionAfterRealSessionMaterialUpload()
+    {
+        using var factory = new B4ApiFactory();
+        await factory.InitializeAsync();
+        using var trainer = factory.UserClient(100, AppRole.Trainer);
+        using var creator = factory.UserClient(103, AppRole.Creator);
+
+        var submitted = await CreateSubmittedAsync(trainer);
+        var published = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{submitted.Id}/review",
+            new ReviewIntakeApplicationRequest("Confirm", null, submitted.Version)));
+        var session = Assert.Single(published.Sessions);
+        var title = $"Uploaded before removal {Guid.NewGuid():N}";
+        var payload = "uploaded session material"u8.ToArray();
+        using var uploadForm = PdfForm(title, payload);
+        using var upload = await trainer.PostAsync($"/api/trainer/intakes/{published.Id}/sessions/{session.Id}/materials", uploadForm);
+        Assert.Equal(HttpStatusCode.Created, upload.StatusCode);
+        var material = await upload.Content.ReadFromJsonAsync<SessionMaterialDto>();
+        Assert.NotNull(material);
+
+        var replacement = new ProposedCourseSessionRequest(null, "Replacement session", session.StartsAt,
+            session.EndsAt, session.MeetingLink, session.PhysicalAddress, session.PhysicalCapacity,
+            session.PhysicalBookingDeadline);
+        var proposal = new CreateCourseIntakeChangeRequest(published.RegistrationOpensAt, published.RegistrationClosesAt,
+            published.StartsAt, published.EndsAt.AddDays(1), [replacement], published.Version);
+        await Error(await trainer.PostAsJsonAsync($"/api/trainer/intakes/{published.Id}/change-requests", proposal),
+            409, "SESSION_HAS_MATERIALS");
+
+        var current = await trainer.GetFromJsonAsync<CourseIntakeDetailDto>($"/api/trainer/intakes/{published.Id}");
+        Assert.Equal("Published", current!.Status);
+        Assert.Contains(current.Sessions, item => item.Id == session.Id);
+        Assert.True(await factory.ReadAsync(db => db.SessionMaterials.AnyAsync(item => item.Id == material!.Id)));
+        using var preserved = await trainer.GetAsync(
+            $"/api/trainer/intakes/{published.Id}/sessions/{session.Id}/materials/{material.Id}/file");
+        Assert.Equal(HttpStatusCode.OK, preserved.StatusCode);
+        Assert.Equal(payload, await preserved.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task CreatorConfirmation_RechecksUploadedSessionMaterialsBeforeApplyingRemovalSnapshot()
+    {
+        using var factory = new B4ApiFactory();
+        await factory.InitializeAsync();
+        using var trainer = factory.UserClient(100, AppRole.Trainer);
+        using var creator = factory.UserClient(103, AppRole.Creator);
+
+        var submitted = await CreateSubmittedAsync(trainer);
+        var published = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{submitted.Id}/review",
+            new ReviewIntakeApplicationRequest("Confirm", null, submitted.Version)));
+        var session = Assert.Single(published.Sessions);
+        var replacement = new ProposedCourseSessionRequest(null, "Replacement session", session.StartsAt,
+            session.EndsAt, session.MeetingLink, session.PhysicalAddress, session.PhysicalCapacity,
+            session.PhysicalBookingDeadline);
+        var proposal = new CreateCourseIntakeChangeRequest(published.RegistrationOpensAt, published.RegistrationClosesAt,
+            published.StartsAt, published.EndsAt.AddDays(1), [replacement], published.Version);
+
+        // Submit the removal snapshot while the Session is still empty. The upload
+        // is then added before Creator confirmation to model a concurrent delivery update.
+        await Detail(await trainer.PostAsJsonAsync($"/api/trainer/intakes/{published.Id}/change-requests", proposal));
+        var application = await creator.GetFromJsonAsync<CreatorIntakeApplicationDetailDto>(
+            $"/api/creator/intake-applications/{published.Id}");
+        Assert.Equal("Pending", application!.Application!.Status);
+        var path = $"session-materials/100/{session.Id}/{Guid.NewGuid():N}.pdf";
+        var payload = "late upload"u8.ToArray();
+        var storage = factory.Services.GetRequiredService<IFileStorage>();
+        await using (var content = new MemoryStream(payload))
+            await storage.SaveAsync(path, content, "application/pdf");
+        var materialId = await factory.ReadAsync(async db =>
+        {
+            var material = new SessionMaterial
+            {
+                CourseSessionId = session.Id,
+                AddedByTrainerId = 100,
+                Title = "Uploaded while change was pending",
+                FilePath = path,
+                Format = "PDF",
+            };
+            db.SessionMaterials.Add(material);
+            await db.SaveChangesAsync();
+            return material.Id;
+        });
+
+        await Error(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{published.Id}/review",
+            new ReviewIntakeApplicationRequest("Confirm", null, application.Application.Version)),
+            409, "SESSION_HAS_MATERIALS");
+
+        Assert.True(await factory.ReadAsync(db => db.SessionMaterials.AnyAsync(item => item.Id == materialId)));
+        Assert.True(await factory.ReadAsync(db => db.CourseSessions.AnyAsync(item => item.Id == session.Id)));
+        Assert.Equal("PendingApproval", (await trainer.GetFromJsonAsync<CourseIntakeDetailDto>(
+            $"/api/trainer/intakes/{published.Id}"))!.Status);
+        await using var preserved = await storage.OpenAsync(path);
+        Assert.NotNull(preserved);
+        using var preservedBytes = new MemoryStream();
+        await preserved!.CopyToAsync(preservedBytes);
+        Assert.Equal(payload, preservedBytes.ToArray());
     }
 
     [Fact]
@@ -249,6 +347,16 @@ public sealed class B4WorkflowIntegrationTests
         }
     }
 
+    private static MultipartFormDataContent PdfForm(string title, byte[] payload)
+    {
+        var form = new MultipartFormDataContent();
+        form.Add(new StringContent(title), "title");
+        var file = new ByteArrayContent(payload);
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        form.Add(file, "file", "session-material.pdf");
+        return form;
+    }
+
     private static async Task Error(HttpResponseMessage response, int status, string code)
     {
         using (response)
@@ -262,6 +370,7 @@ public sealed class B4WorkflowIntegrationTests
     private sealed class B4ApiFactory : WebApplicationFactory<Program>
     {
         private readonly SqliteConnection _connection = new("Data Source=:memory:");
+        private readonly string _uploadPath = Path.Combine(Path.GetTempPath(), $"colearnx-b4-uploads-{Guid.NewGuid():N}");
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -273,6 +382,11 @@ public sealed class B4WorkflowIntegrationTests
                 services.RemoveAll<DbContextOptions<CoLearnXDbContext>>();
                 services.RemoveAll<CoLearnXDbContext>();
                 services.AddDbContext<CoLearnXDbContext>(options => options.UseSqlite(_connection));
+                services.RemoveAll<IFileStorage>();
+                services.RemoveAll<IRoleRequestFileStorage>();
+                services.AddSingleton<IFileStorage>(new LocalFileStorage(_uploadPath));
+                services.AddSingleton<IRoleRequestFileStorage>(new RoleRequestFileStorage(
+                    new LocalFileStorage(Path.Combine(_uploadPath, "role-requests"))));
             });
         }
 
@@ -326,7 +440,22 @@ public sealed class B4WorkflowIntegrationTests
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
-            if (disposing) _connection.Dispose();
+            if (disposing)
+            {
+                _connection.Dispose();
+                TryDeleteDirectory(_uploadPath);
+            }
+        }
+
+        private static void TryDeleteDirectory(string path)
+        {
+            try
+            {
+                if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
         }
     }
 }

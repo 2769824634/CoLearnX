@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { initialSchedule, initialSession, localTimezone, schedulePayload, sessionPayload } from './intakeForm';
+import { clearFieldErrors, initialSchedule, initialSession, localTimezone, schedulePayload, sessionPayload } from './intakeForm';
 import { TrainerField } from './TrainerUi';
 
 function FormActions({ busy, blocked, onCancel, label }) {
@@ -10,10 +10,8 @@ export function ScheduleForm({ intake, courses, onSave, onCancel, busy, blocked,
   const [values, setValues] = useState(() => initialSchedule(intake));
   const [courseId, setCourseId] = useState('');
   function clearField(name) {
-    if (!error?.fieldErrors?.[name]) return;
-    const fieldErrors = { ...error.fieldErrors };
-    delete fieldErrors[name];
-    onError(Object.keys(fieldErrors).length ? { ...error, fieldErrors } : null);
+    const nextError = clearFieldErrors(error, name);
+    if (nextError !== error) onError(nextError);
   }
   const change = (event) => {
     setValues((current) => ({ ...current, [event.target.name]: event.target.value }));
@@ -38,10 +36,8 @@ export function ScheduleForm({ intake, courses, onSave, onCancel, busy, blocked,
 export function SessionForm({ session, intake, onSave, onCancel, busy, blocked, error, onError }) {
   const [values, setValues] = useState(() => initialSession(session, intake));
   function clearField(name) {
-    if (!error?.fieldErrors?.[name]) return;
-    const fieldErrors = { ...error.fieldErrors };
-    delete fieldErrors[name];
-    onError(Object.keys(fieldErrors).length ? { ...error, fieldErrors } : null);
+    const nextError = clearFieldErrors(error, name);
+    if (nextError !== error) onError(nextError);
   }
   const change = (event) => {
     setValues((current) => ({ ...current, [event.target.name]: event.target.type === 'checkbox' ? event.target.checked : event.target.value }));
@@ -62,7 +58,7 @@ export function SessionForm({ session, intake, onSave, onCancel, busy, blocked, 
         <TrainerField name="physicalAddress" label="Physical address" maxLength={512} value={values.physicalAddress} onChange={change} required error={error} />
         <div className="trainer-form-grid"><TrainerField name="physicalCapacity" label="Physical capacity" type="number" min="1" max="2147483647" step="1" value={values.physicalCapacity} onChange={change} required error={error} />
           <TrainerField name="physicalBookingDeadline" label="Physical booking deadline" type="datetime-local" step="60" max={values.startsAt} value={values.physicalBookingDeadline} onChange={change} required error={error} /></div>
-        <p className="trainer-help">Physical capacity is not an online enrolment limit.</p>
+        <p className="trainer-help">Physical and online attendance share this Session's capacity. The physical booking deadline applies, and Members do not choose a mode yet.</p>
       </div> : null}
     </fieldset>
     <FormActions busy={busy} blocked={blocked} onCancel={onCancel} label={session ? 'Save Session' : 'Add Session'} />

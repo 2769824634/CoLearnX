@@ -42,3 +42,18 @@ it('shows minimum enrollment, meeting URL and physical booking deadline for revi
   expect(screen.getByText(/Booking closes/)).toBeTruthy();
   expect(screen.getByText(/You teach this course/)).toBeTruthy();
 });
+
+it('uses a singular seat label and records a completed decision clearly', () => {
+  query.data = { application: {
+    courseIntakeId: 8, courseCode: 'SINGLE-SEAT', courseTitle: 'Single seat', trainerName: 'Trainer G',
+    kind: 'New', status: 'Rejected', version: 'v1',
+  }, proposedChange: null, currentIntake: {
+    id: 8, courseId: 8, status: 'Rejected', minEnrollment: 2, confirmationNote: 'Please revise the link.',
+    registrationOpensAt: '2026-09-01T00:00:00Z', registrationClosesAt: '2026-09-20T00:00:00Z',
+    startsAt: '2026-10-20T01:00:00Z', endsAt: '2026-10-20T03:00:00Z',
+    sessions: [{ id: 1, label: 'Seat', startsAt: '2026-10-20T01:00:00Z', endsAt: '2026-10-20T03:00:00Z', physicalAddress: 'Studio', physicalCapacity: 1, physicalBookingDeadline: '2026-10-19T01:00:00Z' }],
+  } };
+  render(<AuthContext.Provider value={{ user: { id: 8 } }}><MemoryRouter><CreatorIntakeApplicationDetailPage /></MemoryRouter></AuthContext.Provider>);
+  expect(screen.getByText(/1 seat · Booking closes/)).toBeTruthy();
+  expect(screen.getByText('Decision recorded')).toBeTruthy();
+});

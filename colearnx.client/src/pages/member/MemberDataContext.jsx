@@ -3,8 +3,7 @@ import { authApi, certificatesApi, coursesApi, creditsApi, enrollmentsApi, users
 import { invalidate, loadOnce, peek, put, courseListKey } from '../../api/readCache';
 import { useAuth } from '../../auth/AuthContext';
 import { MemberDataContext } from './memberDataState';
-import { utcDate } from '../../utils/utcDates';
-import { formatUtcRange, userFacingError } from '../businessPresentation';
+import { formatUtcDate, formatUtcRange, userFacingError } from '../businessPresentation';
 
 // Loads member catalog / enrollments / credits from API.
 function mapCourseListItem(c) {
@@ -103,11 +102,7 @@ function mapPackage(p) {
 function mapLedgerItem(l) {
   return {
     id: l.id,
-    date: utcDate(l.createdAt).toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    }),
+    date: formatUtcDate(l.createdAt),
     type: l.type,
     desc: l.description,
     delta: l.delta,

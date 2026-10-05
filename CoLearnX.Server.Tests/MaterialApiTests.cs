@@ -171,6 +171,46 @@ public class MaterialApiTests : IClassFixture<CoLearnXApiFactory>
         Assert.Equal(payload, await download.Content.ReadAsByteArrayAsync());
     }
 
+    [Theory]
+    [InlineData("pdf", "PDF", "application/pdf")]
+    [InlineData("pptx", "PPTX", "application/vnd.openxmlformats-officedocument.presentationml.presentation")]
+    [InlineData("docx", "DOCX", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")]
+    [InlineData("png", "PNG", "image/png")]
+    [InlineData("jpg", "JPG", "image/jpeg")]
+    [InlineData("jpeg", "JPG", "image/jpeg")]
+    public async Task Upload_all_allowed_extensions_preserves_format_and_authorized_download(
+        string extension,
+        string expectedFormat,
+        string expectedContentType)
+    {
+        var creator = await ApiClient.AsCreatorAsync(_factory);
+        var courseId = await CreateOwnedCourseAsync(creator);
+        var title = $"Allowed {extension} {Guid.NewGuid():N}";
+        var payload = AllowedMaterialPayload(extension);
+
+        using var form = new MultipartFormDataContent();
+        form.Add(new StringContent(title), "title");
+        form.Add(new StringContent(courseId.ToString()), "courseId");
+        form.Add(new StringContent("Testing"), "category");
+        var file = new ByteArrayContent(payload);
+        file.Headers.ContentType = new MediaTypeHeaderValue(expectedContentType);
+        form.Add(file, "file", $"allowed.{extension}");
+
+        var upload = await creator.PostAsync("/api/materials", form);
+
+        Assert.Equal(HttpStatusCode.Created, upload.StatusCode);
+        var material = await upload.Content.ReadFromJsonAsync<MaterialDto>(ApiJson.Options);
+        Assert.NotNull(material);
+        Assert.Equal(courseId, material.CourseId);
+        Assert.Equal(expectedFormat, material.Format);
+
+        var download = await creator.GetAsync($"/api/materials/{material.Id}/file");
+
+        Assert.Equal(HttpStatusCode.OK, download.StatusCode);
+        Assert.Equal(expectedContentType, download.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(payload, await download.Content.ReadAsByteArrayAsync());
+    }
+
     [Fact]
     public async Task Member_cannot_download_pending_material()
     {
@@ -215,6 +255,105 @@ public class MaterialApiTests : IClassFixture<CoLearnXApiFactory>
         Assert.NotNull(error.FieldErrors);
         Assert.True(error.FieldErrors.ContainsKey("file"));
     }
+
+    [Fact]
+    public async Task Upload_rejects_empty_title_with_a_title_field_error_and_no_material_row()
+    {
+        var creator = await ApiClient.AsCreatorAsync(_factory);
+        var courseId = await CreateOwnedCourseAsync(creator);
+
+        var response = await creator.PostAsync("/api/materials", PdfForm("  ", "empty-title.pdf", courseId: courseId));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = await ApiClient.ReadErrorAsync(response);
+        Assert.Equal("INVALID_REQUEST", error?.Code);
+        Assert.Contains("title", error?.FieldErrors?.Keys ?? [], StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("required", error?.FieldErrors?["title"]?.Single() ?? "", StringComparison.OrdinalIgnoreCase);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        Assert.False(await db.LearningMaterials.AnyAsync(item => item.Title == ""));
+    }
+
+    [Fact]
+    public async Task Upload_rejects_empty_file_with_a_file_field_error_and_no_material_row()
+    {
+        var creator = await ApiClient.AsCreatorAsync(_factory);
+        var courseId = await CreateOwnedCourseAsync(creator);
+        var title = $"Empty file {Guid.NewGuid():N}";
+        using var form = new MultipartFormDataContent();
+        form.Add(new StringContent(title), "title");
+        form.Add(new StringContent(courseId.ToString()), "courseId");
+        var file = new ByteArrayContent([]);
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        form.Add(file, "file", "empty.pdf");
+
+        var response = await creator.PostAsync("/api/materials", form);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = await ApiClient.ReadErrorAsync(response);
+        Assert.Equal("UPLOAD_FAILED", error?.Code);
+        Assert.Contains("file", error?.FieldErrors?.Keys ?? [], StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("file is required", error?.FieldErrors?["file"]?.Single() ?? "", StringComparison.OrdinalIgnoreCase);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        Assert.False(await db.LearningMaterials.AnyAsync(item => item.Title == title));
+    }
+
+    [Fact]
+    public async Task Upload_accepts_a_file_at_the_20_mb_limit()
+    {
+        var creator = await ApiClient.AsCreatorAsync(_factory);
+        var courseId = await CreateOwnedCourseAsync(creator);
+        var title = $"Exact limit {Guid.NewGuid():N}";
+        var bytes = new byte[20 * 1024 * 1024];
+        using var form = PdfForm(title, "exact-limit.pdf", bytes, courseId);
+
+        var response = await creator.PostAsync("/api/materials", form);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var material = await response.Content.ReadFromJsonAsync<MaterialDto>(ApiJson.Options);
+        Assert.NotNull(material);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        var files = scope.ServiceProvider.GetRequiredService<CoLearnX.Server.Storage.IFileStorage>();
+        var version = await db.CourseMaterialVersions
+            .Include(item => item.LearningMaterial)
+            .SingleAsync(item => item.LearningMaterialId == material.Id);
+        var info = await files.GetInfoAsync(version.FilePath);
+        Assert.Equal(bytes.LongLength, info?.SizeBytes);
+    }
+
+    [Fact]
+    public async Task Upload_rejects_a_file_over_20_mb_with_a_file_field_error_and_no_residue()
+    {
+        var creator = await ApiClient.AsCreatorAsync(_factory);
+        var courseId = await CreateOwnedCourseAsync(creator);
+        var title = $"Over limit {Guid.NewGuid():N}";
+        var bytes = new byte[(20 * 1024 * 1024) + 1];
+        using var form = PdfForm(title, "over-limit.pdf", bytes, courseId);
+
+        var response = await creator.PostAsync("/api/materials", form);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = await ApiClient.ReadErrorAsync(response);
+        Assert.Equal("UPLOAD_FAILED", error?.Code);
+        Assert.Contains("file", error?.FieldErrors?.Keys ?? [], StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("20 MB", error?.FieldErrors?["file"]?.Single() ?? "", StringComparison.OrdinalIgnoreCase);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        Assert.False(await db.LearningMaterials.AnyAsync(item => item.Title == title));
+        Assert.False(await db.CourseMaterialVersions.AnyAsync(item => item.LearningMaterial.Title == title));
+    }
+
+    private static byte[] AllowedMaterialPayload(string extension) => extension switch
+    {
+        "pdf" => "%PDF-1.4 allowed"u8.ToArray(),
+        "pptx" => "pptx allowed"u8.ToArray(),
+        "docx" => "docx allowed"u8.ToArray(),
+        "png" => Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC"),
+        "jpg" or "jpeg" => [0xFF, 0xD8, 0xFF, 0xD9],
+        _ => throw new ArgumentOutOfRangeException(nameof(extension), extension, "Unsupported test extension."),
+    };
 
     [Fact]
     public async Task Download_missing_material_returns_not_found()

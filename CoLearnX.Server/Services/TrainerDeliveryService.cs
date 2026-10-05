@@ -22,7 +22,7 @@ public sealed class TrainerDeliveryService(CoLearnXDbContext db) : ITrainerDeliv
         if (!await db.Users.AnyAsync(user => user.Id == trainerUserId && user.IsActive
             && user.Roles.Any(role => role.Role == AppRole.Trainer), ct))
             throw new CourseIntakeException("TRAINER_REQUIRED", "An active Trainer account is required.", 403);
-        var intake = await db.CourseIntakes.Include(item => item.Sessions)
+        var intake = await db.CourseIntakes.Include(item => item.Sessions).ThenInclude(session => session.Enrollments)
             .SingleOrDefaultAsync(item => item.Id == courseIntakeId && item.TrainerId == trainerUserId, ct)
             ?? throw new CourseIntakeException("INTAKE_NOT_FOUND", "Owned Intake was not found.", 404);
         CourseIntakeValidation.Version(intake, request.Version);
@@ -60,11 +60,19 @@ public sealed class TrainerDeliveryService(CoLearnXDbContext db) : ITrainerDeliv
     }
 
     private static CourseIntakeDetailDto ToDto(CourseIntake intake)
-        => new(intake.Id, intake.CourseId, intake.TrainerId, intake.RegistrationOpensAt, intake.RegistrationClosesAt,
+    {
+        var enrollments = intake.Sessions.SelectMany(session => session.Enrollments);
+        var reserved = enrollments.Count(item => item.Status == EnrollmentStatus.Reserved);
+        var active = enrollments.Count(item => item.Status == EnrollmentStatus.Active);
+        var remaining = Math.Max(0, intake.MinEnrollment - reserved - active);
+        return new(intake.Id, intake.CourseId, intake.TrainerId, intake.RegistrationOpensAt, intake.RegistrationClosesAt,
             intake.StartsAt, intake.EndsAt, intake.Status.ToString(), intake.SubmittedAt, intake.ConfirmedByCreatorId,
             intake.ConfirmedAt, intake.ConfirmationNote, intake.Version,
             intake.Sessions.OrderBy(session => session.StartsAt).ThenBy(session => session.Id)
                 .Select(session => new CourseSessionDto(session.Id, session.Label, session.StartsAt, session.EndsAt,
                     session.PhysicalCapacity, session.SeatsLeft, session.CourseIntakeId, session.MeetingLink,
-                    session.PhysicalAddress, session.PhysicalCapacity, session.PhysicalBookingDeadline)).ToList());
+                    session.PhysicalAddress, session.PhysicalCapacity, session.PhysicalBookingDeadline)).ToList(),
+            MinEnrollment: intake.MinEnrollment,
+            ReservedEnrollmentCount: reserved, ActiveEnrollmentCount: active, RemainingToMinimum: remaining);
+    }
 }

@@ -10,8 +10,10 @@ namespace CoLearnX.Server.Services;
 public interface IMemberLearningHubService
 {
     Task<IReadOnlyList<MemberHubMaterialDto>> MaterialsAsync(int userId, int enrollmentId, CancellationToken ct = default);
+    Task<IReadOnlyList<MemberHubSessionMaterialDto>> SessionMaterialsAsync(int userId, int enrollmentId, CancellationToken ct = default);
     Task<IReadOnlyList<MemberHubRecordingDto>> RecordingsAsync(int userId, int enrollmentId, CancellationToken ct = default);
     Task<MaterialFileResult> OpenMaterialAsync(int userId, int enrollmentId, int versionId, CancellationToken ct = default);
+    Task<MaterialFileResult> OpenSessionMaterialAsync(int userId, int enrollmentId, int materialId, CancellationToken ct = default);
 }
 
 public sealed class MemberLearningHubService(CoLearnXDbContext db, IFileStorage files) : IMemberLearningHubService
@@ -26,6 +28,18 @@ public sealed class MemberLearningHubService(CoLearnXDbContext db, IFileStorage 
             .Select(item => new MemberHubMaterialDto(item.CourseMaterialVersionId,
                 item.CourseMaterialVersion.LearningMaterial.Title,
                 item.CourseMaterialVersion.Format, item.AttachedAt))
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<MemberHubSessionMaterialDto>> SessionMaterialsAsync(int userId, int enrollmentId,
+        CancellationToken ct = default)
+    {
+        var enrollment = await RequireEnrollmentAsync(userId, enrollmentId, ct);
+        return await db.SessionMaterials.AsNoTracking()
+            .Where(item => item.CourseSessionId == enrollment.CourseSessionId)
+            .OrderByDescending(item => item.UploadedAt)
+            .Select(item => new MemberHubSessionMaterialDto(item.Id, item.CourseSessionId,
+                item.CourseSession.Label, item.Title, item.Format, item.UploadedAt))
             .ToListAsync(ct);
     }
 
@@ -47,6 +61,20 @@ public sealed class MemberLearningHubService(CoLearnXDbContext db, IFileStorage 
         var (filePath, title) = await access.RequireAttachedApprovedAsync(
             enrollment.CourseSession.CourseIntakeId, versionId, missing, ct);
         return await access.OpenStoredAsync(filePath, title, missing, ct);
+    }
+
+    public async Task<MaterialFileResult> OpenSessionMaterialAsync(int userId, int enrollmentId, int materialId,
+        CancellationToken ct = default)
+    {
+        var enrollment = await RequireEnrollmentAsync(userId, enrollmentId, ct);
+        var material = await db.SessionMaterials.AsNoTracking()
+            .Where(item => item.Id == materialId && item.CourseSessionId == enrollment.CourseSessionId)
+            .Select(item => new { item.FilePath, item.Title })
+            .SingleOrDefaultAsync(ct) ?? throw new FileNotFoundException("Session material not found.");
+        var stream = await files.OpenAsync(material.FilePath, ct)
+            ?? throw new FileNotFoundException("Session material not found.");
+        return new MaterialFileResult(stream, MaterialFiles.ContentType(Path.GetExtension(material.FilePath)),
+            MaterialFiles.DownloadName(material.Title, material.FilePath));
     }
 
     private async Task<Enrollment> RequireEnrollmentAsync(int userId, int enrollmentId, CancellationToken ct)

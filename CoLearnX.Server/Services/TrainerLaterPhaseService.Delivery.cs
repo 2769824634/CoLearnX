@@ -26,7 +26,8 @@ public sealed partial class TrainerLaterPhaseService
                 link.CourseMaterialVersion.LearningMaterial.Title,
                 link.CourseMaterialVersion.Format,
                 link.CourseMaterialVersion.FilePath,
-                link.AttachedAt))
+                link.AttachedAt,
+                link.CourseMaterialVersion.VersionNumber))
             .ToListAsync(ct);
     }
 
@@ -67,7 +68,7 @@ public sealed partial class TrainerLaterPhaseService
             await db.SaveChangesAsync(ct);
         }
         return new IntakeMaterialDto(version.Id, version.LearningMaterialId, version.LearningMaterial.Title,
-            version.Format, version.FilePath, link.AttachedAt);
+            version.Format, version.FilePath, link.AttachedAt, version.VersionNumber);
     }
 
     public async Task<MaterialFileResult> OpenAttachedMaterialAsync(int trainerUserId, int intakeId, int versionId,

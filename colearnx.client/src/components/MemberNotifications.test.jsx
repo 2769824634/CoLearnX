@@ -45,3 +45,11 @@ it('offers retry for an unavailable list and then shows empty state', async () =
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
   expect(await screen.findByText('No notifications yet.')).toBeTruthy();
 });
+
+it('labels a notification timestamp as UTC even when the server omits its zone suffix', async () => {
+  notificationsApi.my.mockResolvedValue({ unreadCount: 1, items: [{ id: 9, title: 'Place reserved', isRead: false, targetPath: '/member/programs?tab=reserved&enrollmentId=11', createdAt: '2026-10-05T01:30:00' }] });
+  mount();
+  fireEvent.click(await screen.findByRole('button', { name: 'Notifications, 1 unread' }));
+  expect(screen.getByText('05 Oct 2026, 01:30 UTC')).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Open related page' }).getAttribute('href')).toBe('/member/programs?tab=reserved&enrollmentId=11');
+});

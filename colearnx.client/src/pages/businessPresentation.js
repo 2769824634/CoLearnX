@@ -1,20 +1,29 @@
-import { utcDate } from '../utils/utcDates';
+import { utcDate } from '../utils/utcDates.js';
 
 const utcFormatter = new Intl.DateTimeFormat('en-GB', {
   year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit',
   hour12: false, timeZone: 'UTC', timeZoneName: 'short',
 });
+const utcDateFormatter = new Intl.DateTimeFormat('en-GB', {
+  year: 'numeric', month: 'short', day: '2-digit', timeZone: 'UTC', timeZoneName: 'short',
+});
 
 export function formatCount(count, singular, plural = `${singular}s`) {
   const value = Number(count);
   const amount = Number.isFinite(value) ? value : 0;
-  return `${amount} ${amount === 1 ? singular : plural}`;
+  return `${amount} ${Math.abs(amount) === 1 ? singular : plural}`;
 }
 
 export function formatUtcDateTime(value) {
   if (!value) return 'Date unavailable';
   const date = utcDate(value);
   return Number.isFinite(date.getTime()) ? utcFormatter.format(date) : 'Date unavailable';
+}
+
+export function formatUtcDate(value) {
+  if (!value) return 'Date unavailable';
+  const date = utcDate(value);
+  return Number.isFinite(date.getTime()) ? utcDateFormatter.format(date) : 'Date unavailable';
 }
 
 export function formatUtcRange(startsAt, endsAt) {

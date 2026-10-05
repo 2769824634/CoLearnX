@@ -46,7 +46,10 @@ public record CourseIntakeDetailDto(int Id, int CourseId, int TrainerId, DateTim
     IReadOnlyList<CourseSessionDto> Sessions, CourseIntakeChangeDto? LatestChangeRequest = null,
     int MinEnrollment = 10, DateTime? ConfirmedToRunAt = null, DateTime? CancelledAt = null,
     string? CancellationReason = null, int? ReplacementForIntakeId = null, int? ReplacementIntakeId = null,
-    DateTime? PostponementAvailableUntil = null);
+    DateTime? PostponementAvailableUntil = null, int ReservedEnrollmentCount = 0,
+    int ActiveEnrollmentCount = 0, int RemainingToMinimum = 0);
+public record TrainerReservationDto(int EnrollmentId, int CourseSessionId, string SessionLabel,
+    string LearnerName, int CreditsHeld, DateTime ReservedAt);
 public record CreatorIntakeApplicationSummaryDto(int CourseIntakeId, int ApplicationId, int CourseId,
     string CourseCode, string CourseTitle, int TrainerId, string TrainerName, string Kind, string Status,
     DateTime SubmittedAt, Guid Version);

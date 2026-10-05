@@ -89,9 +89,9 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
                 $"Reserved {course.Code} — {course.Title}");
             db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "EnrollmentReserved",
                 EntityType = nameof(Enrollment), EntityId = enrollment.Id.ToString(), Result = "Succeeded",
-                Reason = $"Held {cost} credits for {course.Code}" });
-            db.Notifications.Add(new Notification { UserId = userId, IntakeId = intake.Id, Code = "N-01", Title = "Place reserved",
-                Body = $"{cost} credits are on hold for {course.Code}." });
+                Reason = $"Held {BusinessText.Credits(cost)} for {course.Code}" });
+            db.Notifications.Add(new Notification { UserId = userId, IntakeId = intake.Id, EnrollmentId = enrollment.Id, Code = "N-01", Title = "Place reserved",
+                Body = $"{BusinessText.Credits(cost)} {(cost == 1 ? "is" : "are")} on hold for {course.Code}." });
             if (session.PhysicalCapacity > 0 && session.SeatsTaken + 1 == session.PhysicalCapacity)
                 db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, Code = "N-session-full",
                     Title = "Session is full", Body = $"{course.Code} Intake #{intake.Id} has reached physical capacity." });
@@ -127,9 +127,9 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
                 $"Released {enrollment.Course.Code} reservation");
             db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "ReservationCancelled",
                 EntityType = nameof(Enrollment), EntityId = enrollment.Id.ToString(), Result = "Succeeded",
-                Reason = $"Released {enrollment.CreditsSpent} credits" });
-            db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, Code = "N-hold-released", Title = "Credits released",
-                Body = $"{enrollment.CreditsSpent} credits are available again." });
+                Reason = $"Released {BusinessText.Credits(enrollment.CreditsSpent)}" });
+            db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, EnrollmentId = enrollment.Id, Code = "N-hold-released", Title = "Credits released",
+                Body = $"{BusinessText.Credits(enrollment.CreditsSpent)} {(enrollment.CreditsSpent == 1 ? "is" : "are")} available again." });
             var intake = enrollment.CourseSession.CourseIntake;
             if (enrollment.CourseSession.PhysicalCapacity > 0
                 && enrollment.CourseSession.SeatsTaken + 1 == enrollment.CourseSession.PhysicalCapacity
@@ -168,7 +168,7 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
             db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "EnrollmentWithdrawn",
                 EntityType = nameof(Enrollment), EntityId = enrollment.Id.ToString(), Result = "Succeeded",
                 Reason = $"Refunded {refund}; forfeited {forfeited} credits" });
-            db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, Code = "N-withdraw-70", Title = "Enrollment withdrawn",
+            db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, EnrollmentId = enrollment.Id, Code = "N-withdraw-70", Title = "Enrollment withdrawn",
                 Body = $"{refund} credits were refunded for {enrollment.Course.Code}." });
             db.Notifications.Add(new Notification { UserId = enrollment.CourseSession.CourseIntake.TrainerId,
                 IntakeId = enrollment.CourseSession.CourseIntakeId,

@@ -188,7 +188,7 @@ export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summ
         </div>
       </div>
 
-      <Modal open={editOpen && draft} title="Edit Profile" onClose={() => !saving && setEditOpen(false)} width={640}>
+      <Modal open={editOpen && Boolean(draft)} title="Edit Profile" onClose={() => !saving && setEditOpen(false)} width={640}>
         {draft ? (
           <>
             <div className="grid-2">

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { safeNotificationPath, useMemberNotifications } from './memberNotificationsState';
-import { utcDate } from '../utils/utcDates';
+import { formatUtcDateTime } from '../pages/businessPresentation';
 
 export default function MemberNotifications() {
   const notifications = useMemberNotifications();
@@ -22,7 +22,7 @@ export default function MemberNotifications() {
       {loading ? <p role="status" className="card-body">Loading notifications…</p> : error ? <div className="card-body"><p role="alert">{error.message}</p><button className="btn btn-primary" onClick={refresh}>Retry</button></div> : <div className="notification-list">
         {!data?.items?.length ? <p className="card-body">No notifications yet.</p> : data.items.map((item) => <article key={item.id} className={`notification-item${item.isRead ? '' : ' unread'}`}>
           <div className="certificate-heading"><strong>{item.title}</strong><span className="pill">{item.isRead ? 'Read' : 'Unread'}</span></div>
-          <p>{item.message}</p><time dateTime={item.createdAt}>{utcDate(item.createdAt).toLocaleString()}</time>
+          <p>{item.message}</p><time dateTime={item.createdAt}>{formatUtcDateTime(item.createdAt)}</time>
           <div className="notification-item-actions">
             {safeNotificationPath(item.targetPath) ? <Link to={safeNotificationPath(item.targetPath)} onClick={() => { if (!item.isRead) void markRead(item.id); setOpen(false); }}>Open related page</Link> : null}
             {!item.isRead ? <button className="btn btn-ghost btn-sm" type="button" disabled={busy} onClick={() => markRead(item.id)}>Mark as read</button> : null}
