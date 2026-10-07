@@ -1,9 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import Logo from '../../components/Logo';
+import PasswordInput from '../../components/PasswordInput';
 import { consumeSessionReplacedMessage, SESSION_REPLACED_MESSAGE } from '../../api/client';
 import useAdminAuth from '../../auth/useAdminAuth';
 import '../../styles/admin.css';
+
+const CONSOLE_AREAS = [
+  ['Approvals', 'Role requests, courses and materials'],
+  ['Users', 'Account lookup by name, email or ID'],
+  ['Credit Ledger', 'Balance changes and corrections'],
+  ['Disputes', 'Cases and refunds'],
+  ['Audit Log', 'Recorded decisions and sign-ins'],
+];
 
 export default function AdminLoginPage() {
   const { login, isAuthenticated, booting } = useAdminAuth();
@@ -47,28 +56,43 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="auth-screen admin-auth-screen">
-      <main className="admin-auth-card" aria-labelledby="admin-login-title">
-        <section className="admin-auth-intro">
-          <Logo />
-          <p className="admin-auth-kicker">Invited administrator access</p>
+    <div className="auth-screen admin-auth-screen admin-console-screen">
+      <header className="admin-console-bar">
+        <Logo tone="dark" />
+        <Link className="admin-return-link" to="/login">Return to user sign-in</Link>
+      </header>
+      <main className="admin-console-layout" aria-labelledby="admin-login-title">
+        <section className="admin-console-intro">
+          <p className="admin-auth-kicker">
+            <span className="admin-restricted-dot" aria-hidden="true" />
+            Invited administrator access
+          </p>
           <h1 id="admin-login-title">Operations console</h1>
           <p className="admin-auth-copy">
             A separate identity boundary protects reviews, credit operations and the audit trail.
           </p>
+          <ol className="admin-console-scope">
+            {CONSOLE_AREAS.map(([label, desc], index) => (
+              <li key={label}>
+                <span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                <strong>{label}</strong>
+                <em>{desc}</em>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <form className="admin-console-form" onSubmit={onSubmit}>
+          <div>
+            <p className="admin-console-eyebrow">Restricted workspace</p>
+            <h2>Sign in as administrator</h2>
+          </div>
           <div className="admin-boundary-note">
             <span className="admin-boundary-mark" aria-hidden="true" />
             <div>
               <strong>Independent account</strong>
               <span>This sign-in does not use a learner, trainer or creator role.</span>
             </div>
-          </div>
-        </section>
-
-        <form className="admin-auth-form" onSubmit={onSubmit}>
-          <div>
-            <p className="admin-form-eyebrow">Restricted workspace</p>
-            <h2>Sign in as administrator</h2>
           </div>
           {location.state?.accessNotice ? (
             <div className="callout warn" role="status">{location.state.accessNotice}</div>
@@ -87,13 +111,10 @@ export default function AdminLoginPage() {
           </div>
           <div className="form-group">
             <label htmlFor="admin-password">Password</label>
-            <input
+            <PasswordInput
               id="admin-password"
-              type="password"
-              autoComplete="current-password"
               value={password}
               onChange={(event) => { setPassword(event.target.value); setError(''); }}
-              required
             />
           </div>
           {error ? (
@@ -102,10 +123,9 @@ export default function AdminLoginPage() {
               {error}
             </div>
           ) : null}
-          <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
+          <button type="submit" className="btn btn-block admin-console-submit" disabled={busy}>
             {busy ? 'Verifying…' : 'Enter operations console'}
           </button>
-          <Link className="admin-return-link" to="/login">Return to user sign-in</Link>
         </form>
       </main>
     </div>
