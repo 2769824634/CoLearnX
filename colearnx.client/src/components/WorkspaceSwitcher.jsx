@@ -71,6 +71,7 @@ export default function WorkspaceSwitcher() {
                 type="button"
                 role="option"
                 aria-selected={selected}
+                data-role={role.toLowerCase()}
                 className={`workspace-switcher-item${selected ? ' selected' : ''}`}
                 disabled={busy}
                 onClick={() => onPick(role)}

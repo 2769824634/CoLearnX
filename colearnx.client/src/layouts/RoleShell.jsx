@@ -56,6 +56,7 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
   return (
     <ShellChrome
       shellClassName={`shell${role === 'admin' ? ' admin-shell' : ''}`}
+      role={role}
       identityName={identityName}
       avatarUrl={avatarUrl}
       token={token}

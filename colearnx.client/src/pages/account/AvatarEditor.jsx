@@ -3,7 +3,7 @@ import { usersApi } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import UserAvatar from '../../components/UserAvatar';
 
-export default function AvatarEditor() {
+export default function AvatarEditor({ role }) {
   const { user, token, refreshUser } = useAuth();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -28,7 +28,7 @@ export default function AvatarEditor() {
   }
 
   return <div>
-    <div style={{ margin: '0 auto 12px', width: 'fit-content' }}>
+    <div className="avatar-frame" data-role={role} style={{ margin: '0 auto 12px', width: 'fit-content' }}>
       <UserAvatar name={user?.fullName} avatarUrl={user?.avatarUrl} token={token} size="lg" />
     </div>
     <label className="btn btn-ghost btn-sm" htmlFor="account-avatar">{busy ? 'Uploading…' : 'Upload avatar'}</label>

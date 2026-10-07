@@ -18,6 +18,7 @@ export default function MemberShell({
   return (
     <ShellChrome
       shellClassName="shell member-shell"
+      role="member"
       identityName={user?.fullName}
       avatarUrl={user?.avatarUrl}
       token={token}

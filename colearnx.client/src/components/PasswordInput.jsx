@@ -15,8 +15,16 @@ export default function PasswordInput({ id, label = 'Password', className = '', 
   const generatedId = useId();
   const inputId = id || `password-input-${generatedId}`;
   const [visible, setVisible] = useState(false);
-  const fieldName = label.toLowerCase() === 'confirm password' ? 'confirmation' : label.toLowerCase();
-  const buttonLabel = `${visible ? 'Hide' : 'Show'} ${fieldName}`;
+  const [capsLock, setCapsLock] = useState(false);
+  const capsHintId = `${inputId}-caps`;
+  const spoken = label
+    ? (label.toLowerCase() === 'confirm password' ? 'confirmation' : label.toLowerCase())
+    : 'password';
+  const buttonLabel = `${visible ? 'Hide' : 'Show'} ${spoken}`;
+
+  function trackCapsLock(event) {
+    setCapsLock(Boolean(event.getModifierState?.('CapsLock')));
+  }
 
   return (
     <>
@@ -27,6 +35,19 @@ export default function PasswordInput({ id, label = 'Password', className = '', 
           id={inputId}
           className="password-input__field"
           type={visible ? 'text' : 'password'}
+          onKeyDown={(event) => {
+            trackCapsLock(event);
+            inputProps.onKeyDown?.(event);
+          }}
+          onKeyUp={(event) => {
+            trackCapsLock(event);
+            inputProps.onKeyUp?.(event);
+          }}
+          onBlur={(event) => {
+            setCapsLock(false);
+            inputProps.onBlur?.(event);
+          }}
+          aria-describedby={capsLock ? capsHintId : inputProps['aria-describedby']}
         />
         <button
           type="button"
@@ -41,6 +62,7 @@ export default function PasswordInput({ id, label = 'Password', className = '', 
           <EyeIcon visible={visible} />
         </button>
       </span>
+      {capsLock ? <p id={capsHintId} className="password-caps" role="status">Caps Lock is on</p> : null}
     </>
   );
 }
