@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { creatorCoursesApi, interestsApi, materialsApi } from '../../api';
 import MaterialList from '../../components/MaterialList';
@@ -20,6 +20,13 @@ const emptyCourse = {
   code: '', title: '', description: '', courseLevelId: '', learningPathId: '',
   category: '', creditCost: '', learningOutcomes: [], interestIds: [], status: 'Draft',
 };
+
+const STEPS = [
+  ['Basic information', 'Name the Course and place it in the catalogue.'],
+  ['Materials', 'Optional. Add files now or come back to this step later.'],
+  ['Interests & price', 'Choose 1–4 interests and set the credit cost, then save.'],
+];
+const LAST_STEP = STEPS.length - 1;
 
 function titleFromFile(file) {
   return file.name.replace(/\.[^.]+$/, '').trim() || 'Course material';
@@ -44,7 +51,43 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
   const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(toPayload(toForm(initialCourse || emptyCourse))));
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState(0);
+  const [reached, setReached] = useState(initialCourse ? LAST_STEP : 0);
+  const formRef = useRef(null);
+  const stepHeadingRef = useRef(null);
+  const movedRef = useRef(false);
   const editable = !course || course.status === 'Draft' || course.status === 'Rejected';
+
+  useEffect(() => {
+    if (movedRef.current) stepHeadingRef.current?.focus();
+  }, [step]);
+
+  // Moving forward only checks the fields on the current step; earlier steps were checked when they were left.
+  function goTo(target) {
+    if (target > step && !formRef.current?.reportValidity()) return;
+    movedRef.current = true;
+    setStep(target);
+    setReached((value) => Math.max(value, target));
+  }
+
+  function onStepSubmit(event) {
+    event.preventDefault();
+    if (!event.currentTarget.reportValidity()) return;
+    if (step < LAST_STEP) goTo(step + 1);
+    else save();
+  }
+
+  async function uploadExisting(files) {
+    setBusy(true);
+    setError(null);
+    try {
+      await uploadFiles(course.id, files);
+    } catch (requestError) {
+      setError(requestError);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function uploadFiles(courseId, files) {
     for (const file of files) {
@@ -60,8 +103,7 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
     setPendingFiles([]);
   }
 
-  async function save(event) {
-    event.preventDefault();
+  async function save() {
     setBusy(true);
     setError(null);
     try {
@@ -137,52 +179,62 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
       {course
         ? editable ? 'Review the Course definition and submit it for Admin approval when it is ready.'
           : 'View the submitted Course definition and its materials.'
-        : 'Save a draft, or submit it immediately so Admin can publish it to the catalogue.'}
+        : 'Three steps: basic information, materials, then interests and price. The Course is saved when you finish the last step.'}
     </CreatorHeader>
     <CreatorError error={error} />
     {course?.reviewReason ? <div className="creator-error"><strong>Admin feedback</strong><p>{course.reviewReason}</p></div> : null}
-    {!editable ? <div className="creator-empty"><strong>Course editing is locked</strong><p>{course?.status === 'Published'
-      ? 'Published definitions are read-only. Contact your course administrator to discuss changes.'
-      : 'This submitted Course is locked while Admin reviews it. If rejected, you can update it and submit again.'} Its definition remains available below.</p></div> : null}
-    <form className="card creator-course-definition" onSubmit={save}>
-      <fieldset disabled={!editable || busy} className="creator-course-fields"><legend>{editable ? 'Course definition' : 'Submitted Course definition (read-only)'}</legend><CourseFields form={form} options={options} setForm={setForm} /></fieldset>
-      {editable ?
-      <div className="trainer-actions">
-        <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? 'Saving…' : course ? 'Save changes' : 'Save draft'}</button>
-        {course
-          ? <button className="btn btn-teal" type="button" disabled={busy} onClick={submitForApproval}>Submit for approval</button>
-          : <button className="btn btn-teal" type="button" disabled={busy} onClick={saveAndSubmit}>Save and submit for approval</button>}
-      </div> : null}
-    </form>
-    <CourseMaterialsCard
-      course={course}
-      materials={materials}
-      pendingFiles={pendingFiles}
-      setPendingFiles={setPendingFiles}
-      editable={editable}
-      onUploadExisting={async (files) => {
-        setBusy(true);
-        setError(null);
-        try {
-          await uploadFiles(course.id, files);
-        } catch (requestError) {
-          setError(requestError);
-        } finally {
-          setBusy(false);
-        }
-      }}
-      busy={busy}
-    />
+    {!editable ? <>
+      <div className="creator-empty"><strong>Course editing is locked</strong><p>{course?.status === 'Published'
+        ? 'Published definitions are read-only. Contact your course administrator to discuss changes.'
+        : 'This submitted Course is locked while Admin reviews it. If rejected, you can update it and submit again.'} Its definition remains available below.</p></div>
+      <div className="card creator-course-definition">
+        <fieldset disabled className="creator-course-fields"><legend>Submitted Course definition (read-only)</legend>
+          <BasicFields form={form} options={options} setForm={setForm} />
+          <InterestPriceFields form={form} options={options} setForm={setForm} />
+        </fieldset>
+      </div>
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-header">Course materials</div>
+        <div className="card-body"><MaterialList items={materials} /></div>
+      </div>
+    </> : <>
+      <ol className="creator-steps" aria-label="Course creation steps">
+        {STEPS.map(([label], index) => <li key={label} data-state={index < step ? 'done' : index === step ? 'current' : 'todo'}>
+          <button type="button" aria-current={index === step ? 'step' : undefined} disabled={busy || index > reached} onClick={() => goTo(index)}>
+            <span className="creator-step-number">{index + 1}</span><span>{label}</span>
+          </button>
+        </li>)}
+      </ol>
+      <form ref={formRef} className="card creator-course-definition creator-step-card" onSubmit={onStepSubmit}>
+        <div className="creator-step-heading">
+          <p>Step {step + 1} of {STEPS.length}</p>
+          <h2 ref={stepHeadingRef} tabIndex={-1}>{STEPS[step][0]}</h2>
+          <span>{STEPS[step][1]}</span>
+        </div>
+        <fieldset disabled={busy} className="creator-course-fields">
+          {step === 0 ? <BasicFields form={form} options={options} setForm={setForm} /> : null}
+          {step === 1 ? <MaterialsStep course={course} materials={materials} pendingFiles={pendingFiles} setPendingFiles={setPendingFiles} onUploadExisting={uploadExisting} busy={busy} /> : null}
+          {step === LAST_STEP ? <InterestPriceFields form={form} options={options} setForm={setForm} /> : null}
+        </fieldset>
+        <div className="trainer-actions creator-step-actions">
+          {step > 0 ? <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => goTo(step - 1)}>Back</button> : null}
+          {step < LAST_STEP ? <button className="btn btn-primary" type="submit" disabled={busy}>Next</button> : <>
+            <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? 'Saving…' : course ? 'Save changes' : 'Save draft'}</button>
+            {course
+              ? <button className="btn btn-teal" type="button" disabled={busy} onClick={submitForApproval}>Submit for approval</button>
+              : <button className="btn btn-teal" type="button" disabled={busy} onClick={saveAndSubmit}>Save and submit for approval</button>}
+          </>}
+        </div>
+      </form>
+    </>}
   </section>;
 }
 
-function CourseMaterialsCard({ course, materials, pendingFiles, setPendingFiles, onUploadExisting, busy, editable }) {
-  return <div className="card" style={{ marginTop: 16 }}>
-    <div className="card-header">Course materials</div>
-    <div className="card-body">
-      <p className="page-sub" style={{ marginTop: 0 }}>PDF, PPTX, DOCX, PNG or JPG · max 20 MB. Files stay with this Course.</p>
-      {course ? <MaterialList items={materials} /> : null}
-      {editable || !course ? <div className="form-group">
+function MaterialsStep({ course, materials, pendingFiles, setPendingFiles, onUploadExisting, busy }) {
+  return <>
+    <p className="page-sub" style={{ marginTop: 0 }}>PDF, PPTX, DOCX, PNG or JPG · max 20 MB. Files stay with this Course.</p>
+    {course ? <MaterialList items={materials} /> : null}
+    <div className="form-group">
         <label htmlFor="creator-course-materials">{course ? 'Add files' : 'Files to upload when this Course is saved'}</label>
         <input
           id="creator-course-materials"
@@ -198,16 +250,18 @@ function CourseMaterialsCard({ course, materials, pendingFiles, setPendingFiles,
             else setPendingFiles((current) => [...current, ...files]);
           }}
         />
-      </div> : null}
+      </div>
       {!course && pendingFiles.length ? (
         <ul className="later-resource-list">
           {pendingFiles.map((file, index) => (
-            <li key={`${file.name}-${index}`}><div><strong>{file.name}</strong><small>{Math.ceil(file.size / 1024)} KB</small></div></li>
+            <li key={`${file.name}-${index}`}>
+              <div><strong>{file.name}</strong><small>{Math.ceil(file.size / 1024)} KB</small></div>
+              <button type="button" className="btn btn-ghost btn-sm" aria-label={`Remove ${file.name}`} onClick={() => setPendingFiles((current) => current.filter((_, item) => item !== index))}>Remove</button>
+            </li>
           ))}
         </ul>
       ) : null}
-    </div>
-  </div>;
+  </>;
 }
 
 const MAX_INTERESTS = 4;
@@ -257,23 +311,37 @@ function InterestPicker({ tree, selectedIds, onToggle }) {
   </div>;
 }
 
-function CourseFields({ form, options, setForm }) {
-  const change = (field) => (event) => setForm((value) => ({ ...value, [field]: event.target.value }));
+const fieldChanger = (setForm) => (field) => (event) => setForm((value) => ({ ...value, [field]: event.target.value }));
+
+function BasicFields({ form, options, setForm }) {
+  const change = fieldChanger(setForm);
+  return <>
+    <div className="creator-step-grid">
+      <div className="form-group"><label htmlFor="creator-course-code">Course code</label><input id="creator-course-code" required value={form.code} onChange={change('code')} /></div>
+      <div className="form-group"><label htmlFor="creator-course-title">Title</label><input id="creator-course-title" required value={form.title} onChange={change('title')} /></div>
+    </div>
+    <div className="form-group"><label htmlFor="creator-course-description">Description</label><textarea id="creator-course-description" value={form.description} onChange={change('description')} /></div>
+    <div className="creator-step-grid">
+      <div className="form-group"><label htmlFor="creator-course-level">Course level</label><select id="creator-course-level" required value={form.courseLevelId} onChange={change('courseLevelId')}><option value="">Choose a level</option>{options.courseLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
+      <div className="form-group"><label htmlFor="creator-learning-path">Learning path</label><select id="creator-learning-path" required value={form.learningPathId} onChange={change('learningPathId')}><option value="">Choose a path</option>{options.learningPaths.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
+    </div>
+    <div className="form-group"><label htmlFor="creator-course-category">Category</label><input id="creator-course-category" required value={form.category} onChange={change('category')} /></div>
+    <div className="form-group"><label htmlFor="creator-course-outcomes">Learning outcomes</label><textarea id="creator-course-outcomes" value={form.learningOutcomes} onChange={change('learningOutcomes')} placeholder="One outcome per line" /></div>
+  </>;
+}
+
+function InterestPriceFields({ form, options, setForm }) {
+  const change = fieldChanger(setForm);
   const toggleInterest = (id) => setForm((value) => ({ ...value,
     interestIds: value.interestIds.includes(id) ? value.interestIds.filter((item) => item !== id)
       : value.interestIds.length < MAX_INTERESTS ? [...value.interestIds, id] : value.interestIds }));
   return <>
-    <div className="form-group"><label htmlFor="creator-course-code">Course code</label><input id="creator-course-code" required value={form.code} onChange={change('code')} /></div>
-    <div className="form-group"><label htmlFor="creator-course-title">Title</label><input id="creator-course-title" required value={form.title} onChange={change('title')} /></div>
-    <div className="form-group"><label htmlFor="creator-course-description">Description</label><textarea id="creator-course-description" value={form.description} onChange={change('description')} /></div>
-    <div className="form-group"><label htmlFor="creator-course-level">Course level</label><select id="creator-course-level" required value={form.courseLevelId} onChange={change('courseLevelId')}><option value="">Choose a level</option>{options.courseLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
     <div className="form-group"><label htmlFor="creator-interest-search">Course interests (choose 1–4 leaves before submitting)</label>
       <InterestPicker tree={options.interestTree || []} selectedIds={form.interestIds} onToggle={toggleInterest} />
     </div>
-    <div className="form-group"><label htmlFor="creator-learning-path">Learning path</label><select id="creator-learning-path" required value={form.learningPathId} onChange={change('learningPathId')}><option value="">Choose a path</option>{options.learningPaths.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-    <div className="form-group"><label htmlFor="creator-course-category">Category</label><input id="creator-course-category" required value={form.category} onChange={change('category')} /></div>
-    <div className="form-group"><label htmlFor="creator-course-cost">Credit cost</label><input id="creator-course-cost" type="number" min="1" step="1" required value={form.creditCost} onChange={change('creditCost')} /></div>
-    <div className="form-group"><label htmlFor="creator-course-outcomes">Learning outcomes</label><textarea id="creator-course-outcomes" value={form.learningOutcomes} onChange={change('learningOutcomes')} placeholder="One outcome per line" /></div>
+    <div className="form-group creator-price-field"><label htmlFor="creator-course-cost">Credit cost</label><input id="creator-course-cost" type="number" min="1" step="1" required value={form.creditCost} onChange={change('creditCost')} aria-describedby="creator-course-cost-hint" />
+      <small id="creator-course-cost-hint">Whole credits a Member pays to enrol.</small>
+    </div>
   </>;
 }
 
