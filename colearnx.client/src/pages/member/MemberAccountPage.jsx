@@ -87,14 +87,14 @@ export default function MemberAccountPage() {
         </div>
       </MemberShell>
 
-      <Modal open={editOpen && draft} title="Edit Profile" onClose={() => setEditOpen(false)} width={640}>
+      <Modal open={editOpen && Boolean(draft)} title="Edit Profile" onClose={() => setEditOpen(false)} width={640}>
         {draft ? (
           <>
             <div className="grid-2">
-              <div className="form-group"><label>Full Name</label><input value={draft.user.fullName} onChange={(e) => setDraft({ ...draft, user: { ...draft.user, fullName: e.target.value } })} /></div>
-              <div className="form-group"><label>Display name</label><input value={draft.user.displayName} onChange={(e) => setDraft({ ...draft, user: { ...draft.user, displayName: e.target.value } })} /></div>
-              <div className="form-group"><label>Phone</label><input value={draft.user.phone} onChange={(e) => setDraft({ ...draft, user: { ...draft.user, phone: e.target.value } })} /></div>
-              <div className="form-group"><label>Bio</label><input value={draft.user.bio} onChange={(e) => setDraft({ ...draft, user: { ...draft.user, bio: e.target.value } })} /></div>
+              <div className="form-group"><label htmlFor="member-fullName">Full Name</label><input id="member-fullName" value={draft.user.fullName} onChange={(e) => setDraft({ ...draft, user: { ...draft.user, fullName: e.target.value } })} /></div>
+              <div className="form-group"><label htmlFor="member-displayName">Display name</label><input id="member-displayName" value={draft.user.displayName} onChange={(e) => setDraft({ ...draft, user: { ...draft.user, displayName: e.target.value } })} /></div>
+              <div className="form-group"><label htmlFor="member-phone">Phone</label><input id="member-phone" value={draft.user.phone ?? ''} onChange={(e) => setDraft({ ...draft, user: { ...draft.user, phone: e.target.value } })} /></div>
+              <div className="form-group"><label htmlFor="member-bio">Bio</label><input id="member-bio" value={draft.user.bio ?? ''} onChange={(e) => setDraft({ ...draft, user: { ...draft.user, bio: e.target.value } })} /></div>
             </div>
             <div className="identity-block">
               <div className="ib-head">

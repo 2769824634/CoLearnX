@@ -6,6 +6,7 @@ import PasswordInput from '../components/PasswordInput';
 import { authApi } from '../api';
 import { consumeSessionReplacedMessage, SESSION_REPLACED_MESSAGE } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { useNoCredentialAutofill } from '../auth/noCredentialAutofill';
 
 const ROLE_META = {
   Member: { label: 'Member', desc: 'Learn & enrol with credits' },
@@ -33,6 +34,8 @@ export default function LoginPage() {
   const [roleOpen, setRoleOpen] = useState(false);
   const [availableRoles, setAvailableRoles] = useState([]);
   const [pickedRole, setPickedRole] = useState('');
+  const emailAutofill = useNoCredentialAutofill();
+  const passwordAutofill = useNoCredentialAutofill();
 
   useEffect(() => {
     if (booting) return undefined;
@@ -119,19 +122,19 @@ export default function LoginPage() {
               </ul>
             </div>
           </section>
-          <form className="login-form" onSubmit={onSubmit}>
+          <form className="login-form" autoComplete="off" onSubmit={onSubmit}>
             <p className="login-eyebrow">Welcome back</p>
             <h2>Login to your account</h2>
             <div className="form-group">
             <label htmlFor="login-email">Email</label>
-            <input id="login-email" type="email" autoComplete="username" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input id="login-email" type="email" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} required {...emailAutofill} />
             </div>
             <div className="form-group">
             <div className="login-label-row">
               <label htmlFor="login-password">Password</label>
               <Link to="/forgot-password">Forgot password?</Link>
             </div>
-            <PasswordInput id="login-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordInput id="login-password" label={null} value={password} onChange={(e) => setPassword(e.target.value)} required {...passwordAutofill} />
             </div>
             {error ? (
               <div className="callout warn" style={{ marginBottom: 12 }}>

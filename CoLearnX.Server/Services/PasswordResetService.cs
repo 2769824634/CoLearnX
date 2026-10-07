@@ -81,7 +81,7 @@ public class PasswordResetService(
         }
     }
 
-    public async Task<bool> ResetAsync(string token, string newPassword, string email, CancellationToken ct = default)
+    public async Task<bool> ResetAsync(string token, string newPassword, CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(token) || token.Length != 64 || !token.All(Uri.IsHexDigit)) return false;
         var hash = Hash(token);
@@ -90,8 +90,6 @@ public class PasswordResetService(
             .Where(x => x.TokenHash == hash && x.UsedAt == null && x.ExpiresAt > now && x.User.IsActive)
             .Select(x => new { x.UserId, x.User.Email }).SingleOrDefaultAsync(ct);
         if (candidate is null) return false;
-        if (!string.Equals(candidate.Email, email.Trim().ToLowerInvariant(), StringComparison.Ordinal))
-            return false;
         if (!PasswordRules.Meets(newPassword, candidate.Email)) throw new FormatException(PasswordRules.Hint);
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         // First write atomically claims the token. Password and session invalidation share its transaction.

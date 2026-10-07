@@ -47,6 +47,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     public DbSet<CourseMaterialVersion> CourseMaterialVersions => Set<CourseMaterialVersion>();
     public DbSet<CourseIntakeMaterial> CourseIntakeMaterials => Set<CourseIntakeMaterial>();
     public DbSet<SessionRecording> SessionRecordings => Set<SessionRecording>();
+    public DbSet<SessionMaterial> SessionMaterials => Set<SessionMaterial>();
     public DbSet<Assessment> Assessments => Set<Assessment>();
     public DbSet<AssessmentResult> AssessmentResults => Set<AssessmentResult>();
     public DbSet<CertificateRequest> CertificateRequests => Set<CertificateRequest>();

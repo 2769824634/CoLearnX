@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 import { authApi } from '../api';
 import { useAuth } from '../auth/AuthContext';
+import { useNoCredentialAutofill } from '../auth/noCredentialAutofill';
 import { maskEmail } from '../data/memberMock';
 import { PASSWORD_RULES, passwordIssues } from './passwordRules';
 
@@ -17,6 +18,10 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [resendNote, setResendNote] = useState('');
+  const nameAutofill = useNoCredentialAutofill();
+  const emailAutofill = useNoCredentialAutofill();
+  const passwordAutofill = useNoCredentialAutofill();
+  const confirmAutofill = useNoCredentialAutofill();
 
   if (!booting && isAuthenticated && activeRole) {
     return <Navigate to={`/${activeRole}/home`} replace />;
@@ -85,20 +90,20 @@ export default function RegisterPage() {
             </button>
             <p className="auth-footer"><Link to="/login">Back to login</Link></p>
           </div>
-        ) : <form className="auth-body" onSubmit={onSubmit} autoComplete="on">
+        ) : <form className="auth-body" onSubmit={onSubmit} autoComplete="off">
           <h2>Create your account</h2>
           <p className="auth-lead">New accounts start as Member. Trainer and Creator roles are granted later.</p>
           <div className="form-group">
             <label htmlFor="register-name">Full name</label>
-            <input id="register-name" name="name" autoComplete="name" value={fullName} onChange={(e) => { setFullName(e.target.value); setError(''); }} required minLength={2} maxLength={80} />
+            <input id="register-name" value={fullName} onChange={(e) => { setFullName(e.target.value); setError(''); }} required minLength={2} maxLength={80} {...nameAutofill} />
           </div>
           <div className="form-group">
             <label htmlFor="register-email">Email</label>
-            <input id="register-email" name="email" type="email" autoComplete="username" spellCheck={false} value={email} onChange={(e) => { setEmail(e.target.value); setError(''); }} required maxLength={254} />
+            <input id="register-email" type="email" spellCheck={false} value={email} onChange={(e) => { setEmail(e.target.value); setError(''); }} required maxLength={254} {...emailAutofill} />
           </div>
           <div className="form-group">
             <label htmlFor="register-password">Password</label>
-            <input id="register-password" name="new-password" type="password" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} required minLength={10} maxLength={72} />
+            <input id="register-password" type="password" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} required minLength={10} maxLength={72} {...passwordAutofill} />
           </div>
           <ul className="password-checks">
             {PASSWORD_RULES.map((item) => (
@@ -107,7 +112,7 @@ export default function RegisterPage() {
           </ul>
           <div className="form-group">
             <label htmlFor="register-confirm">Confirm password</label>
-            <input id="register-confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(''); }} required minLength={10} maxLength={72} />
+            <input id="register-confirm" type="password" value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(''); }} required minLength={10} maxLength={72} {...confirmAutofill} />
           </div>
           {error ? (
             <div className="callout warn" style={{ marginBottom: 12 }}>

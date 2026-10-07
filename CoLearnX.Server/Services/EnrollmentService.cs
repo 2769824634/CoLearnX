@@ -6,6 +6,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CoLearnX.Server.Services;
 
+public interface IEnrollmentService
+{
+    Task<EnrolResultDto> EnrolAsync(int userId, EnrolRequest request, CancellationToken ct = default);
+    Task<EnrolResultDto> AcceptPostponementAsync(int userId, int enrollmentId, AcceptPostponementRequest request, CancellationToken ct = default);
+    Task<EnrollmentDto> CancelReservationAsync(int userId, int enrollmentId, CancellationToken ct = default);
+    Task<EnrollmentDto> WithdrawAsync(int userId, int enrollmentId, CancellationToken ct = default);
+    Task<IReadOnlyList<EnrollmentDto>> GetMyAsync(int userId, CancellationToken ct = default);
+}
+
 public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
 {
     public async Task<EnrolResultDto> EnrolAsync(int userId, EnrolRequest request, CancellationToken ct = default)
@@ -69,33 +78,20 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
             if (claimed != 1)
                 throw new CourseException("INTAKE_VERSION_CONFLICT", "The class changed. Refresh before reserving again.", 409);
 
-            var updatedUser = await db.Users.Where(u => u.Id == userId && u.IsActive && u.CreditBalance >= cost)
-                .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(u => u.CreditBalance, u => u.CreditBalance - cost)
-                    .SetProperty(u => u.HeldCredits, u => u.HeldCredits + cost), ct);
-            if (updatedUser != 1)
-                throw new CourseException("INSUFFICIENT_CREDITS", "Not enough available credits to reserve this place.");
-            var updatedSeat = await db.CourseSessions.Where(s => s.Id == session.Id
-                    && (s.PhysicalCapacity == 0 || s.SeatsTaken < s.PhysicalCapacity))
-                .ExecuteUpdateAsync(setters => setters.SetProperty(s => s.SeatsTaken, s => s.SeatsTaken + 1), ct);
-            if (updatedSeat != 1)
-                throw new CourseException("SESSION_FULL", "Session is full.");
-
-            var wallet = await db.Users.AsNoTracking().Where(u => u.Id == userId)
-                .Select(u => new { u.CreditBalance, u.HeldCredits }).SingleAsync(ct);
+            var credits = new EnrollmentCreditTransitions(db);
+            var wallet = await credits.HoldCreditsAndSeatAsync(userId, session.Id, cost, ct);
             var enrollment = new Enrollment { UserId = userId, CourseId = course.Id, CourseSessionId = session.Id,
                 Status = EnrollmentStatus.Reserved, ProgressPercent = 0, CreditsSpent = cost,
                 PostponedFromEnrollmentId = original?.Id };
             db.Enrollments.Add(enrollment);
             await db.SaveChangesAsync(ct);
-            db.CreditTransactions.Add(new CreditTransaction { UserId = userId, Type = CreditTransactionType.Hold,
-                Description = $"Reserved {course.Code} — {course.Title}", Delta = -cost,
-                BalanceAfter = wallet.CreditBalance, HeldAfter = wallet.HeldCredits, RelatedEnrollmentId = enrollment.Id });
+            credits.RecordHold(userId, enrollment.Id, cost, wallet.BalanceAfter, wallet.HeldAfter,
+                $"Reserved {course.Code} — {course.Title}");
             db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "EnrollmentReserved",
                 EntityType = nameof(Enrollment), EntityId = enrollment.Id.ToString(), Result = "Succeeded",
-                Reason = $"Held {cost} credits for {course.Code}" });
-            db.Notifications.Add(new Notification { UserId = userId, IntakeId = intake.Id, Code = "N-01", Title = "Place reserved",
-                Body = $"{cost} credits are on hold for {course.Code}." });
+                Reason = $"Held {BusinessText.Credits(cost)} for {course.Code}" });
+            db.Notifications.Add(new Notification { UserId = userId, IntakeId = intake.Id, EnrollmentId = enrollment.Id, Code = "N-01", Title = "Place reserved",
+                Body = $"{BusinessText.Credits(cost)} {(cost == 1 ? "is" : "are")} on hold for {course.Code}." });
             if (session.PhysicalCapacity > 0 && session.SeatsTaken + 1 == session.PhysicalCapacity)
                 db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, Code = "N-session-full",
                     Title = "Session is full", Body = $"{course.Code} Intake #{intake.Id} has reached physical capacity." });
@@ -109,8 +105,8 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
             }
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
-            return new EnrolResultDto(enrollment.Id, cost, wallet.CreditBalance,
-                course.Code, course.Title, wallet.HeldCredits);
+            return new EnrolResultDto(enrollment.Id, cost, wallet.BalanceAfter,
+                course.Code, course.Title, wallet.HeldAfter);
         });
     }
 
@@ -127,20 +123,13 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
             if (enrollment.Status != EnrollmentStatus.Reserved || enrollment.CourseSession.CourseIntake.ConfirmedToRunAt is not null)
                 throw new CourseException("RESERVATION_NOT_CANCELLABLE", "Only an unconfirmed reservation can be cancelled.", 409);
             var wallet = await db.Users.SingleAsync(u => u.Id == userId, ct);
-            if (wallet.HeldCredits < enrollment.CreditsSpent || enrollment.CourseSession.SeatsTaken <= 0)
-                throw new CourseException("RESERVATION_BALANCE_CONFLICT", "Reservation balances need review before cancellation.", 409);
-            wallet.HeldCredits -= enrollment.CreditsSpent;
-            wallet.CreditBalance += enrollment.CreditsSpent;
-            enrollment.Status = EnrollmentStatus.Cancelled;
-            enrollment.CourseSession.SeatsTaken -= 1;
-            db.CreditTransactions.Add(new CreditTransaction { UserId = userId, Type = CreditTransactionType.Release,
-                Description = $"Released {enrollment.Course.Code} reservation", Delta = enrollment.CreditsSpent,
-                BalanceAfter = wallet.CreditBalance, HeldAfter = wallet.HeldCredits, RelatedEnrollmentId = enrollment.Id });
+            new EnrollmentCreditTransitions(db).Release(wallet, enrollment,
+                $"Released {enrollment.Course.Code} reservation");
             db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "ReservationCancelled",
                 EntityType = nameof(Enrollment), EntityId = enrollment.Id.ToString(), Result = "Succeeded",
-                Reason = $"Released {enrollment.CreditsSpent} credits" });
-            db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, Code = "N-hold-released", Title = "Credits released",
-                Body = $"{enrollment.CreditsSpent} credits are available again." });
+                Reason = $"Released {BusinessText.Credits(enrollment.CreditsSpent)}" });
+            db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, EnrollmentId = enrollment.Id, Code = "N-hold-released", Title = "Credits released",
+                Body = $"{BusinessText.Credits(enrollment.CreditsSpent)} {(enrollment.CreditsSpent == 1 ? "is" : "are")} available again." });
             var intake = enrollment.CourseSession.CourseIntake;
             if (enrollment.CourseSession.PhysicalCapacity > 0
                 && enrollment.CourseSession.SeatsTaken + 1 == enrollment.CourseSession.PhysicalCapacity
@@ -173,22 +162,13 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
             var refund = (int)Math.Round(enrollment.CreditsSpent * 0.7m, MidpointRounding.AwayFromZero);
             var forfeited = enrollment.CreditsSpent - refund;
             var user = await db.Users.SingleAsync(u => u.Id == userId, ct);
-            if (enrollment.CourseSession.SeatsTaken <= 0)
-                throw new CourseException("ENROLLMENT_SEAT_CONFLICT", "Enrollment seats need review before withdrawal.", 409);
-            user.CreditBalance += refund;
-            enrollment.Status = EnrollmentStatus.Refunded;
-            enrollment.CourseSession.SeatsTaken -= 1;
-            db.CreditTransactions.Add(new CreditTransaction { UserId = userId, Type = CreditTransactionType.Refund,
-                Description = $"Withdrawal refund: {enrollment.Course.Code}", Delta = refund,
-                BalanceAfter = user.CreditBalance, HeldAfter = user.HeldCredits, RelatedEnrollmentId = enrollment.Id });
+            new EnrollmentCreditTransitions(db).Refund(user, enrollment, refund,
+                $"Withdrawal refund: {enrollment.Course.Code}",
+                forfeited > 0 ? $"{forfeited} credits retained after withdrawal from {enrollment.Course.Code}" : null);
             db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "EnrollmentWithdrawn",
                 EntityType = nameof(Enrollment), EntityId = enrollment.Id.ToString(), Result = "Succeeded",
                 Reason = $"Refunded {refund}; forfeited {forfeited} credits" });
-            if (forfeited > 0)
-                db.CreditTransactions.Add(new CreditTransaction { UserId = userId, Type = CreditTransactionType.Forfeit,
-                    Description = $"{forfeited} credits retained after withdrawal from {enrollment.Course.Code}", Delta = 0,
-                    BalanceAfter = user.CreditBalance, HeldAfter = user.HeldCredits, RelatedEnrollmentId = enrollment.Id });
-            db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, Code = "N-withdraw-70", Title = "Enrollment withdrawn",
+            db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, EnrollmentId = enrollment.Id, Code = "N-withdraw-70", Title = "Enrollment withdrawn",
                 Body = $"{refund} credits were refunded for {enrollment.Course.Code}." });
             db.Notifications.Add(new Notification { UserId = enrollment.CourseSession.CourseIntake.TrainerId,
                 IntakeId = enrollment.CourseSession.CourseIntakeId,

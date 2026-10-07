@@ -67,7 +67,19 @@ public record AdminCourseDto(
     DateTime? ReviewedAt,
     IReadOnlyList<string>? LearningOutcomes = null,
     string? LearningPath = null,
-    string? CreatorName = null);
+    string? CreatorName = null,
+    IReadOnlyList<CourseInterestDto>? Interests = null,
+    int MaterialVersionCount = 0,
+    IReadOnlyDictionary<string, int>? MaterialVersionStatusCounts = null,
+    IReadOnlyList<AdminCourseMaterialVersionDto>? MaterialVersions = null);
+
+public record AdminCourseMaterialVersionDto(
+    int VersionId,
+    int LearningMaterialId,
+    string Title,
+    string Format,
+    int VersionNumber,
+    string Status);
 
 public record AdminCourseReviewResultDto(
     AdminCourseDto Course,

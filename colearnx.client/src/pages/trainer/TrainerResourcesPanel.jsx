@@ -3,7 +3,7 @@ import { canPreviewMaterial, trainerLaterPhaseApi } from '../../api/trainerLater
 import { TrainerError } from './TrainerUi';
 
 function downloadName(item) {
-  const ext = String(item.format || 'bin').toLowerCase().replace(/jpeg/, 'jpg');
+  const ext = String(item.format || 'bin').replace(/^\./, '').toLowerCase().replace(/jpeg/, 'jpg');
   return `${item.title}.${ext}`;
 }
 
@@ -61,26 +61,20 @@ export default function TrainerResourcesPanel({ token, intake }) {
     try {
       const blob = await trainerLaterPhaseApi.downloadMaterial(token, intake.id, item.materialVersionId, downloadName(item));
       if (canPreviewMaterial(item.format) && blob) {
-        setPreview((current) => {
-          if (current?.url) URL.revokeObjectURL(current.url);
-          return {
+        setPreview({
             id: item.materialVersionId,
             title: item.title,
             format: item.format,
             url: URL.createObjectURL(blob),
-          };
         });
       } else {
-        setPreview((current) => {
-          if (current?.url) URL.revokeObjectURL(current.url);
-          return null;
-        });
+        setPreview(null);
       }
       setDownload({
         id: item.materialVersionId,
         message: canPreviewMaterial(item.format)
           ? 'Opened the attached version. The file was also saved to your downloads.'
-          : 'File download started. In-browser preview is available for PNG, JPG and PDF.',
+          : 'File download started. In-browser preview is available for PNG, JPG, GIF, WebP and PDF.',
       });
     } catch (failure) {
       setDownload({ id: item.materialVersionId });
@@ -96,7 +90,7 @@ export default function TrainerResourcesPanel({ token, intake }) {
     {!data && !error ? <div className="trainer-empty">Loading delivery resources…</div> : data ? <div className="later-two-column">
       <div><h3>Approved learning materials</h3>{data.attached.length ? <ul className="later-resource-list">{data.attached.map((item) => <li key={item.materialVersionId}><div><strong>{item.title}</strong><small>{item.format} · approved version{item.versionNumber ? ` v${item.versionNumber}` : ''} · record #{item.materialVersionId}</small></div><button type="button" className="btn btn-ghost" disabled={busy || downloadBusy} onClick={() => openMaterial(item)}>{downloadBusy && download.id === item.materialVersionId ? 'Opening…' : 'Open'}</button></li>)}</ul> : <p className="trainer-help">No material version is attached yet.</p>}
         {download?.message ? <p className="trainer-help" role="status">{download.message}</p> : null}
-        {preview?.url ? (canPreviewMaterial(preview.format) && String(preview.format).toUpperCase() === 'PDF'
+        {preview?.url ? (String(preview.format).replace(/^\./, '').toUpperCase() === 'PDF'
           ? <iframe title={preview.title} src={preview.url} className="trainer-material-preview" />
           : <img alt={preview.title} src={preview.url} className="trainer-material-preview" />) : null}
         <form className="later-inline-form" onSubmit={(event) => { event.preventDefault(); mutate(() => trainerLaterPhaseApi.attachMaterial(token, intake.id, Number(materialVersionId)), () => setMaterialVersionId('')); }}><label htmlFor="attach-material">Attach approved version</label><select id="attach-material" required value={materialVersionId} onChange={(event) => setMaterialVersionId(event.target.value)}><option value="">Select…</option>{selectableMaterials.map((item) => <option key={item.versionId} value={item.versionId}>{item.title} · v{item.versionNumber}</option>)}</select><button className="btn btn-ghost" disabled={busy || downloadBusy || !selectableMaterials.length}>Attach</button></form>

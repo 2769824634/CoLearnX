@@ -4,6 +4,7 @@ import Logo from '../../components/Logo';
 import PasswordInput from '../../components/PasswordInput';
 import { consumeSessionReplacedMessage, SESSION_REPLACED_MESSAGE } from '../../api/client';
 import useAdminAuth from '../../auth/useAdminAuth';
+import { useNoCredentialAutofill } from '../../auth/noCredentialAutofill';
 import '../../styles/admin.css';
 
 const CONSOLE_AREAS = [
@@ -21,6 +22,8 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const emailAutofill = useNoCredentialAutofill();
+  const passwordAutofill = useNoCredentialAutofill();
   const from = location.state?.from;
   const requestedPath = from?.pathname;
   const destination = requestedPath?.startsWith('/admin/') && requestedPath !== '/admin/login'
@@ -82,7 +85,7 @@ export default function AdminLoginPage() {
           </ol>
         </section>
 
-        <form className="admin-console-form" onSubmit={onSubmit}>
+        <form className="admin-console-form" autoComplete="off" onSubmit={onSubmit}>
           <div>
             <p className="admin-console-eyebrow">Restricted workspace</p>
             <h2>Sign in as administrator</h2>
@@ -102,19 +105,21 @@ export default function AdminLoginPage() {
             <input
               id="admin-email"
               type="email"
-              autoComplete="username"
               value={email}
               onChange={(event) => { setEmail(event.target.value); setError(''); }}
               required
-              autoFocus
+              {...emailAutofill}
             />
           </div>
           <div className="form-group">
             <label htmlFor="admin-password">Password</label>
             <PasswordInput
               id="admin-password"
+              label={null}
               value={password}
               onChange={(event) => { setPassword(event.target.value); setError(''); }}
+              required
+              {...passwordAutofill}
             />
           </div>
           {error ? (

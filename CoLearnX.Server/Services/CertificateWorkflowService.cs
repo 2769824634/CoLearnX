@@ -257,6 +257,7 @@ public sealed class CertificateWorkflowService(CoLearnXDbContext db) : ICertific
         => db.Notifications.Add(new Notification
         {
             UserId = enrollment.UserId,
+            EnrollmentId = enrollment.Id,
             Code = code,
             Title = title,
             Body = $"{enrollment.Course.Code}: {enrollment.Course.Title}. Request #{request.Id}. {body}",

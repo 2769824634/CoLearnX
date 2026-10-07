@@ -1,37 +1,67 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import '../styles/password-input.css';
 
-export default function PasswordInput({ id, value, onChange, autoComplete = 'current-password', required = true }) {
+function EyeIcon({ visible }) {
+  return (
+    <svg className="password-input__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M2.2 12s3.5-6 9.8-6 9.8 6 9.8 6-3.5 6-9.8 6-9.8-6-9.8-6Z" />
+      <circle cx="12" cy="12" r="2.7" />
+      {visible ? <path d="m4 4 16 16" /> : null}
+    </svg>
+  );
+}
+
+export default function PasswordInput({ id, label = 'Password', className = '', ...inputProps }) {
+  const generatedId = useId();
+  const inputId = id || `password-input-${generatedId}`;
   const [visible, setVisible] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
-  const capsHintId = `${id}-caps`;
-  const trackCapsLock = (event) => setCapsLock(Boolean(event.getModifierState?.('CapsLock')));
+  const capsHintId = `${inputId}-caps`;
+  const spoken = label
+    ? (label.toLowerCase() === 'confirm password' ? 'confirmation' : label.toLowerCase())
+    : 'password';
+  const buttonLabel = `${visible ? 'Hide' : 'Show'} ${spoken}`;
+
+  function trackCapsLock(event) {
+    setCapsLock(Boolean(event.getModifierState?.('CapsLock')));
+  }
 
   return (
     <>
-      <div className="password-input">
+      {label ? <label htmlFor={inputId}>{label}</label> : null}
+      <span className={`password-input${className ? ` ${className}` : ''}`}>
         <input
-          id={id}
+          {...inputProps}
+          id={inputId}
+          className="password-input__field"
           type={visible ? 'text' : 'password'}
-          autoComplete={autoComplete}
-          value={value}
-          onChange={onChange}
-          onKeyDown={trackCapsLock}
-          onKeyUp={trackCapsLock}
-          onBlur={() => setCapsLock(false)}
-          aria-describedby={capsLock ? capsHintId : undefined}
-          required={required}
+          onKeyDown={(event) => {
+            trackCapsLock(event);
+            inputProps.onKeyDown?.(event);
+          }}
+          onKeyUp={(event) => {
+            trackCapsLock(event);
+            inputProps.onKeyUp?.(event);
+          }}
+          onBlur={(event) => {
+            setCapsLock(false);
+            inputProps.onBlur?.(event);
+          }}
+          aria-describedby={capsLock ? capsHintId : inputProps['aria-describedby']}
         />
         <button
           type="button"
-          className="password-toggle"
-          aria-label={visible ? 'Hide password' : 'Show password'}
+          className="password-input__toggle"
+          aria-label={buttonLabel}
           aria-pressed={visible}
-          aria-controls={id}
+          aria-controls={inputId}
+          title={buttonLabel}
+          onMouseDown={(event) => event.preventDefault()}
           onClick={() => setVisible((current) => !current)}
         >
-          {visible ? 'Hide' : 'Show'}
+          <EyeIcon visible={visible} />
         </button>
-      </div>
+      </span>
       {capsLock ? <p id={capsHintId} className="password-caps" role="status">Caps Lock is on</p> : null}
     </>
   );

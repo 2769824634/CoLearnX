@@ -171,6 +171,13 @@ public record PostponementOptionDto(int IntakeId, int CourseSessionId, string La
 
 public record MemberHubMaterialDto(int Id, string Title, string Format, DateTime AttachedAt);
 public record MemberHubRecordingDto(int Id, string Title, string RecordingUrl, DateTime CreatedAt);
+public record MemberHubSessionMaterialDto(
+    int Id,
+    int CourseSessionId,
+    string SessionLabel,
+    string Title,
+    string Format,
+    DateTime UploadedAt);
 
 public record CreditPackageDto(
     int Id,

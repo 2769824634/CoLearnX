@@ -9,6 +9,24 @@ vi.mock('../api', () => ({ authApi: { availableRoles: vi.fn(), resendVerificatio
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
+it('keeps the public login empty and does not ask the browser to autofill credentials', () => {
+  render(<MemoryRouter><AuthContext.Provider value={{ booting: false, isAuthenticated: false, activeRole: null, login: vi.fn() }}><LoginPage /></AuthContext.Provider></MemoryRouter>);
+  const email = screen.getByLabelText('Email');
+  const password = document.querySelector('#login-password');
+  expect(email.value).toBe('');
+  expect(password.value).toBe('');
+  expect(email.getAttribute('autocomplete')).toBe('off');
+  expect(password.getAttribute('autocomplete')).toBe('off');
+  expect(email.form.getAttribute('autocomplete')).toBe('off');
+  expect(email.readOnly).toBe(true);
+  expect(password.readOnly).toBe(true);
+  expect(screen.queryByDisplayValue(/huang\.yousheng/i)).toBeNull();
+  fireEvent.focus(email);
+  fireEvent.focus(password);
+  expect(email.readOnly).toBe(false);
+  expect(password.readOnly).toBe(false);
+});
+
 it('logs a single-role account in directly without an identity chooser', async () => {
   const auth = {
     booting: false,

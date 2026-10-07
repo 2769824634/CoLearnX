@@ -1,4 +1,18 @@
-# CoLearnX v7 — 本地功能增量与问题修复
+# CoLearnX 20261005_v9.2
+
+以 GitHub master 的 v9.1（a8cc925）为基准，合入本地 v8/v9（a5c9b9d）的兼容功能；冲突优先保留 v9.1。分支名为 `20261005_v9.2`，版本记录见 [VERSION](VERSION)。完整范围、14 个冲突文件的取舍和本轮验证见 [v9.2 合并记录](docs/20261005-v9.2-merge-conflicts.md)。
+
+保留 v9.1 的公开课程浏览、统一首页、兴趣弹窗、读取缓存、Creator 自审排期及服务拆分；合入 Trainer 预约名单、Admin 审核摘要、通知报名定位、课节资料上传/下载及结构保护、免重复填写邮箱的密码重置和个人资料输入焦点修复。登录/注册/Admin 登录密码眼睛按钮、旧推荐仪表盘入口及 v8 预约刷新专门提示按冲突规则未采用，详情见合并记录。
+
+本轮后端 372/372、前端页面 180/180、Node 22/22 通过，前后端构建通过。全量 ESLint 仍为 14 errors、2 warnings，与独立检查的 v9.1 基准一致；没有关闭规则或声明全量 Lint 通过。
+
+本地预览：在 `colearnx.client` 执行 `npm.cmd ci`，在仓库根目录执行 `dotnet restore CoLearnX.Server.Tests/CoLearnX.Server.Tests.csproj -p:SkipSpaPublish=true`，然后运行 `powershell -ExecutionPolicy Bypass -File scripts/Start-V92Preview.ps1`，打开 `https://localhost:5192`。脚本使用独立 SQLite、上传目录及本地邮件捕获，Testing 环境不运行定时成班 worker。需要 Node.js 与 .NET 10，停止服务用 `Ctrl+C`。
+
+历史 v8/v9 记录仍保留，但不能替代当前合并结果：[v8](docs/20261005-v8-pdf-fixes.md)、[v9](docs/20261005-v9-session-materials-and-account.md)。
+
+以下为 v7 历史交付记录。历史路径、测试数量和发布状态仅对应当时版本，v9.2 当前结果以本轮验收记录为准。
+
+## v7 本地功能增量与问题修复（历史）
 
 本文记录 2026-09-23 至 2026-10-03 多轮开发在本地 v7 中实现的功能、首轮 PDF 问题修复、已有验证证据和运行方式。功能状态以当前代码为准；设计稿用于对照需求，PDF 用于对照问题与复测结果。
 

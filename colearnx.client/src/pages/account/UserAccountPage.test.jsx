@@ -44,6 +44,31 @@ afterEach(() => {
 });
 
 describe('Trainer and Creator My Account', () => {
+  it.each(['trainer', 'creator'])('keeps focus during consecutive edits to every %s profile field', async (role) => {
+    vi.stubGlobal('fetch', vi.fn(async () => json([])));
+    render(
+      <MemoryRouter initialEntries={[`/${role}/account`]}>
+        <AuthContext.Provider value={authFor(role)}><AppRouter /></AuthContext.Provider>
+      </MemoryRouter>,
+    );
+    const trigger = await screen.findByRole('button', { name: 'Edit Profile' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const labels = ['Full Name', 'Display name', 'Phone', 'Bio',
+      ...(role === 'trainer' ? ['Trainer headline', 'Specialisations'] : ['Creator headline', 'Expertise tags'])];
+    for (const label of labels) {
+      const field = screen.getByLabelText(label);
+      field.focus();
+      for (const value of ['A', 'Ab', 'Abc']) {
+        fireEvent.change(field, { target: { value } });
+        expect(document.activeElement).toBe(field);
+        expect(field.value).toBe(value);
+      }
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it('shows a masked trainer profile and saves Edit Profile changes', async () => {
     const auth = authFor('trainer');
     vi.stubGlobal('fetch', vi.fn(async (path, options = {}) => {

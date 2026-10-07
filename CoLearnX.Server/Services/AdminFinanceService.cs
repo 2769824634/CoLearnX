@@ -101,7 +101,7 @@ public sealed class AdminFinanceService(CoLearnXDbContext db, ILogger<AdminFinan
                     EntityType = nameof(User),
                     EntityId = user.Id.ToString(),
                     Result = "Succeeded",
-                    Reason = $"{request.Delta:+#;-#;0} credits: {reason}",
+                    Reason = $"{(request.Delta > 0 ? "+" : "")}{BusinessText.Credits(request.Delta)}: {reason}",
                 });
                 await db.SaveChangesAsync(ct);
                 await transaction.CommitAsync(ct);
@@ -248,35 +248,45 @@ public sealed class AdminFinanceService(CoLearnXDbContext db, ILogger<AdminFinan
                     var credits = request.RefundCredits!.Value;
                     dispute.Status = DisputeStatus.ResolvedRefund;
                     dispute.RefundCredits = credits;
-                    dispute.Enrollment!.User.CreditBalance += credits;
-                    if (credits == dispute.Enrollment.CreditsSpent)
+                    if (credits == dispute.Enrollment!.CreditsSpent)
                     {
-                        var session = dispute.Enrollment.CourseSession;
-                        if (session.PhysicalCapacity > 0 && session.SeatsTaken <= 0)
-                            throw new LaterPhaseException("DISPUTE_SEAT_CONFLICT", "The enrollment seat is inconsistent; review is required before refunding.", 409);
-                        dispute.Enrollment.Status = EnrollmentStatus.Refunded;
-                        if (session.PhysicalCapacity > 0)
-                            session.SeatsTaken -= 1;
+                        try
+                        {
+                            new EnrollmentCreditTransitions(db).Refund(
+                                dispute.Enrollment.User, dispute.Enrollment, credits,
+                                $"Refund for dispute #{dispute.Id}: {reason}",
+                                relatedDisputeId: dispute.Id, adminAccountId: adminAccountId,
+                                idempotencyKey: request.IdempotencyKey);
+                        }
+                        catch (CourseException error) when (error.Code == "ENROLLMENT_SEAT_CONFLICT")
+                        {
+                            throw new LaterPhaseException("DISPUTE_SEAT_CONFLICT",
+                                "The enrollment seat is inconsistent; review is required before refunding.", 409);
+                        }
                     }
-                    db.CreditTransactions.Add(new CreditTransaction
+                    else
                     {
-                        UserId = dispute.RaisedByUserId,
-                        Type = CreditTransactionType.Refund,
-                        Description = $"Refund for dispute #{dispute.Id}: {reason}",
-                        Delta = credits,
-                        BalanceAfter = dispute.Enrollment.User.CreditBalance,
-                        HeldAfter = dispute.Enrollment.User.HeldCredits,
-                        RelatedEnrollmentId = dispute.EnrollmentId,
-                        RelatedDisputeId = dispute.Id,
-                        AdminAccountId = adminAccountId,
-                        IdempotencyKey = request.IdempotencyKey,
-                    });
+                        dispute.Enrollment.User.CreditBalance += credits;
+                        db.CreditTransactions.Add(new CreditTransaction
+                        {
+                            UserId = dispute.RaisedByUserId,
+                            Type = CreditTransactionType.Refund,
+                            Description = $"Refund for dispute #{dispute.Id}: {reason}",
+                            Delta = credits,
+                            BalanceAfter = dispute.Enrollment.User.CreditBalance,
+                            HeldAfter = dispute.Enrollment.User.HeldCredits,
+                            RelatedEnrollmentId = dispute.EnrollmentId,
+                            RelatedDisputeId = dispute.Id,
+                            AdminAccountId = adminAccountId,
+                            IdempotencyKey = request.IdempotencyKey,
+                        });
+                    }
                     db.Notifications.Add(new Notification
                     {
                         UserId = dispute.RaisedByUserId,
                         Code = "N-09",
                         Title = "Refund processed",
-                        Body = $"{credits} credits were restored for dispute #{dispute.Id}.",
+                        Body = $"Restored {BusinessText.Credits(credits)} for dispute #{dispute.Id}.",
                     });
                 }
                 else

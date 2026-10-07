@@ -4,7 +4,7 @@ import CourseCover from '../../components/CourseCover';
 import MemberShell from '../../components/MemberShell';
 import { recommendationsApi } from '../../api';
 import { userFacingError } from '../businessPresentation';
-import { useMemberData } from './memberDataState';
+import { useMemberSlices } from './memberDataState';
 
 const programLink = (enrollment) => `/member/programs?tab=active&enrollmentId=${enrollment.enrollmentId}`;
 
@@ -23,7 +23,7 @@ function Progress({ title, value }) {
 // Dashboard: what to continue first, a compact learning summary, then recommendations.
 export default function MemberHomePage() {
   const navigate = useNavigate();
-  const { state, toggleWish, reload } = useMemberData();
+  const { state, toggleWish, reload } = useMemberSlices('catalog', 'enrollments', 'certificates');
   const active = state.enrolled.filter((e) => e.status === 'active');
   const completed = state.enrolled.filter((e) => e.status === 'completed');
   const [upNext, ...alsoActive] = active;

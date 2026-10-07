@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useAuth } from '../../auth/AuthContext';
 import { creatorIntakeApplicationsApi } from '../../api/creatorIntakeApplications';
 import { reviewPayload } from '../trainer/b4Workflow';
 import { safeMeetingLink } from '../trainer/intakeForm';
-import { formatUtcDateTime } from '../businessPresentation';
+import { formatCount, formatUtcDateTime } from '../businessPresentation';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 
@@ -18,13 +19,13 @@ function Schedule({ title, intake, accent = false }) {
       const meetingLink = safeMeetingLink(session.meetingLink);
       return <article key={session.id || `${session.label}-${index}`}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{session.label}</strong><p>{formatUtcDateTime(session.startsAt)} → {formatUtcDateTime(session.endsAt)}</p>
         <small>{meetingLink ? <a href={meetingLink} target="_blank" rel="noopener noreferrer">{meetingLink}</a> : (session.meetingLink ? 'Invalid meeting link' : 'No online meeting link')}</small>
-        <small>{session.physicalAddress ? `${session.physicalAddress} · ${session.physicalCapacity} seats · Booking closes ${session.physicalBookingDeadline ? formatUtcDateTime(session.physicalBookingDeadline) : 'not set'}` : 'No physical location'}</small>
+        <small>{session.physicalAddress ? `${session.physicalAddress} · ${formatCount(session.physicalCapacity, 'seat')} · Booking closes ${session.physicalBookingDeadline ? formatUtcDateTime(session.physicalBookingDeadline) : 'not set'}` : 'No physical location'}</small>
       </div></article>;
     })}</div>
   </section>;
 }
 
-function ReviewDesk({ application, token, intakeId, onReviewed }) {
+function ReviewDesk({ application, token, intakeId, onReviewed, teachingOwnCourse }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -35,12 +36,13 @@ function ReviewDesk({ application, token, intakeId, onReviewed }) {
     catch (failure) { setError(failure); }
     finally { setBusy(false); }
   }
-  return <aside className="creator-review-desk"><p className="creator-eyebrow">Decision</p><h2>Approve sessions</h2><p>Approve publishes this Intake and every Session in it so Members can enrol. Reject keeps the current schedule and requires a note.</p><label htmlFor="creator-confirmation-note">Approval note</label><textarea id="creator-confirmation-note" maxLength={512} rows={5} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Required when returning changes" />
+  return <aside className="creator-review-desk"><p className="creator-eyebrow">Decision</p><h2>Approve sessions</h2><p>{teachingOwnCourse ? 'You teach this course. Approving publishes your own sessions so Members can enrol. Reject keeps the current schedule and requires a note.' : 'Approve publishes this Intake and every Session in it so Members can enrol. Reject keeps the current schedule and requires a note.'}</p><label htmlFor="creator-confirmation-note">Approval note</label><textarea id="creator-confirmation-note" maxLength={512} rows={5} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Required when returning changes" />
     <CreatorError error={error} /><div className="creator-review-actions"><button type="button" className="btn btn-primary" disabled={busy} onClick={() => review('Confirm')}>{busy ? 'Saving…' : 'Approve sessions'}</button><button type="button" className="btn btn-ghost" disabled={busy || !note.trim()} onClick={() => review('Reject')}>Return with note</button></div>
   </aside>;
 }
 
 function ApplicationWorkspace({ query }) {
+  const { user } = useAuth();
   const detail = query.data;
   const { application, currentIntake, proposedChange } = detail;
   if (!application) return <>
@@ -48,7 +50,7 @@ function ApplicationWorkspace({ query }) {
     <Schedule title="Current schedule" intake={currentIntake} />
   </>;
   return <><CreatorHeader eyebrow={`${application.courseCode} / Intake #${application.courseIntakeId}`} title={application.courseTitle} action={<span className={`creator-status ${application.status.toLowerCase()}`}>{application.status}</span>}>Trainer: {application.trainerName} · {application.kind === 'Change' ? 'Structural change request' : 'New Intake application'}</CreatorHeader>
-    <div className="creator-review-layout"><main><Schedule title={proposedChange ? 'Confirmed schedule' : 'Submitted schedule'} intake={currentIntake} />{proposedChange ? <Schedule title="Proposed replacement" intake={proposedChange} accent /> : null}</main>{application.status === 'Pending' ? <ReviewDesk application={application} token={query.token} intakeId={application.courseIntakeId} onReviewed={query.refresh} /> : <aside className="creator-review-desk closed"><p className="creator-eyebrow">Decision recorded</p><h2>{application.status}</h2><p>{currentIntake.confirmationNote || 'No note was recorded.'}</p></aside>}</div>
+    <div className="creator-review-layout"><main><Schedule title={proposedChange ? 'Confirmed schedule' : 'Submitted schedule'} intake={currentIntake} />{proposedChange ? <Schedule title="Proposed replacement" intake={proposedChange} accent /> : null}</main>{application.status === 'Pending' ? <ReviewDesk application={application} token={query.token} intakeId={application.courseIntakeId} onReviewed={query.refresh} teachingOwnCourse={application.trainerId === user?.id} /> : <aside className="creator-review-desk closed"><p className="creator-eyebrow">Decision recorded</p><h2>{application.status}</h2><p>{currentIntake.confirmationNote || 'No note was recorded.'}</p></aside>}</div>
   </>;
 }
 

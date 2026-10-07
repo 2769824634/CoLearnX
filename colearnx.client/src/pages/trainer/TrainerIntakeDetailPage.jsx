@@ -3,11 +3,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { trainerIntakesApi } from '../../api/trainerIntakes';
 import { trainerDeliveryApi } from '../../api/trainerDelivery';
 import { ScheduleForm, SessionForm } from './IntakeForms';
-import { formatDate, isEditable, localTimezone, safeMeetingLink } from './intakeForm';
+import { formatDate, isEditable, safeMeetingLink } from './intakeForm';
 import useTrainerQuery, { loadTrainerDetail } from './useTrainerQuery';
 import { IntakeStatus, TrainerError, TrainerHeader, TrainerLoading } from './TrainerUi';
 import ChangeRequestEditor from './ChangeRequestEditor';
 import TrainerResourcesPanel from './TrainerResourcesPanel';
+import TrainerSessionMaterialsPanel from './TrainerSessionMaterialsPanel';
+import TrainerReservationPanel from './TrainerReservationPanel';
+import { formatCount } from '../businessPresentation';
 
 function SessionCard({ session, editable, deliveryEditable, onEdit, onDelete, onDelivery }) {
   const meetingLink = safeMeetingLink(session.meetingLink);
@@ -16,7 +19,7 @@ function SessionCard({ session, editable, deliveryEditable, onEdit, onDelete, on
     <p className="trainer-session-time">{formatDate(session.startsAt)} → {formatDate(session.endsAt)}</p>
     <div className="trainer-session-locations">
       {session.meetingLink ? <div><strong>Online</strong>{meetingLink ? <a href={meetingLink} target="_blank" rel="noopener noreferrer">{meetingLink}</a> : <span>Invalid meeting link</span>}</div> : null}
-      {session.physicalAddress ? <div><strong>Physical · {session.physicalCapacity} seats</strong><span>{session.physicalAddress}</span><small>Booking closes {formatDate(session.physicalBookingDeadline)}</small></div> : null}
+      {session.physicalAddress ? <div><strong>Physical · {formatCount(session.physicalCapacity, 'seat')}</strong><span>{session.physicalAddress}</span><small>Booking closes {formatDate(session.physicalBookingDeadline)}</small></div> : null}
     </div>
   </article>;
 }
@@ -87,7 +90,7 @@ function IntakeWorkspace({ query }) {
   const editingSession = editor?.session;
   return <>
     <TrainerHeader eyebrow={`${course?.code || `Course #${intake.courseId}`} / Intake #${intake.id}`} title={course?.title || `Course #${intake.courseId}`} action={<IntakeStatus status={intake.status} />}>
-      Your cohort schedule · All times in {localTimezone}
+      Your cohort schedule · All displayed times in UTC
     </TrainerHeader>
     {notice ? <div className="trainer-notice" role="status">{notice}</div> : null}
     {catalogError ? <p className="trainer-help">Course names are unavailable ({catalogError.code || 'NETWORK_ERROR'}). Your Intake data is still available.</p> : null}
@@ -105,7 +108,8 @@ function IntakeWorkspace({ query }) {
         : <button type="button" className="btn btn-primary" disabled={Boolean(editor) || busy || blocked} onClick={() => openEditor({ type: 'postpone' })}>Create postponed Intake</button>}
     </section> : null}
     <div className="trainer-section-heading"><h2>Registration & delivery</h2>{editable && !editor ? <button type="button" className="btn btn-ghost" disabled={busy || blocked} onClick={() => openEditor({ type: 'schedule' })}>Edit schedule</button> : null}</div>
-    <dl className="trainer-schedule-summary">{[['Registration opens', intake.registrationOpensAt], ['Registration closes', intake.registrationClosesAt], ['Delivery starts', intake.startsAt], ['Delivery ends', intake.endsAt]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{formatDate(value)}</dd></div>)}<div><dt>Minimum enrollment</dt><dd>{intake.minEnrollment ?? 10} learners</dd></div></dl>
+    <dl className="trainer-schedule-summary">{[['Registration opens', intake.registrationOpensAt], ['Registration closes', intake.registrationClosesAt], ['Delivery starts', intake.startsAt], ['Delivery ends', intake.endsAt]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{formatDate(value)}</dd></div>)}<div><dt>Minimum enrollment</dt><dd>{formatCount(intake.minEnrollment ?? 10, 'learner')}</dd></div></dl>
+    <TrainerReservationPanel key={intake.id} intake={intake} />
     {editor?.type === 'schedule' ? <ScheduleForm key={intake.version} intake={intake} error={error} onError={setError} busy={busy} blocked={blocked} onCancel={() => openEditor(null)} onSave={(body) => mutate(() => trainerIntakesApi.update(query.token, intake.id, body), 'Intake schedule saved.')} /> : null}
     <div className="trainer-section-heading"><div><p className="trainer-eyebrow">Teaching plan</p><h2>Sessions <span className="trainer-count">{sessions.length}</span></h2></div>{editable && !editor ? <button type="button" className="btn btn-primary" disabled={busy || blocked} onClick={() => openEditor({ type: 'session' })}>+ Add Session</button> : null}</div>
     {editor?.type === 'session' ? <SessionForm key={`${intake.version}:${editingSession?.id || 'new'}`} session={editingSession} intake={intake} error={error} onError={setError} busy={busy} blocked={blocked} onCancel={() => openEditor(null)} onSave={(body) => mutate(() => editingSession ? trainerIntakesApi.updateSession(query.token, intake.id, editingSession.id, body) : trainerIntakesApi.createSession(query.token, intake.id, body), editingSession ? 'Session updated.' : 'Session added.')} /> : null}
@@ -119,6 +123,7 @@ function IntakeWorkspace({ query }) {
     {deliveryEditable ? <div className="trainer-submit-panel"><div><p className="trainer-eyebrow">Class operations</p><h2>Cancel this Intake</h2><p>Reserved places release their held credits. Confirmed places receive a full refund.</p></div>{editor?.type === 'cancel-intake' ? <div className="trainer-confirm"><strong>Cancel Intake #{intake.id} for every learner?</strong><div className="trainer-actions"><button type="button" className="btn btn-primary" disabled={busy || blocked} onClick={() => mutate(async () => { await trainerIntakesApi.cancel(query.token, intake.id); return trainerIntakesApi.get(query.token, intake.id); }, 'Intake cancelled and credits returned.')}>{busy ? 'Cancelling…' : 'Confirm cancellation'}</button><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => openEditor(null)}>Keep Intake</button></div></div> : <button type="button" className="btn btn-ghost" disabled={Boolean(editor) || busy || blocked} onClick={() => openEditor({ type: 'cancel-intake' })}>Cancel Intake</button>}</div> : null}
     {editor?.type === 'change' ? <ChangeRequestEditor key={`${intake.version}:${intake.latestChangeRequest?.applicationId || 'new'}`} intake={intake} busy={busy} blocked={blocked} error={error} onError={setError} onCancel={() => openEditor(null)} onSubmit={(body) => mutate(() => trainerIntakesApi.requestChange(query.token, intake.id, body), 'Change request submitted. The current confirmed schedule remains in place until approval.')} /> : null}
     {deliveryEditable ? <TrainerResourcesPanel token={query.token} intake={intake} /> : null}
+    {deliveryEditable ? <TrainerSessionMaterialsPanel token={query.token} intake={intake} /> : null}
     <p className="trainer-detail-footer">Intake #{intake.id} · Course #{intake.courseId} · Trainer #{intake.trainerId}</p>
   </>;
 }

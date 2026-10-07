@@ -42,3 +42,12 @@ it.each([{ cancellationReason: 'TrainerCancelled' }, { postponementAvailableUnti
   await waitFor(() => expect(screen.getByText('Minimum enrollment')).toBeTruthy());
   expect(screen.queryByRole('button', { name: 'Create postponed Intake' })).toBeNull();
 });
+
+it('shows the same reservation progress and UTC schedule on the Intake detail', async () => {
+  renderIntake({ status: 'Draft', minEnrollment: 2, reservedEnrollmentCount: 1, activeEnrollmentCount: 0, remainingToMinimum: 1 });
+  expect(await screen.findByText('1 reserved')).toBeTruthy();
+  expect(screen.getByText('1 more learner needed')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'View reserved places' })).toBeTruthy();
+  expect(screen.getByText(/All displayed times in UTC/)).toBeTruthy();
+  expect(screen.getByText('20 Jan 2099, 00:00 UTC')).toBeTruthy();
+});

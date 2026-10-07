@@ -24,3 +24,14 @@ it('submits a reason for the selected enrollment and displays the resulting stat
   expect(fetch).toHaveBeenCalledWith('/api/disputes', expect.objectContaining({ method: 'POST' }));
   expect(JSON.parse(fetch.mock.calls.find(([path]) => path === '/api/disputes')[1].body)).toEqual({ enrollmentId: 3, reason: 'Session cancelled' });
 });
+
+it('uses a singular credit label for a one-credit refund', async () => {
+  const auth = { user: { id: 1, fullName: 'Learner', roles: ['Member'] }, token: 'member-token', logout: vi.fn() };
+  const member = { state: { enrolled: [{ enrollmentId: 3, courseCode: 'UX101', courseTitle: 'UX', status: 'active' }] }, showToast: vi.fn() };
+  const fetch = vi.fn(async (path) => new Response(JSON.stringify(path === '/api/disputes/my' ? [{ id: 4, enrollmentId: 3, courseCode: 'UX101', courseTitle: 'UX', status: 'ResolvedRefund', reason: 'Issue', refundCredits: 1 }] : []), { headers: { 'Content-Type': 'application/json' } }));
+  vi.stubGlobal('fetch', fetch);
+
+  render(<MemoryRouter initialEntries={['/member/disputes?enrollmentId=3']}><AuthContext.Provider value={auth}><MemberDataContext.Provider value={member}><MemberDisputesPage /></MemberDataContext.Provider></AuthContext.Provider></MemoryRouter>);
+  expect(await screen.findByText('Refunded: 1 credit')).toBeTruthy();
+  expect(screen.queryByText('Refunded: 1 credits')).toBeNull();
+});

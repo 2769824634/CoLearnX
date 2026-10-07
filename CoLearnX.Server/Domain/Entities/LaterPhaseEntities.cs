@@ -42,6 +42,20 @@ public sealed class SessionRecording
     public CourseSession CourseSession { get; set; } = null!;
 }
 
+// Trainer supplied binary resources scoped to one CourseSession.
+public sealed class SessionMaterial
+{
+    public int Id { get; set; }
+    public int CourseSessionId { get; set; }
+    public int AddedByTrainerId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string FilePath { get; set; } = string.Empty;
+    public string Format { get; set; } = "PDF";
+    public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+
+    public CourseSession CourseSession { get; set; } = null!;
+}
+
 public sealed class Assessment
 {
     public int Id { get; set; }

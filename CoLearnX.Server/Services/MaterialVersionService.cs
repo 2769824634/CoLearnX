@@ -161,18 +161,9 @@ public sealed class MaterialVersionService(CoLearnXDbContext db, IFileStorage fi
 
     public async Task<MaterialFileResult> OpenFileAsync(int versionId, CancellationToken ct = default)
     {
-        var version = await db.CourseMaterialVersions.AsNoTracking()
-            .Include(item => item.LearningMaterial)
-            .FirstOrDefaultAsync(item => item.Id == versionId, ct)
-            ?? throw new FileNotFoundException("Material file not found.");
-
-        var stream = await files.OpenAsync(version.FilePath, ct)
-            ?? throw new FileNotFoundException("Material file not found.");
-
-        return new MaterialFileResult(
-            stream,
-            MaterialFiles.ContentType(Path.GetExtension(version.FilePath)),
-            MaterialFiles.DownloadName(version.LearningMaterial.Title, version.FilePath));
+        var access = new MaterialFileAccess(db, files);
+        var (filePath, title) = await access.RequireAdminVersionAsync(versionId, ct);
+        return await access.OpenStoredAsync(filePath, title, new FileNotFoundException("Material file not found."), ct);
     }
 
     private async Task<MaterialVersionDto> GetAsync(int versionId, CancellationToken ct)

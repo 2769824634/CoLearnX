@@ -13,6 +13,27 @@ test('trainer attendance sends the intake-scoped batch contract', async (t) => {
   assert.deepEqual(JSON.parse(options.body), { records: [{ enrollmentId: 56, status: 'Present' }] });
 });
 
+test('trainer Session materials use the intake/session routes and multipart upload contract', async (t) => {
+  const fetch = t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify([]), { status: 200 }));
+  const signal = new AbortController().signal;
+  await trainerLaterPhaseApi.sessionMaterials('trainer-token', 12, 34, signal);
+  let [path, options] = fetch.mock.calls[0].arguments;
+  assert.equal(path, '/api/trainer/intakes/12/sessions/34/materials');
+  assert.equal(options.headers.Authorization, 'Bearer trainer-token');
+  assert.equal(options.signal, signal);
+
+  const file = new File(['pdf-bytes'], 'handout.pdf', { type: 'application/pdf' });
+  await trainerLaterPhaseApi.uploadSessionMaterial('trainer-token', 12, 34, 'Handout', file);
+  [path, options] = fetch.mock.calls[1].arguments;
+  assert.equal(path, '/api/trainer/intakes/12/sessions/34/materials');
+  assert.equal(options.method, 'POST');
+  assert.equal(options.headers.Authorization, 'Bearer trainer-token');
+  assert.equal(options.headers['Content-Type'], undefined);
+  assert.equal(options.body instanceof FormData, true);
+  assert.equal(options.body.get('title'), 'Handout');
+  assert.equal(options.body.get('file').name, 'handout.pdf');
+});
+
 test('trainer grading targets an assessment and enrollment without client-owned identity', async (t) => {
   const fetch = t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ score: 88 }), { status: 200 }));
   await trainerLaterPhaseApi.grade('trainer-token', 7, 9, { score: 88, feedback: 'Pass' });

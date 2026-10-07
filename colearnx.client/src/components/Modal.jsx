@@ -21,6 +21,7 @@ function isTopmost(panel) {
 }
 
 export default function Modal({ open, title, onClose, children, width }) {
+  const isOpen = Boolean(open);
   const dialogRef = useRef(null);
   const previousFocusRef = useRef(null);
   const onCloseRef = useRef(onClose);
@@ -30,7 +31,7 @@ export default function Modal({ open, title, onClose, children, width }) {
   }, [onClose]);
 
   useEffect(() => {
-    if (!open) return undefined;
+    if (!isOpen) return undefined;
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const panel = dialogRef.current;
     const controls = focusableElements(panel);
@@ -74,9 +75,9 @@ export default function Modal({ open, title, onClose, children, width }) {
       const previous = previousFocusRef.current;
       if (previous && document.contains(previous)) previous.focus();
     };
-  }, [open]);
+  }, [isOpen]);
 
-  if (!open) return null;
+  if (!isOpen) return null;
 
   return (
     <div
@@ -96,9 +97,11 @@ export default function Modal({ open, title, onClose, children, width }) {
       >
         <div className="modal-header">
           <h2 id={title ? titleId : undefined} style={{ margin: 0, font: 'inherit' }}>{title}</h2>
-          <button type="button" className="modal-close" onClick={() => onCloseRef.current?.()} aria-label="Close">
-            ✕
-          </button>
+          {onClose ? (
+            <button type="button" className="modal-close" onClick={() => onCloseRef.current?.()} aria-label="Close">
+              ✕
+            </button>
+          ) : null}
         </div>
         <div className="modal-body">{children}</div>
       </div>

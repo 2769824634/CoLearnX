@@ -7,7 +7,7 @@ import { AuthContext } from './AuthContext';
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => getStoredToken());
   const [user, setUser] = useState(null);
-  const [booting, setBooting] = useState(true);
+  const [booting, setBooting] = useState(() => Boolean(token));
   const [error, setError] = useState(null);
 
   useEffect(() => {

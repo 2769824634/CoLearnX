@@ -399,6 +399,7 @@ public class Notification
     public bool IsRead { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public int? IntakeId { get; set; }
+    public int? EnrollmentId { get; set; }
     public bool EmailPending { get; set; }
     public DateTime? EmailAttemptedAt { get; set; }
     public DateTime? EmailSentAt { get; set; }

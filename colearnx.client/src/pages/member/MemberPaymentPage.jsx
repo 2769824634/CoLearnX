@@ -3,18 +3,20 @@ import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
 import PayPalPackageButtons from '../../components/PayPalPackageButtons';
 import { creditsApi } from '../../api';
-import { useMemberData } from './memberDataState';
+import { useMemberSlices } from './memberDataState';
+import { formatCount } from '../businessPresentation';
 
 // Fixed credit packages + PayPal.
 export default function MemberPaymentPage() {
-  const { state, showToast, applyLedgerTopUp } = useMemberData();
+  const { state, showToast, applyLedgerTopUp, reload } = useMemberSlices('billing');
   const [tab, setTab] = useState('topup');
   const [selectedId, setSelectedId] = useState(null);
   const [success, setSuccess] = useState(null);
   const [payError, setPayError] = useState('');
   const capturingReturn = useRef(false);
 
-  const selected = state.packages.find((p) => p.id === selectedId) || state.packages[0];
+  const packages = state.packages || [];
+  const selected = packages.find((p) => p.id === selectedId) || packages[0];
 
   const onCaptured = useCallback(
     async (ledger) => {
@@ -77,16 +79,19 @@ export default function MemberPaymentPage() {
           <div className="card-body">
             <div style={{ fontSize: 12, color: 'var(--slate)' }}>Available credits</div>
             <div style={{ fontSize: 40, fontWeight: 700, color: 'var(--purple)' }}>{state.credits}</div>
-            <div style={{ fontSize: 12, color: 'var(--teal)' }}>On hold: {state.heldCredits ?? 0} · Total: {state.totalCredits ?? state.credits}</div>
+            <div style={{ fontSize: 12, color: 'var(--teal)' }}>On hold: {formatCount(state.heldCredits ?? 0, 'credit')} · Total: {formatCount(state.totalCredits ?? state.credits, 'credit')}</div>
           </div>
         </div>
+
+        {state.loading && !(state.packages || []).length ? <p role="status">Loading packages…</p> : null}
+        {state.loadError ? <div className="callout warn" role="alert">{state.loadError} <button type="button" className="btn btn-ghost" onClick={reload}>Retry</button></div> : null}
 
         {tab === 'topup' ? (
           <>
             <h3 style={{ fontSize: 15, marginBottom: 12 }}>Choose a Credit Package</h3>
             <div className="grid-3" style={{ marginBottom: 20 }}>
-              {state.packages.map((p) => {
-                const active = (selectedId ?? state.packages[0]?.id) === p.id;
+              {packages.map((p) => {
+                const active = (selectedId ?? packages[0]?.id) === p.id;
                 return (
                   <button
                     key={p.id}
@@ -115,7 +120,7 @@ export default function MemberPaymentPage() {
               <div className="card-header">Pay with PayPal</div>
               <div className="card-body">
                 <p style={{ fontSize: 13, marginBottom: 12 }}>
-                  Selected: <strong>{selected ? `${selected.credits} credits · ${selected.price}` : '—'}</strong>
+                  Selected: <strong>{selected ? `${formatCount(selected.credits, 'credit')} · ${selected.price}` : '—'}</strong>
                 </p>
                 {payError ? (
                   <div className="callout warn" style={{ marginBottom: 12 }}>
@@ -175,8 +180,8 @@ export default function MemberPaymentPage() {
               Credits added to your wallet
             </strong>
             <p style={{ fontSize: 14, color: 'var(--slate)', margin: '0 0 16px' }}>
-              +{success.credits} credits · Balance now{' '}
-              <strong style={{ color: 'var(--purple)' }}>{success.balance}</strong>
+              +{formatCount(success.credits, 'credit')} · Balance now{' '}
+              <strong style={{ color: 'var(--purple)' }}>{formatCount(success.balance, 'credit')}</strong>
             </p>
             <div className="callout info" style={{ textAlign: 'left', marginBottom: 16 }}>
               <div className="callout-title">Payment confirmed</div>

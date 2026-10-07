@@ -36,7 +36,7 @@ public partial class AuthController
     {
         try
         {
-            if (!await resets.ResetAsync(request.Token, request.NewPassword, request.Email, ct))
+            if (!await resets.ResetAsync(request.Token, request.NewPassword, ct))
                 return BadRequest(new ApiError("INVALID_RESET_TOKEN", "This reset link is invalid or expired. Request a new link."));
             return Ok(new PasswordResetResponse("Password updated. Sign in with your new password."));
         }

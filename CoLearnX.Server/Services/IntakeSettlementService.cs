@@ -43,26 +43,18 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
                 .Where(e => e.CourseSession.CourseIntakeId == intakeId
                     && (e.Status == EnrollmentStatus.Reserved || e.Status == EnrollmentStatus.Active))
                 .ToListAsync(ct);
+            var credits = new EnrollmentCreditTransitions(db);
             foreach (var enrollment in enrollments)
             {
                 var reserved = enrollment.Status == EnrollmentStatus.Reserved;
+                var description = $"Class cancelled: {enrollment.Course.Code}";
                 if (reserved)
-                {
-                    if (enrollment.User.HeldCredits < enrollment.CreditsSpent)
-                        throw new InvalidOperationException($"Held credits are inconsistent for enrollment {enrollment.Id}.");
-                    enrollment.User.HeldCredits -= enrollment.CreditsSpent;
-                }
-                enrollment.User.CreditBalance += enrollment.CreditsSpent;
-                enrollment.Status = reserved ? EnrollmentStatus.Cancelled : EnrollmentStatus.Refunded;
-                enrollment.CourseSession.SeatsTaken -= 1;
-                db.CreditTransactions.Add(new CreditTransaction { UserId = enrollment.UserId,
-                    Type = reserved ? CreditTransactionType.Release : CreditTransactionType.Refund,
-                    Description = $"Class cancelled: {enrollment.Course.Code}", Delta = enrollment.CreditsSpent,
-                    BalanceAfter = enrollment.User.CreditBalance, HeldAfter = enrollment.User.HeldCredits,
-                    RelatedEnrollmentId = enrollment.Id });
-                db.Notifications.Add(new Notification { UserId = enrollment.UserId, IntakeId = intake.Id, EmailPending = true,
+                    credits.Release(enrollment.User, enrollment, description, inconsistentHoldIsDataError: true);
+                else
+                    credits.Refund(enrollment.User, enrollment, enrollment.CreditsSpent, description);
+                db.Notifications.Add(new Notification { UserId = enrollment.UserId, IntakeId = intake.Id, EnrollmentId = enrollment.Id, EmailPending = true,
                     Code = reserved ? "N-hold-released" : "N-class-cancelled",
-                    Title = "Class cancelled", Body = $"{enrollment.CreditsSpent} credits were returned for {enrollment.Course.Code}." });
+                    Title = "Class cancelled", Body = $"{BusinessText.Credits(enrollment.CreditsSpent)} {(enrollment.CreditsSpent == 1 ? "was" : "were")} returned for {enrollment.Course.Code}." });
             }
             var course = await db.Courses.AsNoTracking().SingleAsync(c => c.Id == intake.CourseId, ct);
             db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, EmailPending = true, Code = "N-intake-cancelled",
@@ -129,7 +121,7 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
                 + (string.IsNullOrWhiteSpace(place) ? " Check your program for details." : $" Location: {place}");
             if (!await db.Notifications.AnyAsync(n => n.UserId == enrollment.UserId
                 && n.Code == "N-class-reminder" && n.Body == body, ct))
-                db.Notifications.Add(new Notification { UserId = enrollment.UserId, IntakeId = intake.Id, EmailPending = true, Code = "N-class-reminder",
+                db.Notifications.Add(new Notification { UserId = enrollment.UserId, IntakeId = intake.Id, EnrollmentId = enrollment.Id, EmailPending = true, Code = "N-class-reminder",
                     Title = "Class starts soon", Body = body });
         }
         await db.SaveChangesAsync(ct);
@@ -169,36 +161,23 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
             if (changed != 1)
                 return new IntakeSettlementResult(intakeId, false, 0);
 
+            var credits = new EnrollmentCreditTransitions(db);
             foreach (var enrollment in reservations)
             {
                 var user = enrollment.User;
-                if (user.HeldCredits < enrollment.CreditsSpent)
-                    throw new InvalidOperationException($"Held credits are inconsistent for enrollment {enrollment.Id}.");
-                user.HeldCredits -= enrollment.CreditsSpent;
                 if (confirmed)
-                    enrollment.Status = EnrollmentStatus.Active;
+                    credits.Capture(user, enrollment, $"Class confirmed: {enrollment.Course.Code}");
                 else
                 {
-                    user.CreditBalance += enrollment.CreditsSpent;
-                    enrollment.Status = EnrollmentStatus.Cancelled;
+                    credits.Release(user, enrollment, $"Class did not run: {enrollment.Course.Code}",
+                        inconsistentHoldIsDataError: true);
                     enrollment.PostponementEligible = true;
-                    enrollment.CourseSession.SeatsTaken -= 1;
                 }
-                db.CreditTransactions.Add(new CreditTransaction
-                {
-                    UserId = user.Id,
-                    Type = confirmed ? CreditTransactionType.Capture : CreditTransactionType.Release,
-                    Description = confirmed ? $"Class confirmed: {enrollment.Course.Code}" : $"Class did not run: {enrollment.Course.Code}",
-                    Delta = confirmed ? 0 : enrollment.CreditsSpent,
-                    BalanceAfter = user.CreditBalance,
-                    HeldAfter = user.HeldCredits,
-                    RelatedEnrollmentId = enrollment.Id,
-                });
-                db.Notifications.Add(new Notification { UserId = user.Id, IntakeId = intake.Id, EmailPending = true,
+                db.Notifications.Add(new Notification { UserId = user.Id, IntakeId = intake.Id, EnrollmentId = enrollment.Id, EmailPending = true,
                     Code = confirmed ? "N-class-confirmed" : "N-hold-released",
                     Title = confirmed ? "Class confirmed" : "Credits released",
                     Body = confirmed ? $"Your place in {enrollment.Course.Code} is confirmed."
-                        : $"{enrollment.CreditsSpent} credits are available again because {enrollment.Course.Code} Intake #{intake.Id} did not meet the minimum enrollment. "
+                        : $"{BusinessText.Credits(enrollment.CreditsSpent)} {(enrollment.CreditsSpent == 1 ? "is" : "are")} available again because {enrollment.Course.Code} Intake #{intake.Id} did not meet the minimum enrollment. "
                             + $"You can wait up to 7 days (until {now.AddDays(7):u}) for a postponed class. "
                             + "If one is published, open My Programs to choose a session and reserve again using your available credits. A replacement is not guaranteed; your credits remain available until you reserve again." });
             }

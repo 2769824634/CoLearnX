@@ -1,6 +1,7 @@
 using CoLearnX.Server.Auth;
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Services;
+using CoLearnX.Server.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -31,6 +32,10 @@ public sealed class TrainerLaterPhaseController(
         [FromBody] AttachIntakeMaterialRequest request, CancellationToken ct)
         => Ok(await trainer.AttachMaterialAsync(User.GetUserId(), courseIntakeId, request, ct));
 
+    [HttpGet("intakes/{courseIntakeId:int}/reservations")]
+    public async Task<ActionResult<IReadOnlyList<TrainerReservationDto>>> Reservations(int courseIntakeId, CancellationToken ct)
+        => Ok(await trainer.ListReservationsAsync(User.GetUserId(), courseIntakeId, ct));
+
     [HttpGet("intakes/{courseIntakeId:int}/learning-materials/{materialVersionId:int}/file")]
     public async Task<IActionResult> DownloadIntakeMaterial(int courseIntakeId, int materialVersionId, CancellationToken ct)
     {
@@ -49,6 +54,29 @@ public sealed class TrainerLaterPhaseController(
     {
         var result = await trainer.AddRecordingAsync(User.GetUserId(), courseIntakeId, courseSessionId, request, ct);
         return Created($"/api/trainer/intakes/{courseIntakeId}/sessions/{courseSessionId}/recordings/{result.Id}", result);
+    }
+
+    [HttpGet("intakes/{courseIntakeId:int}/sessions/{courseSessionId:int}/materials")]
+    public async Task<ActionResult<IReadOnlyList<SessionMaterialDto>>> SessionMaterials(int courseIntakeId,
+        int courseSessionId, CancellationToken ct)
+        => Ok(await trainer.ListSessionMaterialsAsync(User.GetUserId(), courseIntakeId, courseSessionId, ct));
+
+    [HttpPost("intakes/{courseIntakeId:int}/sessions/{courseSessionId:int}/materials")]
+    [RequestSizeLimit(MaterialFiles.MaxRequestBytes)]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<SessionMaterialDto>> UploadSessionMaterial(int courseIntakeId, int courseSessionId,
+        [FromForm] string? title, [FromForm] IFormFile? file, CancellationToken ct)
+    {
+        var result = await trainer.UploadSessionMaterialAsync(User.GetUserId(), courseIntakeId, courseSessionId, title, file, ct);
+        return Created($"/api/trainer/intakes/{courseIntakeId}/sessions/{courseSessionId}/materials/{result.Id}/file", result);
+    }
+
+    [HttpGet("intakes/{courseIntakeId:int}/sessions/{courseSessionId:int}/materials/{materialId:int}/file")]
+    public async Task<IActionResult> DownloadSessionMaterial(int courseIntakeId, int courseSessionId, int materialId,
+        CancellationToken ct)
+    {
+        var file = await trainer.OpenSessionMaterialAsync(User.GetUserId(), courseIntakeId, courseSessionId, materialId, ct);
+        return File(file.Stream, file.ContentType, file.DownloadName);
     }
 
     [HttpPut("intakes/{courseIntakeId:int}/sessions/{courseSessionId:int}/attendance")]

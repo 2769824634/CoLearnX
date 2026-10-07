@@ -220,6 +220,14 @@ public class EnrollmentsController(IEnrollmentService enrollments, IMemberLearni
         catch (KeyNotFoundException) { return NotFound(new ApiError("ENROLLMENT_NOT_FOUND", "Enrollment not found.")); }
     }
 
+    [HttpGet("{enrollmentId:int}/session-materials")]
+    public async Task<ActionResult<IReadOnlyList<MemberHubSessionMaterialDto>>> SessionMaterials(int enrollmentId,
+        CancellationToken ct)
+    {
+        try { return Ok(await hub.SessionMaterialsAsync(User.GetUserId(), enrollmentId, ct)); }
+        catch (KeyNotFoundException) { return NotFound(new ApiError("ENROLLMENT_NOT_FOUND", "Enrollment not found.")); }
+    }
+
     [HttpGet("{enrollmentId:int}/recordings")]
     public async Task<ActionResult<IReadOnlyList<MemberHubRecordingDto>>> Recordings(int enrollmentId, CancellationToken ct)
     {
@@ -233,6 +241,18 @@ public class EnrollmentsController(IEnrollmentService enrollments, IMemberLearni
         try
         {
             var file = await hub.OpenMaterialAsync(User.GetUserId(), enrollmentId, versionId, ct);
+            return File(file.Stream, file.ContentType, file.DownloadName);
+        }
+        catch (KeyNotFoundException) { return NotFound(new ApiError("MATERIAL_NOT_FOUND", "Material not found.")); }
+        catch (FileNotFoundException) { return NotFound(new ApiError("MATERIAL_NOT_FOUND", "Material not found.")); }
+    }
+
+    [HttpGet("{enrollmentId:int}/session-materials/{materialId:int}/file")]
+    public async Task<IActionResult> SessionMaterialFile(int enrollmentId, int materialId, CancellationToken ct)
+    {
+        try
+        {
+            var file = await hub.OpenSessionMaterialAsync(User.GetUserId(), enrollmentId, materialId, ct);
             return File(file.Stream, file.ContentType, file.DownloadName);
         }
         catch (KeyNotFoundException) { return NotFound(new ApiError("MATERIAL_NOT_FOUND", "Material not found.")); }

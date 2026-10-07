@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text;
 using System.Threading.RateLimiting;
 using CoLearnX.Server.Auth;
@@ -7,6 +8,7 @@ using CoLearnX.Server.Payments;
 using CoLearnX.Server.Services;
 using CoLearnX.Server.Storage;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -204,6 +206,15 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
+
 var app = builder.Build();
 
 app.UseForwardedHeaders();
@@ -263,6 +274,7 @@ if (payPalOpts.IsConfigured)
 else
     app.Logger.LogWarning("PayPal is not configured. Set PayPal__ClientId and PayPal__ClientSecret on the App Service to the sandbox REST app credentials, not the setting names.");
 
+app.UseResponseCompression();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.MapStaticAssets();

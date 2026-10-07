@@ -1,9 +1,11 @@
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { RequireAuth } from '../auth/RequireAuth';
 import RequireAdmin from '../auth/RequireAdmin';
 import RoleShell, { AdminRoleShell } from '../layouts/RoleShell';
 import LoginPage from '../pages/LoginPage';
 import PublicHomePage from '../pages/PublicHomePage';
+import PublicCatalogPage from '../pages/PublicCatalogPage';
+import PublicCourseDetailPage from '../pages/PublicCourseDetailPage';
 import RegisterPage from '../pages/RegisterPage';
 import AdminLoginPage from '../pages/admin/AdminLoginPage';
 import AdminHomePage from '../pages/admin/AdminHomePage';
@@ -30,6 +32,7 @@ import { MemberDataProvider } from '../pages/member/MemberDataContext';
 import { useMemberData } from '../pages/member/memberDataState';
 import MemberHomePage from '../pages/member/MemberHomePage';
 import MemberOnboardingPage from '../pages/member/MemberOnboardingPage';
+import { needsMemberOnboarding } from '../pages/member/MemberOnboardingModal';
 import { useAuth } from '../auth/AuthContext';
 import MemberCatalogPage from '../pages/member/MemberCatalogPage';
 import MemberCourseDetailPage from '../pages/member/MemberCourseDetailPage';
@@ -78,13 +81,11 @@ function MemberToastHost() {
 // Member routes under /member/*. Keep page component names below.
 function MemberArea() {
   const { user } = useAuth();
-  const location = useLocation();
-  const needsOnboarding = user && 'onboardingCompletedAt' in user
-    && !user.onboardingCompletedAt && !user.onboardingSkippedAt;
+  if (needsMemberOnboarding(user)) return <Navigate to="/" replace />;
   return (
     <MemberDataProvider>
       <MemberNotificationsProvider>
-      {needsOnboarding && location.pathname !== '/member/onboarding' ? <Navigate to="/member/onboarding" replace /> : <Routes>
+      <Routes>
         <Route path="onboarding" element={<MemberOnboardingPage />} />
         <Route path="home" element={<MemberHomePage />} />
         <Route path="courses" element={<MemberCatalogPage />} />
@@ -94,8 +95,8 @@ function MemberArea() {
         <Route path="payment" element={<MemberPaymentPage />} />
         <Route path="badges" element={<MemberBadgesPage />} />
         <Route path="account" element={<MemberAccountPage />} />
-        <Route path="*" element={<Navigate to="home" replace />} />
-      </Routes>}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
       <MemberToastHost />
       </MemberNotificationsProvider>
     </MemberDataProvider>
@@ -114,6 +115,8 @@ export default function AppRouter() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/" element={<PublicHomePage />} />
+        <Route path="/courses" element={<PublicCatalogPage />} />
+        <Route path="/courses/:courseId" element={<PublicCourseDetailPage />} />
 
         <Route element={<RequireAuth role="member" />}>
           <Route path="/member/*" element={<MemberArea />} />

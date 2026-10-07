@@ -18,7 +18,7 @@ it.each(['/member/programs', '/member/programs?tab=reserved', '/member/programs?
   expect(safeNotificationPath(path)).toBe(path);
 });
 
-it.each(['//example.com', '/trainer/courses/intakes/0', '/trainer/courses/intakes/42/../43', '/trainer/courses/intakes/42?next=https://example.com', '/creator/courses/intake-applications/42#other', '/trainer/courses/intakes/%34%32', '/member/programs?tab=unknown', '/member/programs?next=https://example.com'])('rejects an unapproved notification path: %s', (path) => {
+it.each(['//example.com', '/trainer/courses/intakes/0', '/trainer/courses/intakes/42/../43', '/trainer/courses/intakes/42?next=https://example.com', '/creator/courses/intake-applications/42#other', '/trainer/courses/intakes/%34%32', '/member/programs?tab=unknown', '/member/programs?next=https://example.com', '/member/home', '/member/account', '/member/courses'])('rejects an unapproved notification path: %s', (path) => {
   expect(safeNotificationPath(path)).toBeNull();
 });
 
@@ -44,4 +44,12 @@ it('offers retry for an unavailable list and then shows empty state', async () =
   expect(await screen.findByText('Network unavailable')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
   expect(await screen.findByText('No notifications yet.')).toBeTruthy();
+});
+
+it('labels a notification timestamp as UTC even when the server omits its zone suffix', async () => {
+  notificationsApi.my.mockResolvedValue({ unreadCount: 1, items: [{ id: 9, title: 'Place reserved', isRead: false, targetPath: '/member/programs?tab=reserved&enrollmentId=11', createdAt: '2026-10-05T01:30:00' }] });
+  mount();
+  fireEvent.click(await screen.findByRole('button', { name: 'Notifications, 1 unread' }));
+  expect(screen.getByText('05 Oct 2026, 01:30 UTC')).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Open related page' }).getAttribute('href')).toBe('/member/programs?tab=reserved&enrollmentId=11');
 });

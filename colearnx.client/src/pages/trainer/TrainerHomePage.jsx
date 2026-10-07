@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
+import { utcDate } from '../../utils/utcDates.js';
 import { formatCount } from '../businessPresentation';
 import useTrainerQuery, { loadTrainerOverview } from './useTrainerQuery';
 import { IntakeRows, IntakeStatus, TrainerError, TrainerHeader, TrainerLoading } from './TrainerUi';
-import { formatDate, intakeLink, isEditable, localTimezone } from './intakeForm';
+import { formatDate, intakeLink, isEditable } from './intakeForm';
 
 const PIPELINE = [
   ['editable', 'Ready to prepare', 'Draft & rejected', (status) => isEditable(status)],
@@ -46,11 +47,11 @@ function TeachingNext({ intake, courses }) {
     </section>;
   }
   const course = courses.find((item) => item.id === intake.courseId);
-  const starts = new Date(intake.startsAt);
+  const starts = utcDate(intake.startsAt);
   return <section className="trainer-next" aria-labelledby="trainer-next-title">
     <div className="trainer-next-date" aria-hidden="true">
-      <strong>{starts.getDate()}</strong>
-      <span>{starts.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</span>
+      <strong>{starts.getUTCDate()}</strong>
+      <span>{starts.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' })}</span>
     </div>
     <div className="trainer-next-body">
       <p className="trainer-eyebrow" id="trainer-next-title">Teaching next</p>
@@ -102,7 +103,7 @@ export default function TrainerHomePage() {
         <section className="trainer-delivery-path" aria-labelledby="trainer-path-title">
           <h2 id="trainer-path-title">Your path to delivery</h2>
           <ol>{DELIVERY_STEPS.map((step) => <li key={step}>{step}</li>)}</ol>
-          <p>Submitting does not publish an Intake. All dates are shown in {localTimezone}.</p>
+          <p>Submitting does not publish an Intake. All displayed dates use UTC.</p>
         </section>
       </aside>
     </div>}

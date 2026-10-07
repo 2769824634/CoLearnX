@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { authApi, roleRequestsApi } from '../../api';
+import { peek, put } from '../../api/readCache';
 import { useAuth } from '../../auth/AuthContext';
 import Modal from '../../components/Modal';
 import { countStatementWords } from './roleApplicationUtils';
@@ -23,8 +24,10 @@ export default function RoleApplicationsPanel() {
   const userRef = useRef(user);
   const refreshUserRef = useRef(refreshUser);
   const userId = user?.id;
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const requestKey = `role-requests:${userId || ''}`;
+  const cachedRequests = userId ? peek(requestKey) : undefined;
+  const [requests, setRequests] = useState(Array.isArray(cachedRequests) ? cachedRequests : []);
+  const [loading, setLoading] = useState(!Array.isArray(cachedRequests));
   const [error, setError] = useState('');
   const [busyRole, setBusyRole] = useState('');
   const [applyRole, setApplyRole] = useState('');
@@ -41,6 +44,12 @@ export default function RoleApplicationsPanel() {
   }, [user, refreshUser]);
 
   useEffect(() => {
+    if (Array.isArray(peek(requestKey))) {
+      setRequests(peek(requestKey));
+      setLoading(false);
+      setError('');
+      return undefined;
+    }
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -48,6 +57,7 @@ export default function RoleApplicationsPanel() {
       try {
         const items = await roleRequestsApi.my();
         if (cancelled) return;
+        put(requestKey, items);
         setRequests(items);
         const owned = roleSet(userRef.current);
         if (items.some((item) => item.status === 'Approved' && !owned.has(item.requestedRole))) {
@@ -63,7 +73,7 @@ export default function RoleApplicationsPanel() {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [requestKey, userId]);
 
   function openApply(role) {
     if (busyRole) return;
@@ -86,7 +96,11 @@ export default function RoleApplicationsPanel() {
     setError('');
     try {
       const created = await roleRequestsApi.create(applyRole, resume, idDocument, statement.trim());
-      setRequests((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+      setRequests((current) => {
+        const next = [created, ...current.filter((item) => item.id !== created.id)];
+        put(requestKey, next);
+        return next;
+      });
       setApplyRole('');
       setResume(null);
       setIdDocument(null);

@@ -17,4 +17,5 @@ public class CourseSession
     public CourseIntake CourseIntake { get; set; } = null!;
     public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
     public ICollection<AttendanceRecord> AttendanceRecords { get; set; } = new List<AttendanceRecord>();
+    public ICollection<SessionMaterial> Materials { get; set; } = new List<SessionMaterial>();
 }
