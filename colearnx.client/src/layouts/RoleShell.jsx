@@ -5,7 +5,7 @@ import { MemberNotificationsProvider } from '../components/MemberNotificationsPr
 import { useAuth } from '../auth/AuthContext';
 import useAdminAuth from '../auth/useAdminAuth';
 import { ShellChrome, ShellNavLink } from './ShellChrome';
-import { useAccessNotice } from './shellAccessNotice';
+import { useAccessNotice } from './useAccessNotice';
 import '../styles/admin.css';
 import '../styles/admin-operations.css';
 import '../styles/later-phase.css';
