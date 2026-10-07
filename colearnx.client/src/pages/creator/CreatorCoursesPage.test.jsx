@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../../auth/AuthContext';
 import AppRouter from '../../routes/AppRouter';
@@ -51,102 +51,113 @@ describe('Creator Course workspace', () => {
     expect(screen.getByText('24 credits')).toBeTruthy();
   });
 
-  it('creates a draft and submits it for approval', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (path, options = {}) => {
-      if (path === '/api/interests') {
-        return json([{ id: 1, slug: 'design', name: 'Design', children: [{ id: 2, slug: 'sketching', name: 'Sketching', children: [] }] }]);
-      }
-      if (path === '/api/creator/courses/options') {
-        return json({
-          courseLevels: [{ id: 1, name: 'Beginner' }],
-          learningPaths: [{ id: 3, name: 'Design' }],
-        });
-      }
-      if (path === '/api/creator/courses' && options.method === 'POST') {
-        const request = JSON.parse(options.body);
-        return json(course({ id: 44, ...request }));
-      }
-      if (path === '/api/creator/courses/44/submit') {
-        return json(course({ id: 44, status: 'PendingApproval' }));
-      }
-      if (String(path).startsWith('/api/materials')) {
-        return json([]);
-      }
-      return json(course({ id: 44 }));
-    }));
-
-    render(
-      <MemoryRouter initialEntries={['/creator/courses/new']}>
-        <AuthContext.Provider value={auth}>
-          <AppRouter />
-        </AuthContext.Provider>
-      </MemoryRouter>,
-    );
+  it('walks a new Course through three steps and saves it as a draft', async () => {
+    stubCourseApi();
+    renderAt('/creator/courses/new');
 
     expect(await screen.findByRole('heading', { name: 'Create Course' })).toBeTruthy();
-    expect(screen.getByLabelText('Files to upload when this Course is saved')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Save and submit for approval' })).toBeTruthy();
+    const steps = screen.getByRole('list', { name: 'Course creation steps' });
+    expect(within(steps).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['1Basic information', '2Materials', '3Interests & price']);
+    expect(within(steps).getByRole('button', { name: /Basic information/ }).getAttribute('aria-current')).toBe('step');
+    expect(within(steps).getByRole('button', { name: /Interests & price/ }).disabled).toBe(true);
+    expect(screen.queryByLabelText('Credit cost')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByLabelText('Course code')).toBeTruthy();
+    expect(screen.queryByLabelText('Files to upload when this Course is saved')).toBeNull();
+
     fireEvent.change(screen.getByLabelText('Course code'), { target: { value: 'CRT-44' } });
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Inclusive Design' } });
-    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'Design' } });
-    fireEvent.change(screen.getByLabelText('Credit cost'), { target: { value: '24' } });
     fireEvent.change(screen.getByLabelText('Course level'), { target: { value: '1' } });
     fireEvent.change(screen.getByLabelText('Learning path'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'Design' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    const upload = screen.getByLabelText('Files to upload when this Course is saved');
+    fireEvent.change(upload, { target: { files: [new File(['notes'], 'notes.pdf', { type: 'application/pdf' })] } });
+    expect(screen.getByText('notes.pdf')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByLabelText('Title').value).toBe('Inclusive Design');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('notes.pdf')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
     fireEvent.click(screen.getByLabelText('Sketching'));
+    fireEvent.change(screen.getByLabelText('Credit cost'), { target: { value: '24' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
 
     expect(await screen.findByRole('heading', { name: 'Inclusive Design' })).toBeTruthy();
-    const createRequest = globalThis.fetch.mock.calls.find(([path, options]) => path === '/api/creator/courses' && options.method === 'POST');
-    expect(JSON.parse(createRequest[1].body).interestIds).toEqual([2]);
-    fireEvent.click(screen.getByRole('button', { name: 'Submit for approval' }));
-    expect(await screen.findByText('PendingApproval')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
+    const createRequest = globalThis.fetch.mock.calls.find(([path, options]) => path === '/api/creator/courses' && options?.method === 'POST');
+    expect(JSON.parse(createRequest[1].body)).toMatchObject({ code: 'CRT-44', title: 'Inclusive Design', courseLevelId: 1, learningPathId: 3, category: 'Design', creditCost: 24, interestIds: [2] });
+    expect(globalThis.fetch.mock.calls.filter(([path, options]) => path === '/api/materials' && options?.method === 'POST')).toHaveLength(1);
   });
 
-  it('warns when submitting unsaved edits and keeps the current title', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (path) => {
-      if (path === '/api/interests') {
-        return json([
-          { id: 1, slug: 'design', name: 'Design', children: [
-            { id: 2, slug: 'sketching', name: 'Sketching', children: [] },
-            { id: 3, slug: 'typography', name: 'Typography', children: [] },
-            { id: 4, slug: 'color', name: 'Colour', children: [] },
-            { id: 5, slug: 'layout', name: 'Layout', children: [] },
-          ] },
-        ]);
-      }
-      if (path === '/api/creator/courses/options') {
-        return json({
-          courseLevels: [{ id: 1, name: 'Beginner' }],
-          learningPaths: [{ id: 3, name: 'Design' }],
-        });
-      }
-      if (path === '/api/creator/courses/44/submit') {
-        return json(course({ id: 44, status: 'PendingApproval' }));
-      }
-      if (String(path).startsWith('/api/materials')) {
-        return json([]);
-      }
-      return json(course({ id: 44, interestIds: [2] }));
-    }));
-
-    render(
-      <MemoryRouter initialEntries={['/creator/courses/44']}>
-        <AuthContext.Provider value={auth}>
-          <AppRouter />
-        </AuthContext.Provider>
-      </MemoryRouter>,
-    );
+  it('lets an existing Draft jump between steps and blocks submitting unsaved edits', async () => {
+    stubCourseApi({ existing: course({ id: 44, interestIds: [2] }) });
+    renderAt('/creator/courses/44');
 
     expect(await screen.findByRole('heading', { name: 'Inclusive Design' })).toBeTruthy();
+    const steps = screen.getByRole('list', { name: 'Course creation steps' });
+    fireEvent.click(within(steps).getByRole('button', { name: /Interests & price/ }));
     expect(screen.getByText(/Selected 1 of 4/)).toBeTruthy();
+    fireEvent.click(within(steps).getByRole('button', { name: /Basic information/ }));
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Unsaved title' } });
+    fireEvent.click(within(steps).getByRole('button', { name: /Interests & price/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Submit for approval' }));
+
     expect(await screen.findByText('Save your changes before submitting for approval.')).toBeTruthy();
     expect(globalThis.fetch.mock.calls.some(([path]) => path === '/api/creator/courses/44/submit')).toBe(false);
+    fireEvent.click(within(steps).getByRole('button', { name: /Basic information/ }));
     expect(screen.getByLabelText('Title').value).toBe('Unsaved title');
   });
+
+  it('submits a saved Draft for approval from the last step and locks editing', async () => {
+    stubCourseApi({ existing: course({ id: 44, interestIds: [2] }) });
+    renderAt('/creator/courses/44');
+
+    const steps = await screen.findByRole('list', { name: 'Course creation steps' });
+    fireEvent.click(within(steps).getByRole('button', { name: /Interests & price/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit for approval' }));
+
+    expect(await screen.findByText('PendingApproval')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Course creation steps' })).toBeNull();
+  });
 });
+
+function stubCourseApi({ existing } = {}) {
+  vi.stubGlobal('fetch', vi.fn(async (path, options = {}) => {
+    if (path === '/api/interests') {
+      return json([{ id: 1, slug: 'design', name: 'Design', children: [
+        { id: 2, slug: 'sketching', name: 'Sketching', children: [] },
+        { id: 3, slug: 'typography', name: 'Typography', children: [] },
+      ] }]);
+    }
+    if (path === '/api/creator/courses/options') {
+      return json({ courseLevels: [{ id: 1, name: 'Beginner' }], learningPaths: [{ id: 3, name: 'Design' }] });
+    }
+    if (path === '/api/creator/courses' && options.method === 'POST') {
+      return json(course({ id: 44, ...JSON.parse(options.body) }));
+    }
+    if (path === '/api/creator/courses/44/submit') {
+      return json(course({ id: 44, status: 'PendingApproval' }));
+    }
+    if (String(path).startsWith('/api/materials')) {
+      return json(options.method === 'POST' ? { id: 90 } : []);
+    }
+    return json(existing || course({ id: 44 }));
+  }));
+}
+
+function renderAt(path) {
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <AuthContext.Provider value={auth}>
+        <AppRouter />
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  );
+}
 
 function json(data) {
   return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });

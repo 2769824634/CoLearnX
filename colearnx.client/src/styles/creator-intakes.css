@@ -22,6 +22,28 @@
 .creator-course-fields { min-width: 0; padding: 0; border: 0; }
 .creator-course-fields legend { margin-bottom: 18px; font-weight: 700; }
 .creator-course-fields:disabled :is(input, select, textarea) { opacity: 1; color: var(--charcoal); background: var(--chrome); }
+.creator-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 16px; padding: 0; list-style: none; }
+.creator-steps li { position: relative; }
+.creator-steps li::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 2px; background: var(--border); }
+.creator-steps li[data-state="done"]::before, .creator-steps li[data-state="current"]::before { background: var(--purple); }
+.creator-steps button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 4px 14px; border: 0; background: none; color: var(--slate); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
+.creator-steps button:disabled { cursor: not-allowed; opacity: .6; }
+.creator-steps button:not(:disabled):hover { color: var(--charcoal); }
+.creator-steps [data-state="current"] button { color: var(--charcoal); }
+.creator-step-number { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 50%; background: var(--white); font-size: 13px; font-variant-numeric: tabular-nums; }
+.creator-steps [data-state="current"] .creator-step-number { border-color: var(--purple); color: var(--white); background: var(--purple); }
+.creator-steps [data-state="done"] .creator-step-number { border-color: var(--purple); color: var(--purple); background: var(--purple-soft); }
+.creator-step-card { padding: 24px; }
+.creator-step-heading { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.creator-step-heading p { margin: 0 0 4px; color: var(--purple); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.creator-step-heading h2 { margin: 0; font-size: 20px; outline: none; }
+.creator-step-heading span { display: block; margin-top: 4px; color: var(--slate); font-size: 13px; }
+.creator-step-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.creator-price-field { max-width: 260px; }
+.creator-price-field small { display: block; margin-top: 6px; color: var(--slate); font-size: 12px; }
+.creator-step-actions { justify-content: flex-end; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); }
+.creator-step-actions > .btn-ghost:first-child { margin-right: auto; }
+@media (max-width: 650px) { .creator-steps button { flex-direction: column; align-items: flex-start; gap: 6px; font-size: 12px; } .creator-step-grid { grid-template-columns: 1fr; } .creator-step-card { padding: 18px; } .creator-step-actions .btn { flex: 1 1 auto; } }
 .creator-empty { padding: 44px 24px; border: 1px dashed var(--border); border-radius: var(--radius); background: var(--chrome); text-align: center; color: var(--slate); }
 .creator-error { display: grid; gap: 8px; margin: 16px 0; padding: 16px; border: 1px solid var(--warn); border-left-width: 4px; border-radius: var(--radius); overflow-wrap: anywhere; }
 .creator-error code { font-size: 11px; }
