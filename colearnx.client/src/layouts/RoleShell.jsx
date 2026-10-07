@@ -129,7 +129,7 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
           <button type="button" className="btn btn-ghost" onClick={logout}>
             Log out
           </button>
-          <div className="user-chip">
+          <div className="user-chip" data-role={role}>
             <UserAvatar name={identityName} avatarUrl={avatarUrl} token={token} />
             <div>
               <div className="user-chip-name">{identityName}</div>

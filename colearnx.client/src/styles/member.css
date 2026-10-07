@@ -567,6 +567,46 @@ a {
   background: var(--purple);
 }
 
+.role-option.selected[data-role="creator"] {
+  border-color: var(--teal);
+  background: var(--teal-soft);
+}
+
+.role-option.selected[data-role="creator"] .radio {
+  border-color: var(--teal);
+  background: var(--teal);
+}
+
+.role-option.selected[data-role="member"] {
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, var(--white));
+}
+
+.role-option.selected[data-role="member"] .radio {
+  border-color: var(--warn);
+  background: var(--warn);
+}
+
+.role-option.selected[data-role="member"] .pill {
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 16%, var(--white));
+}
+
+.role-option.selected[data-role="trainer"] {
+  border-color: color-mix(in srgb, var(--purple), var(--teal));
+  background: color-mix(in srgb, color-mix(in srgb, var(--purple), var(--teal)) 10%, var(--white));
+}
+
+.role-option.selected[data-role="trainer"] .radio {
+  border-color: color-mix(in srgb, var(--purple), var(--teal));
+  background: color-mix(in srgb, var(--purple), var(--teal));
+}
+
+.role-option.selected[data-role="trainer"] .pill {
+  border-color: color-mix(in srgb, var(--purple), var(--teal));
+  background: color-mix(in srgb, color-mix(in srgb, var(--purple), var(--teal)) 16%, var(--white));
+}
+
 .role-option .meta {
   flex: 1;
 }
@@ -772,6 +812,61 @@ a {
   font-size: 12px;
   color: var(--slate);
   font-weight: 500;
+}
+
+.user-chip .role::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--teal);
+}
+
+.avatar-frame[data-role="creator"] .avatar {
+  border-color: var(--teal);
+  background: var(--teal-soft);
+}
+
+.user-chip[data-role="member"] .avatar,
+.avatar-frame[data-role="member"] .avatar {
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, var(--white));
+}
+
+.user-chip[data-role="trainer"] .avatar,
+.avatar-frame[data-role="trainer"] .avatar {
+  border-color: color-mix(in srgb, var(--purple), var(--teal));
+  background: color-mix(in srgb, color-mix(in srgb, var(--purple), var(--teal)) 12%, var(--white));
+}
+
+.user-chip[data-role="admin"] .avatar {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, var(--white));
+}
+
+.user-chip[data-role="admin"] .role::before {
+  background: var(--danger);
+}
+
+.user-chip[data-role="member"] .role::before,
+.workspace-switcher-item[data-role="member"] strong::before {
+  background: var(--warn);
+}
+
+.user-chip[data-role="trainer"] .role::before,
+.workspace-switcher-item[data-role="trainer"] strong::before {
+  background: color-mix(in srgb, var(--purple), var(--teal));
+}
+
+.workspace-switcher-item strong::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: var(--teal);
 }
 
 .workspace-switcher {

@@ -106,7 +106,7 @@ export default function MemberShell({
           <button type="button" className="btn btn-ghost" onClick={logout}>
             Log out
           </button>
-          <div className="user-chip">
+          <div className="user-chip" data-role="member">
             <UserAvatar name={user?.fullName} avatarUrl={user?.avatarUrl} token={token} />
             <div>
               <div className="user-chip-name">{user?.fullName}</div>

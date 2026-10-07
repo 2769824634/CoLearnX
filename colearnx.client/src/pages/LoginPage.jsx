@@ -159,6 +159,7 @@ export default function LoginPage() {
               <button
                 key={id}
                 type="button"
+                data-role={id.toLowerCase()}
                 className={`role-option${pickedRole === id ? ' selected' : ''}`}
                 onClick={() => setPickedRole(id)}
               >

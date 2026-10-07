@@ -2,7 +2,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../auth/AuthContext';
-import RoleShell from './RoleShell';
+import AdminAuthContext from '../auth/AdminAuthContext';
+import RoleShell, { AdminRoleShell } from './RoleShell';
 import MemberShell from '../components/MemberShell';
 
 vi.mock('../components/Logo', () => ({ default: () => <span>Logo</span> }));
@@ -112,6 +113,23 @@ it.each([
 
   expect(document.activeElement).toBe(main);
   expect(screen.getByLabelText('current path').textContent).toMatch(/^\/(member|trainer)\/home$/);
+});
+
+it.each([
+  ['member', '/member/home', <MemberShell key="m" title="Home"><div /></MemberShell>],
+  ['trainer', '/trainer/home', <Routes key="t"><Route element={<RoleShell role="trainer" />}><Route path="*" element={<div />} /></Route></Routes>],
+  ['creator', '/creator/home', <Routes key="c"><Route element={<RoleShell role="creator" />}><Route path="*" element={<div />} /></Route></Routes>],
+  ['admin', '/admin/home', <Routes key="a"><Route element={<AdminRoleShell />}><Route path="*" element={<div />} /></Route></Routes>],
+])('marks the user chip with the %s workspace so the avatar ring can follow the role', (role, path, shell) => {
+  const { container } = render(
+    <MemoryRouter initialEntries={[path]}>
+      <AdminAuthContext.Provider value={{ admin: { email: 'admin@colearnx.test' }, logout: vi.fn() }}>
+        <AuthContext.Provider value={auth}>{shell}</AuthContext.Provider>
+      </AdminAuthContext.Provider>
+    </MemoryRouter>,
+  );
+
+  expect(container.querySelector('.user-chip').dataset.role).toBe(role);
 });
 
 function stubHorizontalNavLayout() {

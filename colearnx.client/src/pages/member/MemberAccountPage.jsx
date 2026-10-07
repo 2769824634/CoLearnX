@@ -36,7 +36,7 @@ export default function MemberAccountPage() {
       >
         <div className="grid-2-1 member-account-grid">
           <div style={{ textAlign: 'center' }}>
-            <AvatarEditor />
+            <AvatarEditor role="member" />
             <div style={{ fontWeight: 600 }}>{state.user.fullName}</div>
             <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 4 }}>Display name · {state.user.displayName}</div>
             <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 4 }}>Shown in greetings and workspace navigation.</div>

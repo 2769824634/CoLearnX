@@ -73,6 +73,7 @@ describe('Trainer and Creator My Account', () => {
     expect(screen.getByText('t****r@colearnx.test')).toBeTruthy();
     expect(screen.getByText('****2333')).toBeTruthy();
     expect(screen.getByText('Intakes')).toBeTruthy();
+    expect(document.querySelector('.avatar-frame').dataset.role).toBe('trainer');
     fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }));
     fireEvent.change(screen.getByLabelText('Full Name'), { target: { value: 'Gu Yincheng' } });
     fireEvent.change(screen.getByLabelText('Trainer headline'), { target: { value: 'Lead workshop trainer' } });
@@ -105,6 +106,7 @@ describe('Trainer and Creator My Account', () => {
     expect(await screen.findByRole('heading', { name: 'Profile / My Account' })).toBeTruthy();
     expect(screen.getByText('c****r@colearnx.test')).toBeTruthy();
     expect(screen.getByText('Cybersecurity, Cloud')).toBeTruthy();
+    expect(document.querySelector('.avatar-frame').dataset.role).toBe('creator');
     fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }));
     expect(screen.getByLabelText('Creator headline')).toBeTruthy();
     expect(screen.getByLabelText('Expertise tags')).toBeTruthy();

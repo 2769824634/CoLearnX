@@ -106,7 +106,7 @@ export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summ
         </div>
         <div className="grid-2-1 account-page-grid">
           <div style={{ textAlign: 'center' }}>
-            <AvatarEditor />
+            <AvatarEditor role={extraKind} />
             <div style={{ fontWeight: 600 }}>{user?.fullName}</div>
             <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 4 }}>
               Display name · {user?.displayName || user?.fullName}
