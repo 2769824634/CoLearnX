@@ -4,6 +4,8 @@ import Logo from '../components/Logo';
 import WorkspaceSwitcher from '../components/WorkspaceSwitcher';
 import UserAvatar from '../components/UserAvatar';
 import MemberNotifications from '../components/MemberNotifications';
+import SkipToContent, { MAIN_CONTENT_ID } from '../components/SkipToContent';
+import useActiveNavInView from '../components/useActiveNavInView';
 import { MemberNotificationsProvider } from '../components/MemberNotificationsProvider';
 import { useAuth } from '../auth/AuthContext';
 import useAdminAuth from '../auth/useAdminAuth';
@@ -112,10 +114,12 @@ function isNavActive(item, pathname, isActive) {
 function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspaceSwitcher = false, title, subtitle, accessNotice, onDismissAccessNotice }) {
   const location = useLocation();
   const items = NAV[role] || [];
+  const navRef = useActiveNavInView();
 
   return (
     <div className={`shell${role === 'admin' ? ' admin-shell' : ''}`}>
-      <div className="topbar">
+      <SkipToContent />
+      <header className="topbar">
         <div className="topbar-brand">
           <Logo />
         </div>
@@ -133,9 +137,9 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
             </div>
           </div>
         </div>
-      </div>
+      </header>
       <div className="shell-body">
-        <nav className="sidebar" aria-label={`${role} navigation`} aria-describedby={`${role}-nav-scroll-hint`}>
+        <nav ref={navRef} className="sidebar" aria-label={`${role} navigation`} aria-describedby={`${role}-nav-scroll-hint`}>
           {items.map((item) => (
             <NavLink
               key={item.to}
@@ -148,7 +152,7 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
           ))}
         </nav>
         <p id={`${role}-nav-scroll-hint`} className="nav-scroll-hint">More navigation → Swipe or scroll sideways</p>
-        <main className="content">
+        <main id={MAIN_CONTENT_ID} className="content" tabIndex={-1}>
           <AccessNotice notice={accessNotice} onDismiss={onDismissAccessNotice} />
           {title ? <h1 className="page-title">{title}</h1> : null}
           {subtitle ? <p className="page-sub">{subtitle}</p> : null}

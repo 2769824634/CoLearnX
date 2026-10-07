@@ -79,6 +79,85 @@ it('shows and consumes the same notice in the Member shell', async () => {
   await waitFor(() => expect(screen.queryByRole('status', { name: 'Access notice' })).toBeNull());
 });
 
+function PathProbe() {
+  const location = useLocation();
+  return <output aria-label="current path">{`${location.pathname}${location.hash}`}</output>;
+}
+
+it.each([
+  ['member', () => render(
+    <MemoryRouter initialEntries={['/member/home']}>
+      <AuthContext.Provider value={auth}>
+        <MemberShell title="Member home"><PathProbe /></MemberShell>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  )],
+  ['trainer', () => render(
+    <MemoryRouter initialEntries={['/trainer/home']}>
+      <AuthContext.Provider value={auth}>
+        <Routes>
+          <Route element={<RoleShell role="trainer" />}>
+            <Route path="/trainer/home" element={<PathProbe />} />
+          </Route>
+        </Routes>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  )],
+])('lets keyboard users skip past the %s shell chrome without changing the route', (_role, renderShell) => {
+  renderShell();
+
+  expect(screen.getByRole('banner')).toBeTruthy();
+  const main = screen.getByRole('main');
+  fireEvent.click(screen.getByRole('link', { name: 'Skip to main content' }));
+
+  expect(document.activeElement).toBe(main);
+  expect(screen.getByLabelText('current path').textContent).toMatch(/^\/(member|trainer)\/home$/);
+});
+
+function stubHorizontalNavLayout() {
+  const restores = [];
+  const define = (prop, get) => {
+    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, prop);
+    Object.defineProperty(HTMLElement.prototype, prop, { configurable: true, get });
+    restores.push(() => (original
+      ? Object.defineProperty(HTMLElement.prototype, prop, original)
+      : delete HTMLElement.prototype[prop]));
+  };
+  define('scrollWidth', function scrollWidth() { return this.tagName === 'NAV' ? 900 : 0; });
+  define('clientWidth', function clientWidth() { return this.tagName === 'NAV' ? 390 : 0; });
+  define('offsetWidth', function offsetWidth() { return this.classList.contains('nav-item') ? 100 : 0; });
+  define('offsetLeft', function offsetLeft() { return this.classList.contains('active') ? 700 : 0; });
+  const scrollTo = vi.fn();
+  HTMLElement.prototype.scrollTo = scrollTo;
+  restores.push(() => { delete HTMLElement.prototype.scrollTo; });
+  return { scrollTo, restore: () => restores.forEach((fn) => fn()) };
+}
+
+it.each([
+  ['member', '/member/account', () => <MemberShell title="Account"><div>Account</div></MemberShell>],
+  ['trainer', '/trainer/account', () => (
+    <Routes>
+      <Route element={<RoleShell role="trainer" />}>
+        <Route path="/trainer/account" element={<div>Account</div>} />
+      </Route>
+    </Routes>
+  )],
+])('scrolls the active %s nav item into view when the nav overflows sideways', (_role, path, Shell) => {
+  const { scrollTo, restore } = stubHorizontalNavLayout();
+  try {
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <AuthContext.Provider value={auth}><Shell /></AuthContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(scrollTo).toHaveBeenCalledWith({ left: 555 });
+    expect(scrollTo.mock.contexts[0]).toBe(screen.getByRole('navigation'));
+  } finally {
+    restore();
+  }
+});
+
 it.each([
   ['/creator/courses', 'Courses'],
   ['/creator/courses/17', 'Courses'],

@@ -4,6 +4,8 @@ import Logo from './Logo';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import MemberNotifications from './MemberNotifications';
 import UserAvatar from './UserAvatar';
+import SkipToContent, { MAIN_CONTENT_ID } from './SkipToContent';
+import useActiveNavInView from './useActiveNavInView';
 import { MEMBER_NAV } from '../data/memberMock';
 import { useAuth } from '../auth/AuthContext';
 
@@ -75,10 +77,12 @@ export default function MemberShell({
 }) {
   const { user, token, logout } = useAuth();
   const { notice: accessNotice, dismiss: dismissAccessNotice } = useAccessNotice();
+  const navRef = useActiveNavInView();
 
   return (
     <div className="shell member-shell">
-      <div className="topbar">
+      <SkipToContent />
+      <header className="topbar">
         <div className="topbar-brand">
           <Logo />
         </div>
@@ -110,9 +114,9 @@ export default function MemberShell({
             </div>
           </div>
         </div>
-      </div>
+      </header>
       <div className="shell-body">
-        <nav className="sidebar" aria-label="Member navigation" aria-describedby="member-nav-scroll-hint">
+        <nav ref={navRef} className="sidebar" aria-label="Member navigation" aria-describedby="member-nav-scroll-hint">
           {MEMBER_NAV.map((item) => (
             <NavLink
               key={item.id}
@@ -125,7 +129,7 @@ export default function MemberShell({
           ))}
         </nav>
         <p id="member-nav-scroll-hint" className="nav-scroll-hint">More navigation → Swipe or scroll sideways</p>
-        <main className="content">
+        <main id={MAIN_CONTENT_ID} className="content" tabIndex={-1}>
           <AccessNotice notice={accessNotice} onDismiss={dismissAccessNotice} />
           <h1 className="page-title">{title}</h1>
           {subtitle ? <p className="page-sub">{subtitle}</p> : null}
