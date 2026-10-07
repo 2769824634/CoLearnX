@@ -32,7 +32,7 @@ import { MemberDataProvider } from '../pages/member/MemberDataContext';
 import { useMemberData } from '../pages/member/memberDataState';
 import MemberHomePage from '../pages/member/MemberHomePage';
 import MemberOnboardingPage from '../pages/member/MemberOnboardingPage';
-import { needsMemberOnboarding } from '../pages/member/MemberOnboardingModal';
+import { needsMemberOnboarding } from '../pages/member/needsMemberOnboarding';
 import { useAuth } from '../auth/AuthContext';
 import MemberCatalogPage from '../pages/member/MemberCatalogPage';
 import MemberCourseDetailPage from '../pages/member/MemberCourseDetailPage';
@@ -58,7 +58,7 @@ function MemberToastHost() {
       <Modal open={Boolean(insufficientOpen)} title="Insufficient Credits" onClose={closeInsufficientCredits} width={440}>
         <div className="callout warn">
           <div className="callout-title">Cannot continue</div>
-          Your credit balance is too low. Go to Payment to top up, then try again.
+          Your credit balance is too low. Top up in your Wallet, then try again.
         </div>
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={closeInsufficientCredits}>Cancel</button>
@@ -70,7 +70,7 @@ function MemberToastHost() {
               navigate('/member/payment');
             }}
           >
-            Go to Payment
+            Top up credits
           </button>
         </div>
       </Modal>

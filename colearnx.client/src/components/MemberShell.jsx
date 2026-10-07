@@ -4,7 +4,7 @@ import MemberNotifications from './MemberNotifications';
 import { MEMBER_NAV } from '../data/memberMock';
 import { useAuth } from '../auth/AuthContext';
 import { ShellChrome, ShellNavLink } from '../layouts/ShellChrome';
-import { useAccessNotice } from '../layouts/shellAccessNotice';
+import { useAccessNotice } from '../layouts/useAccessNotice';
 
 export default function MemberShell({
   title,

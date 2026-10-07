@@ -4,10 +4,6 @@ import Modal from '../../components/Modal';
 import { interestsApi } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 
-export function needsMemberOnboarding(user) {
-  return Boolean(user && 'onboardingCompletedAt' in user && !user.onboardingCompletedAt && !user.onboardingSkippedAt);
-}
-
 export default function MemberOnboardingModal({ dismissible = false }) {
   const navigate = useNavigate();
   const { user, refreshUser } = useAuth();

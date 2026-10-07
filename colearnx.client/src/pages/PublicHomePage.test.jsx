@@ -105,17 +105,30 @@ it('shows a signed-in member as signed in on the homepage, including Courses', a
   expect(screen.getByRole('button', { name: 'Log out' })).toBeTruthy();
   expect(screen.getByText('Huang Yousheng')).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Courses' }).getAttribute('href')).toBe('/member/courses');
-  expect(screen.getByRole('link', { name: 'Payment' }).getAttribute('href')).toBe('/member/payment');
+  expect(screen.getByRole('link', { name: 'Wallet' }).getAttribute('href')).toBe('/member/payment');
+  expect(screen.queryByRole('link', { name: 'Sign up free' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Log in' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Sign up' })).toBeNull();
   expect(await screen.findByRole('heading', { name: 'Frontend React Bootcamp' })).toBeTruthy();
 });
 
-it('asks guests to sign in when they open member-only navigation', async () => {
+it('shows guests only public navigation and a sign-up path', async () => {
   mountHome();
-  fireEvent.click(screen.getByRole('button', { name: 'Payment' }));
+  const nav = screen.getByRole('navigation', { name: 'Site navigation' });
+  expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Courses']);
+  for (const memberOnly of ['My Programs', 'Wallet', 'Payment', 'Badges', 'My Account']) {
+    expect(screen.queryByText(memberOnly)).toBeNull();
+  }
+  expect(screen.getByRole('link', { name: 'Sign up free' }).getAttribute('href')).toBe('/register');
+  expect(screen.getByRole('link', { name: 'Browse courses' }).getAttribute('href')).toBe('/courses');
+  expect(screen.getByRole('heading', { name: 'How CoLearnX works' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'Frontend React Bootcamp' })).toBeTruthy();
+});
+
+it('asks guests to sign in when they add a course to the wishlist', async () => {
+  mountHome();
+  fireEvent.click((await screen.findAllByRole('button', { name: '+ Wishlist' }))[0]);
   const dialog = await screen.findByRole('dialog', { name: 'Sign in to continue' });
-  expect(dialog).toBeTruthy();
   expect(within(dialog).getByRole('link', { name: 'Log in' }).getAttribute('href')).toBe('/login');
   expect(within(dialog).getByRole('link', { name: 'Sign up' }).getAttribute('href')).toBe('/register');
 });

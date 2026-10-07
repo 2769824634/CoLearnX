@@ -14,6 +14,8 @@ export function mapPublicCourse(c) {
     trainerNames: c.trainerNames || [],
     credits: c.creditCost,
     level: c.level,
+    category: c.category,
+    topic: c.category,
     description: c.description,
     outcomes: c.learningOutcomes || [],
     interests: c.interests || [],
@@ -26,21 +28,25 @@ export function mapPublicCourse(c) {
 export function usePublicCourses() {
   const { token } = useAuth();
   const key = courseListKey(token);
-  const cached = peek(key);
-  const [courses, setCourses] = useState(() => (Array.isArray(cached) ? cached : []).map(mapPublicCourse));
-  const [loading, setLoading] = useState(!Array.isArray(cached));
+  const [trackedKey, setTrackedKey] = useState(key);
+  const [courses, setCourses] = useState(() => {
+    const cached = peek(key);
+    return (Array.isArray(cached) ? cached : []).map(mapPublicCourse);
+  });
+  const [loading, setLoading] = useState(() => !Array.isArray(peek(key)));
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  if (trackedKey !== key) {
     const hit = peek(key);
-    if (Array.isArray(hit)) {
-      setCourses(hit.map(mapPublicCourse));
-      setLoading(false);
-      setError('');
-      return undefined;
-    }
+    setTrackedKey(key);
+    setCourses((Array.isArray(hit) ? hit : []).map(mapPublicCourse));
+    setLoading(!Array.isArray(hit));
+    setError('');
+  }
+
+  useEffect(() => {
+    if (Array.isArray(peek(key))) return undefined;
     let active = true;
-    setLoading(true);
     loadOnce(key, () => coursesApi.list())
       .then((items) => { if (active) setCourses(items.map(mapPublicCourse)); })
       .catch((reason) => { if (active) setError(userFacingError(reason, 'Could not load programs.')); })
