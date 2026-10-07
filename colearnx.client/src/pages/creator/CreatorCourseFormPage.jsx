@@ -264,6 +264,53 @@ function MaterialsStep({ course, materials, pendingFiles, setPendingFiles, onUpl
   </>;
 }
 
+const MAX_INTERESTS = 4;
+
+function InterestPicker({ tree, selectedIds, onToggle }) {
+  const [query, setQuery] = useState('');
+  const needle = query.trim().toLowerCase();
+  const selectedLeaves = tree.flatMap((category) => category.children || [])
+    .filter((leaf) => selectedIds.includes(leaf.id));
+  const atLimit = selectedIds.length >= MAX_INTERESTS;
+  const groups = tree
+    .map((category) => ({ category, leaves: (category.children || []).filter((leaf) => leaf.name.toLowerCase().includes(needle)) }))
+    .filter((group) => group.leaves.length);
+
+  return <div className="creator-interests">
+    <div className="creator-interest-status">
+      <p aria-live="polite">Selected {selectedIds.length} of {MAX_INTERESTS}{atLimit ? '. Uncheck one interest before choosing another.' : '.'}</p>
+      <span className="creator-interest-meter" aria-hidden="true">
+        {Array.from({ length: MAX_INTERESTS }, (_, index) => <span key={index} className={index < selectedIds.length ? 'filled' : ''} />)}
+      </span>
+    </div>
+    {selectedLeaves.length
+      ? <ul className="creator-interest-chips" aria-label="Selected interests">{selectedLeaves.map((leaf) => <li key={leaf.id}>
+        {leaf.name}
+        <button type="button" aria-label={`Remove ${leaf.name}`} onClick={() => onToggle(leaf.id)}>✕</button>
+      </li>)}</ul>
+      : <p className="creator-interest-empty">No interests selected yet.</p>}
+    <input id="creator-interest-search" className="creator-interest-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search interests" />
+    <div className="creator-interest-groups">
+      {groups.length ? groups.map(({ category, leaves }) => {
+        const chosen = leaves.filter((leaf) => selectedIds.includes(leaf.id)).length;
+        return <details key={category.id} className="creator-interest-group" open={Boolean(needle) || chosen > 0}>
+          <summary>
+            <span>{category.name}</span>
+            <small className={chosen ? 'has-selection' : ''}>{chosen ? `${chosen} of ${leaves.length} selected` : `${leaves.length} options`}</small>
+          </summary>
+          <div className="creator-interest-options">{leaves.map((leaf) => {
+            const checked = selectedIds.includes(leaf.id);
+            return <label key={leaf.id} className="creator-interest-option">
+              <input type="checkbox" checked={checked} disabled={!checked && atLimit} onChange={() => onToggle(leaf.id)} />
+              <span>{leaf.name}</span>
+            </label>;
+          })}</div>
+        </details>;
+      }) : <p className="creator-interest-empty">No interests match “{query.trim()}”.</p>}
+    </div>
+  </div>;
+}
+
 const fieldChanger = (setForm) => (field) => (event) => setForm((value) => ({ ...value, [field]: event.target.value }));
 
 function BasicFields({ form, options, setForm }) {
@@ -285,28 +332,12 @@ function BasicFields({ form, options, setForm }) {
 
 function InterestPriceFields({ form, options, setForm }) {
   const change = fieldChanger(setForm);
-  const [interestQuery, setInterestQuery] = useState('');
-  const selectedLeaves = (options.interestTree || []).flatMap((category) => category.children || [])
-    .filter((leaf) => form.interestIds.includes(leaf.id));
   const toggleInterest = (id) => setForm((value) => ({ ...value,
     interestIds: value.interestIds.includes(id) ? value.interestIds.filter((item) => item !== id)
-      : value.interestIds.length < 4 ? [...value.interestIds, id] : value.interestIds }));
-  const atLimit = form.interestIds.length >= 4;
+      : value.interestIds.length < MAX_INTERESTS ? [...value.interestIds, id] : value.interestIds }));
   return <>
     <div className="form-group"><label htmlFor="creator-interest-search">Course interests (choose 1–4 leaves before submitting)</label>
-      <p>Selected {form.interestIds.length} of 4{atLimit ? '. Uncheck one interest before choosing another.' : '.'}</p>
-      {selectedLeaves.length ? <p>Selected: {selectedLeaves.map((leaf) => leaf.name).join(', ')}</p> : <p>No interests selected yet.</p>}
-      <input id="creator-interest-search" type="search" value={interestQuery} onChange={(event) => setInterestQuery(event.target.value)} placeholder="Search interests" />
-      {(options.interestTree || []).map((category) => {
-        const leaves = (category.children || []).filter((leaf) => leaf.name.toLowerCase().includes(interestQuery.trim().toLowerCase()));
-        if (!leaves.length) return null;
-        return <details key={category.id} open={Boolean(interestQuery.trim()) || selectedLeaves.some((leaf) => leaves.some((item) => item.id === leaf.id))}>
-          <summary>{category.name}</summary>
-          <div className="grid-2">{leaves.map((leaf) => <label key={leaf.id}>
-            <input type="checkbox" checked={form.interestIds.includes(leaf.id)} disabled={!form.interestIds.includes(leaf.id) && atLimit} onChange={() => toggleInterest(leaf.id)} /> {leaf.name}
-          </label>)}</div>
-        </details>;
-      })}
+      <InterestPicker tree={options.interestTree || []} selectedIds={form.interestIds} onToggle={toggleInterest} />
     </div>
     <div className="form-group creator-price-field"><label htmlFor="creator-course-cost">Credit cost</label><input id="creator-course-cost" type="number" min="1" step="1" required value={form.creditCost} onChange={change('creditCost')} aria-describedby="creator-course-cost-hint" />
       <small id="creator-course-cost-hint">Whole credits a Member pays to enrol.</small>

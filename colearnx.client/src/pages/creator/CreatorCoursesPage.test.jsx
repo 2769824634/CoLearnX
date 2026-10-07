@@ -92,6 +92,22 @@ describe('Creator Course workspace', () => {
     expect(globalThis.fetch.mock.calls.filter(([path, options]) => path === '/api/materials' && options?.method === 'POST')).toHaveLength(1);
   });
 
+  it('shows chosen interests as removable chips with per-category counts', async () => {
+    stubCourseApi({ existing: course({ id: 44, interestIds: [2] }) });
+    renderAt('/creator/courses/44');
+
+    const steps = await screen.findByRole('list', { name: 'Course creation steps' });
+    fireEvent.click(within(steps).getByRole('button', { name: /Interests & price/ }));
+    expect(screen.getByText('1 of 2 selected')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Sketching' }));
+    expect(screen.getByText(/Selected 0 of 4/)).toBeTruthy();
+    expect(screen.getByLabelText('Sketching').checked).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Remove Sketching' })).toBeNull();
+
+    fireEvent.change(screen.getByPlaceholderText('Search interests'), { target: { value: 'zzz' } });
+    expect(screen.getByText('No interests match “zzz”.')).toBeTruthy();
+  });
+
   it('lets an existing Draft jump between steps and blocks submitting unsaved edits', async () => {
     stubCourseApi({ existing: course({ id: 44, interestIds: [2] }) });
     renderAt('/creator/courses/44');

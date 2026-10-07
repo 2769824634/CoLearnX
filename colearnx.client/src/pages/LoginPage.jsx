@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 import Modal from '../components/Modal';
+import PasswordInput from '../components/PasswordInput';
 import { authApi } from '../api';
 import { consumeSessionReplacedMessage, SESSION_REPLACED_MESSAGE } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -12,6 +13,12 @@ const ROLE_META = {
   Trainer: { label: 'Trainer', desc: 'Run courses & issue certs' },
   Creator: { label: 'Creator', desc: 'Upload materials & royalties' },
 };
+
+const LEARNING_PATH = [
+  ['Choose a course', 'Browse the catalogue and enrol with credits.'],
+  ['Learn with your trainer', 'Join a scheduled intake and attend each session.'],
+  ['Earn your certificate', 'Request it on completion; it is reviewed before issue.'],
+];
 
 function roleMeta(id) {
   return ROLE_META[id] || { label: id, desc: '' };
@@ -89,20 +96,45 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="auth-screen">
-        <div className="auth-card">
-          <div className="auth-header">
+      <div className="auth-screen login-screen">
+        <main className="login-card">
+          <section className="login-intro">
             <Logo />
-          </div>
-          <form className="auth-body" autoComplete="off" onSubmit={onSubmit}>
+            <p className="login-kicker">Trainer-led learning</p>
+            <h1>Your path to what&apos;s neXt.</h1>
+            <ol className="login-path">
+              {LEARNING_PATH.map(([title, desc]) => (
+                <li key={title}>
+                  <strong>{title}</strong>
+                  <span>{desc}</span>
+                </li>
+              ))}
+            </ol>
+            <div className="login-workspaces-block">
+              <p>One account for every workspace</p>
+              <ul className="login-workspaces">
+                {['Member', 'Trainer', 'Creator'].map((id) => (
+                  <li key={id} data-role={id.toLowerCase()}>
+                    <span className="login-workspace-dot" aria-hidden="true" />
+                    {ROLE_META[id].label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+          <form className="login-form" autoComplete="off" onSubmit={onSubmit}>
+            <p className="login-eyebrow">Welcome back</p>
             <h2>Login to your account</h2>
             <div className="form-group">
             <label htmlFor="login-email">Email</label>
             <input id="login-email" type="email" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} required {...emailAutofill} />
             </div>
             <div className="form-group">
-            <label htmlFor="login-password">Password</label>
-            <input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required {...passwordAutofill} />
+            <div className="login-label-row">
+              <label htmlFor="login-password">Password</label>
+              <Link to="/forgot-password">Forgot password?</Link>
+            </div>
+            <PasswordInput id="login-password" label={null} value={password} onChange={(e) => setPassword(e.target.value)} required {...passwordAutofill} />
             </div>
             {error ? (
               <div className="callout warn" style={{ marginBottom: 12 }}>
@@ -135,17 +167,12 @@ export default function LoginPage() {
             <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
               {busy && !roleOpen ? 'Signing in…' : 'Sign in'}
             </button>
-            <p className="auth-footer">
-              <Link to="/forgot-password">Forgot password?</Link>
-            </p>
-            <p className="auth-footer">
+            <p className="login-register">
               New here? <Link to="/register">Create an account</Link>
             </p>
-            <p className="auth-footer">
-              <Link to="/">Back to home</Link>
-            </p>
+            <Link className="login-home-link" to="/">Back to home</Link>
           </form>
-        </div>
+        </main>
       </div>
 
       <Modal
@@ -162,6 +189,7 @@ export default function LoginPage() {
               <button
                 key={id}
                 type="button"
+                data-role={id.toLowerCase()}
                 className={`role-option${pickedRole === id ? ' selected' : ''}`}
                 onClick={() => setPickedRole(id)}
               >
