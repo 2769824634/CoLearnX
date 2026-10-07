@@ -103,6 +103,40 @@ describe('Creator Course workspace', () => {
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
   });
 
+  it('shows chosen interests as removable chips with per-category counts', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (path) => {
+      if (path === '/api/interests') {
+        return json([{ id: 1, slug: 'design', name: 'Design', children: [
+          { id: 2, slug: 'sketching', name: 'Sketching', children: [] },
+          { id: 3, slug: 'typography', name: 'Typography', children: [] },
+        ] }]);
+      }
+      if (path === '/api/creator/courses/options') {
+        return json({ courseLevels: [{ id: 1, name: 'Beginner' }], learningPaths: [{ id: 3, name: 'Design' }] });
+      }
+      if (String(path).startsWith('/api/materials')) return json([]);
+      return json(course({ id: 44, interestIds: [2] }));
+    }));
+
+    render(
+      <MemoryRouter initialEntries={['/creator/courses/44']}>
+        <AuthContext.Provider value={auth}>
+          <AppRouter />
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Inclusive Design' })).toBeTruthy();
+    expect(screen.getByText('1 of 2 selected')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Sketching' }));
+    expect(screen.getByText(/Selected 0 of 4/)).toBeTruthy();
+    expect(screen.getByLabelText('Sketching').checked).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Remove Sketching' })).toBeNull();
+
+    fireEvent.change(screen.getByPlaceholderText('Search interests'), { target: { value: 'zzz' } });
+    expect(screen.getByText('No interests match “zzz”.')).toBeTruthy();
+  });
+
   it('warns when submitting unsaved edits and keeps the current title', async () => {
     vi.stubGlobal('fetch', vi.fn(async (path) => {
       if (path === '/api/interests') {

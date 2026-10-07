@@ -72,6 +72,7 @@ describe('Member role applications', () => {
     });
 
     expect(await screen.findByText('Loading applications…')).toBeTruthy();
+    expect(document.querySelector('.avatar-frame').dataset.role).toBe('member');
     expect(screen.queryByText('Not requested')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Apply for Trainer' })).toBeNull();
     release([]);

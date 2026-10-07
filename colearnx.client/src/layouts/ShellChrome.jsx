@@ -1,10 +1,13 @@
 import { NavLink } from 'react-router-dom';
 import Logo from '../components/Logo';
+import SkipToContent, { MAIN_CONTENT_ID } from '../components/SkipToContent';
+import useActiveNavInView from '../components/useActiveNavInView';
 import UserAvatar from '../components/UserAvatar';
 import { AccessNotice } from './shellAccessNotice';
 
 export function ShellChrome({
   shellClassName = 'shell',
+  role,
   identityName,
   avatarUrl,
   token,
@@ -21,9 +24,12 @@ export function ShellChrome({
   accessNotice,
   onDismissAccessNotice,
 }) {
+  const navRef = useActiveNavInView();
+
   return (
     <div className={shellClassName}>
-      <div className="topbar">
+      <SkipToContent />
+      <header className="topbar">
         <div className="topbar-brand">
           <Logo />
         </div>
@@ -31,7 +37,7 @@ export function ShellChrome({
         <div className="topbar-actions">
           {extraActions}
           <button type="button" className="btn btn-ghost" onClick={logout}>Log out</button>
-          <div className="user-chip">
+          <div className="user-chip" data-role={role || undefined}>
             <UserAvatar name={identityName} avatarUrl={avatarUrl} token={token} />
             <div>
               <div className="user-chip-name">{identityName}</div>
@@ -39,13 +45,13 @@ export function ShellChrome({
             </div>
           </div>
         </div>
-      </div>
+      </header>
       <div className="shell-body">
-        <nav className="sidebar" aria-label={navLabel} aria-describedby={navHintId}>
+        <nav ref={navRef} className="sidebar" aria-label={navLabel} aria-describedby={navHintId}>
           {navItems}
         </nav>
         <p id={navHintId} className="nav-scroll-hint">More navigation → Swipe or scroll sideways</p>
-        <main className="content">
+        <main id={MAIN_CONTENT_ID} className="content" tabIndex={-1}>
           <AccessNotice notice={accessNotice} onDismiss={onDismissAccessNotice} />
           {title ? <h1 className="page-title">{title}</h1> : null}
           {subtitle ? <p className="page-sub">{subtitle}</p> : null}

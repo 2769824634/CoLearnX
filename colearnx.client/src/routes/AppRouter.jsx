@@ -30,6 +30,7 @@ import CreatorIntakeApplicationsPage from '../pages/creator/CreatorIntakeApplica
 import CreatorIntakeApplicationDetailPage from '../pages/creator/CreatorIntakeApplicationDetailPage';
 import { MemberDataProvider } from '../pages/member/MemberDataContext';
 import { useMemberData } from '../pages/member/memberDataState';
+import MemberHomePage from '../pages/member/MemberHomePage';
 import MemberOnboardingPage from '../pages/member/MemberOnboardingPage';
 import { needsMemberOnboarding } from '../pages/member/MemberOnboardingModal';
 import { useAuth } from '../auth/AuthContext';
@@ -86,7 +87,7 @@ function MemberArea() {
       <MemberNotificationsProvider>
       <Routes>
         <Route path="onboarding" element={<MemberOnboardingPage />} />
-        <Route path="home" element={<Navigate to="/" replace />} />
+        <Route path="home" element={<MemberHomePage />} />
         <Route path="courses" element={<MemberCatalogPage />} />
         <Route path="courses/:courseId" element={<MemberCourseDetailPage />} />
         <Route path="programs" element={<MemberProgramsPage />} />
