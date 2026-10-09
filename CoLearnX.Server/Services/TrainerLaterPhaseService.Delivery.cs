@@ -135,11 +135,11 @@ public sealed partial class TrainerLaterPhaseService
 
         var enrollmentIds = request.Records.Select(item => item.EnrollmentId).ToArray();
         var enrollments = await db.Enrollments.Include(item => item.User)
-            .Where(item => enrollmentIds.Contains(item.Id) && item.CourseSessionId == sessionId
+            .Where(item => enrollmentIds.Contains(item.Id) && item.CourseSession.CourseIntakeId == intakeId
                 && (item.Status == EnrollmentStatus.Active || item.Status == EnrollmentStatus.Completed))
             .ToDictionaryAsync(item => item.Id, ct);
         if (enrollments.Count != enrollmentIds.Length)
-            throw new LaterPhaseException("ENROLLMENT_NOT_FOUND", "Every attendance row must belong to this Session.", 404, "records");
+            throw new LaterPhaseException("ENROLLMENT_NOT_FOUND", "Every attendance row must belong to this Intake.", 404, "records");
         if (enrollments.Values.Select(item => item.UserId).Distinct().Count() != enrollments.Count)
             throw new LaterPhaseException("DUPLICATE_LEARNER", "A learner may have only one attendance row per Session.", 409, "records");
 

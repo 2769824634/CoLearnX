@@ -36,7 +36,7 @@ public sealed class MemberLearningHubService(CoLearnXDbContext db, IFileStorage 
     {
         var enrollment = await RequireEnrollmentAsync(userId, enrollmentId, ct);
         return await db.SessionMaterials.AsNoTracking()
-            .Where(item => item.CourseSessionId == enrollment.CourseSessionId)
+            .Where(item => item.CourseSession.CourseIntakeId == enrollment.CourseSession.CourseIntakeId)
             .OrderByDescending(item => item.UploadedAt)
             .Select(item => new MemberHubSessionMaterialDto(item.Id, item.CourseSessionId,
                 item.CourseSession.Label, item.Title, item.Format, item.UploadedAt))
@@ -68,7 +68,8 @@ public sealed class MemberLearningHubService(CoLearnXDbContext db, IFileStorage 
     {
         var enrollment = await RequireEnrollmentAsync(userId, enrollmentId, ct);
         var material = await db.SessionMaterials.AsNoTracking()
-            .Where(item => item.Id == materialId && item.CourseSessionId == enrollment.CourseSessionId)
+            .Where(item => item.Id == materialId
+                && item.CourseSession.CourseIntakeId == enrollment.CourseSession.CourseIntakeId)
             .Select(item => new { item.FilePath, item.Title })
             .SingleOrDefaultAsync(ct) ?? throw new FileNotFoundException("Session material not found.");
         var stream = await files.OpenAsync(material.FilePath, ct)

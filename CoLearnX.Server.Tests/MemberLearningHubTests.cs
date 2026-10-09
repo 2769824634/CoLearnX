@@ -76,4 +76,95 @@ public class MemberLearningHubTests
         await db.SaveChangesAsync();
         Assert.Equal(HttpStatusCode.NotFound, (await member.GetAsync($"/api/enrollments/{enrollment.Id}/materials/1/file")).StatusCode);
     }
+
+    [Fact]
+    public async Task Enrolled_member_can_open_session_material_from_another_session_in_same_intake()
+    {
+        using var factory = new CoLearnXApiFactory();
+        using var member = await ApiClient.AsMemberAsync(factory);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        var storage = scope.ServiceProvider.GetRequiredService<IFileStorage>();
+        var enrollment = await db.Enrollments.Include(item => item.CourseSession).ThenInclude(item => item.CourseIntake)
+            .FirstAsync(item => item.User.Email == SeedData.MemberEmail
+                && (item.Status == EnrollmentStatus.Active || item.Status == EnrollmentStatus.Completed));
+        var laterSession = new CourseSession
+        {
+            CourseIntakeId = enrollment.CourseSession.CourseIntakeId,
+            Label = "Later session",
+            StartsAt = enrollment.CourseSession.StartsAt.AddDays(1),
+            EndsAt = enrollment.CourseSession.EndsAt.AddDays(1),
+        };
+        db.CourseSessions.Add(laterSession);
+        await db.SaveChangesAsync();
+        var material = new SessionMaterial
+        {
+            CourseSessionId = laterSession.Id,
+            AddedByTrainerId = enrollment.CourseSession.CourseIntake.TrainerId,
+            Title = "Later handout",
+            FilePath = $"session-materials/{laterSession.Id}/later-handout.pdf",
+            Format = "PDF",
+        };
+        db.SessionMaterials.Add(material);
+        await db.SaveChangesAsync();
+        await storage.SaveAsync(material.FilePath, new MemoryStream("later handout"u8.ToArray()), "application/pdf");
+
+        var materials = await member.GetFromJsonAsync<JsonArray>(
+            $"/api/enrollments/{enrollment.Id}/session-materials", ApiJson.Options);
+        using var file = await member.GetAsync(
+            $"/api/enrollments/{enrollment.Id}/session-materials/{material.Id}/file");
+
+        Assert.Contains(materials!, item => item!["id"]!.GetValue<int>() == material.Id
+            && item["courseSessionId"]!.GetValue<int>() == laterSession.Id);
+        Assert.Equal(HttpStatusCode.OK, file.StatusCode);
+        Assert.Equal("later handout", await file.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Enrolled_member_cannot_open_session_material_from_another_intake()
+    {
+        using var factory = new CoLearnXApiFactory();
+        using var member = await ApiClient.AsMemberAsync(factory);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        var enrollment = await db.Enrollments.Include(item => item.CourseSession).ThenInclude(item => item.CourseIntake)
+            .FirstAsync(item => item.User.Email == SeedData.MemberEmail
+                && (item.Status == EnrollmentStatus.Active || item.Status == EnrollmentStatus.Completed));
+        var otherIntake = new CourseIntake
+        {
+            CourseId = enrollment.CourseId,
+            TrainerId = enrollment.CourseSession.CourseIntake.TrainerId,
+            RegistrationOpensAt = new DateTime(2030, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            RegistrationClosesAt = new DateTime(2030, 1, 2, 0, 0, 0, DateTimeKind.Utc),
+            StartsAt = new DateTime(2030, 1, 3, 0, 0, 0, DateTimeKind.Utc),
+            EndsAt = new DateTime(2030, 1, 4, 0, 0, 0, DateTimeKind.Utc),
+            Status = CourseIntakeStatus.InProgress,
+        };
+        db.CourseIntakes.Add(otherIntake);
+        await db.SaveChangesAsync();
+        var otherSession = new CourseSession
+        {
+            CourseIntakeId = otherIntake.Id,
+            Label = "Other Intake session",
+            StartsAt = otherIntake.StartsAt,
+            EndsAt = otherIntake.EndsAt,
+        };
+        db.CourseSessions.Add(otherSession);
+        await db.SaveChangesAsync();
+        var material = new SessionMaterial
+        {
+            CourseSessionId = otherSession.Id,
+            AddedByTrainerId = otherIntake.TrainerId,
+            Title = "Other Intake handout",
+            FilePath = $"session-materials/{otherSession.Id}/other.pdf",
+            Format = "PDF",
+        };
+        db.SessionMaterials.Add(material);
+        await db.SaveChangesAsync();
+
+        using var file = await member.GetAsync(
+            $"/api/enrollments/{enrollment.Id}/session-materials/{material.Id}/file");
+
+        Assert.Equal(HttpStatusCode.NotFound, file.StatusCode);
+    }
 }

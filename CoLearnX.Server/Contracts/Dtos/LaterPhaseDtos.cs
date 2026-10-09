@@ -66,6 +66,8 @@ public record SaveAttendanceRequest(
 
 public record AttendanceItemDto(int EnrollmentId, int UserId, string LearnerName, string Status, DateTime RecordedAt);
 
+public record TrainerSessionAttendanceDto(int CourseSessionId, string? Status, DateTime? RecordedAt);
+
 public record TrainerLearnerDto(
     int EnrollmentId,
     int CourseSessionId,
@@ -79,7 +81,8 @@ public record TrainerLearnerDto(
     int AssessmentsPassed,
     string? AttendanceStatus,
     string? CertificateRequestStatus,
-    int AssessmentsTotal = 0);
+    int AssessmentsTotal,
+    IReadOnlyList<TrainerSessionAttendanceDto> SessionAttendances);
 
 public record CreateAssessmentRequest(
     [Required, MaxLength(160)] string Title,

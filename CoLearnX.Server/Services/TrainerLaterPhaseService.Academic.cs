@@ -33,7 +33,9 @@ public sealed partial class TrainerLaterPhaseService
     public async Task<IReadOnlyList<TrainerLearnerDto>> ListLearnersAsync(int trainerUserId, int intakeId, CancellationToken ct = default)
     {
         var intake = await RequireOwnedIntakeAsync(trainerUserId, intakeId, ct);
-        var sessionIds = await db.CourseSessions.Where(item => item.CourseIntakeId == intake.Id).Select(item => item.Id).ToListAsync(ct);
+        var sessionIds = await db.CourseSessions.Where(item => item.CourseIntakeId == intake.Id)
+            .OrderBy(item => item.StartsAt).ThenBy(item => item.Id)
+            .Select(item => item.Id).ToListAsync(ct);
         var enrollments = await db.Enrollments.AsNoTracking().Include(item => item.User)
             .Where(item => sessionIds.Contains(item.CourseSessionId)
                 && (item.Status == EnrollmentStatus.Active || item.Status == EnrollmentStatus.Completed))
@@ -54,9 +56,14 @@ public sealed partial class TrainerLaterPhaseService
             var learnerResults = results.Where(item => item.EnrollmentId == enrollment.Id).ToList();
             var passed = learnerResults.Count(result => result.Score >= assessmentRules[result.AssessmentId]);
             var enrollmentAttendance = learnerAttendance.FirstOrDefault(item => item.CourseSessionId == enrollment.CourseSessionId);
+            var sessionAttendances = sessionIds.Select(sessionId =>
+            {
+                var record = learnerAttendance.FirstOrDefault(item => item.CourseSessionId == sessionId);
+                return new TrainerSessionAttendanceDto(sessionId, record?.Status.ToString(), record?.RecordedAt);
+            }).ToList();
             return new TrainerLearnerDto(enrollment.Id, enrollment.CourseSessionId, enrollment.UserId, enrollment.User.FullName, enrollment.User.Email,
                 enrollment.Status.ToString(), enrollment.ProgressPercent, rate, learnerResults.Count, passed, enrollmentAttendance?.Status.ToString(),
-                requests.GetValueOrDefault(enrollment.Id)?.Status.ToString(), assessmentRules.Count);
+                requests.GetValueOrDefault(enrollment.Id)?.Status.ToString(), assessmentRules.Count, sessionAttendances);
         }).ToList();
     }
 

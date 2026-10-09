@@ -262,6 +262,120 @@ public sealed class LaterPhaseWorkflowIntegrationTests
     }
 
     [Fact]
+    public async Task AttendanceAcceptsLearnerEnrolledInAnotherSessionOfSameIntake()
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        await factory.ReadAsync(async db =>
+        {
+            db.CourseSessions.Add(new CourseSession
+            {
+                Id = 201,
+                CourseIntakeId = 200,
+                Label = "Second workshop",
+                StartsAt = new DateTime(2026, 9, 8, 1, 0, 0, DateTimeKind.Utc),
+                EndsAt = new DateTime(2026, 9, 8, 3, 0, 0, DateTimeKind.Utc),
+            });
+            return await db.SaveChangesAsync();
+        });
+
+        using var trainer = factory.UserClient(200, AppRole.Trainer);
+        using var response = await trainer.PutAsJsonAsync("/api/trainer/intakes/200/sessions/201/attendance",
+            new { records = new[] { new { enrollmentId = 200, status = "Present" } } });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(await factory.ReadAsync(db => db.AttendanceRecords.AnyAsync(record =>
+            record.CourseSessionId == 201 && record.UserId == 202 && record.Status == AttendanceStatus.Present)));
+    }
+
+    [Fact]
+    public async Task AttendanceRejectsEnrollmentFromAnotherIntake()
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        await factory.ReadAsync(async db =>
+        {
+            var otherIntake = new CourseIntake
+            {
+                CourseId = 200,
+                TrainerId = 200,
+                RegistrationOpensAt = new DateTime(2026, 10, 3, 0, 0, 0, DateTimeKind.Utc),
+                RegistrationClosesAt = new DateTime(2026, 10, 4, 0, 0, 0, DateTimeKind.Utc),
+                StartsAt = new DateTime(2026, 10, 5, 0, 0, 0, DateTimeKind.Utc),
+                EndsAt = new DateTime(2026, 10, 6, 0, 0, 0, DateTimeKind.Utc),
+                Status = CourseIntakeStatus.InProgress,
+            };
+            db.CourseIntakes.Add(otherIntake);
+            await db.SaveChangesAsync();
+            var otherSession = new CourseSession
+            {
+                CourseIntakeId = otherIntake.Id,
+                Label = "Other Intake session",
+                StartsAt = otherIntake.StartsAt,
+                EndsAt = otherIntake.EndsAt,
+            };
+            db.CourseSessions.Add(otherSession);
+            await db.SaveChangesAsync();
+            db.Enrollments.Add(new Enrollment
+            {
+                Id = 202,
+                UserId = 202,
+                CourseId = 200,
+                CourseSessionId = otherSession.Id,
+                Status = EnrollmentStatus.Active,
+            });
+            return await db.SaveChangesAsync();
+        });
+
+        using var trainer = factory.UserClient(200, AppRole.Trainer);
+        using var response = await trainer.PutAsJsonAsync("/api/trainer/intakes/200/sessions/200/attendance",
+            new { records = new[] { new { enrollmentId = 202, status = "Present" } } });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.False(await factory.ReadAsync(db => db.AttendanceRecords.AnyAsync(record =>
+            record.CourseSessionId == 200 && record.UserId == 202)));
+    }
+
+    [Fact]
+    public async Task LearnerRosterIncludesAttendanceForEveryIntakeSession()
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        await factory.ReadAsync(async db =>
+        {
+            db.CourseSessions.Add(new CourseSession
+            {
+                Id = 201,
+                CourseIntakeId = 200,
+                Label = "Second workshop",
+                StartsAt = new DateTime(2026, 9, 8, 1, 0, 0, DateTimeKind.Utc),
+                EndsAt = new DateTime(2026, 9, 8, 3, 0, 0, DateTimeKind.Utc),
+            });
+            db.AttendanceRecords.Add(new AttendanceRecord
+            {
+                CourseSessionId = 200,
+                UserId = 202,
+                Status = AttendanceStatus.Late,
+                RecordedByTrainerId = 200,
+            });
+            return await db.SaveChangesAsync();
+        });
+
+        using var trainer = factory.UserClient(200, AppRole.Trainer);
+        using var response = await trainer.GetAsync("/api/trainer/intakes/200/learners");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var learner = (await Body(response)).EnumerateArray()
+            .Single(item => item.GetProperty("enrollmentId").GetInt32() == 200);
+        var sessions = learner.GetProperty("sessionAttendances").EnumerateArray().ToList();
+        Assert.Equal(2, sessions.Count);
+        Assert.Contains(sessions, item => item.GetProperty("courseSessionId").GetInt32() == 200
+            && item.GetProperty("status").GetString() == "Late");
+        Assert.Contains(sessions, item => item.GetProperty("courseSessionId").GetInt32() == 201
+            && item.GetProperty("status").ValueKind == JsonValueKind.Null);
+    }
+
+    [Fact]
     public async Task AssessmentAndCertificate_RequireTrainerReviewBeforeAdminIssuance()
     {
         using var factory = new LaterPhaseApiFactory();
