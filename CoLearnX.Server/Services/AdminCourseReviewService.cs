@@ -21,7 +21,8 @@ public interface IAdminCourseReviewService
 
 public sealed class AdminCourseReviewService(
     CoLearnXDbContext db,
-    IAuditLogService auditLogs) : IAdminCourseReviewService
+    IAuditLogService auditLogs,
+    INotificationRealtime? realtime = null) : IAdminCourseReviewService
 {
     private const string PublishedAction = "CoursePublished";
     private const string RejectedAction = "CourseRejected";
@@ -128,6 +129,18 @@ public sealed class AdminCourseReviewService(
                     "COURSE_INTERESTS_REQUIRED", "A Course needs one to four leaf interests before publication.");
 
             course.Status = targetStatus;
+            var notification = decision == AdminReviewDecision.Approve
+                ? new Notification
+                {
+                    UserId = course.CreatorId, Code = "N-course-published", Title = "Course published",
+                    Body = $"{course.Code} {course.Title} was approved by Admin and is now in the catalogue.",
+                }
+                : new Notification
+                {
+                    UserId = course.CreatorId, Code = "N-course-rejected", Title = "Course needs changes",
+                    Body = $"Admin returned {course.Code} {course.Title}: {reason}",
+                };
+            db.Notifications.Add(notification);
             await auditLogs.AppendAdminAsync(
                 adminAccountId,
                 targetAction,
@@ -137,6 +150,8 @@ public sealed class AdminCourseReviewService(
                 reason,
                 ct);
             await transaction.CommitAsync(ct);
+            if (realtime is not null)
+                await realtime.PublishAsync(notification, ct);
 
             var reviewLog = await FindLatestReviewLogAsync(course.Id, ct);
             var details = await LoadDetailsAsync([course.Id], ct);

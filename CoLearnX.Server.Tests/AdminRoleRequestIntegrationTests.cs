@@ -53,6 +53,10 @@ public class AdminRoleRequestIntegrationTests
             Assert.Equal(1, await db.AuditLogs.CountAsync(log =>
                 log.Action == "RoleRequestApproved"
                 && log.EntityId == roleRequest.Id.ToString()));
+            var notification = Assert.Single(await db.Notifications
+                .Where(item => item.Code == "N-role-approved").ToListAsync());
+            Assert.Equal(roleRequest.UserId, notification.UserId);
+            Assert.Contains("Creator", notification.Body);
         }
         finally
         {
@@ -127,6 +131,10 @@ public class AdminRoleRequestIntegrationTests
             Assert.Equal(1, await db.AuditLogs.CountAsync(log =>
                 log.Action == "RoleRequestRejected"
                 && log.EntityId == roleRequest.Id.ToString()));
+            var notification = Assert.Single(await db.Notifications
+                .Where(item => item.Code == "N-role-rejected").ToListAsync());
+            Assert.Equal(roleRequest.UserId, notification.UserId);
+            Assert.Contains("More facilitation evidence is required.", notification.Body);
         }
         finally
         {

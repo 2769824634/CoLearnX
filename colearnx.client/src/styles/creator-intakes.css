@@ -18,6 +18,13 @@
 .creator-application-row p:last-child { margin: 0; color: var(--slate); font-size: 12px; }
 .creator-application-index { min-width: 0; overflow-wrap: anywhere; color: var(--purple); font-size: 18px; font-variant-numeric: tabular-nums; }
 .creator-application-row > div { min-width: 0; overflow-wrap: anywhere; }
+.creator-status.pendingapproval { border-color: var(--purple); background: var(--purple-soft); }
+.creator-status.published { border-color: var(--teal); background: var(--teal-soft); }
+.creator-section-heading:has(.creator-group-count) { display: flex; align-items: center; gap: 10px; }
+.creator-group-count { min-width: 24px; padding: 2px 8px; border-radius: 999px; background: var(--chrome); color: var(--slate); font-size: 12px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+.creator-group-empty { margin: 0; padding: 18px 20px; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--slate); font-size: 13px; }
+.creator-application-row .creator-feedback { margin-top: 10px; padding: 10px 14px; border-left: 3px solid var(--warn); background: var(--chrome); font-size: 13px; }
+.creator-application-row .creator-feedback p { margin: 4px 0 0; color: var(--charcoal); font-size: 13px; line-height: 1.55; }
 .creator-course-definition { padding: 20px; }
 .creator-course-fields { min-width: 0; padding: 0; border: 0; }
 .creator-course-fields legend { margin-bottom: 18px; font-weight: 700; }

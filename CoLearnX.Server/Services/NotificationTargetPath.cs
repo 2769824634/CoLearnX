@@ -15,6 +15,9 @@ public static class NotificationTargetPath
         "N-intake-confirmed-creator" or "N-intake-cancelled-creator"
             => intakeId > 0 ? $"/creator/courses/intake-applications/{intakeId}" : "/creator/courses/intake-applications",
         "N-learner-withdrew" => intakeId > 0 ? $"/trainer/courses/intakes/{intakeId}" : "/trainer/learners",
+        "N-course-published" or "N-course-rejected" => "/creator/approvals",
+        "N-intake-application-confirmed" or "N-intake-application-rejected"
+            => intakeId > 0 ? $"/trainer/courses/intakes/{intakeId}" : "/trainer/approvals",
         "N-09" => "/member/disputes",
         _ => null,
     };

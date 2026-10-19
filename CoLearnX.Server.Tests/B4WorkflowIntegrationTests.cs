@@ -54,6 +54,9 @@ public sealed class B4WorkflowIntegrationTests
             new ReviewIntakeApplicationRequest("Confirm", "Ready to deliver", queued.Version)));
         Assert.Equal("Published", intake.Status);
         Assert.Equal(103, intake.ConfirmedByCreatorId);
+        var inbox = await trainer.GetFromJsonAsync<NotificationInboxDto>("/api/notifications/my");
+        var confirmedNotice = Assert.Single(inbox!.Items, item => item.Type == "N-intake-application-confirmed");
+        Assert.Equal($"/trainer/courses/intakes/{intake.Id}", confirmedNotice.TargetPath);
 
         var session = Assert.Single(intake.Sessions);
         intake = await Detail(await trainer.PatchAsJsonAsync($"/api/trainer/intakes/{intake.Id}/sessions/{session.Id}/delivery",
@@ -208,6 +211,10 @@ public sealed class B4WorkflowIntegrationTests
         var replay = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{intake.Id}/review",
             new ReviewIntakeApplicationRequest("Reject", "Clarify the delivery dates", intake.Version)));
         Assert.Equal(rejected.Version, replay.Version);
+        var inbox = await trainer.GetFromJsonAsync<NotificationInboxDto>("/api/notifications/my");
+        var notice = Assert.Single(inbox!.Items, item => item.Type == "N-intake-application-rejected");
+        Assert.Contains("Clarify the delivery dates", notice.Message);
+        Assert.Equal($"/trainer/courses/intakes/{intake.Id}", notice.TargetPath);
         await Error(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{intake.Id}/review",
             new ReviewIntakeApplicationRequest("Confirm", null, intake.Version)), 409, "INTAKE_REVIEW_CONFLICT");
         var updated = await Detail(await trainer.PutAsJsonAsync($"/api/trainer/intakes/{intake.Id}",

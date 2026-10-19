@@ -5,6 +5,7 @@ using CoLearnX.Server.Auth;
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
 using CoLearnX.Server.Payments;
+using CoLearnX.Server.Hubs;
 using CoLearnX.Server.Services;
 using CoLearnX.Server.Storage;
 using Microsoft.AspNetCore.Authorization;
@@ -67,6 +68,8 @@ builder.Services.AddSingleton<PasswordResetMailSender>();
 builder.Services.AddSingleton<IPasswordResetMailSender>(sp => sp.GetRequiredService<PasswordResetMailSender>());
 builder.Services.AddSingleton<IEmailVerificationMailSender>(sp => sp.GetRequiredService<PasswordResetMailSender>());
 builder.Services.AddSingleton<IBusinessNotificationMailSender>(sp => sp.GetRequiredService<PasswordResetMailSender>());
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<INotificationRealtime, NotificationRealtime>();
 builder.Services.AddScoped<NotificationEmailDispatcher>();
 builder.Services.AddScoped<IAdminAuthService, AdminAuthService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
@@ -115,7 +118,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = CreateTokenValidationParameters(jwt);
-        options.Events = ExclusiveSessionEvents(AuthTokenSubjects.User);
+        options.Events = UserJwtEvents();
     })
     .AddJwtBearer(AdminAuthorization.SchemeName, options =>
     {
@@ -274,7 +277,9 @@ if (payPalOpts.IsConfigured)
 else
     app.Logger.LogWarning("PayPal is not configured. Set PayPal__ClientId and PayPal__ClientSecret on the App Service to the sandbox REST app credentials, not the setting names.");
 
-app.UseResponseCompression();
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/hubs"),
+    branch => branch.UseResponseCompression());
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.MapStaticAssets();
@@ -290,6 +295,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapFallbackToFile("/index.html");
 
 app.Run();
@@ -351,6 +357,20 @@ static JwtBearerEvents ExclusiveSessionEvents(string expectedSubjectType)
     {
         OnTokenValidated = context => SessionStampValidator.ValidateAsync(context, expectedSubjectType),
     };
+
+static JwtBearerEvents UserJwtEvents()
+{
+    var events = ExclusiveSessionEvents(AuthTokenSubjects.User);
+    events.OnMessageReceived = context =>
+    {
+        var accessToken = context.Request.Query["access_token"];
+        if (!string.IsNullOrEmpty(accessToken)
+            && context.HttpContext.Request.Path.StartsWithSegments("/hubs/notifications"))
+            context.Token = accessToken;
+        return Task.CompletedTask;
+    };
+    return events;
+}
 
 static IFileStorage CreateFileStorage(
     StorageOptions opts,
