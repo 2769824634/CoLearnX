@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import { useMemberSlices } from './memberDataState';
+import { learningPathOptions } from '../publicCourses';
 
 // Program catalog + left filters.
 export default function MemberCatalogPage() {
@@ -10,7 +11,7 @@ export default function MemberCatalogPage() {
   const { state, toggleWish, reload } = useMemberSlices('catalog');
   const [tab, setTab] = useState('all');
   const [search, setSearch] = useState(params.get('q') || '');
-  const [topic, setTopic] = useState('');
+  const [learningPath, setLearningPath] = useState('');
   const [level, setLevel] = useState('');
   const [credits, setCredits] = useState('');
 
@@ -19,13 +20,14 @@ export default function MemberCatalogPage() {
       if (tab === 'wishlist' && !state.wishlist.includes(c.id)) return false;
       const q = search.toLowerCase();
       if (q && !(`${c.code} ${c.title} ${c.creatorName || ''} ${(c.trainerNames || []).join(' ')}`).toLowerCase().includes(q)) return false;
-      if (topic && c.topic !== topic) return false;
+      if (learningPath && c.learningPath !== learningPath) return false;
       if (level && c.level !== level) return false;
       if (credits === 'low' && c.credits > 25) return false;
       if (credits === 'high' && c.credits < 30) return false;
       return true;
     });
-  }, [state.courses, state.wishlist, tab, search, topic, level, credits]);
+  }, [state.courses, state.wishlist, tab, search, learningPath, level, credits]);
+  const learningPaths = useMemo(() => learningPathOptions(state.courses), [state.courses]);
 
   return (
     <MemberShell
@@ -40,11 +42,9 @@ export default function MemberCatalogPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select value={topic} onChange={(e) => setTopic(e.target.value)}>
-          <option value="">All Topics</option>
-          <option>Programming</option>
-          <option>Design</option>
-          <option>Business</option>
+        <select aria-label="Learning path" value={learningPath} onChange={(e) => setLearningPath(e.target.value)}>
+          <option value="">All learning paths</option>
+          {learningPaths.map((path) => <option key={path}>{path}</option>)}
         </select>
         <select value={level} onChange={(e) => setLevel(e.target.value)}>
           <option value="">All Levels</option>
@@ -69,7 +69,7 @@ export default function MemberCatalogPage() {
       </div>
 
       <div className="grid-4">
-        {state.loading ? <p role="status">Loading programs…</p> : state.loadError ? <div className="callout warn" role="alert">{state.loadError} <button type="button" className="btn btn-ghost" onClick={reload}>Retry</button></div> : list.length === 0 ? <div className="callout"><p>{state.courses.length || search || topic || level || credits || tab === 'wishlist' ? 'No programs match your filters.' : 'No programs are published yet.'}</p><button type="button" className="btn btn-ghost" onClick={() => { setSearch(''); setTopic(''); setLevel(''); setCredits(''); setTab('all'); }}>Clear filters</button></div> : list.map((c) => (
+        {state.loading ? <p role="status">Loading programs…</p> : state.loadError ? <div className="callout warn" role="alert">{state.loadError} <button type="button" className="btn btn-ghost" onClick={reload}>Retry</button></div> : list.length === 0 ? <div className="callout"><p>{state.courses.length || search || learningPath || level || credits || tab === 'wishlist' ? 'No programs match your filters.' : 'No programs are published yet.'}</p><button type="button" className="btn btn-ghost" onClick={() => { setSearch(''); setLearningPath(''); setLevel(''); setCredits(''); setTab('all'); }}>Clear filters</button></div> : list.map((c) => (
           <div className="course-card" key={c.id}>
             <div className="thumb">{c.code}</div>
             <h4>{c.title}</h4>

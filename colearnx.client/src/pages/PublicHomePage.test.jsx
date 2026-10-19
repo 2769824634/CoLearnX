@@ -24,6 +24,7 @@ function courseList() {
     creditCost: 20,
     level: 'Beginner',
     category: 'Programming',
+    learningPath: 'Software engineering',
     isFeatured: true,
     inWishlist: false,
     averageStars: 4.3,
@@ -31,7 +32,25 @@ function courseList() {
   }];
 }
 
-function stubCourses(detail) {
+function designCourse() {
+  return {
+    id: 16,
+    code: 'DSGN 1001',
+    title: 'Visual Design Basics',
+    trainerName: 'Zou Ruiqi',
+    trainerNames: ['Zou Ruiqi'],
+    creatorName: 'Zou Ruiqi',
+    creditCost: 15,
+    level: 'Beginner',
+    category: 'Design',
+    learningPath: 'Creative studies',
+    isFeatured: false,
+    inWishlist: false,
+    ratingCount: 0,
+  };
+}
+
+function stubCourses(detail, list = courseList()) {
   vi.stubGlobal('fetch', vi.fn(async (path) => {
     const url = String(path);
     if (url.startsWith('/api/notifications')) {
@@ -48,7 +67,7 @@ function stubCourses(detail) {
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
     if (url.startsWith('/api/courses')) {
-      return new Response(JSON.stringify(courseList()), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify(list), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
     return new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }));
@@ -138,4 +157,22 @@ it('lets guests open the public catalog and course details, but not wishlist', a
   fireEvent.click(screen.getByRole('button', { name: 'Close' }));
   fireEvent.click(screen.getByRole('button', { name: 'View Details' }));
   expect(await screen.findByText('Build interfaces with React.')).toBeTruthy();
+});
+
+it('filters the public catalog by learning path', async () => {
+  stubCourses(undefined, [...courseList(), designCourse()]);
+  render(
+    <MemoryRouter initialEntries={['/courses']}>
+      <AuthContext.Provider value={guestAuth}>
+        <PublicCatalogPage />
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByRole('heading', { name: 'Visual Design Basics' })).toBeTruthy();
+  const filter = screen.getByRole('combobox', { name: 'Learning path' });
+  expect([...filter.options].map((option) => option.textContent)).toEqual(['All learning paths', 'Creative studies', 'Software engineering']);
+
+  fireEvent.change(filter, { target: { value: 'Creative studies' } });
+  expect(screen.getByRole('heading', { name: 'Visual Design Basics' })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'Frontend React Bootcamp' })).toBeNull();
 });

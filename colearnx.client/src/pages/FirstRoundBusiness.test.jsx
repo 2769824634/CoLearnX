@@ -47,6 +47,17 @@ it('explains a filtered empty catalog and restores the results after clearing', 
   expect(screen.getByRole('heading', { name: 'Design' })).toBeTruthy();
 });
 
+it('filters the member catalog by learning path', () => {
+  const backend = { ...course, id: 2, title: 'APIs in practice', learningPath: 'Software engineering' };
+  mount(<MemberCatalogPage />, { state: { ...state, courses: [course, backend] } });
+  const filter = screen.getByRole('combobox', { name: 'Learning path' });
+  expect([...filter.options].map((option) => option.textContent)).toEqual(['All learning paths', 'Creative studies', 'Software engineering']);
+
+  fireEvent.change(filter, { target: { value: 'Software engineering' } });
+  expect(screen.getByRole('heading', { name: 'APIs in practice' })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'Design' })).toBeNull();
+});
+
 it('shows course definition and actual roles without invented credentials or certificate claims', async () => {
   mount(<MemberCourseDetailPage />, {}, '/member/courses/1');
   expect(await screen.findByText('Learn useful skills.')).toBeTruthy();

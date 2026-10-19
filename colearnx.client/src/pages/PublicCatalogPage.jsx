@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import { resolveAuthSession, SessionLoading } from '../auth/authSession';
 import PublicSiteShell, { useGuestGate } from '../components/PublicSiteShell';
 import AuthRequiredModal from '../components/AuthRequiredModal';
-import { usePublicCourses } from './publicCourses';
+import { learningPathOptions, usePublicCourses } from './publicCourses';
 
 export default function PublicCatalogPage() {
   const navigate = useNavigate();
@@ -13,16 +13,17 @@ export default function PublicCatalogPage() {
   const gate = useGuestGate();
   const session = resolveAuthSession(useAuth());
   const [search, setSearch] = useState(params.get('q') || '');
-  const [topic, setTopic] = useState('');
+  const [learningPath, setLearningPath] = useState('');
   const [level, setLevel] = useState('');
 
   const list = useMemo(() => courses.filter((course) => {
     const query = search.toLowerCase();
     if (query && !(`${course.code} ${course.title} ${course.creatorName || ''} ${(course.trainerNames || []).join(' ')}`).toLowerCase().includes(query)) return false;
-    if (topic && course.topic !== topic && course.category !== topic) return false;
+    if (learningPath && course.learningPath !== learningPath) return false;
     if (level && course.level !== level) return false;
     return true;
-  }), [courses, search, topic, level]);
+  }), [courses, search, learningPath, level]);
+  const learningPaths = useMemo(() => learningPathOptions(courses), [courses]);
 
   if (session === 'booting') return <SessionLoading />;
   if (session === 'member') {
@@ -40,11 +41,9 @@ export default function PublicCatalogPage() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <select value={topic} onChange={(event) => setTopic(event.target.value)}>
-          <option value="">All Topics</option>
-          <option>Programming</option>
-          <option>Design</option>
-          <option>Business</option>
+        <select aria-label="Learning path" value={learningPath} onChange={(event) => setLearningPath(event.target.value)}>
+          <option value="">All learning paths</option>
+          {learningPaths.map((path) => <option key={path}>{path}</option>)}
         </select>
         <select value={level} onChange={(event) => setLevel(event.target.value)}>
           <option value="">All Levels</option>

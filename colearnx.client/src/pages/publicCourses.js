@@ -14,6 +14,7 @@ export function mapPublicCourse(c) {
     trainerNames: c.trainerNames || [],
     credits: c.creditCost,
     level: c.level,
+    learningPath: c.learningPath,
     description: c.description,
     outcomes: c.learningOutcomes || [],
     interests: c.interests || [],
@@ -21,6 +22,10 @@ export function mapPublicCourse(c) {
     ratingCount: c.ratingCount || 0,
     sessions: c.sessions || [],
   };
+}
+
+export function learningPathOptions(courses) {
+  return [...new Set(courses.map((course) => course.learningPath).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 }
 
 export function usePublicCourses() {

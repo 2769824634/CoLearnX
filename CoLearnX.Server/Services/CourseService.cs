@@ -438,7 +438,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         string code,
         string title,
         string? description,
-        string category,
+        string? category,
         int creditCost,
         IReadOnlyList<string>? learningOutcomes,
         CourseLevel level,
@@ -452,7 +452,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         course.LearningPathId = path.Id;
         course.LearningPath = path;
         course.Level = level.Name;
-        course.Category = category.Trim();
+        if (category is not null) course.Category = category.Trim();
         course.CreditCost = creditCost;
         course.LearningOutcomes = NormalizeOutcomes(learningOutcomes)
             .Select((text, index) => new CourseLearningOutcome { SortOrder = index + 1, Text = text })

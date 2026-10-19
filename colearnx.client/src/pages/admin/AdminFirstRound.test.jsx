@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import AdminDataState from './AdminDataState';
 import AdminCourseReviewsPage from './AdminCourseReviewsPage';
 
@@ -23,7 +23,8 @@ describe('first-round administrator feedback', () => {
       learningPath: 'Product design', learningOutcomes: ['Apply an interview method'], description: 'A complete definition' }]);
     render(<AdminCourseReviewsPage />);
     fireEvent.click(await screen.findByRole('button', { name: 'Review' }));
-    expect(screen.getByText('Product design')).toBeTruthy();
-    expect(screen.getByText('Apply an interview method')).toBeTruthy();
+    const dialog = screen.getByRole('dialog', { name: 'Review course' });
+    expect(within(dialog).getByText('Product design')).toBeTruthy();
+    expect(within(dialog).getByText('Apply an interview method')).toBeTruthy();
   });
 });
