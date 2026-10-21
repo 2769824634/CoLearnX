@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { materialsApi } from '../../api';
 import MaterialList from '../../components/MaterialList';
 import Modal from '../../components/Modal';
@@ -23,41 +23,32 @@ export default function CourseMaterialsCard({ course, materials, onMaterials, to
       <div className="card-body">
         <MaterialList items={materials} />
       </div>
-      <CourseMaterialUploadDialog
-        open={open}
-        course={course}
-        token={token}
-        onClose={() => onOpenChange(false)}
-        onLibraryChange={onMaterials}
-        onUploaded={(next) => {
-          onMaterials(next);
-          onOpenChange(false);
-          showToast('Uploaded.');
-        }}
-      />
+      {open ? (
+        <CourseMaterialUploadDialog
+          course={course}
+          token={token}
+          onClose={() => onOpenChange(false)}
+          onLibraryChange={onMaterials}
+          onUploaded={(next) => {
+            onMaterials(next);
+            onOpenChange(false);
+            showToast('Uploaded.');
+          }}
+        />
+      ) : null}
       {toast ? <div className="toast show">{toast}</div> : null}
     </div>
   );
 }
 
-function CourseMaterialUploadDialog({ open, course, token, onClose, onLibraryChange, onUploaded }) {
-  const [category, setCategory] = useState('Design');
+function CourseMaterialUploadDialog({ course, token, onClose, onLibraryChange, onUploaded }) {
+  const [category, setCategory] = useState(() => startingCategory(course.category));
   const [description, setDescription] = useState('');
   const [files, setFiles] = useState([]);
   const [fileError, setFileError] = useState('');
   const [titleErrors, setTitleErrors] = useState({});
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setCategory(startingCategory(course.category));
-    setDescription('');
-    setFiles([]);
-    setFileError('');
-    setTitleErrors({});
-    setError(null);
-  }, [open, course]);
 
   function requestClose() {
     if (busy) return;
@@ -108,7 +99,7 @@ function CourseMaterialUploadDialog({ open, course, token, onClose, onLibraryCha
   }
 
   return (
-    <Modal open={open} title="Upload materials" onClose={requestClose}>
+    <Modal open title="Upload materials" onClose={requestClose}>
       <form onSubmit={onSubmit}>
         {error ? (
           <div className="callout" role="alert" style={{ marginBottom: 12 }}>
