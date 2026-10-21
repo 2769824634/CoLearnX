@@ -176,6 +176,30 @@ it.each([
   }
 });
 
+it('highlights Pricing in Admin navigation on /admin/pricing', () => {
+  render(
+    <MemoryRouter initialEntries={['/admin/pricing']}>
+      <AdminAuthContext.Provider value={{ admin: { email: 'admin@colearnx.test' }, logout: vi.fn() }}>
+        <Routes>
+          <Route element={<AdminRoleShell />}>
+            <Route path="*" element={<div />} />
+          </Route>
+        </Routes>
+      </AdminAuthContext.Provider>
+    </MemoryRouter>,
+  );
+
+  const labels = screen.getAllByRole('link').map((link) => link.textContent);
+  const disputes = labels.indexOf('Disputes');
+  const pricing = labels.indexOf('Pricing');
+  const audit = labels.indexOf('Audit Log');
+  expect(pricing).toBeGreaterThan(disputes);
+  expect(audit).toBeGreaterThan(pricing);
+  expect(screen.getByRole('link', { name: 'Pricing' }).className).toMatch(/active/);
+  expect(screen.getByRole('link', { name: 'Disputes' }).className).not.toMatch(/active/);
+  expect(screen.getByRole('link', { name: 'Audit Log' }).className).not.toMatch(/active/);
+});
+
 it.each([
   ['/creator/courses', 'Courses'],
   ['/creator/courses/17', 'Courses'],

@@ -33,6 +33,7 @@ const NAV = {
     { to: '/admin/users', label: 'Users' },
     { to: '/admin/ledger', label: 'Credit Ledger' },
     { to: '/admin/disputes', label: 'Disputes' },
+    { to: '/admin/pricing', label: 'Pricing' },
     { to: '/admin/audit', label: 'Audit Log' },
     { to: '/admin/account', label: 'My Account' },
   ],

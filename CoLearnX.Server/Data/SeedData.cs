@@ -25,10 +25,12 @@ public static class SeedData
         await NotificationSchema.EnsureAsync(db);
         await MaterialUsageSchema.EnsureAsync(db);
         await SessionMaterialSchema.EnsureAsync(db);
+        await PricingSchema.EnsureAsync(db);
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
         var verifiedAt = DateTime.UtcNow;
 
         await EnsureCourseTaxonomyAsync(db);
+        await PricingSeed.EnsureAsync(db);
         await RecommendationSeed.EnsureInterestsAsync(db);
 
         var adminAccount = await db.AdminAccounts.SingleOrDefaultAsync(

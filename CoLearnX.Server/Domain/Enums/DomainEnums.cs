@@ -105,3 +105,15 @@ public enum PaymentStatus
     Completed = 1,
     Failed = 2
 }
+
+public enum CourseType
+{
+    Theory = 0,
+    Practice = 1
+}
+
+public enum SaleMode
+{
+    Intake = 0,
+    CoursePack = 1
+}
