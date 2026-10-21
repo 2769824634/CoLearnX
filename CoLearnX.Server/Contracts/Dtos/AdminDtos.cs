@@ -26,6 +26,8 @@ public record AuditLogDto(
     string? Reason,
     DateTime CreatedAt);
 
+public record AuditLogFilterOptionsDto(IReadOnlyList<string> EntityTypes, IReadOnlyList<string> Results);
+
 public record AdminReviewRequest(
     [Required] string Decision,
     [MaxLength(512)] string? Reason);
@@ -87,3 +89,5 @@ public record AdminCourseReviewResultDto(
 
 public record AdminUserSummaryDto(int Id, string FullName, string Email, int CreditBalance,
     int HeldCredits, bool IsActive, IReadOnlyList<string> Roles);
+
+public record AdminPendingCountsDto(int RoleRequests, int Courses, int MaterialVersions, int Certificates, int Disputes);

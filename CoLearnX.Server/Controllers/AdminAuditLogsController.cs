@@ -16,4 +16,8 @@ public class AdminAuditLogsController(IAuditLogService auditLogs) : ControllerBa
         [FromQuery] AdminAuditLogQuery query,
         CancellationToken ct = default)
         => Ok(await auditLogs.QueryAsync(query, ct));
+
+    [HttpGet("filters")]
+    public async Task<ActionResult<AuditLogFilterOptionsDto>> Filters(CancellationToken ct = default)
+        => Ok(await auditLogs.FilterOptionsAsync(ct));
 }
