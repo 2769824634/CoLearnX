@@ -25,7 +25,7 @@ public interface ICourseIntakeService
     Task<CourseIntakeDetailDto> ReviewAsync(int creatorUserId, int courseIntakeId, ReviewIntakeApplicationRequest request, CancellationToken ct = default);
 }
 
-public sealed class CourseIntakeService(CoLearnXDbContext db) : ICourseIntakeService
+public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealtime? realtime = null) : ICourseIntakeService
 {
     public async Task<CourseIntakeDetailDto> PostponeAsync(int trainerUserId, int intakeId,
         CreateCourseIntakeRequest request, CancellationToken ct = default)
@@ -341,8 +341,28 @@ public sealed class CourseIntakeService(CoLearnXDbContext db) : ICourseIntakeSer
         intake.ConfirmedAt = application.ReviewedAt;
         intake.ConfirmationNote = note;
         intake.Version = Guid.NewGuid();
+        Notification? notification = null;
+        if (intake.TrainerId != creatorUserId)
+        {
+            notification = decision == CourseIntakeApplicationStatus.Confirmed
+                ? new Notification
+                {
+                    UserId = intake.TrainerId, IntakeId = intake.Id, Code = "N-intake-application-confirmed",
+                    Title = "Intake approved",
+                    Body = $"The Creator approved Intake #{intake.Id} for {intake.Course.Code} {intake.Course.Title}.",
+                }
+                : new Notification
+                {
+                    UserId = intake.TrainerId, IntakeId = intake.Id, Code = "N-intake-application-rejected",
+                    Title = "Intake needs changes",
+                    Body = $"The Creator returned Intake #{intake.Id} for {intake.Course.Code}: {note}",
+                };
+            db.Notifications.Add(notification);
+        }
         await SaveWithCurrentVersionAsync(intake, creatorUserId,
             decision == CourseIntakeApplicationStatus.Confirmed ? "CourseIntakeConfirmed" : "CourseIntakeRejected", note, ct);
+        if (notification is not null && realtime is not null)
+            await realtime.PublishAsync(notification, ct);
         return ToDto(intake);
     }
 

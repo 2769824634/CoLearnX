@@ -72,6 +72,11 @@
 .trainer-workflow-note { border-left: 3px solid var(--purple); background: var(--chrome); padding: 18px 22px; margin: 24px 0; font-size: 14px; line-height: 1.6; }
 .trainer-workflow-note p { margin: 6px 0; }
 .trainer-workflow-note span { color: var(--slate); font-size: 12px; }
+.trainer-section-heading:has(.trainer-group-count) { justify-content: flex-start; gap: 10px; }
+.trainer-group-count { min-width: 24px; padding: 2px 8px; border-radius: 999px; background: var(--chrome); color: var(--slate); font-size: 12px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+.trainer-group-empty { margin: 0; padding: 18px 20px; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--slate); font-size: 13px; }
+.trainer-approval-row .trainer-workflow-note { margin: 10px 0 0; padding: 10px 14px; border-left-color: var(--warn); font-size: 13px; }
+.trainer-approval-row .trainer-workflow-note p { margin: 4px 0 0; color: var(--charcoal); font-size: 13px; }
 .trainer-toolbar { display: flex; align-items: end; gap: 14px; background: var(--chrome); padding: 18px; border: 1px solid var(--border); border-radius: var(--radius); }
 .trainer-toolbar .form-group { margin: 0; flex: 1; }
 .trainer-toolbar .form-group:first-child { flex: 2; }

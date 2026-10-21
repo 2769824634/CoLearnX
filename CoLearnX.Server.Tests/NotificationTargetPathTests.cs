@@ -19,6 +19,11 @@ public class NotificationTargetPathTests
     [InlineData("N-session-full", null, "/trainer/courses")]
     [InlineData("N-intake-cancelled-creator", null, "/creator/courses/intake-applications")]
     [InlineData("N-learner-withdrew", null, "/trainer/learners")]
+    [InlineData("N-course-published", null, "/creator/approvals")]
+    [InlineData("N-course-rejected", null, "/creator/approvals")]
+    [InlineData("N-intake-application-confirmed", null, "/trainer/approvals")]
+    [InlineData("N-role-approved", null, null)]
+    [InlineData("N-role-rejected", null, null)]
     [InlineData("https://example.com", null, null)]
     public void Code_maps_to_the_inbox_path(string code, int? intakeId, string? path)
         => Assert.Equal(path, NotificationTargetPath.For(code, intakeId));
@@ -27,6 +32,8 @@ public class NotificationTargetPathTests
     [InlineData("N-intake-confirmed", 12, "/trainer/courses/intakes/12")]
     [InlineData("N-intake-cancelled-creator", 12, "/creator/courses/intake-applications/12")]
     [InlineData("N-learner-withdrew", 12, "/trainer/courses/intakes/12")]
+    [InlineData("N-intake-application-confirmed", 12, "/trainer/courses/intakes/12")]
+    [InlineData("N-intake-application-rejected", 12, "/trainer/courses/intakes/12")]
     public void Intake_codes_include_the_owned_resource(string code, int intakeId, string path)
         => Assert.Equal(path, NotificationTargetPath.For(code, intakeId));
 }

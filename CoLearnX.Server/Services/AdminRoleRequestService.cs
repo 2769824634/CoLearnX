@@ -21,7 +21,8 @@ public interface IAdminRoleRequestService
 
 public sealed class AdminRoleRequestService(
     CoLearnXDbContext db,
-    IAuditLogService auditLogs) : IAdminRoleRequestService
+    IAuditLogService auditLogs,
+    INotificationRealtime? realtime = null) : IAdminRoleRequestService
 {
     public async Task<IReadOnlyList<AdminRoleRequestDto>> ListAsync(
         RoleRequestStatus? status,
@@ -111,6 +112,19 @@ public sealed class AdminRoleRequestService(
             roleRequest.ReviewNote = reason;
             roleRequest.ReviewedByAdminAccountId = adminAccountId;
             roleRequest.ReviewedAt = DateTime.UtcNow;
+            var role = roleRequest.RequestedRole.ToString();
+            var notification = decision == AdminReviewDecision.Approve
+                ? new Notification
+                {
+                    UserId = roleRequest.UserId, Code = "N-role-approved", Title = "Role request approved",
+                    Body = $"Your {role} access is approved. Switch to it from the account menu.",
+                }
+                : new Notification
+                {
+                    UserId = roleRequest.UserId, Code = "N-role-rejected", Title = "Role request not approved",
+                    Body = $"Your {role} request was not approved: {reason}",
+                };
+            db.Notifications.Add(notification);
 
             await auditLogs.AppendAdminAsync(
                 adminAccountId,
@@ -123,6 +137,8 @@ public sealed class AdminRoleRequestService(
                 reason,
                 ct);
             await transaction.CommitAsync(ct);
+            if (realtime is not null)
+                await realtime.PublishAsync(notification, ct);
 
             return new AdminRoleRequestReviewResultDto(ToDto(roleRequest), false);
         });

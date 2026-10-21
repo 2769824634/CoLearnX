@@ -23,6 +23,8 @@ import TrainerIntakeDetailPage from '../pages/trainer/TrainerIntakeDetailPage';
 import TrainerAttendancePage from '../pages/trainer/TrainerAttendancePage';
 import TrainerLearnersPage from '../pages/trainer/TrainerLearnersPage';
 import TrainerAccountPage from '../pages/trainer/TrainerAccountPage';
+import TrainerApprovalsPage from '../pages/trainer/TrainerApprovalsPage';
+import CreatorApprovalsPage from '../pages/creator/CreatorApprovalsPage';
 import CreatorHomePage from '../pages/creator/CreatorHomePage';
 import CreatorAccountPage from '../pages/creator/CreatorAccountPage';
 import CreatorCoursesPage from '../pages/creator/CreatorCoursesPage';
@@ -129,6 +131,7 @@ export default function AppRouter() {
             <Route path="courses" element={<TrainerIntakesPage />} />
             <Route path="courses/new" element={<TrainerIntakeCreatePage />} />
             <Route path="courses/intakes/:courseIntakeId" element={<TrainerIntakeDetailPage />} />
+            <Route path="approvals" element={<TrainerApprovalsPage />} />
             <Route path="attendance" element={<TrainerAttendancePage />} />
             <Route path="learners" element={<TrainerLearnersPage />} />
             <Route path="account" element={<TrainerAccountPage />} />
@@ -144,6 +147,7 @@ export default function AppRouter() {
             <Route path="courses/:courseId" element={<CreatorCourseFormPage />} />
             <Route path="courses/intake-applications" element={<CreatorIntakeApplicationsPage />} />
             <Route path="courses/intake-applications/:courseIntakeId" element={<CreatorIntakeApplicationDetailPage />} />
+            <Route path="approvals" element={<CreatorApprovalsPage />} />
             <Route path="upload" element={<CreatorUploadPage />} />
             <Route path="usage" element={<CreatorUsagePage />} />
             <Route path="account" element={<CreatorAccountPage />} />

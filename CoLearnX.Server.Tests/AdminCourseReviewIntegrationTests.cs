@@ -56,6 +56,11 @@ public class AdminCourseReviewIntegrationTests
             Assert.Equal(CourseStatus.Published, (await db.Courses.FindAsync(course.Id))?.Status);
             Assert.Equal(1, await db.AuditLogs.CountAsync(log =>
                 log.Action == "CoursePublished" && log.EntityId == course.Id.ToString()));
+            var notification = Assert.Single(await db.Notifications
+                .Where(item => item.Code == "N-course-published").ToListAsync());
+            Assert.Equal(course.SubmittedByUserId, notification.UserId);
+            Assert.Contains(course.Code, notification.Body);
+            Assert.False(notification.IsRead);
         }
         finally
         {
@@ -87,6 +92,7 @@ public class AdminCourseReviewIntegrationTests
             Assert.Equal(0, await db.AuditLogs.CountAsync(log =>
                 (log.Action == "CoursePublished" || log.Action == "CourseRejected")
                 && log.EntityId == course.Id.ToString()));
+            Assert.False(await db.Notifications.AnyAsync(item => item.Code.StartsWith("N-course-")));
         }
         finally
         {
@@ -128,6 +134,10 @@ public class AdminCourseReviewIntegrationTests
             Assert.Equal(CourseStatus.Rejected, (await db.Courses.FindAsync(course.Id))?.Status);
             Assert.Equal(1, await db.AuditLogs.CountAsync(log =>
                 log.Action == "CourseRejected" && log.EntityId == course.Id.ToString()));
+            var notification = Assert.Single(await db.Notifications
+                .Where(item => item.Code == "N-course-rejected").ToListAsync());
+            Assert.Equal(course.SubmittedByUserId, notification.UserId);
+            Assert.Contains("Learning outcomes need clearer assessment criteria.", notification.Body);
         }
         finally
         {
