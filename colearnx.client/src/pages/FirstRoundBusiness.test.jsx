@@ -12,7 +12,6 @@ import MemberDisputesPage from './member/MemberDisputesPage';
 import CreatorCourseFormPage from './creator/CreatorCourseFormPage';
 import CreatorUsagePage from './creator/CreatorUsagePage';
 import CreatorIntakeApplicationsPage from './creator/CreatorIntakeApplicationsPage';
-import CreatorUploadPage from './creator/CreatorUploadPage';
 import TrainerAttendancePage from './trainer/TrainerAttendancePage';
 import TrainerLearnersPage from './trainer/TrainerLearnersPage';
 import { TrainerError } from './trainer/TrainerUi';
@@ -130,27 +129,6 @@ it('shows friendly field labels and keeps database details out of workspace erro
   expect(screen.queryByText(/StartsAt:/)).toBeNull();
   expect(screen.getByText('Start date and time: Must precede end.')).toBeTruthy();
   expect(screen.queryByText('INVALID_INPUT')).toBeNull();
-  expect(screen.queryByText(/SqlServerRetrying/)).toBeNull();
-});
-
-it('keeps the upload prerequisite hidden until course loading finishes', () => {
-  mount(<CreatorUploadPage />, {}, '/', () => new Promise(() => {}));
-  expect(screen.queryByText(/Create a Course first/)).toBeNull();
-  expect(screen.getByText('Loading your courses…')).toBeTruthy();
-});
-
-it('shows a support reference for an unconfirmed upload without leaking database details', async () => {
-  mount(<CreatorUploadPage />, {}, '/', async (url, options = {}) => {
-    if (url === '/api/creator/courses') return json([{ id: 1, code: 'UX', title: 'UX' }]);
-    if (url === '/api/materials' && options.method === 'POST') return new Response(JSON.stringify({ code: 'UPLOAD_FAILED', message: 'SqlServerRetryingExecutionStrategy failed', traceId: 'trace-upload-1' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-    return json(url.endsWith('/storage') ? { cloudLinks: false } : []);
-  });
-  await screen.findByLabelText('Course');
-  fireEvent.change(screen.getByLabelText('Course'), { target: { value: '1' } });
-  fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Guide' } });
-  fireEvent.change(screen.getByLabelText('File'), { target: { files: [new File(['guide'], 'guide.pdf', { type: 'application/pdf' })] } });
-  fireEvent.submit(screen.getByRole('button', { name: 'Upload' }).closest('form'));
-  expect(await screen.findByText(/Reference: trace-upload-1/)).toBeTruthy();
   expect(screen.queryByText(/SqlServerRetrying/)).toBeNull();
 });
 

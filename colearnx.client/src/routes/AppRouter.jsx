@@ -44,7 +44,6 @@ import MemberDisputesPage from '../pages/member/MemberDisputesPage';
 import MemberPaymentPage from '../pages/member/MemberPaymentPage';
 import MemberBadgesPage from '../pages/member/MemberBadgesPage';
 import MemberAccountPage from '../pages/member/MemberAccountPage';
-import CreatorUploadPage from '../pages/creator/CreatorUploadPage';
 import CreatorUsagePage from '../pages/creator/CreatorUsagePage';
 import Modal from '../components/Modal';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
@@ -148,7 +147,7 @@ export default function AppRouter() {
             <Route path="courses/intake-applications" element={<CreatorIntakeApplicationsPage />} />
             <Route path="courses/intake-applications/:courseIntakeId" element={<CreatorIntakeApplicationDetailPage />} />
             <Route path="approvals" element={<CreatorApprovalsPage />} />
-            <Route path="upload" element={<CreatorUploadPage />} />
+            <Route path="upload" element={<Navigate to="/creator/courses" replace />} />
             <Route path="usage" element={<CreatorUsagePage />} />
             <Route path="account" element={<CreatorAccountPage />} />
             <Route index element={<Navigate to="home" replace />} />

@@ -13,7 +13,6 @@ const PIPELINE = [
 ];
 
 const QUICK_ACTIONS = [
-  ['/creator/upload', 'Upload Material', 'PDF, PPTX, DOCX or images for a Course.'],
   ['/creator/usage', 'Usage Records', 'Where your materials have been used.'],
 ];
 
