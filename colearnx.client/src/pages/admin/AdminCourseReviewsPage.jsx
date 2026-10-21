@@ -227,7 +227,7 @@ export default function AdminCourseReviewsPage() {
                       <strong>{course.submittedByName}</strong>
                       <span>{course.submittedByEmail}</span>
                     </td>
-                    <td>{course.category}<span>{course.level}</span></td>
+                    <td>{course.learningPath}<span>{course.level}</span></td>
                     <td><span className="admin-credit-value">{course.creditCost}</span></td>
                     <td>
                       <span className={`admin-status ${course.status.toLowerCase()}`}>
@@ -263,7 +263,7 @@ export default function AdminCourseReviewsPage() {
             <div className="admin-review-summary admin-course-summary">
               <span>{selected.code}</span>
               <strong>{selected.title}</strong>
-              <small>{selected.category} · {selected.level} · {formatCount(selected.creditCost, 'credit')}</small>
+              <small>{selected.level} · {formatCount(selected.creditCost, 'credit')}</small>
               {selected.description ? <p>{selected.description}</p> : null}
               <p>Creator: {selected.creatorName || selected.submittedByName}</p>
               <h3>Interests</h3>

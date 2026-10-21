@@ -2686,12 +2686,13 @@ a {
 .certificate-section { margin-top:32px; }
 .member-notifications { position:relative; }
 .notification-count { position:absolute; right:-4px; top:-4px; min-width:20px; padding:1px 5px; border:2px solid var(--white); border-radius:20px; color:white; background:var(--purple); font-size:11px; font-weight:700; line-height:1.3; text-align:center; font-variant-numeric:tabular-nums; }
-.notifications-panel { position:absolute; top:52px; right:0; width:min(430px,calc(100vw - 30px)); background:var(--white); border:1px solid var(--border); box-shadow:0 16px 40px -12px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.04); border-radius:var(--radius); z-index:50; overflow:hidden; transform-origin:top right; animation:shell-pop .18s cubic-bezier(.2,.8,.2,1); }
-.notifications-panel .card-header,.notification-tools { padding:12px 18px; }
-.notifications-panel .card-header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.notifications-panel h2 { margin:0; font-size:18px; }
-.notification-list { max-height:60vh; overflow-y:auto; }
-.notification-item { padding:18px; border-top:1px solid var(--border); overflow-wrap:anywhere; }
+.notifications-dialog { margin:-18px -22px -22px; }
+.notification-tools { padding:12px 22px; color:var(--slate); font-size:13px; }
+.notification-list { max-height:65vh; overflow-y:auto; }
+.notification-popup p { margin:0 0 10px; line-height:1.55; }
+.notification-popup time { font-size:12px; color:var(--slate); }
+.notification-popup .notification-popup-eyebrow { margin-bottom:6px; color:var(--purple); font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+.notification-item { padding:18px 22px; border-top:1px solid var(--border); overflow-wrap:anywhere; }
 .notification-item.unread { background:var(--purple-soft); }
 .notification-item p { margin:8px 0; }
 .notification-item time { font-size:12px; color:var(--slate); }
@@ -2746,14 +2747,6 @@ a {
   .user-chip {
     margin-left: 0;
     padding-left: 10px;
-  }
-
-  .notifications-panel {
-    position: fixed;
-    top: 60px;
-    left: 12px;
-    right: 12px;
-    width: auto;
   }
 
   .user-chip-name {

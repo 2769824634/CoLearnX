@@ -15,6 +15,7 @@ import AdminAccountPage from '../pages/admin/AdminAccountPage';
 import AdminUsersPage from '../pages/admin/AdminUsersPage';
 import AdminCreditLedgerPage from '../pages/admin/AdminCreditLedgerPage';
 import AdminDisputesPage from '../pages/admin/AdminDisputesPage';
+import AdminPricingPage from '../pages/admin/AdminPricingPage';
 import TrainerHomePage from '../pages/trainer/TrainerHomePage';
 import TrainerIntakesPage from '../pages/trainer/TrainerIntakesPage';
 import TrainerIntakeCreatePage from '../pages/trainer/TrainerIntakeCreatePage';
@@ -22,6 +23,8 @@ import TrainerIntakeDetailPage from '../pages/trainer/TrainerIntakeDetailPage';
 import TrainerAttendancePage from '../pages/trainer/TrainerAttendancePage';
 import TrainerLearnersPage from '../pages/trainer/TrainerLearnersPage';
 import TrainerAccountPage from '../pages/trainer/TrainerAccountPage';
+import TrainerApprovalsPage from '../pages/trainer/TrainerApprovalsPage';
+import CreatorApprovalsPage from '../pages/creator/CreatorApprovalsPage';
 import CreatorHomePage from '../pages/creator/CreatorHomePage';
 import CreatorAccountPage from '../pages/creator/CreatorAccountPage';
 import CreatorCoursesPage from '../pages/creator/CreatorCoursesPage';
@@ -127,6 +130,7 @@ export default function AppRouter() {
             <Route path="courses" element={<TrainerIntakesPage />} />
             <Route path="courses/new" element={<TrainerIntakeCreatePage />} />
             <Route path="courses/intakes/:courseIntakeId" element={<TrainerIntakeDetailPage />} />
+            <Route path="approvals" element={<TrainerApprovalsPage />} />
             <Route path="attendance" element={<TrainerAttendancePage />} />
             <Route path="learners" element={<TrainerLearnersPage />} />
             <Route path="account" element={<TrainerAccountPage />} />
@@ -142,6 +146,7 @@ export default function AppRouter() {
             <Route path="courses/:courseId" element={<CreatorCourseFormPage />} />
             <Route path="courses/intake-applications" element={<CreatorIntakeApplicationsPage />} />
             <Route path="courses/intake-applications/:courseIntakeId" element={<CreatorIntakeApplicationDetailPage />} />
+            <Route path="approvals" element={<CreatorApprovalsPage />} />
             <Route path="upload" element={<Navigate to="/creator/courses" replace />} />
             <Route path="usage" element={<CreatorUsagePage />} />
             <Route path="account" element={<CreatorAccountPage />} />
@@ -156,6 +161,7 @@ export default function AppRouter() {
             <Route path="users" element={<AdminUsersPage />} />
             <Route path="ledger" element={<AdminCreditLedgerPage />} />
             <Route path="disputes" element={<AdminDisputesPage />} />
+            <Route path="pricing" element={<AdminPricingPage />} />
             <Route path="audit" element={<AdminAuditLogsPage />} />
             <Route path="account" element={<AdminAccountPage />} />
             <Route index element={<Navigate to="home" replace />} />

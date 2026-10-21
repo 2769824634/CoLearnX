@@ -406,3 +406,46 @@ public class Notification
 
     public User User { get; set; } = null!;
 }
+
+public class PriceTier
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public int TheoryMinHourlyCredits { get; set; }
+    public int TheoryMaxHourlyCredits { get; set; }
+    public int PracticeMinHourlyCredits { get; set; }
+    public int PracticeMaxHourlyCredits { get; set; }
+    public int SortOrder { get; set; }
+    public ICollection<CourseDomain> Domains { get; set; } = new List<CourseDomain>();
+}
+
+public class CourseDomain
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public int PriceTierId { get; set; }
+    public PriceTier PriceTier { get; set; } = null!;
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+public class PricePool
+{
+    public int Id { get; set; }
+    public SaleMode SaleMode { get; set; }
+    public int? PriceTierId { get; set; }
+    public PriceTier? PriceTier { get; set; }
+    public CourseType CourseType { get; set; }
+    public int CourseLevelId { get; set; }
+    public CourseLevel CourseLevel { get; set; } = null!;
+    public int? MinHourlyCredits { get; set; }
+    public int? MaxHourlyCredits { get; set; }
+    public int? MinHours { get; set; }
+    public int? MaxHours { get; set; }
+    public int? MinTotalCredits { get; set; }
+    public int? MaxTotalCredits { get; set; }
+    public int ContentSharePercent { get; set; }
+    public int DeliverySharePercent { get; set; }
+    public int PlatformSharePercent { get; set; }
+}

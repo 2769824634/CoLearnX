@@ -31,7 +31,6 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
             description = "Build inclusive learning experiences.",
             courseLevelId = 1,
             learningPathId = 1,
-            category = "Design",
             creditCost = 24,
             learningOutcomes = new[] { "Identify accessibility barriers", "Apply inclusive patterns" },
         });
@@ -40,6 +39,7 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var course = body.RootElement;
         Assert.Equal(code, course.GetProperty("code").GetString());
+        Assert.Equal(string.Empty, course.GetProperty("category").GetString());
         Assert.Equal("Draft", course.GetProperty("status").GetString());
         Assert.Equal(SeedData.CreatorEmail, course.GetProperty("creatorEmail").GetString());
         Assert.Equal(1, course.GetProperty("courseLevelId").GetInt32());
@@ -117,11 +117,32 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
         var error = await invalid.Content.ReadFromJsonAsync<ApiError>(ApiJson.Options);
         Assert.Equal("INVALID_REQUEST", error?.Code);
         Assert.Contains("Title", error!.FieldErrors!.Keys, StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("Category", error.FieldErrors.Keys, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Category", error.FieldErrors.Keys, StringComparer.OrdinalIgnoreCase);
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
         Assert.Equal(1, await db.Courses.CountAsync(course => course.Code == duplicateCode));
+    }
+
+    [Fact]
+    public async Task Update_WithoutCategory_KeepsTheStoredCategory()
+    {
+        using var client = await AsCreatorAsync();
+        var created = await CreateCourseAsync(client);
+        var courseId = created["id"]!.GetValue<int>();
+
+        var response = await client.PutAsJsonAsync($"/api/creator/courses/{courseId}", new
+        {
+            code = created["code"]!.GetValue<string>(),
+            title = "Category-free edit",
+            courseLevelId = 1,
+            learningPathId = 1,
+            creditCost = 20,
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = JsonNode.Parse(await response.Content.ReadAsStringAsync())!.AsObject();
+        Assert.Equal("Design", updated["category"]!.GetValue<string>());
     }
 
     [Fact]
@@ -306,7 +327,6 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
         description = "Creator Course request fixture.",
         courseLevelId = 1,
         learningPathId = 1,
-        category = "Design",
         creditCost = 20,
         learningOutcomes = new[] { "Complete the request" },
     };

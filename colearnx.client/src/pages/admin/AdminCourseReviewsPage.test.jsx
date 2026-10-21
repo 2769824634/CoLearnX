@@ -13,7 +13,8 @@ const course = {
   id: 7,
   code: 'CLX700',
   title: 'Inclusive UX',
-  category: 'Design',
+  category: 'Legacy category',
+  learningPath: 'Product design',
   level: 'Beginner',
   creditCost: 20,
   status: 'PendingApproval',
@@ -68,5 +69,15 @@ describe('AdminCourseReviewsPage material and interest summary', () => {
       'Workshop guide.pdf',
     ));
     expect(screen.queryByText(/FilePath|filePath|materials\//)).toBeNull();
+  });
+
+  it('places the course by learning path instead of the retired category', async () => {
+    render(<AdminCourseReviewsPage />);
+    expect(await screen.findByText('Product design')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+
+    expect(screen.getByText('Beginner · 20 credits')).toBeTruthy();
+    expect(screen.getAllByText('Product design')).toHaveLength(2);
+    expect(screen.queryByText(/Legacy category/)).toBeNull();
   });
 });

@@ -71,8 +71,9 @@ describe('Creator Course workspace', () => {
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Inclusive Design' } });
     fireEvent.change(screen.getByLabelText('Course level'), { target: { value: '1' } });
     fireEvent.change(screen.getByLabelText('Learning path'), { target: { value: '3' } });
-    const category = screen.getByRole('combobox', { name: 'Category' });
-    expect(within(category).getAllByRole('option').map((option) => option.textContent)).toEqual(['Choose a category', 'Programming', 'Design', 'Business']);
+    const category = screen.getByRole('combobox', { name: 'Category (optional)' });
+    expect(category.required).toBe(false);
+    expect(within(category).getAllByRole('option').map((option) => option.textContent)).toEqual(['No category', 'Programming', 'Design', 'Business']);
     fireEvent.change(category, { target: { value: 'Design' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
@@ -91,7 +92,8 @@ describe('Creator Course workspace', () => {
 
     expect(await screen.findByRole('heading', { name: 'Inclusive Design' })).toBeTruthy();
     const createRequest = globalThis.fetch.mock.calls.find(([path, options]) => path === '/api/creator/courses' && options?.method === 'POST');
-    expect(JSON.parse(createRequest[1].body)).toMatchObject({ code: 'CRT-44', title: 'Inclusive Design', courseLevelId: 1, learningPathId: 3, category: 'Design', creditCost: 24, interestIds: [2] });
+    const payload = JSON.parse(createRequest[1].body);
+    expect(payload).toMatchObject({ code: 'CRT-44', title: 'Inclusive Design', courseLevelId: 1, learningPathId: 3, category: 'Design', creditCost: 24, interestIds: [2] });
     expect(globalThis.fetch.mock.calls.filter(([path, options]) => path === '/api/materials' && options?.method === 'POST')).toHaveLength(1);
   });
 

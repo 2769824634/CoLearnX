@@ -3,7 +3,8 @@ import { createContext, useContext } from 'react';
 export const MemberNotificationsContext = createContext(null);
 export const useMemberNotifications = () => useContext(MemberNotificationsContext);
 
-const destinations = new Set(['/member/programs', '/member/badges', '/member/payment', '/member/disputes', '/trainer/courses', '/trainer/learners', '/creator/courses/intake-applications']);
+const destinations = new Set(['/member/programs', '/member/badges', '/member/payment', '/member/disputes', '/trainer/courses', '/trainer/learners', '/trainer/approvals', '/creator/courses/intake-applications', '/creator/approvals']);
+export const importantNotificationTypes = new Set(['N-course-published', 'N-course-rejected', 'N-intake-application-confirmed', 'N-intake-application-rejected', 'N-role-approved', 'N-role-rejected']);
 const programTabs = new Set(['active', 'reserved', 'completed', 'history']);
 
 export function safeNotificationPath(path) {

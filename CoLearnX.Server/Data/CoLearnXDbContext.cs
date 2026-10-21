@@ -48,6 +48,9 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     public DbSet<CourseIntakeMaterial> CourseIntakeMaterials => Set<CourseIntakeMaterial>();
     public DbSet<SessionRecording> SessionRecordings => Set<SessionRecording>();
     public DbSet<SessionMaterial> SessionMaterials => Set<SessionMaterial>();
+    public DbSet<PriceTier> PriceTiers => Set<PriceTier>();
+    public DbSet<CourseDomain> CourseDomains => Set<CourseDomain>();
+    public DbSet<PricePool> PricePools => Set<PricePool>();
     public DbSet<Assessment> Assessments => Set<Assessment>();
     public DbSet<AssessmentResult> AssessmentResults => Set<AssessmentResult>();
     public DbSet<CertificateRequest> CertificateRequests => Set<CertificateRequest>();
@@ -176,6 +179,29 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
             var pathName = e.Property(x => x.Name).HasMaxLength(128);
             if (sqlite)
                 pathName.UseCollation("NOCASE");
+        });
+
+        modelBuilder.Entity<PriceTier>(e =>
+        {
+            e.Property(x => x.Code).HasMaxLength(1).IsRequired();
+            e.HasIndex(x => x.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<CourseDomain>(e =>
+        {
+            var name = e.Property(x => x.Name).HasMaxLength(80).IsRequired();
+            if (sqlite)
+                name.UseCollation("NOCASE");
+            e.HasIndex(x => x.Name).IsUnique();
+            e.Property(x => x.IsActive).HasDefaultValue(true);
+            e.HasOne(x => x.PriceTier).WithMany(x => x.Domains).HasForeignKey(x => x.PriceTierId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PricePool>(e =>
+        {
+            e.HasIndex(x => new { x.SaleMode, x.PriceTierId, x.CourseType, x.CourseLevelId }).IsUnique();
+            e.HasOne(x => x.PriceTier).WithMany().HasForeignKey(x => x.PriceTierId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.CourseLevel).WithMany().HasForeignKey(x => x.CourseLevelId).OnDelete(DeleteBehavior.Restrict);
         });
 
         CourseIntakeModelConfiguration.Configure(modelBuilder, sqlite);

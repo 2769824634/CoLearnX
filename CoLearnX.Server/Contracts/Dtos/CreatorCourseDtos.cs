@@ -8,7 +8,7 @@ public record CreateCreatorCourseRequest(
     [MaxLength(4000)] string? Description,
     [Range(1, int.MaxValue)] int CourseLevelId,
     [Range(1, int.MaxValue)] int LearningPathId,
-    [Required, MaxLength(100)] string Category,
+    [MaxLength(100)] string? Category,
     [Range(1, int.MaxValue)] int CreditCost,
     IReadOnlyList<string>? LearningOutcomes,
     IReadOnlyList<int>? InterestIds = null);
@@ -19,7 +19,7 @@ public record UpdateCreatorCourseRequest(
     [MaxLength(4000)] string? Description,
     [Range(1, int.MaxValue)] int CourseLevelId,
     [Range(1, int.MaxValue)] int LearningPathId,
-    [Required, MaxLength(100)] string Category,
+    [MaxLength(100)] string? Category,
     [Range(1, int.MaxValue)] int CreditCost,
     IReadOnlyList<string>? LearningOutcomes,
     IReadOnlyList<int>? InterestIds = null);

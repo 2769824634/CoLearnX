@@ -14,6 +14,7 @@ const NAV = {
   trainer: [
     { to: '/trainer/home', label: 'Homepage' },
     { to: '/trainer/courses', label: 'Course' },
+    { to: '/trainer/approvals', label: 'Approval status' },
     { to: '/trainer/attendance', label: 'Attendance' },
     { to: '/trainer/learners', label: 'Learner List' },
     { to: '/trainer/account', label: 'My Account' },
@@ -22,6 +23,7 @@ const NAV = {
     { to: '/creator/home', label: 'Home' },
     { to: '/creator/courses', label: 'Courses', match: 'courses' },
     { to: '/creator/courses/new', label: 'Create Course', end: true },
+    { to: '/creator/approvals', label: 'Approval status' },
     { to: '/creator/courses/intake-applications', label: 'Session approvals' },
     { to: '/creator/usage', label: 'Usage Records' },
     { to: '/creator/account', label: 'My Account' },
@@ -32,6 +34,7 @@ const NAV = {
     { to: '/admin/users', label: 'Users' },
     { to: '/admin/ledger', label: 'Credit Ledger' },
     { to: '/admin/disputes', label: 'Disputes' },
+    { to: '/admin/pricing', label: 'Pricing' },
     { to: '/admin/audit', label: 'Audit Log' },
     { to: '/admin/account', label: 'My Account' },
   ],

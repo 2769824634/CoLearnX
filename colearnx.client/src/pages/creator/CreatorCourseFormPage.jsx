@@ -19,7 +19,7 @@ async function loadCourseForm(token, courseId, signal) {
 
 const emptyCourse = {
   code: '', title: '', description: '', courseLevelId: '', learningPathId: '',
-  category: '', creditCost: '', learningOutcomes: [], interestIds: [], status: 'Draft',
+  creditCost: '', learningOutcomes: [], interestIds: [], status: 'Draft',
 };
 
 const NEW_COURSE_STEPS = [
@@ -319,7 +319,7 @@ function BasicFields({ form, options, setForm }) {
       <div className="form-group"><label htmlFor="creator-course-level">Course level</label><select id="creator-course-level" required value={form.courseLevelId} onChange={change('courseLevelId')}><option value="">Choose a level</option>{options.courseLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
       <div className="form-group"><label htmlFor="creator-learning-path">Learning path</label><select id="creator-learning-path" required value={form.learningPathId} onChange={change('learningPathId')}><option value="">Choose a path</option>{options.learningPaths.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
     </div>
-    <div className="form-group"><label htmlFor="creator-course-category">Category</label><select id="creator-course-category" required value={form.category || ''} onChange={change('category')}><option value="">Choose a category</option>{categoryChoices(form.category).map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+    <div className="form-group"><label htmlFor="creator-course-category">Category (optional)</label><select id="creator-course-category" value={form.category || ''} onChange={change('category')}><option value="">No category</option>{categoryChoices(form.category).map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
     <div className="form-group"><label htmlFor="creator-course-outcomes">Learning outcomes</label><textarea id="creator-course-outcomes" value={form.learningOutcomes} onChange={change('learningOutcomes')} placeholder="One outcome per line" /></div>
   </>;
 }
