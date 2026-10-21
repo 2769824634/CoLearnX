@@ -93,6 +93,7 @@ builder.Services.AddScoped<IMaterialVersionService, MaterialVersionService>();
 builder.Services.AddScoped<ITrainerLaterPhaseService, TrainerLaterPhaseService>();
 builder.Services.AddScoped<ICertificateWorkflowService, CertificateWorkflowService>();
 builder.Services.AddScoped<IAdminFinanceService, AdminFinanceService>();
+builder.Services.AddScoped<IAdminPricingService, AdminPricingService>();
 builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection(StorageOptions.SectionName));
 builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = Math.Max(
     MaterialFiles.MaxRequestBytes,

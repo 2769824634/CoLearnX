@@ -15,6 +15,7 @@ import AdminAccountPage from '../pages/admin/AdminAccountPage';
 import AdminUsersPage from '../pages/admin/AdminUsersPage';
 import AdminCreditLedgerPage from '../pages/admin/AdminCreditLedgerPage';
 import AdminDisputesPage from '../pages/admin/AdminDisputesPage';
+import AdminPricingPage from '../pages/admin/AdminPricingPage';
 import TrainerHomePage from '../pages/trainer/TrainerHomePage';
 import TrainerIntakesPage from '../pages/trainer/TrainerIntakesPage';
 import TrainerIntakeCreatePage from '../pages/trainer/TrainerIntakeCreatePage';
@@ -157,6 +158,7 @@ export default function AppRouter() {
             <Route path="users" element={<AdminUsersPage />} />
             <Route path="ledger" element={<AdminCreditLedgerPage />} />
             <Route path="disputes" element={<AdminDisputesPage />} />
+            <Route path="pricing" element={<AdminPricingPage />} />
             <Route path="audit" element={<AdminAuditLogsPage />} />
             <Route path="account" element={<AdminAccountPage />} />
             <Route index element={<Navigate to="home" replace />} />
