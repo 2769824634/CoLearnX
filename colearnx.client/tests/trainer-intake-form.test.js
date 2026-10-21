@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import process from 'node:process';
-import { fieldMessages, initialSchedule, initialSession, safeMeetingLink, schedulePayload, sessionPayload, toLocalInput, toUtc } from '../src/pages/trainer/intakeForm.js';
+import { fieldMessages, initialSchedule, initialSession, safeMeetingLink, schedulePayload, sessionEndLocal, sessionPayload, toLocalInput, toUtc, toUtcDateInput } from '../src/pages/trainer/intakeForm.js';
 
 const intake = { startsAt: '2026-10-10T00:00:00.000Z', endsAt: '2026-10-11T08:00:00.000Z', version: 'current-parent-version' };
 const session = { label: 'Workshop', startsAt: '2026-10-10T01:00:00.000Z', endsAt: '2026-10-10T02:00:00.000Z', meetingLink: 'https://example.com/meeting' };
@@ -37,6 +37,17 @@ test('editing an unrelated field preserves the later occurrence of a repeated DS
   } finally { if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous; }
 });
 
+test('registration dates stay on the UTC calendar day and drop any clock time', () => {
+  const original = { registrationOpensAt: '2026-09-01T08:30:45.000Z', registrationClosesAt: '2026-09-30T18:45:12.000Z', startsAt: intake.startsAt, endsAt: intake.endsAt };
+  assert.equal(toUtcDateInput(original.registrationClosesAt), '2026-09-30');
+  const values = initialSchedule(original);
+  assert.equal(values.registrationOpensAt, '2026-09-01');
+  assert.equal(values.registrationClosesAt, '2026-09-30');
+  const changed = schedulePayload({ ...values, registrationClosesAt: '2026-10-02' }, intake.version, original);
+  assert.equal(changed.registrationClosesAt, '2026-10-02T00:00:00.000Z');
+  assert.equal(changed.registrationOpensAt, '2026-09-01T08:30:45.000Z');
+});
+
 test('schedule payload converts local times and forwards minEnrollment without local business rules', () => {
   const close = '2026-09-30T00:00:00.000Z';
   const values = initialSchedule({ ...intake, registrationOpensAt: '2026-09-01T00:00:00Z', registrationClosesAt: close });
@@ -70,9 +81,18 @@ test('physical-only and hybrid sessions assemble capacity and deadline for the s
   assert.ok(sessionPayload({ ...values, meetingLink: session.meetingLink }, intake).meetingLink);
 });
 
+test('a new session defaults to two hours and cannot cross midnight', () => {
+  const created = initialSession(null, intake);
+  assert.equal(created.durationMinutes, 120);
+  assert.equal(sessionEndLocal(created.sessionDate, created.startTime, 120).slice(0, 10), created.sessionDate);
+  assert.equal(sessionEndLocal('2026-10-10', '23:00', 120), '');
+  assert.throws(() => sessionPayload({ ...created, sessionDate: '2026-10-10', startTime: '23:00', durationMinutes: 120 }, intake), { code: 'INVALID_FORM' });
+});
+
 test('sessions still assemble when location or window would be rejected by the server', () => {
   const values = initialSession(session, intake);
-  const outside = sessionPayload({ ...values, startsAt: toLocalInput('2026-10-01T00:00:00Z') }, intake);
+  const local = toLocalInput('2026-10-01T00:00:00Z');
+  const outside = sessionPayload({ ...values, sessionDate: local.slice(0, 10), startTime: local.slice(11, 16), durationMinutes: 30 }, intake);
   assert.ok(outside.startsAt);
   const emptyLocation = sessionPayload({ ...values, meetingLink: '' }, intake);
   assert.equal(emptyLocation.meetingLink, null);

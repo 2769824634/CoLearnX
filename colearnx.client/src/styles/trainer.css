@@ -101,6 +101,8 @@
 .trainer-form legend { padding: 0; font-size: 20px; font-weight: 600; }
 .trainer-form fieldset > p { font-size: 12px; color: var(--slate); line-height: 1.6; }
 .trainer-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+.trainer-datetime { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(8rem, 1fr); gap: 8px; }
+.trainer-datetime input { min-width: 0; }
 .trainer-form input { min-width: 0; }
 .trainer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .trainer-form > .trainer-actions { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 20px; }

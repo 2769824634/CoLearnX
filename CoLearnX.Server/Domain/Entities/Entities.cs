@@ -170,6 +170,22 @@ public class Course
     public ICollection<CourseInterest> Interests { get; set; } = new List<CourseInterest>();
 }
 
+// One row per Course and Trainer pair; Accepted rows are the Trainers a Creator may assign.
+public class CourseTrainer
+{
+    public int Id { get; set; }
+    public int CourseId { get; set; }
+    public int TrainerId { get; set; }
+    public CourseTrainerStatus Status { get; set; } = CourseTrainerStatus.Invited;
+    public int InvitedByUserId { get; set; }
+    public DateTime InvitedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? RespondedAt { get; set; }
+    public DateTime? RemovedAt { get; set; }
+
+    public Course Course { get; set; } = null!;
+    public User Trainer { get; set; } = null!;
+}
+
 public class CourseLearningOutcome
 {
     public int Id { get; set; }

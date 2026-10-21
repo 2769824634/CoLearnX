@@ -53,7 +53,7 @@ it('greets the Trainer and summarises what needs attention', async () => {
   stubApi();
   renderHome();
   expect(await screen.findByRole('heading', { name: 'Welcome back, Gu.' })).toBeTruthy();
-  expect(screen.getByText('2 Intakes to prepare and 1 Intake waiting for the Creator.')).toBeTruthy();
+  expect(screen.getByText('3 upcoming classes.')).toBeTruthy();
 });
 
 it('features the earliest confirmed Intake that has not ended', async () => {
@@ -78,9 +78,9 @@ it('counts Intakes at each stage and links each stage to its filtered list', asy
   const pipeline = await screen.findByRole('list', { name: 'Intake pipeline' });
   const stages = within(pipeline).getAllByRole('link').map((link) => [link.querySelector('strong').textContent, link.querySelector('.trainer-stage-count').textContent, link.getAttribute('href')]);
   expect(stages).toEqual([
-    ['Ready to prepare', '2', '/trainer/courses?status=editable'],
-    ['With the Creator', '1', '/trainer/courses?status=PendingApproval'],
-    ['Confirmed delivery', '3', '/trainer/courses?status=delivery'],
+    ['Upcoming', '3', '/trainer/courses?status=Published'],
+    ['Teaching now', '0', '/trainer/courses?status=InProgress'],
+    ['Finished', '0', '/trainer/courses?status=Completed'],
   ]);
 });
 
@@ -89,7 +89,7 @@ it('explains the empty state and keeps quick actions', async () => {
   renderHome();
   expect(await screen.findByText('Nothing needs your attention right now.')).toBeTruthy();
   expect(within(screen.getByRole('region', { name: 'Teaching next' })).getByText('No confirmed delivery yet')).toBeTruthy();
-  expect(screen.getByRole('link', { name: '+ Create Intake' }).getAttribute('href')).toBe('/trainer/courses/new');
+  expect(screen.getAllByRole('link', { name: 'Teaching invitations' }).some((link) => link.getAttribute('href') === '/trainer/invitations')).toBe(true);
   const actions = screen.getByRole('region', { name: 'Quick actions' });
   expect(within(actions).getByRole('link', { name: /Attendance/ }).getAttribute('href')).toBe('/trainer/attendance');
   expect(within(actions).getByRole('link', { name: /Learner List/ }).getAttribute('href')).toBe('/trainer/learners');

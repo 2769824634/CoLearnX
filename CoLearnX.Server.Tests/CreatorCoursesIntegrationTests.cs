@@ -211,35 +211,42 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
         using var publicClient = _factory.CreateClient();
         Assert.Equal(HttpStatusCode.OK, (await publicClient.GetAsync($"/api/courses/{courseId}")).StatusCode);
 
-        using var trainer = await AsUserAsync(SeedData.TrainerEmail, "Trainer");
+        int trainerId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+            trainerId = await db.Users.Where(user => user.Email == SeedData.TrainerEmail).Select(user => user.Id).SingleAsync();
+            var creatorId = await db.Users.Where(user => user.Email == SeedData.CreatorEmail).Select(user => user.Id).SingleAsync();
+            db.CourseTrainers.Add(new CourseTrainer
+            {
+                CourseId = courseId, TrainerId = trainerId, Status = CourseTrainerStatus.Accepted,
+                InvitedByUserId = creatorId, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow,
+            });
+            await db.SaveChangesAsync();
+        }
         var start = DateTime.UtcNow.AddDays(14);
-        var intakeCreate = await trainer.PostAsJsonAsync($"/api/trainer/courses/{courseId}/intakes", new
+        var intakeCreate = await creator.PostAsJsonAsync($"/api/creator/courses/{courseId}/intakes", new
         {
             registrationOpensAt = DateTime.UtcNow.AddDays(-1),
             registrationClosesAt = start.AddDays(-10),
             startsAt = start,
             endsAt = start.AddDays(2),
+            trainerId,
         });
         Assert.Equal(HttpStatusCode.Created, intakeCreate.StatusCode);
         var intake = await intakeCreate.Content.ReadFromJsonAsync<CourseIntakeDetailDto>(ApiJson.Options);
         Assert.NotNull(intake);
 
-        var withSession = await trainer.PostAsJsonAsync($"/api/trainer/intakes/{intake.Id}/sessions",
+        var withSession = await creator.PostAsJsonAsync($"/api/creator/intakes/{intake.Id}/sessions",
             new CreateCourseSessionRequest("Workshop 1", start, start.AddHours(2), null,
                 "Room 101, CoLearnX Campus", 30, start.AddHours(-1), intake.Version));
         withSession.EnsureSuccessStatusCode();
         intake = await withSession.Content.ReadFromJsonAsync<CourseIntakeDetailDto>(ApiJson.Options);
         Assert.NotNull(intake);
 
-        var submitted = await trainer.PostAsJsonAsync($"/api/trainer/intakes/{intake.Id}/submit",
+        var published = await creator.PostAsJsonAsync($"/api/creator/intakes/{intake.Id}/publish",
             new SubmitCourseIntakeRequest(intake.Version));
-        submitted.EnsureSuccessStatusCode();
-        intake = await submitted.Content.ReadFromJsonAsync<CourseIntakeDetailDto>(ApiJson.Options);
-        Assert.NotNull(intake);
-
-        var confirmed = await creator.PostAsJsonAsync($"/api/creator/intake-applications/{intake.Id}/review",
-            new ReviewIntakeApplicationRequest("Confirm", null, intake.Version));
-        confirmed.EnsureSuccessStatusCode();
+        published.EnsureSuccessStatusCode();
 
         using var member = await AsUserAsync(SeedData.MemberEmail, "Member");
         var catalog = await member.GetFromJsonAsync<List<CourseListItemDto>>(

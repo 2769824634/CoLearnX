@@ -18,19 +18,19 @@ import AdminDisputesPage from '../pages/admin/AdminDisputesPage';
 import AdminPricingPage from '../pages/admin/AdminPricingPage';
 import TrainerHomePage from '../pages/trainer/TrainerHomePage';
 import TrainerIntakesPage from '../pages/trainer/TrainerIntakesPage';
-import TrainerIntakeCreatePage from '../pages/trainer/TrainerIntakeCreatePage';
 import TrainerIntakeDetailPage from '../pages/trainer/TrainerIntakeDetailPage';
 import TrainerAttendancePage from '../pages/trainer/TrainerAttendancePage';
 import TrainerLearnersPage from '../pages/trainer/TrainerLearnersPage';
 import TrainerAccountPage from '../pages/trainer/TrainerAccountPage';
-import TrainerApprovalsPage from '../pages/trainer/TrainerApprovalsPage';
+import TrainerInvitationsPage from '../pages/trainer/TrainerInvitationsPage';
 import CreatorApprovalsPage from '../pages/creator/CreatorApprovalsPage';
 import CreatorHomePage from '../pages/creator/CreatorHomePage';
 import CreatorAccountPage from '../pages/creator/CreatorAccountPage';
 import CreatorCoursesPage from '../pages/creator/CreatorCoursesPage';
 import CreatorCourseFormPage from '../pages/creator/CreatorCourseFormPage';
-import CreatorIntakeApplicationsPage from '../pages/creator/CreatorIntakeApplicationsPage';
-import CreatorIntakeApplicationDetailPage from '../pages/creator/CreatorIntakeApplicationDetailPage';
+import CreatorIntakesPage from '../pages/creator/CreatorIntakesPage';
+import CreatorIntakeCreatePage from '../pages/creator/CreatorIntakeCreatePage';
+import CreatorIntakeDetailPage from '../pages/creator/CreatorIntakeDetailPage';
 import { MemberDataProvider } from '../pages/member/MemberDataContext';
 import { useMemberData } from '../pages/member/memberDataState';
 import MemberHomePage from '../pages/member/MemberHomePage';
@@ -44,7 +44,6 @@ import MemberDisputesPage from '../pages/member/MemberDisputesPage';
 import MemberPaymentPage from '../pages/member/MemberPaymentPage';
 import MemberBadgesPage from '../pages/member/MemberBadgesPage';
 import MemberAccountPage from '../pages/member/MemberAccountPage';
-import CreatorUploadPage from '../pages/creator/CreatorUploadPage';
 import CreatorUsagePage from '../pages/creator/CreatorUsagePage';
 import Modal from '../components/Modal';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
@@ -129,9 +128,8 @@ export default function AppRouter() {
           <Route path="/trainer" element={<RoleShell role="trainer" />}>
             <Route path="home" element={<TrainerHomePage />} />
             <Route path="courses" element={<TrainerIntakesPage />} />
-            <Route path="courses/new" element={<TrainerIntakeCreatePage />} />
             <Route path="courses/intakes/:courseIntakeId" element={<TrainerIntakeDetailPage />} />
-            <Route path="approvals" element={<TrainerApprovalsPage />} />
+            <Route path="invitations" element={<TrainerInvitationsPage />} />
             <Route path="attendance" element={<TrainerAttendancePage />} />
             <Route path="learners" element={<TrainerLearnersPage />} />
             <Route path="account" element={<TrainerAccountPage />} />
@@ -145,10 +143,11 @@ export default function AppRouter() {
             <Route path="courses" element={<CreatorCoursesPage />} />
             <Route path="courses/new" element={<CreatorCourseFormPage />} />
             <Route path="courses/:courseId" element={<CreatorCourseFormPage />} />
-            <Route path="courses/intake-applications" element={<CreatorIntakeApplicationsPage />} />
-            <Route path="courses/intake-applications/:courseIntakeId" element={<CreatorIntakeApplicationDetailPage />} />
+            <Route path="intakes" element={<CreatorIntakesPage />} />
+            <Route path="intakes/new" element={<CreatorIntakeCreatePage />} />
+            <Route path="intakes/:courseIntakeId" element={<CreatorIntakeDetailPage />} />
             <Route path="approvals" element={<CreatorApprovalsPage />} />
-            <Route path="upload" element={<CreatorUploadPage />} />
+            <Route path="upload" element={<Navigate to="/creator/courses" replace />} />
             <Route path="usage" element={<CreatorUsagePage />} />
             <Route path="account" element={<CreatorAccountPage />} />
             <Route index element={<Navigate to="home" replace />} />

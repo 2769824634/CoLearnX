@@ -80,4 +80,28 @@ describe('AdminCourseReviewsPage material and interest summary', () => {
     expect(screen.getAllByText('Product design')).toHaveLength(2);
     expect(screen.queryByText(/Legacy category/)).toBeNull();
   });
+
+  it('lists the trainers on the course with their roster status', async () => {
+    courseApi.list.mockResolvedValue([{
+      ...course,
+      trainers: [
+        { trainerId: 31, fullName: 'Alex Chen', status: 'Accepted' },
+        { trainerId: 32, fullName: 'Sam Lee', status: 'Invited' },
+      ],
+    }]);
+    render(<AdminCourseReviewsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Review' }));
+
+    const trainers = screen.getByRole('list', { name: 'Trainers' });
+    expect(trainers.textContent).toContain('Alex Chen · Accepted');
+    expect(trainers.textContent).toContain('Sam Lee · Invited');
+  });
+
+  it('says when a course has no trainers yet', async () => {
+    render(<AdminCourseReviewsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Review' }));
+
+    expect(screen.getByText('No trainers on this course yet.')).toBeTruthy();
+    expect(screen.queryByRole('list', { name: 'Trainers' })).toBeNull();
+  });
 });

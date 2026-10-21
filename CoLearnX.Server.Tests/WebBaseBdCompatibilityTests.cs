@@ -11,7 +11,7 @@ public class WebBaseBdCompatibilityTests(CoLearnXApiFactory factory) : IClassFix
 {
     [Theory]
     [InlineData("Trainer", "/api/trainer/intakes")]
-    [InlineData("Creator", "/api/creator/intake-applications")]
+    [InlineData("Creator", "/api/creator/intakes")]
     public async Task Web_base_demo_accounts_can_enter_bd_workspaces(string role, string workspacePath)
     {
         var email = role == "Trainer" ? SeedData.TrainerEmail : SeedData.CreatorEmail;

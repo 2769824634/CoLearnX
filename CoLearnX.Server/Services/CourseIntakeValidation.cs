@@ -51,8 +51,13 @@ internal static class CourseIntakeValidation
 
     public static void Editable(CourseIntake intake)
     {
-        if (intake.Status is not (CourseIntakeStatus.Draft or CourseIntakeStatus.Rejected))
-            throw new CourseIntakeException("INTAKE_NOT_EDITABLE", "Only Draft or Rejected Intakes can be structurally edited.", 409);
+        if (intake.Status is CourseIntakeStatus.Cancelled or CourseIntakeStatus.Completed or CourseIntakeStatus.PendingApproval)
+            throw new CourseIntakeException("INTAKE_NOT_EDITABLE", "This Intake can no longer be structurally edited.", 409);
+        var committed = intake.Sessions.SelectMany(session => session.Enrollments)
+            .Any(enrollment => enrollment.Status is EnrollmentStatus.Reserved or EnrollmentStatus.Active);
+        if (committed)
+            throw new CourseIntakeException("INTAKE_HAS_COMMITTED_ENROLLMENTS",
+                "A class with reserved or confirmed places cannot change its schedule. Cancel it to return learners' credits.", 409);
     }
 
     public static void Version(CourseIntake intake, Guid expected)

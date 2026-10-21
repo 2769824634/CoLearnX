@@ -4,12 +4,12 @@ import { utcDate } from '../../utils/utcDates.js';
 import { formatCount } from '../businessPresentation';
 import useTrainerQuery, { loadTrainerOverview } from './useTrainerQuery';
 import { IntakeRows, IntakeStatus, TrainerError, TrainerHeader, TrainerLoading } from './TrainerUi';
-import { formatDate, intakeLink, isEditable } from './intakeForm';
+import { formatDate, intakeLink } from './intakeForm';
 
 const PIPELINE = [
-  ['editable', 'Ready to prepare', 'Draft & rejected', (status) => isEditable(status)],
-  ['PendingApproval', 'With the Creator', 'Pending approval', (status) => status === 'PendingApproval'],
-  ['delivery', 'Confirmed delivery', 'Published & in progress', (status) => ['Published', 'InProgress'].includes(status)],
+  ['Published', 'Upcoming', 'Assigned and published', (status) => status === 'Published'],
+  ['InProgress', 'Teaching now', 'In progress', (status) => status === 'InProgress'],
+  ['Completed', 'Finished', 'Completed classes', (status) => status === 'Completed'],
 ];
 
 const QUICK_ACTIONS = [
@@ -17,12 +17,12 @@ const QUICK_ACTIONS = [
   ['/trainer/learners', 'Learner List', 'Learners enrolled in your Intakes.'],
 ];
 
-const DELIVERY_STEPS = ['Prepare a Draft', 'Add Sessions', 'Submit to Creator', 'Creator confirms'];
+const DELIVERY_STEPS = ['Accept the teaching invitation', 'Open the assigned class', 'Update the meeting link', 'Record attendance'];
 
-function attentionSummary(prepare, waiting) {
+function attentionSummary(upcoming, teaching) {
   const items = [
-    prepare ? `${formatCount(prepare, 'Intake')} to prepare` : null,
-    waiting ? `${formatCount(waiting, 'Intake')} waiting for the Creator` : null,
+    upcoming ? formatCount(upcoming, 'upcoming class', 'upcoming classes') : null,
+    teaching ? `${formatCount(teaching, 'class')} in progress` : null,
   ].filter(Boolean);
   return items.length ? `${items.join(' and ')}.` : 'Nothing needs your attention right now.';
 }
@@ -42,7 +42,7 @@ function TeachingNext({ intake, courses }) {
       <div className="trainer-next-body">
         <p className="trainer-eyebrow" id="trainer-next-title">Teaching next</p>
         <h2>No confirmed delivery yet</h2>
-        <p>Once the course Creator confirms an Intake, it appears here.</p>
+        <p>Published classes assigned to you appear here.</p>
       </div>
     </section>;
   }
@@ -70,12 +70,12 @@ export default function TrainerHomePage() {
   const { user } = useAuth();
   const query = useTrainerQuery(loadTrainerOverview);
   const intakes = query.data?.intakes || [];
-  const [prepare, waiting] = PIPELINE.map(([, , , matches]) => intakes.filter((intake) => matches(intake.status)));
+  const [upcoming, teaching] = PIPELINE.map(([, , , matches]) => intakes.filter((intake) => matches(intake.status)));
   const firstName = user?.fullName?.split(' ')[0] || 'Trainer';
 
   return <section className="trainer-page">
-    <TrainerHeader title={`Welcome back, ${firstName}.`} action={<Link className="btn btn-primary" to="/trainer/courses/new">+ Create Intake</Link>}>
-      {query.data ? attentionSummary(prepare.length, waiting.length) : 'Plan your next cohort. Build a schedule, then send it to the course Creator for confirmation.'}
+    <TrainerHeader title={`Welcome back, ${firstName}.`} action={<Link className="btn btn-primary" to="/trainer/invitations">Teaching invitations</Link>}>
+      {query.data ? attentionSummary(upcoming.length, teaching.length) : 'Classes assigned to you appear here after you accept a teaching invitation.'}
     </TrainerHeader>
     {query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <div className="trainer-home-layout">
       <div className="trainer-home-main">
@@ -92,7 +92,7 @@ export default function TrainerHomePage() {
         <section aria-labelledby="trainer-prepare-title">
           <div className="trainer-section-heading"><h2 id="trainer-prepare-title">Pick up where you left off</h2><Link to="/trainer/courses">All Intakes →</Link></div>
           <TrainerError error={query.data.catalogError} onRetry={query.refresh} retryLabel="Reload course names" />
-          <IntakeRows intakes={prepare.slice(0, 5)} courses={query.data.courses} empty="Your planning queue is clear. Create an Intake when you are ready for the next cohort." />
+          <IntakeRows intakes={[...teaching, ...upcoming].slice(0, 5)} courses={query.data.courses} empty="No assigned classes yet. Accept a teaching invitation to be added to a course." />
         </section>
       </div>
       <aside className="trainer-home-side">
@@ -103,7 +103,7 @@ export default function TrainerHomePage() {
         <section className="trainer-delivery-path" aria-labelledby="trainer-path-title">
           <h2 id="trainer-path-title">Your path to delivery</h2>
           <ol>{DELIVERY_STEPS.map((step) => <li key={step}>{step}</li>)}</ol>
-          <p>Submitting does not publish an Intake. All displayed dates use UTC.</p>
+          <p>The course Creator publishes the schedule. All displayed dates use UTC.</p>
         </section>
       </aside>
     </div>}

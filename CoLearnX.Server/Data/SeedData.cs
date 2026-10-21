@@ -26,6 +26,7 @@ public static class SeedData
         await MaterialUsageSchema.EnsureAsync(db);
         await SessionMaterialSchema.EnsureAsync(db);
         await PricingSchema.EnsureAsync(db);
+        await CourseTrainerSchema.EnsureAsync(db);
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
         var verifiedAt = DateTime.UtcNow;
 
@@ -73,6 +74,7 @@ public static class SeedData
             await EnsureLaterPhaseFixturesAsync(db);
             await RecommendationSeed.EnsureCourseTagsAsync(db);
             await RecommendationSeed.EnsureDemoProfileAndRatingsAsync(db);
+            await CourseTrainerSchema.BackfillAsync(db);
             return;
         }
 
@@ -412,6 +414,7 @@ public static class SeedData
         await EnsureLaterPhaseFixturesAsync(db);
         await RecommendationSeed.EnsureCourseTagsAsync(db);
         await RecommendationSeed.EnsureDemoProfileAndRatingsAsync(db);
+        await CourseTrainerSchema.BackfillAsync(db);
     }
 
     private static async Task EnsureDemoWorkspaceRolesAsync(CoLearnXDbContext db)

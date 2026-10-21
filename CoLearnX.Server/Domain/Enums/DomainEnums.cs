@@ -41,6 +41,14 @@ public enum CourseIntakeApplicationStatus
     Rejected = 2
 }
 
+public enum CourseTrainerStatus
+{
+    Invited = 0,
+    Accepted = 1,
+    Declined = 2,
+    Removed = 3
+}
+
 public enum CourseIntakeRequestStatus
 {
     Pending = 0,

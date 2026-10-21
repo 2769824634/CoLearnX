@@ -3,8 +3,8 @@ import { createContext, useContext } from 'react';
 export const MemberNotificationsContext = createContext(null);
 export const useMemberNotifications = () => useContext(MemberNotificationsContext);
 
-const destinations = new Set(['/member/programs', '/member/badges', '/member/payment', '/member/disputes', '/trainer/courses', '/trainer/learners', '/trainer/approvals', '/creator/courses/intake-applications', '/creator/approvals']);
-export const importantNotificationTypes = new Set(['N-course-published', 'N-course-rejected', 'N-intake-application-confirmed', 'N-intake-application-rejected', 'N-role-approved', 'N-role-rejected']);
+const destinations = new Set(['/member/programs', '/member/badges', '/member/payment', '/member/disputes', '/trainer/courses', '/trainer/learners', '/trainer/invitations', '/creator/courses', '/creator/intakes', '/creator/approvals']);
+export const importantNotificationTypes = new Set(['N-course-published', 'N-course-rejected', 'N-course-invitation', 'N-course-invitation-accepted', 'N-course-invitation-declined', 'N-intake-published', 'N-intake-cancelled', 'N-intake-cancelled-creator', 'N-role-approved', 'N-role-rejected']);
 const programTabs = new Set(['active', 'reserved', 'completed', 'history']);
 
 export function safeNotificationPath(path) {
@@ -17,7 +17,7 @@ export function safeNotificationPath(path) {
   }
   if (parsed.origin !== 'https://colearnx.local' || parsed.username || parsed.password || parsed.hash) return null;
   const pathname = parsed.pathname;
-  const intakeDetail = /^\/(?:trainer\/courses\/intakes|creator\/courses\/intake-applications)\/[1-9]\d*$/.test(pathname);
+  const intakeDetail = /^\/(?:trainer\/courses\/intakes|creator\/intakes)\/[1-9]\d*$/.test(pathname);
   if (!destinations.has(pathname) && !intakeDetail) return null;
   if (!parsed.search) return pathname;
   if (pathname !== '/member/programs') return null;

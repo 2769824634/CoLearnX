@@ -28,10 +28,11 @@ public class TrainerIntakesIntegrationTests
 {
     private static readonly DateTime Start = new(2027, 2, 1, 9, 0, 0, DateTimeKind.Utc);
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-    private static CreateCourseIntakeRequest Draft => new(Start.AddDays(-20), Start.AddDays(-10), Start, Start.AddDays(3));
+    private static CreateCourseIntakeRequest Draft => new(Start.AddDays(-20), Start.AddDays(-10), Start, Start.AddDays(3), TrainerId: 100);
     private static CreateCourseSessionRequest Session(Guid version) => new("Session 1", Start, Start.AddHours(1), "https://example.com/class", null, 0, null, version);
-    private static string Intake(int id) => $"/api/trainer/intakes/{id}";
-    private const string CreatePath = "/api/trainer/courses/100/intakes";
+    private static string Intake(int id) => $"/api/creator/intakes/{id}";
+    private static string TrainerIntake(int id) => $"/api/trainer/intakes/{id}";
+    private const string CreatePath = "/api/creator/courses/100/intakes";
 
     [Fact]
     public async Task RealLogin_CreateReadEditSessionDeleteAndSubmit_WorkAcrossRequests()
@@ -39,7 +40,7 @@ public class TrainerIntakesIntegrationTests
         using var f = new TrainerApiFactory();
         await f.InitializeAsync();
         using var client = f.Anonymous();
-        using var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("b2-100@example.com", "Password123!", "Trainer"));
+        using var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("b2-103@example.com", "Password123!", "Creator"));
         loginResponse.EnsureSuccessStatusCode();
         var login = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.AccessToken);
@@ -50,7 +51,8 @@ public class TrainerIntakesIntegrationTests
         Assert.Equal(100, d.TrainerId);
         Assert.Equal("Draft", d.Status);
         Assert.Empty(d.Sessions);
-        Assert.Equal(d.Id, Assert.Single((await client.GetFromJsonAsync<List<CourseIntakeSummaryDto>>("/api/trainer/intakes"))!).Id);
+        using var trainer = f.UserClient(100);
+        Assert.Equal(d.Id, Assert.Single((await trainer.GetFromJsonAsync<List<CourseIntakeSummaryDto>>("/api/trainer/intakes"))!).Id);
         var reread = await client.GetFromJsonAsync<CourseIntakeDetailDto>(creation.Headers.Location);
         Assert.Equal(d.Version, reread!.Version);
         Assert.Equal(DateTimeKind.Utc, reread.StartsAt.Kind);
@@ -64,34 +66,34 @@ public class TrainerIntakesIntegrationTests
         d = await Detail(await client.DeleteAsync(Intake(d.Id) + $"/sessions/{sid}?version={d.Version}"));
         Assert.Empty(d.Sessions);
         d = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/sessions", Session(d.Version)));
-        d = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/submit", new SubmitCourseIntakeRequest(d.Version)));
-        Assert.Equal("PendingApproval", d.Status);
+        d = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/publish", new SubmitCourseIntakeRequest(d.Version)));
+        Assert.Equal("Published", d.Status);
         Assert.NotNull(d.SubmittedAt);
         var logs = await f.ReadAsync(db => db.AuditLogs.Where(a => a.EntityType == "CourseIntake" && a.EntityId == d.Id.ToString()).ToListAsync());
         Assert.Equal(7, logs.Count);
-        Assert.All(logs, log => { Assert.Equal(100, log.UserId); Assert.Null(log.AdminAccountId); });
+        Assert.All(logs, log => { Assert.Equal(103, log.UserId); Assert.Null(log.AdminAccountId); });
     }
 
     [Theory]
     [InlineData("anonymous", 401)]
     [InlineData("admin", 401)]
     [InlineData("member", 403)]
-    [InlineData("creator", 403)]
+    [InlineData("trainer", 403)]
     [InlineData("expired", 401)]
     [InlineData("legacy", 401)]
     [InlineData("forged-role", 403)]
-    [InlineData("missing-id", 401)]
+    [InlineData("missing-id", 403)]
     public async Task AllEightEndpoints_EnforceIdentityBoundary(string identity, int status)
     {
         using var f = new TrainerApiFactory();
         await f.InitializeAsync();
-        using var owner = f.UserClient(100);
+        using var owner = f.UserClient(103);
         var d = await Detail(await owner.PostAsJsonAsync(CreatePath, Draft), HttpStatusCode.Created);
         using var client = f.IdentityClient(identity);
         foreach (var request in Requests(d))
         {
             using (request)
-                await Error(await client.SendAsync(request), status, status == 401 ? "UNAUTHENTICATED" : "TRAINER_REQUIRED");
+                await Error(await client.SendAsync(request), status, status == 401 ? "UNAUTHENTICATED" : "CREATOR_REQUIRED");
         }
         Assert.Equal(1, await f.ReadAsync(db => db.CourseIntakes.CountAsync(i => i.TrainerId == 100)));
     }
@@ -103,14 +105,23 @@ public class TrainerIntakesIntegrationTests
     {
         using var f = new TrainerApiFactory();
         await f.InitializeAsync();
-        using var client = f.UserClient(100);
+        using var trainer = f.UserClient(100);
+        using var client = f.UserClient(103);
         await f.ReadAsync(async db => {
-            if (removeRole) db.UserRoles.Remove(await db.UserRoles.SingleAsync(r => r.UserId == 100 && r.Role == AppRole.Trainer));
-            else (await db.Users.FindAsync(100))!.IsActive = false;
+            if (removeRole)
+            {
+                db.UserRoles.Remove(await db.UserRoles.SingleAsync(r => r.UserId == 100 && r.Role == AppRole.Trainer));
+                db.UserRoles.Remove(await db.UserRoles.SingleAsync(r => r.UserId == 103 && r.Role == AppRole.Creator));
+            }
+            else
+            {
+                (await db.Users.FindAsync(100))!.IsActive = false;
+                (await db.Users.FindAsync(103))!.IsActive = false;
+            }
             return await db.SaveChangesAsync();
         });
-        await Error(await client.GetAsync("/api/trainer/intakes"), 403, "TRAINER_REQUIRED");
-        await Error(await client.PostAsJsonAsync(CreatePath, Draft), 403, "TRAINER_REQUIRED");
+        await Error(await trainer.GetAsync("/api/trainer/intakes"), 403, "TRAINER_REQUIRED");
+        await Error(await client.PostAsJsonAsync(CreatePath, Draft), 403, "CREATOR_REQUIRED");
     }
 
     [Fact]
@@ -118,15 +129,17 @@ public class TrainerIntakesIntegrationTests
     {
         using var f = new TrainerApiFactory();
         await f.InitializeAsync();
-        using var owner = f.UserClient(100);
+        using var owner = f.UserClient(103);
         var d = await Detail(await owner.PostAsJsonAsync(CreatePath, Draft), HttpStatusCode.Created);
+        using var assigned = f.UserClient(100);
         using var other = f.UserClient(101);
         Assert.Empty((await other.GetFromJsonAsync<List<CourseIntakeSummaryDto>>("/api/trainer/intakes"))!);
-        foreach (var request in Requests(d).Skip(2))
+        await Error(await other.GetAsync(TrainerIntake(d.Id)), 404, "INTAKE_NOT_FOUND");
+        foreach (var request in Requests(d))
         {
-            using (request) await Error(await other.SendAsync(request), 404, "INTAKE_NOT_FOUND");
+            using (request) await Error(await other.SendAsync(request), 403, "CREATOR_REQUIRED");
         }
-        Assert.Equal(d.Version, (await owner.GetFromJsonAsync<CourseIntakeDetailDto>(Intake(d.Id)))!.Version);
+        Assert.Equal(d.Version, (await assigned.GetFromJsonAsync<CourseIntakeDetailDto>(TrainerIntake(d.Id)))!.Version);
     }
 
     [Theory]
@@ -140,7 +153,7 @@ public class TrainerIntakesIntegrationTests
     {
         using var f = new TrainerApiFactory();
         await f.InitializeAsync();
-        using var client = f.UserClient(100);
+        using var client = f.UserClient(103);
         var json = JsonSerializer.SerializeToNode(Draft, Json)!.AsObject();
         json[forbidden] = "forged";
         await Error(await client.PostAsJsonAsync(CreatePath, json), 400, "INVALID_REQUEST", true);
@@ -156,7 +169,7 @@ public class TrainerIntakesIntegrationTests
     {
         using var f = new TrainerApiFactory();
         await f.InitializeAsync();
-        using var client = f.UserClient(100);
+        using var client = f.UserClient(103);
         await Error(await client.PostAsync(CreatePath, new StringContent(json, Encoding.UTF8, "application/json")), 400, "INVALID_REQUEST", true);
     }
 
@@ -165,7 +178,7 @@ public class TrainerIntakesIntegrationTests
     {
         using var f = new TrainerApiFactory();
         await f.InitializeAsync();
-        using var client = f.UserClient(100);
+        using var client = f.UserClient(103);
         var d = await Detail(await client.PostAsJsonAsync(CreatePath, Draft), HttpStatusCode.Created);
         var update = JsonSerializer.SerializeToNode(new UpdateCourseIntakeRequest(Draft.RegistrationOpensAt,
             Draft.RegistrationClosesAt, Start, Start.AddDays(3), d.Version), Json)!.AsObject();
@@ -177,7 +190,7 @@ public class TrainerIntakesIntegrationTests
         session.Remove("courseIntakeId");
         session["status"] = "Published";
         await Error(await client.PutAsJsonAsync(Intake(d.Id) + "/sessions/1", session), 400, "INVALID_REQUEST", true);
-        await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/submit", new { d.Version, confirmedByCreatorId = 103 }), 400, "INVALID_REQUEST", true);
+        await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/publish", new { d.Version, confirmedByCreatorId = 103 }), 400, "INVALID_REQUEST", true);
         Assert.Equal(d.Version, (await client.GetFromJsonAsync<CourseIntakeDetailDto>(Intake(d.Id)))!.Version);
         Assert.Equal(1, await f.ReadAsync(db => db.AuditLogs.CountAsync(a => a.EntityType == "CourseIntake" && a.EntityId == d.Id.ToString())));
     }
@@ -187,11 +200,11 @@ public class TrainerIntakesIntegrationTests
     {
         using var f = new TrainerApiFactory();
         await f.InitializeAsync();
-        using var client = f.UserClient(100);
+        using var client = f.UserClient(103);
         await Error(await client.PostAsJsonAsync(CreatePath, Draft with { EndsAt = Start }), 400, "INVALID_INTAKE_DATES", true);
-        await Error(await client.PostAsJsonAsync("/api/trainer/courses/999999/intakes", Draft), 409, "COURSE_NOT_PUBLISHED");
+        await Error(await client.PostAsJsonAsync("/api/creator/courses/999999/intakes", Draft), 404, "COURSE_NOT_FOUND");
         var d = await Detail(await client.PostAsJsonAsync(CreatePath, Draft), HttpStatusCode.Created);
-        await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/submit", new SubmitCourseIntakeRequest(d.Version)), 400, "SESSION_REQUIRED", true);
+        await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/publish", new SubmitCourseIntakeRequest(d.Version)), 400, "SESSION_REQUIRED", true);
         await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/sessions", Session(d.Version) with { StartsAt = Start.AddDays(-1) }), 400, "SESSION_OUTSIDE_INTAKE", true);
         await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/sessions", Session(d.Version) with { MeetingLink = "javascript:alert(1)" }), 400, "INVALID_MEETING_LINK", true);
         d = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/sessions", Session(d.Version)));
@@ -204,17 +217,17 @@ public class TrainerIntakesIntegrationTests
     {
         using var f = new TrainerApiFactory();
         await f.InitializeAsync();
-        using var client = f.UserClient(100);
+        using var client = f.UserClient(103);
         var d = await Detail(await client.PostAsJsonAsync(CreatePath, Draft), HttpStatusCode.Created);
         var missingVersion = JsonSerializer.SerializeToNode(Session(d.Version), Json)!.AsObject();
         missingVersion.Remove("version");
         await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/sessions", missingVersion), 400, "INVALID_REQUEST", true);
-        await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/submit", new { }), 400, "INVALID_REQUEST", true);
-        await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/submit", new { version = "not-a-guid" }), 400, "INVALID_REQUEST", true);
+        await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/publish", new { }), 400, "INVALID_REQUEST", true);
+        await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/publish", new { version = "not-a-guid" }), 400, "INVALID_REQUEST", true);
         await Error(await client.DeleteAsync(Intake(d.Id) + "/sessions/1"), 400, "INVALID_REQUEST", true);
         await Error(await client.DeleteAsync(Intake(d.Id) + "/sessions/1?version=invalid"), 400, "INVALID_REQUEST", true);
         var scheduled = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/sessions", Session(d.Version)));
-        await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/submit", new SubmitCourseIntakeRequest(d.Version)), 409, "INTAKE_VERSION_CONFLICT");
+        await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/publish", new SubmitCourseIntakeRequest(d.Version)), 409, "INTAKE_VERSION_CONFLICT");
         Assert.Equal(scheduled.Version, (await client.GetFromJsonAsync<CourseIntakeDetailDto>(Intake(d.Id)))!.Version);
     }
 
@@ -223,17 +236,21 @@ public class TrainerIntakesIntegrationTests
     {
         using var f = new TrainerApiFactory();
         await f.InitializeAsync();
-        using var client = f.UserClient(100);
+        using var client = f.UserClient(103);
         var d = await Detail(await client.PostAsJsonAsync(CreatePath, Draft), HttpStatusCode.Created);
         d = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/sessions", Session(d.Version)));
-        d = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/submit", new SubmitCourseIntakeRequest(d.Version)));
-        foreach (var request in Requests(d).Skip(3).Take(4))
-        {
-            using (request) await Error(await client.SendAsync(request), 409, "INTAKE_NOT_EDITABLE");
-        }
-        var replay = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/submit", new SubmitCourseIntakeRequest(d.Version)));
+        d = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/publish", new SubmitCourseIntakeRequest(d.Version)));
+        var replay = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/publish", new SubmitCourseIntakeRequest(d.Version)));
         Assert.Equal(d.Version, replay.Version);
-        Assert.Equal(1, await f.ReadAsync(db => db.AuditLogs.CountAsync(a => a.Action == "CourseIntakeSubmitted" && a.EntityId == d.Id.ToString())));
+        Assert.Equal(1, await f.ReadAsync(db => db.AuditLogs.CountAsync(a => a.Action == "CourseIntakePublished" && a.EntityId == d.Id.ToString())));
+        var sessionId = Assert.Single(d.Sessions).Id;
+        await f.ReadAsync(async db =>
+        {
+            db.Enrollments.Add(new Enrollment { UserId = 102, CourseId = 100, CourseSessionId = sessionId, Status = EnrollmentStatus.Active, CreditsSpent = 20 });
+            return await db.SaveChangesAsync();
+        });
+        await Error(await client.PutAsJsonAsync(Intake(d.Id), new UpdateCourseIntakeRequest(
+            Draft.RegistrationOpensAt, Draft.RegistrationClosesAt, Start, Start.AddDays(4), d.Version)), 409, "INTAKE_HAS_COMMITTED_ENROLLMENTS");
     }
 
     [Fact]
@@ -241,7 +258,7 @@ public class TrainerIntakesIntegrationTests
     {
         using var f = new TrainerApiFactory();
         await f.InitializeAsync();
-        using var client = f.UserClient(100);
+        using var client = f.UserClient(103);
         var first = await Detail(await client.PostAsJsonAsync(CreatePath, Draft), HttpStatusCode.Created);
         first = await Detail(await client.PostAsJsonAsync(Intake(first.Id) + "/sessions", Session(first.Version)));
         var second = await Detail(await client.PostAsJsonAsync(CreatePath, Draft), HttpStatusCode.Created);
@@ -256,7 +273,7 @@ public class TrainerIntakesIntegrationTests
     {
         using var f = new TrainerApiFactory();
         await f.InitializeAsync();
-        using var client = f.UserClient(100);
+        using var client = f.UserClient(103);
         f.FailAudit = true;
         using var response = await client.PostAsJsonAsync(CreatePath, Draft);
         var body = await response.Content.ReadAsStringAsync();
@@ -267,8 +284,6 @@ public class TrainerIntakesIntegrationTests
 
     private static IEnumerable<HttpRequestMessage> Requests(CourseIntakeDetailDto d)
     {
-        // Order: list, create, get, update, add session, update session, delete session, submit.
-        yield return new(HttpMethod.Get, "/api/trainer/intakes");
         yield return new(HttpMethod.Post, CreatePath) { Content = JsonContent.Create(Draft) };
         yield return new(HttpMethod.Get, Intake(d.Id));
         yield return new(HttpMethod.Put, Intake(d.Id)) { Content = JsonContent.Create(new UpdateCourseIntakeRequest(
@@ -278,7 +293,7 @@ public class TrainerIntakesIntegrationTests
         yield return new(HttpMethod.Put, Intake(d.Id) + $"/sessions/{sid}") { Content = JsonContent.Create(new UpdateCourseSessionRequest(
             "Edit", Start, Start.AddHours(1), "https://example.com", null, 0, null, d.Version)) };
         yield return new(HttpMethod.Delete, Intake(d.Id) + $"/sessions/{sid}?version={d.Version}");
-        yield return new(HttpMethod.Post, Intake(d.Id) + "/submit") { Content = JsonContent.Create(new SubmitCourseIntakeRequest(d.Version)) };
+        yield return new(HttpMethod.Post, Intake(d.Id) + "/publish") { Content = JsonContent.Create(new SubmitCourseIntakeRequest(d.Version)) };
     }
 
     private static async Task<CourseIntakeDetailDto> Detail(HttpResponseMessage response, HttpStatusCode status = HttpStatusCode.OK)
@@ -324,6 +339,7 @@ public class TrainerIntakesIntegrationTests
                     FullName = $"B2 User {id}", PasswordHash = hash,
                     Roles = [new UserRole { Role = id < 102 ? AppRole.Trainer : id == 102 ? AppRole.Member : AppRole.Creator }] }));
                 db.Courses.Add(new Course { Id = 100, Code = "B2", Title = "B2 API fixture", TrainerId = 100, CreatorId = 103, Status = CourseStatus.Published });
+                db.CourseTrainers.Add(new CourseTrainer { CourseId = 100, TrainerId = 100, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 103, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow });
                 return await db.SaveChangesAsync();
             });
         }
@@ -339,7 +355,7 @@ public class TrainerIntakesIntegrationTests
         {
             if (identity == "anonymous") return Anonymous();
             if (identity == "member") return UserClient(102);
-            if (identity == "creator") return UserClient(103);
+            if (identity == "creator" || identity == "trainer") return identity == "creator" ? UserClient(103) : UserClient(100);
             if (identity == "admin")
             {
                 using var scope = Services.CreateScope();

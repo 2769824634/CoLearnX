@@ -4,7 +4,7 @@ import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
 import { enrollmentsApi } from '../../api';
 import { useMemberSlices } from './memberDataState';
-import { formatCount, formatUtcDateTime, formatUtcRange, userFacingError } from '../businessPresentation';
+import { formatCount, formatUtcDate, formatUtcRange, userFacingError } from '../businessPresentation';
 import { sessionAvailability } from './sessionAvailability';
 
 // Course detail + enrol.
@@ -161,7 +161,7 @@ export default function MemberCourseDetailPage() {
                     <span className="member-session-status">{sessionAvailability(s, now).label}</span>
                     <span className="member-session-summary">{formatCount(s.intakeEnrollmentCount ?? 0, 'learner')} reserved or enrolled · Minimum {s.minEnrollment ?? 10}</span>
                     <span className="member-session-summary">Delivery: {s.physical && s.online ? 'Physical and online (shared place; choosing a mode is not available yet)' : s.physical ? 'Physical' : 'Online'}</span>
-                    {s.registrationClosesAt ? <span className="member-session-summary">Registration closes {formatUtcDateTime(s.registrationClosesAt)}</span> : null}
+                    {s.registrationClosesAt ? <span className="member-session-summary">Registration closes {formatUtcDate(s.registrationClosesAt)}</span> : null}
                   </button>
                 ))}
               </div>

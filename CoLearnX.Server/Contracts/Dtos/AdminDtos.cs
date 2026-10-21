@@ -71,7 +71,10 @@ public record AdminCourseDto(
     IReadOnlyList<CourseInterestDto>? Interests = null,
     int MaterialVersionCount = 0,
     IReadOnlyDictionary<string, int>? MaterialVersionStatusCounts = null,
-    IReadOnlyList<AdminCourseMaterialVersionDto>? MaterialVersions = null);
+    IReadOnlyList<AdminCourseMaterialVersionDto>? MaterialVersions = null,
+    IReadOnlyList<AdminCourseTrainerDto>? Trainers = null);
+
+public record AdminCourseTrainerDto(int TrainerId, string FullName, string Status);
 
 public record AdminCourseMaterialVersionDto(
     int VersionId,

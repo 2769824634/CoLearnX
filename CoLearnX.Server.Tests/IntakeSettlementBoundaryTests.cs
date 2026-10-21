@@ -93,11 +93,11 @@ public class IntakeSettlementBoundaryTests
                 .SettleIfDueAsync(scenario.IntakeId);
             Assert.True(settled.Confirmed);
         }
-        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");
-        var first = await trainer.PostAsync($"/api/trainer/intakes/{scenario.IntakeId}/cancel", null);
+        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.CreatorEmail, "Creator");
+        var first = await trainer.PostAsync($"/api/creator/intakes/{scenario.IntakeId}/cancel", null);
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
         var afterFirst = await ReadSnapshotAsync(factory, scenario);
-        var second = await trainer.PostAsync($"/api/trainer/intakes/{scenario.IntakeId}/cancel", null);
+        var second = await trainer.PostAsync($"/api/creator/intakes/{scenario.IntakeId}/cancel", null);
         Assert.Equal(HttpStatusCode.OK, second.StatusCode);
         Assert.Equal(afterFirst, await ReadSnapshotAsync(factory, scenario));
 
@@ -132,13 +132,13 @@ public class IntakeSettlementBoundaryTests
         using (var setup = factory.Services.CreateScope())
         {
             var db = setup.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-            var creatorId = await db.Users.Where(u => u.Email == SeedData.CreatorEmail).Select(u => u.Id).SingleAsync();
-            await db.CourseIntakes.Where(i => i.Id == scenario.IntakeId)
-                .ExecuteUpdateAsync(s => s.SetProperty(i => i.TrainerId, creatorId));
+            var trainerId = await db.Users.Where(u => u.Email == SeedData.TrainerEmail).Select(u => u.Id).SingleAsync();
+            var courseId = await db.CourseIntakes.Where(i => i.Id == scenario.IntakeId).Select(i => i.CourseId).SingleAsync();
+            await db.Courses.Where(c => c.Id == courseId).ExecuteUpdateAsync(s => s.SetProperty(c => c.CreatorId, trainerId));
         }
         var before = await ReadSnapshotAsync(factory, scenario);
-        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");
-        var response = await trainer.PostAsync($"/api/trainer/intakes/{scenario.IntakeId}/cancel", null);
+        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.CreatorEmail, "Creator");
+        var response = await trainer.PostAsync($"/api/creator/intakes/{scenario.IntakeId}/cancel", null);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal(before, await ReadSnapshotAsync(factory, scenario));
     }

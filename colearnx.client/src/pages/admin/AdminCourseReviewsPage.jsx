@@ -266,6 +266,14 @@ export default function AdminCourseReviewsPage() {
               <small>{selected.level} · {formatCount(selected.creditCost, 'credit')}</small>
               {selected.description ? <p>{selected.description}</p> : null}
               <p>Creator: {selected.creatorName || selected.submittedByName}</p>
+              <h3 id="course-review-trainers">Trainers</h3>
+              {selected.trainers?.length ? (
+                <ul aria-labelledby="course-review-trainers">
+                  {selected.trainers.map((trainer) => (
+                    <li key={trainer.trainerId}>{trainer.fullName} · {trainer.status}</li>
+                  ))}
+                </ul>
+              ) : <p>No trainers on this course yet.</p>}
               <h3>Interests</h3>
               {selected.interests?.length ? (
                 <ul>
