@@ -3,6 +3,7 @@ import useAdminAuth from '../../auth/useAdminAuth';
 import { adminLaterPhaseApi } from '../../api/adminLaterPhase';
 import AdminDataState from './AdminDataState';
 import useAdminQuery from './useAdminQuery';
+import { useAdminPending } from './adminPending';
 import { formatUtcDateTime, userFacingError } from '../businessPresentation';
 
 async function loadLaterApprovals(token, type, signal) {
@@ -32,6 +33,7 @@ function MaterialMetadata({ item }) {
 export default function AdminLaterApprovalsPage({ type }) {
   const { token } = useAdminAuth();
   const query = useAdminQuery(loadLaterApprovals, type);
+  const pending = useAdminPending();
   const [notes, setNotes] = useState({});
   const [busyId, setBusyId] = useState(null);
   const [mutationError, setMutationError] = useState(null);
@@ -52,6 +54,7 @@ export default function AdminLaterApprovalsPage({ type }) {
         ? `Material version ${decision === 'Approve' ? 'approved for Trainer use' : 'rejected'}.`
         : `Certificate request ${decision === 'Approve' ? 'approved and issued' : 'rejected'}.`);
       query.refresh();
+      pending?.refresh();
     } catch (error) {
       setMutationError(error);
     } finally {

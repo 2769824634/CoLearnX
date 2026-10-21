@@ -3,6 +3,7 @@ import useAdminAuth from '../../auth/useAdminAuth';
 import { adminRoleRequestsApi } from '../../api';
 import Modal from '../../components/Modal';
 import { formatUtcDateTime, userFacingError } from '../businessPresentation';
+import { useAdminPending } from './adminPending';
 
 const FILTERS = ['Pending', 'Approved', 'Rejected', 'All'];
 function hasCredentials(roleRequest) {
@@ -17,6 +18,7 @@ export default function AdminRoleRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [reviewNotice, setReviewNotice] = useState('');
+  const pending = useAdminPending();
   const [selected, setSelected] = useState(null);
   const [decision, setDecision] = useState('Approve');
   const [reason, setReason] = useState('');
@@ -107,6 +109,7 @@ export default function AdminRoleRequestsPage() {
       });
       setReviewNotice(`${reviewed.requestedRole} request ${reviewed.status.toLowerCase()}.`);
       setSelected(null);
+      pending?.refresh();
     } catch (error) {
       setReviewError(userFacingError(error, 'The review could not be confirmed. Refresh the queue before trying again.'));
     } finally {

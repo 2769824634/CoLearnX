@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { adminAuditApi } from '../../api';
 import useAdminQuery from './useAdminQuery';
 import AdminDataState from './AdminDataState';
-import { actionLabel, auditActor, formatAuditTime, resultClass, resultLabel } from './adminDisplay';
+import { actionLabel, auditActor, entityTypeLabel, formatAuditTime, resultClass, resultLabel } from './adminDisplay';
 
 const PAGE_SIZE = 25;
 const EMPTY_FILTERS = { entityType: '', result: '', actorType: '' };
@@ -11,7 +11,12 @@ function loadAudit(token, queryKey, signal) {
   return adminAuditApi.query(token, JSON.parse(queryKey), signal);
 }
 
+function loadFilterOptions(token, _queryKey, signal) {
+  return adminAuditApi.filterOptions(token, signal);
+}
+
 export default function AdminAuditLogsPage() {
+  const { data: filterOptions, refresh: refreshFilterOptions } = useAdminQuery(loadFilterOptions);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [cursors, setCursors] = useState([null]);
   const beforeId = cursors[cursors.length - 1];
@@ -28,6 +33,7 @@ export default function AdminAuditLogsPage() {
   function refreshLatest() {
     setCursors([null]);
     refresh();
+    refreshFilterOptions();
   }
 
   return (
@@ -44,14 +50,14 @@ export default function AdminAuditLogsPage() {
         <div className="admin-audit-filters">
           <label>Resource
             <select value={filters.entityType} onChange={(event) => updateFilter('entityType', event.target.value)}>
-              <option value="">All resources</option><option value="RoleRequest">Role requests</option>
-              <option value="Course">Courses</option><option value="AdminAccount">Admin accounts</option>
+              <option value="">All resources</option>
+              {filterOptions?.entityTypes.map((value) => <option key={value} value={value}>{entityTypeLabel(value)}</option>)}
             </select>
           </label>
           <label>Outcome
             <select value={filters.result} onChange={(event) => updateFilter('result', event.target.value)}>
               <option value="">All outcomes</option>
-              {['Approved', 'Published', 'Rejected', 'Succeeded', 'Failed'].map((value) => <option key={value}>{value}</option>)}
+              {filterOptions?.results.map((value) => <option key={value}>{value}</option>)}
             </select>
           </label>
           <label>Actor

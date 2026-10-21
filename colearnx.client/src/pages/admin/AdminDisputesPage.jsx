@@ -3,6 +3,7 @@ import useAdminAuth from '../../auth/useAdminAuth';
 import { adminLaterPhaseApi } from '../../api/adminLaterPhase';
 import AdminDataState from './AdminDataState';
 import useAdminQuery from './useAdminQuery';
+import { useAdminPending } from './adminPending';
 import { formatCount, formatUtcRange } from '../businessPresentation';
 
 async function loadDisputes(token, status, signal) {
@@ -20,6 +21,7 @@ export default function AdminDisputesPage() {
   const [mutationError, setMutationError] = useState(null);
   const [notice, setNotice] = useState('');
   const query = useAdminQuery(loadDisputes, status);
+  const pending = useAdminPending();
   const selected = selectedId === null ? query.data?.[0]
     : query.data?.find((item) => item.id === selectedId);
 
@@ -52,6 +54,7 @@ export default function AdminDisputesPage() {
       setRefundCredits('');
       setOperationKey(crypto.randomUUID());
       query.refresh();
+      pending?.refresh();
     } catch (error) {
       setMutationError(error);
       query.refresh();

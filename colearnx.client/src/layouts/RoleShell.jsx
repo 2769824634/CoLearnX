@@ -4,6 +4,8 @@ import MemberNotifications from '../components/MemberNotifications';
 import { MemberNotificationsProvider } from '../components/MemberNotificationsProvider';
 import { useAuth } from '../auth/AuthContext';
 import useAdminAuth from '../auth/useAdminAuth';
+import { AdminPendingProvider } from '../pages/admin/AdminPendingProvider';
+import { approvalTotal, useAdminPending } from '../pages/admin/adminPending';
 import { ShellChrome, ShellNavLink } from './ShellChrome';
 import { useAccessNotice } from './useAccessNotice';
 import '../styles/admin.css';
@@ -31,10 +33,10 @@ const NAV = {
   ],
   admin: [
     { to: '/admin/home', label: 'Homepage' },
-    { to: '/admin/approvals', label: 'Approvals' },
+    { to: '/admin/approvals', label: 'Approvals', pending: 'approvals' },
     { to: '/admin/users', label: 'Users' },
     { to: '/admin/ledger', label: 'Credit Ledger' },
-    { to: '/admin/disputes', label: 'Disputes' },
+    { to: '/admin/disputes', label: 'Disputes', pending: 'disputes' },
     { to: '/admin/pricing', label: 'Pricing' },
     { to: '/admin/audit', label: 'Audit Log' },
     { to: '/admin/account', label: 'My Account' },
@@ -52,9 +54,15 @@ function isNavActive(item, pathname, isActive) {
   return isActive;
 }
 
+function pendingCount(kind, counts) {
+  if (!kind || !counts) return 0;
+  return kind === 'disputes' ? counts.disputes : approvalTotal(counts);
+}
+
 function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspaceSwitcher = false, title, subtitle, accessNotice, onDismissAccessNotice }) {
   const location = useLocation();
   const items = NAV[role] || [];
+  const pendingCounts = useAdminPending()?.counts;
 
   return (
     <ShellChrome
@@ -68,16 +76,21 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
       identityMeta={showWorkspaceSwitcher ? <WorkspaceSwitcher /> : <div className="role">Administrator</div>}
       navLabel={`${role} navigation`}
       navHintId={`${role}-nav-scroll-hint`}
-      navItems={items.map((item) => (
-        <ShellNavLink
-          key={item.to}
-          to={item.to}
-          end={Boolean(item.end)}
-          className={({ isActive }) => `nav-item${isNavActive(item, location.pathname, isActive) ? ' active' : ''}`}
-        >
-          {item.label}
-        </ShellNavLink>
-      ))}
+      navItems={items.map((item) => {
+        const pending = pendingCount(item.pending, pendingCounts);
+        return (
+          <ShellNavLink
+            key={item.to}
+            to={item.to}
+            end={Boolean(item.end)}
+            ariaLabel={pending > 0 ? `${item.label}, ${pending} pending` : undefined}
+            className={({ isActive }) => `nav-item${isNavActive(item, location.pathname, isActive) ? ' active' : ''}`}
+          >
+            {item.label}
+            {pending > 0 ? <span className="admin-nav-count" aria-hidden="true">{pending > 99 ? '99+' : pending}</span> : null}
+          </ShellNavLink>
+        );
+      })}
       title={title}
       subtitle={subtitle}
       accessNotice={accessNotice}
@@ -110,14 +123,16 @@ export default function RoleShell({ role, title, subtitle }) {
 }
 
 export function AdminRoleShell({ title, subtitle }) {
-  const { admin, logout } = useAdminAuth();
+  const { admin, token, logout } = useAdminAuth();
   return (
-    <ShellFrame
-      identityName={admin?.email}
-      role="admin"
-      logout={logout}
-      title={title}
-      subtitle={subtitle}
-    />
+    <AdminPendingProvider token={token}>
+      <ShellFrame
+        identityName={admin?.email}
+        role="admin"
+        logout={logout}
+        title={title}
+        subtitle={subtitle}
+      />
+    </AdminPendingProvider>
   );
 }

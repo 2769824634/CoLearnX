@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import AdminCourseReviewsPage from './AdminCourseReviewsPage';
+import { AdminPendingContext } from './adminPending';
 
 const courseApi = vi.hoisted(() => ({ list: vi.fn(), review: vi.fn() }));
 const materialApi = vi.hoisted(() => ({ downloadMaterial: vi.fn() }));
@@ -80,4 +81,15 @@ describe('AdminCourseReviewsPage material and interest summary', () => {
     expect(screen.getAllByText('Product design')).toHaveLength(2);
     expect(screen.queryByText(/Legacy category/)).toBeNull();
   });
+});
+
+it('updates the pending badges once a course decision is saved', async () => {
+  courseApi.review.mockResolvedValue({ course: { ...course, status: 'Published' }, alreadyReviewed: false });
+  const pending = { counts: null, refresh: vi.fn() };
+  render(<AdminPendingContext.Provider value={pending}><AdminCourseReviewsPage /></AdminPendingContext.Provider>);
+  fireEvent.click(await screen.findByRole('button', { name: 'Review' }));
+
+  fireEvent.click(screen.getByRole('button', { name: 'Publish course' }));
+
+  await waitFor(() => expect(pending.refresh).toHaveBeenCalledTimes(1));
 });

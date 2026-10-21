@@ -52,6 +52,11 @@ export const adminAuditApi = {
     });
     return apiRequest(`/api/admin/audit-logs?${query}`, { token, signal });
   },
+  filterOptions: (token, signal) => apiRequest('/api/admin/audit-logs/filters', { token, signal }),
+};
+
+export const adminOverviewApi = {
+  pendingCounts: (token, signal) => apiRequest('/api/admin/pending-counts', { token, signal }),
 };
 
 export const adminRoleRequestsApi = {
