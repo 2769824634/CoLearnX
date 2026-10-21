@@ -18,7 +18,7 @@ async function loadCourseForm(token, courseId, signal) {
 
 const emptyCourse = {
   code: '', title: '', description: '', courseLevelId: '', learningPathId: '',
-  category: '', creditCost: '', learningOutcomes: [], interestIds: [], status: 'Draft',
+  creditCost: '', learningOutcomes: [], interestIds: [], status: 'Draft',
 };
 
 const STEPS = [
@@ -93,7 +93,7 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
     for (const file of files) {
       await materialsApi.upload({
         title: titleFromFile(file),
-        category: form.category || 'General',
+        category: 'General',
         file,
         courseId,
         token,
@@ -325,7 +325,6 @@ function BasicFields({ form, options, setForm }) {
       <div className="form-group"><label htmlFor="creator-course-level">Course level</label><select id="creator-course-level" required value={form.courseLevelId} onChange={change('courseLevelId')}><option value="">Choose a level</option>{options.courseLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
       <div className="form-group"><label htmlFor="creator-learning-path">Learning path</label><select id="creator-learning-path" required value={form.learningPathId} onChange={change('learningPathId')}><option value="">Choose a path</option>{options.learningPaths.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
     </div>
-    <div className="form-group"><label htmlFor="creator-course-category">Category</label><input id="creator-course-category" required value={form.category} onChange={change('category')} /></div>
     <div className="form-group"><label htmlFor="creator-course-outcomes">Learning outcomes</label><textarea id="creator-course-outcomes" value={form.learningOutcomes} onChange={change('learningOutcomes')} placeholder="One outcome per line" /></div>
   </>;
 }
@@ -352,7 +351,6 @@ function toForm(course) {
     description: course.description || '',
     courseLevelId: String(course.courseLevelId || ''),
     learningPathId: String(course.learningPathId || ''),
-    category: course.category,
     creditCost: String(course.creditCost || ''),
     learningOutcomes: (course.learningOutcomes || []).join('\n'),
     interestIds: course.interestIds || [],

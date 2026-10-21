@@ -6,7 +6,7 @@ import { resolveAuthSession } from '../auth/resolveAuthSession';
 import PublicSiteShell from '../components/PublicSiteShell';
 import { useGuestGate } from '../components/useGuestGate';
 import AuthRequiredModal from '../components/AuthRequiredModal';
-import { usePublicCourses } from './publicCourses';
+import { learningPathOptions, usePublicCourses } from './publicCourses';
 import GuestCourseCard, { GuestCardSkeleton } from './guest/GuestCourseCard';
 import { GUEST_LEVELS } from './guest/guestContent';
 
@@ -17,20 +17,17 @@ export default function PublicCatalogPage() {
   const gate = useGuestGate();
   const session = resolveAuthSession(useAuth());
   const search = params.get('q') || '';
-  const [topic, setTopic] = useState('');
+  const [learningPath, setLearningPath] = useState('');
   const [level, setLevel] = useState('');
-  const topics = useMemo(
-    () => [...new Set(courses.map((course) => course.category).filter(Boolean))].sort(),
-    [courses],
-  );
 
   const list = useMemo(() => courses.filter((course) => {
     const query = search.toLowerCase();
     if (query && !(`${course.code} ${course.title} ${course.creatorName || ''} ${(course.trainerNames || []).join(' ')}`).toLowerCase().includes(query)) return false;
-    if (topic && course.topic !== topic && course.category !== topic) return false;
+    if (learningPath && course.learningPath !== learningPath) return false;
     if (level && course.level !== level) return false;
     return true;
-  }), [courses, search, topic, level]);
+  }), [courses, search, learningPath, level]);
+  const learningPaths = useMemo(() => learningPathOptions(courses), [courses]);
 
   function setSearch(value) {
     const next = new URLSearchParams(params);
@@ -41,7 +38,7 @@ export default function PublicCatalogPage() {
 
   function resetFilters() {
     setSearch('');
-    setTopic('');
+    setLearningPath('');
     setLevel('');
   }
 
@@ -51,7 +48,7 @@ export default function PublicCatalogPage() {
     return <Navigate to={`/member/courses${query ? `?${query}` : ''}`} replace />;
   }
 
-  const filtered = Boolean(search || topic || level);
+  const filtered = Boolean(search || learningPath || level);
 
   return (
     <PublicSiteShell>
@@ -77,10 +74,10 @@ export default function PublicCatalogPage() {
           ))}
         </div>
         <label className="g-field g-field-select">
-          <span className="g-sr">Topic</span>
-          <select value={topic} onChange={(event) => setTopic(event.target.value)}>
-            <option value="">All topics</option>
-            {topics.map((item) => <option key={item}>{item}</option>)}
+          <span className="g-sr">Learning path</span>
+          <select aria-label="Learning path" value={learningPath} onChange={(event) => setLearningPath(event.target.value)}>
+            <option value="">All learning paths</option>
+            {learningPaths.map((item) => <option key={item}>{item}</option>)}
           </select>
         </label>
       </div>

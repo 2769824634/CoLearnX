@@ -70,7 +70,7 @@ describe('Creator Course workspace', () => {
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Inclusive Design' } });
     fireEvent.change(screen.getByLabelText('Course level'), { target: { value: '1' } });
     fireEvent.change(screen.getByLabelText('Learning path'), { target: { value: '3' } });
-    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'Design' } });
+    expect(screen.queryByLabelText('Category')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     const upload = screen.getByLabelText('Files to upload when this Course is saved');
@@ -88,7 +88,9 @@ describe('Creator Course workspace', () => {
 
     expect(await screen.findByRole('heading', { name: 'Inclusive Design' })).toBeTruthy();
     const createRequest = globalThis.fetch.mock.calls.find(([path, options]) => path === '/api/creator/courses' && options?.method === 'POST');
-    expect(JSON.parse(createRequest[1].body)).toMatchObject({ code: 'CRT-44', title: 'Inclusive Design', courseLevelId: 1, learningPathId: 3, category: 'Design', creditCost: 24, interestIds: [2] });
+    const payload = JSON.parse(createRequest[1].body);
+    expect(payload).toMatchObject({ code: 'CRT-44', title: 'Inclusive Design', courseLevelId: 1, learningPathId: 3, creditCost: 24, interestIds: [2] });
+    expect(payload).not.toHaveProperty('category');
     expect(globalThis.fetch.mock.calls.filter(([path, options]) => path === '/api/materials' && options?.method === 'POST')).toHaveLength(1);
   });
 
