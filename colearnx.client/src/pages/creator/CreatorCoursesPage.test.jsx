@@ -49,6 +49,7 @@ describe('Creator Course workspace', () => {
     expect(screen.getByRole('link', { name: /Approve Trainer sessions/i })).toBeTruthy();
     expect(screen.getAllByRole('link', { name: /Create Course/i }).length).toBeGreaterThan(0);
     expect(screen.getByText('24 credits')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Upload Material' })).toBeNull();
   });
 
   it('walks a new Course through three steps and saves it as a draft', async () => {
@@ -70,7 +71,9 @@ describe('Creator Course workspace', () => {
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Inclusive Design' } });
     fireEvent.change(screen.getByLabelText('Course level'), { target: { value: '1' } });
     fireEvent.change(screen.getByLabelText('Learning path'), { target: { value: '3' } });
-    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'Design' } });
+    const category = screen.getByRole('combobox', { name: 'Category' });
+    expect(within(category).getAllByRole('option').map((option) => option.textContent)).toEqual(['Choose a category', 'Programming', 'Design', 'Business']);
+    fireEvent.change(category, { target: { value: 'Design' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     const upload = screen.getByLabelText('Files to upload when this Course is saved');
@@ -138,10 +141,151 @@ describe('Creator Course workspace', () => {
     expect(await screen.findByText('PendingApproval')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
     expect(screen.queryByRole('list', { name: 'Course creation steps' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Upload materials' })).toBeTruthy();
+  });
+
+  it.each(['Draft', 'Rejected', 'PendingApproval', 'Published'])('lists current files and offers upload on a %s course', async (status) => {
+    stubCourseApi({
+      existing: course({ id: 44, status, category: status === 'Rejected' ? '' : 'Design' }),
+      materials: [material({ title: 'Syllabus' })],
+    });
+    renderAt('/creator/courses/44');
+
+    expect(await screen.findByText('Syllabus')).toBeTruthy();
+    expect(screen.getByText('Course materials')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Upload materials' })).toBeTruthy();
+    if (status === 'Draft' || status === 'Rejected') {
+      const steps = screen.getByRole('list', { name: 'Course creation steps' });
+      expect(within(steps).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['1Basic information', '2Interests & price']);
+    }
+    if (status === 'Rejected') {
+      fireEvent.click(screen.getByRole('button', { name: 'Upload materials' }));
+      expect(within(screen.getByRole('dialog', { name: 'Upload materials' })).getByLabelText('Category').value).toBe('Design');
+    }
+  });
+
+  it('uploads every selected file to the open course and then shows them in the library', async () => {
+    stubCourseApi({ existing: course({ id: 44, category: 'Design' }) });
+    renderAt('/creator/courses/44');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Upload materials' }));
+    const dialog = screen.getByRole('dialog', { name: 'Upload materials' });
+    const category = within(dialog).getByRole('combobox', { name: 'Category' });
+    expect(category.value).toBe('Design');
+    expect(within(category).getAllByRole('option').map((option) => option.textContent)).toEqual(['Programming', 'Design', 'Business']);
+    fireEvent.change(category, { target: { value: 'Programming' } });
+    fireEvent.change(within(dialog).getByLabelText('Description'), { target: { value: 'Batch notes' } });
+    fireEvent.change(within(dialog).getByLabelText('Files'), {
+      target: { files: [new File(['notes'], 'notes.pdf', { type: 'application/pdf' }), new File(['slides'], 'slides.pptx', { type: 'application/vnd.ms-powerpoint' })] },
+    });
+    fireEvent.change(within(dialog).getByLabelText('Title for notes.pdf'), { target: { value: 'Workshop notes' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Upload' }));
+
+    expect(await screen.findByText('Uploaded.')).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: 'Upload materials' })).toBeNull();
+    expect(screen.getByText('Workshop notes')).toBeTruthy();
+    expect(screen.getByText('slides')).toBeTruthy();
+    const uploads = globalThis.fetch.mock.calls.filter(([path, options]) => path === '/api/materials' && options?.method === 'POST');
+    expect(uploads.map(([, options]) => ({
+      title: options.body.get('title'),
+      category: options.body.get('category'),
+      description: options.body.get('description'),
+      courseId: options.body.get('courseId'),
+      fileName: options.body.get('file').name,
+    }))).toEqual([
+      { title: 'Workshop notes', category: 'Programming', description: 'Batch notes', courseId: '44', fileName: 'notes.pdf' },
+      { title: 'slides', category: 'Programming', description: 'Batch notes', courseId: '44', fileName: 'slides.pptx' },
+    ]);
+  });
+
+  it('keeps the failed file in the dialog and shows the files that already uploaded', async () => {
+    stubCourseApi({ existing: course({ id: 44 }), failUploadAt: 2 });
+    renderAt('/creator/courses/44');
+    fireEvent.click(await screen.findByRole('button', { name: 'Upload materials' }));
+    const dialog = screen.getByRole('dialog', { name: 'Upload materials' });
+    fireEvent.change(within(dialog).getByLabelText('Description'), { target: { value: '   ' } });
+    fireEvent.change(within(dialog).getByLabelText('Files'), {
+      target: { files: [new File(['notes'], 'notes.pdf', { type: 'application/pdf' }), new File(['slides'], 'slides.pptx', { type: 'application/vnd.ms-powerpoint' })] },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Upload' }));
+
+    expect(await screen.findByText(/File must be 20 MB or smaller. Reference: trace-upload-1/)).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Upload materials' })).toBeTruthy();
+    expect(screen.getByText('notes')).toBeTruthy();
+    expect(within(screen.getByRole('dialog')).queryByLabelText('Title for notes.pdf')).toBeNull();
+    expect(within(screen.getByRole('dialog')).getByLabelText('Title for slides.pptx')).toBeTruthy();
+    const failedUpload = globalThis.fetch.mock.calls.filter(([path, options]) => path === '/api/materials' && options?.method === 'POST')[1];
+    expect(failedUpload[1].body.get('description')).toBeNull();
+  });
+
+  it('requires a file and a title before uploading', async () => {
+    stubCourseApi({ existing: course({ id: 44 }) });
+    renderAt('/creator/courses/44');
+    fireEvent.click(await screen.findByRole('button', { name: 'Upload materials' }));
+    const dialog = screen.getByRole('dialog', { name: 'Upload materials' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Upload' }));
+    expect(screen.getByText('Choose a file to upload.')).toBeTruthy();
+
+    fireEvent.change(within(dialog).getByLabelText('Files'), {
+      target: { files: [new File(['.'], '.pdf', { type: 'application/pdf' })] },
+    });
+    expect(within(dialog).getByLabelText('Title for .pdf').value).toBe('Course material');
+    fireEvent.change(within(dialog).getByLabelText('Title for .pdf'), { target: { value: '   ' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Upload' }));
+    expect(screen.getByText('Title is required.')).toBeTruthy();
+    expect(globalThis.fetch.mock.calls.some(([path, options]) => path === '/api/materials' && options?.method === 'POST')).toBe(false);
+  });
+
+  it('holds the dialog open while an upload is in progress', async () => {
+    let release;
+    stubCourseApi({
+      existing: course({ id: 44 }),
+      holdUpload: new Promise((resolve) => { release = resolve; }),
+    });
+    renderAt('/creator/courses/44');
+    fireEvent.click(await screen.findByRole('button', { name: 'Upload materials' }));
+    const dialog = screen.getByRole('dialog', { name: 'Upload materials' });
+    fireEvent.change(within(dialog).getByLabelText('Files'), {
+      target: { files: [new File(['notes'], 'notes.pdf', { type: 'application/pdf' })] },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Upload' }));
+
+    expect(await screen.findByRole('button', { name: 'Uploading…' })).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('dialog', { name: 'Upload materials' })).toBeTruthy();
+    release();
+    expect(await screen.findByText('Uploaded.')).toBeTruthy();
+  });
+
+  it('shows a support reference when an upload cannot be confirmed', async () => {
+    stubCourseApi({
+      existing: course({ id: 44 }),
+      failUploadAt: 1,
+      uploadFailure: { status: 500, code: 'UPLOAD_FAILED', message: 'SqlServerRetryingExecutionStrategy failed', traceId: 'trace-upload-1' },
+    });
+    renderAt('/creator/courses/44');
+    fireEvent.click(await screen.findByRole('button', { name: 'Upload materials' }));
+    const dialog = screen.getByRole('dialog', { name: 'Upload materials' });
+    fireEvent.change(within(dialog).getByLabelText('Files'), {
+      target: { files: [new File(['guide'], 'guide.pdf', { type: 'application/pdf' })] },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Upload' }));
+
+    expect(await screen.findByText('The upload could not be confirmed. Check the course library before uploading again. Reference: trace-upload-1')).toBeTruthy();
+    expect(screen.queryByText(/SqlServerRetrying/)).toBeNull();
+  });
+
+  it('redirects the old upload page to the course list', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => json([])));
+    renderAt('/creator/upload');
+    expect(await screen.findByRole('heading', { name: 'Course workspace' })).toBeTruthy();
   });
 });
 
-function stubCourseApi({ existing } = {}) {
+function stubCourseApi({ existing, materials = [], failUploadAt = 0, holdUpload, uploadFailure } = {}) {
+  const library = [...materials];
+  let uploads = 0;
   vi.stubGlobal('fetch', vi.fn(async (path, options = {}) => {
     if (path === '/api/interests') {
       return json([{ id: 1, slug: 'design', name: 'Design', children: [
@@ -158,9 +302,20 @@ function stubCourseApi({ existing } = {}) {
     if (path === '/api/creator/courses/44/submit') {
       return json(course({ id: 44, status: 'PendingApproval' }));
     }
-    if (String(path).startsWith('/api/materials')) {
-      return json(options.method === 'POST' ? { id: 90 } : []);
+    if (path === '/api/materials' && options.method === 'POST') {
+      uploads += 1;
+      if (holdUpload && uploads === 1) await holdUpload;
+    if (failUploadAt && uploads === failUploadAt) {
+      return new Response(JSON.stringify(uploadFailure || { message: 'File must be 20 MB or smaller.', traceId: 'trace-upload-1' }), {
+        status: uploadFailure?.status || 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
+      const item = material({ id: 90 + uploads, title: options.body.get('title') });
+      library.push(item);
+      return json(item);
+    }
+    if (String(path).startsWith('/api/materials')) return json(library);
     return json(existing || course({ id: 44 }));
   }));
 }
@@ -177,6 +332,19 @@ function renderAt(path) {
 
 function json(data) {
   return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
+}
+
+function material(overrides = {}) {
+  return {
+    id: 7,
+    title: 'Syllabus',
+    format: 'PDF',
+    status: 'Approved',
+    creatorName: 'Course Creator',
+    courseCode: 'CRT-44',
+    courseTitle: 'Inclusive Design',
+    ...overrides,
+  };
 }
 
 function course(overrides = {}) {

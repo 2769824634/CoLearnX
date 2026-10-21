@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { creatorCoursesApi, interestsApi, materialsApi } from '../../api';
-import MaterialList from '../../components/MaterialList';
 import useTrainerQuery from '../trainer/useTrainerQuery';
+import CourseMaterialsCard from './CourseMaterialsCard';
+import { categoryChoices } from './courseCategories';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 
 async function loadCourseForm(token, courseId, signal) {
@@ -21,12 +22,15 @@ const emptyCourse = {
   category: '', creditCost: '', learningOutcomes: [], interestIds: [], status: 'Draft',
 };
 
-const STEPS = [
+const NEW_COURSE_STEPS = [
   ['Basic information', 'Name the Course and place it in the catalogue.'],
   ['Materials', 'Optional. Add files now or come back to this step later.'],
   ['Interests & price', 'Choose 1–4 interests and set the credit cost, then save.'],
 ];
-const LAST_STEP = STEPS.length - 1;
+const EXISTING_COURSE_STEPS = [
+  ['Basic information', 'Name the Course and place it in the catalogue.'],
+  ['Interests & price', 'Choose 1–4 interests and set the credit cost, then save.'],
+];
 
 function titleFromFile(file) {
   return file.name.replace(/\.[^.]+$/, '').trim() || 'Course material';
@@ -51,8 +55,11 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
   const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(toPayload(toForm(initialCourse || emptyCourse))));
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const steps = course ? EXISTING_COURSE_STEPS : NEW_COURSE_STEPS;
+  const lastStep = steps.length - 1;
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [step, setStep] = useState(0);
-  const [reached, setReached] = useState(initialCourse ? LAST_STEP : 0);
+  const [reached, setReached] = useState(initialCourse ? EXISTING_COURSE_STEPS.length - 1 : 0);
   const formRef = useRef(null);
   const stepHeadingRef = useRef(null);
   const movedRef = useRef(false);
@@ -73,20 +80,8 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
   function onStepSubmit(event) {
     event.preventDefault();
     if (!event.currentTarget.reportValidity()) return;
-    if (step < LAST_STEP) goTo(step + 1);
+    if (step < lastStep) goTo(step + 1);
     else save();
-  }
-
-  async function uploadExisting(files) {
-    setBusy(true);
-    setError(null);
-    try {
-      await uploadFiles(course.id, files);
-    } catch (requestError) {
-      setError(requestError);
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function uploadFiles(courseId, files) {
@@ -175,7 +170,7 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
   const title = course ? course.title : 'Create Course';
   return <section className="creator-page">
     <Link className="creator-back" to="/creator/courses">← Courses</Link>
-    <CreatorHeader eyebrow={course ? course.code : 'New Course'} title={title} action={course ? <span className={`creator-status ${course.status.toLowerCase()}`}>{course.status}</span> : null}>
+    <CreatorHeader eyebrow={course ? course.code : 'New Course'} title={title} action={course ? <div className="creator-header-actions"><span className={`creator-status ${course.status.toLowerCase()}`}>{course.status}</span><button type="button" className="btn btn-primary" onClick={() => setUploadOpen(true)}>Upload materials</button></div> : null}>
       {course
         ? editable ? 'Review the Course definition and submit it for Admin approval when it is ready.'
           : 'View the submitted Course definition and its materials.'
@@ -193,13 +188,9 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
           <InterestPriceFields form={form} options={options} setForm={setForm} />
         </fieldset>
       </div>
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="card-header">Course materials</div>
-        <div className="card-body"><MaterialList items={materials} /></div>
-      </div>
     </> : <>
       <ol className="creator-steps" aria-label="Course creation steps">
-        {STEPS.map(([label], index) => <li key={label} data-state={index < step ? 'done' : index === step ? 'current' : 'todo'}>
+        {steps.map(([label], index) => <li key={label} data-state={index < step ? 'done' : index === step ? 'current' : 'todo'}>
           <button type="button" aria-current={index === step ? 'step' : undefined} disabled={busy || index > reached} onClick={() => goTo(index)}>
             <span className="creator-step-number">{index + 1}</span><span>{label}</span>
           </button>
@@ -207,18 +198,18 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
       </ol>
       <form ref={formRef} className="card creator-course-definition creator-step-card" onSubmit={onStepSubmit}>
         <div className="creator-step-heading">
-          <p>Step {step + 1} of {STEPS.length}</p>
-          <h2 ref={stepHeadingRef} tabIndex={-1}>{STEPS[step][0]}</h2>
-          <span>{STEPS[step][1]}</span>
+          <p>Step {step + 1} of {steps.length}</p>
+          <h2 ref={stepHeadingRef} tabIndex={-1}>{steps[step][0]}</h2>
+          <span>{steps[step][1]}</span>
         </div>
         <fieldset disabled={busy} className="creator-course-fields">
-          {step === 0 ? <BasicFields form={form} options={options} setForm={setForm} /> : null}
-          {step === 1 ? <MaterialsStep course={course} materials={materials} pendingFiles={pendingFiles} setPendingFiles={setPendingFiles} onUploadExisting={uploadExisting} busy={busy} /> : null}
-          {step === LAST_STEP ? <InterestPriceFields form={form} options={options} setForm={setForm} /> : null}
+          {steps[step][0] === 'Basic information' ? <BasicFields form={form} options={options} setForm={setForm} /> : null}
+          {steps[step][0] === 'Materials' ? <MaterialsStep pendingFiles={pendingFiles} setPendingFiles={setPendingFiles} busy={busy} /> : null}
+          {steps[step][0] === 'Interests & price' ? <InterestPriceFields form={form} options={options} setForm={setForm} /> : null}
         </fieldset>
         <div className="trainer-actions creator-step-actions">
           {step > 0 ? <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => goTo(step - 1)}>Back</button> : null}
-          {step < LAST_STEP ? <button className="btn btn-primary" type="submit" disabled={busy}>Next</button> : <>
+          {step < lastStep ? <button className="btn btn-primary" type="submit" disabled={busy}>Next</button> : <>
             <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? 'Saving…' : course ? 'Save changes' : 'Save draft'}</button>
             {course
               ? <button className="btn btn-teal" type="button" disabled={busy} onClick={submitForApproval}>Submit for approval</button>
@@ -227,15 +218,15 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
         </div>
       </form>
     </>}
+    {course ? <CourseMaterialsCard course={course} materials={materials} onMaterials={setMaterials} token={token} open={uploadOpen} onOpenChange={setUploadOpen} /> : null}
   </section>;
 }
 
-function MaterialsStep({ course, materials, pendingFiles, setPendingFiles, onUploadExisting, busy }) {
+function MaterialsStep({ pendingFiles, setPendingFiles, busy }) {
   return <>
     <p className="page-sub" style={{ marginTop: 0 }}>PDF, PPTX, DOCX, PNG or JPG · max 20 MB. Files stay with this Course.</p>
-    {course ? <MaterialList items={materials} /> : null}
     <div className="form-group">
-        <label htmlFor="creator-course-materials">{course ? 'Add files' : 'Files to upload when this Course is saved'}</label>
+        <label htmlFor="creator-course-materials">Files to upload when this Course is saved</label>
         <input
           id="creator-course-materials"
           type="file"
@@ -246,12 +237,11 @@ function MaterialsStep({ course, materials, pendingFiles, setPendingFiles, onUpl
             const files = Array.from(event.target.files || []);
             event.target.value = '';
             if (!files.length) return;
-            if (course) onUploadExisting(files);
-            else setPendingFiles((current) => [...current, ...files]);
+            setPendingFiles((current) => [...current, ...files]);
           }}
         />
       </div>
-      {!course && pendingFiles.length ? (
+      {pendingFiles.length ? (
         <ul className="later-resource-list">
           {pendingFiles.map((file, index) => (
             <li key={`${file.name}-${index}`}>
@@ -268,6 +258,7 @@ const MAX_INTERESTS = 4;
 
 function InterestPicker({ tree, selectedIds, onToggle }) {
   const [query, setQuery] = useState('');
+  const [activeId, setActiveId] = useState(null);
   const needle = query.trim().toLowerCase();
   const selectedLeaves = tree.flatMap((category) => category.children || [])
     .filter((leaf) => selectedIds.includes(leaf.id));
@@ -275,6 +266,9 @@ function InterestPicker({ tree, selectedIds, onToggle }) {
   const groups = tree
     .map((category) => ({ category, leaves: (category.children || []).filter((leaf) => leaf.name.toLowerCase().includes(needle)) }))
     .filter((group) => group.leaves.length);
+  const preferredId = groups.find((group) => group.leaves.some((leaf) => selectedIds.includes(leaf.id)))?.category.id
+    ?? groups[0]?.category.id;
+  const active = groups.find((group) => group.category.id === (activeId ?? preferredId)) ?? groups[0];
 
   return <div className="creator-interests">
     <div className="creator-interest-status">
@@ -290,24 +284,24 @@ function InterestPicker({ tree, selectedIds, onToggle }) {
       </li>)}</ul>
       : <p className="creator-interest-empty">No interests selected yet.</p>}
     <input id="creator-interest-search" className="creator-interest-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search interests" />
-    <div className="creator-interest-groups">
-      {groups.length ? groups.map(({ category, leaves }) => {
-        const chosen = leaves.filter((leaf) => selectedIds.includes(leaf.id)).length;
-        return <details key={category.id} className="creator-interest-group" open={Boolean(needle) || chosen > 0}>
-          <summary>
+    {groups.length && active ? <>
+      <div className="creator-interest-categories" aria-label="Interest categories">
+        {groups.map(({ category, leaves }) => {
+          const chosen = leaves.filter((leaf) => selectedIds.includes(leaf.id)).length;
+          return <button type="button" key={category.id} className="creator-interest-category" aria-pressed={category.id === active.category.id} onClick={() => setActiveId(category.id)}>
             <span>{category.name}</span>
-            <small className={chosen ? 'has-selection' : ''}>{chosen ? `${chosen} of ${leaves.length} selected` : `${leaves.length} options`}</small>
-          </summary>
-          <div className="creator-interest-options">{leaves.map((leaf) => {
-            const checked = selectedIds.includes(leaf.id);
-            return <label key={leaf.id} className="creator-interest-option">
-              <input type="checkbox" checked={checked} disabled={!checked && atLimit} onChange={() => onToggle(leaf.id)} />
-              <span>{leaf.name}</span>
-            </label>;
-          })}</div>
-        </details>;
-      }) : <p className="creator-interest-empty">No interests match “{query.trim()}”.</p>}
-    </div>
+            <small className={chosen ? 'has-selection' : ''}>{chosen ? `${chosen} of ${leaves.length} selected` : leaves.length}</small>
+          </button>;
+        })}
+      </div>
+      <div className="creator-interest-options">{active.leaves.map((leaf) => {
+        const checked = selectedIds.includes(leaf.id);
+        return <label key={leaf.id} className="creator-interest-option">
+          <input type="checkbox" checked={checked} disabled={!checked && atLimit} onChange={() => onToggle(leaf.id)} />
+          <span>{leaf.name}</span>
+        </label>;
+      })}</div>
+    </> : <p className="creator-interest-empty">No interests match “{query.trim()}”.</p>}
   </div>;
 }
 
@@ -325,7 +319,7 @@ function BasicFields({ form, options, setForm }) {
       <div className="form-group"><label htmlFor="creator-course-level">Course level</label><select id="creator-course-level" required value={form.courseLevelId} onChange={change('courseLevelId')}><option value="">Choose a level</option>{options.courseLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
       <div className="form-group"><label htmlFor="creator-learning-path">Learning path</label><select id="creator-learning-path" required value={form.learningPathId} onChange={change('learningPathId')}><option value="">Choose a path</option>{options.learningPaths.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
     </div>
-    <div className="form-group"><label htmlFor="creator-course-category">Category</label><input id="creator-course-category" required value={form.category} onChange={change('category')} /></div>
+    <div className="form-group"><label htmlFor="creator-course-category">Category</label><select id="creator-course-category" required value={form.category || ''} onChange={change('category')}><option value="">Choose a category</option>{categoryChoices(form.category).map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
     <div className="form-group"><label htmlFor="creator-course-outcomes">Learning outcomes</label><textarea id="creator-course-outcomes" value={form.learningOutcomes} onChange={change('learningOutcomes')} placeholder="One outcome per line" /></div>
   </>;
 }
@@ -352,7 +346,7 @@ function toForm(course) {
     description: course.description || '',
     courseLevelId: String(course.courseLevelId || ''),
     learningPathId: String(course.learningPathId || ''),
-    category: course.category,
+    category: course.category || '',
     creditCost: String(course.creditCost || ''),
     learningOutcomes: (course.learningOutcomes || []).join('\n'),
     interestIds: course.interestIds || [],

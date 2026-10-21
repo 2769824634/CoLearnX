@@ -1,6 +1,7 @@
 .creator-page { max-width: 1180px; margin: 0 auto; padding-bottom: 48px; }
 .creator-page :is(a, button, textarea):focus-visible { outline: 3px solid var(--purple); outline-offset: 3px; }
 .creator-header { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 16px 0 32px; }
+.creator-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; flex-shrink: 0; }
 .creator-header > div { max-width: 780px; }
 .creator-header h1 { margin: 0; font-size: clamp(30px, 4vw, 48px); line-height: 1.05; letter-spacing: -.04em; }
 .creator-header > div > p:last-child { color: var(--slate); line-height: 1.65; }
@@ -85,18 +86,16 @@
 .creator-interest-chips li:has(button:disabled) { padding-right: 12px; }
 .creator-interest-empty { margin: 0; color: var(--slate); font-size: 13px; }
 .form-group .creator-interest-search { height: 40px; padding: 0 14px 0 38px; background: var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f6f81' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 13px center / 15px; }
-.creator-interest-groups { display: grid; gap: 8px; }
-.creator-interest-group { border: 1px solid var(--border); border-radius: var(--radius); background: var(--white); transition: border-color .16s ease, box-shadow .16s ease; }
-.creator-interest-group[open] { border-color: color-mix(in srgb, var(--slate) 28%, var(--border)); box-shadow: 0 1px 2px rgba(51, 51, 51, .04); }
-.creator-interest-group summary { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius); color: var(--charcoal); font-size: 14px; font-weight: 600; list-style: none; cursor: pointer; transition: background-color .14s ease; }
-.creator-interest-group summary::-webkit-details-marker { display: none; }
-.creator-interest-group summary::before { content: ''; width: 6px; height: 6px; margin: 0 2px; border-right: 2px solid var(--slate); border-bottom: 2px solid var(--slate); transform: rotate(-45deg); transition: transform .2s ease; }
-.creator-interest-group[open] > summary::before { transform: rotate(45deg); }
-.creator-interest-group summary:hover { background: var(--chrome); }
-.creator-interest-group summary small { margin-left: auto; color: var(--slate); font-size: 12px; font-weight: 500; }
-.creator-interest-group summary small.has-selection { color: var(--purple); font-weight: 600; }
-.creator-interest-options { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 14px 14px; }
-.form-group .creator-interest-option { display: inline-flex; align-items: center; gap: 8px; margin: 0; padding: 7px 14px 7px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--white); color: var(--charcoal); font-size: 13px; font-weight: 500; cursor: pointer; transition: border-color .14s ease, background-color .14s ease, color .14s ease; }
+.creator-interest-categories { display: flex; flex-wrap: wrap; gap: 4px 6px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.creator-interest-category { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--slate); font-size: 13px; font-weight: 700; letter-spacing: -.01em; cursor: pointer; }
+.creator-interest-category:hover { background: color-mix(in srgb, var(--charcoal) 6%, var(--white)); color: var(--charcoal); }
+.creator-interest-category[aria-pressed="true"] { background: var(--charcoal); color: var(--white); }
+.creator-interest-category small { color: var(--slate); font-size: 11px; font-weight: 600; }
+.creator-interest-category small.has-selection { color: var(--purple); }
+.creator-interest-category[aria-pressed="true"] small,
+.creator-interest-category[aria-pressed="true"] small.has-selection { color: color-mix(in srgb, var(--white) 72%, transparent); }
+.creator-interest-options { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 8px; min-height: 52px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--white); }
+.form-group .creator-interest-option { display: inline-flex; align-items: center; gap: 8px; width: auto; margin: 0; padding: 6px 12px 6px 8px; border: 1px dashed color-mix(in srgb, var(--slate) 45%, var(--border)); border-radius: 999px; background: var(--chrome); color: var(--charcoal); font-size: 12px; font-weight: 500; cursor: pointer; transition: border-color .14s ease, background-color .14s ease, color .14s ease; }
 .form-group .creator-interest-option input { flex-shrink: 0; width: 16px; height: 16px; margin: 0; padding: 0; accent-color: var(--purple); box-shadow: none; outline: none; cursor: inherit; }
 .creator-interest-option:hover { border-color: color-mix(in srgb, var(--purple) 40%, var(--border)); }
 .creator-interest-option:has(input:focus-visible) { outline: 2px solid var(--purple); outline-offset: 2px; }

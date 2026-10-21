@@ -71,7 +71,7 @@ it('lists only waiting session approvals and keeps quick actions', async () => {
   expect(screen.queryByText('Old Decision')).toBeNull();
   expect(screen.getByRole('link', { name: '+ Create Course' }).getAttribute('href')).toBe('/creator/courses/new');
   const actions = screen.getByRole('region', { name: 'Quick actions' });
-  expect(within(actions).getByRole('link', { name: /Upload Material/ }).getAttribute('href')).toBe('/creator/upload');
+  expect(within(actions).queryByRole('link', { name: /Upload Material/ })).toBeNull();
   expect(within(actions).getByRole('link', { name: /Usage Records/ }).getAttribute('href')).toBe('/creator/usage');
 });
 
