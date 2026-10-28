@@ -112,6 +112,13 @@ public enum CourseType
     Practice = 1
 }
 
+public enum SubjectArea
+{
+    DigitalTechnology = 1,
+    BusinessManagement = 2,
+    HumanitiesHealthCreative = 3
+}
+
 public enum SaleMode
 {
     Intake = 0,

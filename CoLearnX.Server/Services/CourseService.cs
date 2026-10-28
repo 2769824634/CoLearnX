@@ -36,7 +36,15 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             .OrderBy(path => path.Name)
             .Select(path => new CourseOptionDto(path.Id, path.Name))
             .ToListAsync(ct);
-        return new CreatorCourseOptionsDto(levels, paths);
+        var subjects = await db.CourseSubjects.AsNoTracking()
+            .OrderBy(subject => subject.SortOrder)
+            .Select(subject => new CourseSubjectOptionDto(subject.Id, subject.Name, subject.Subject.ToString()))
+            .ToListAsync(ct);
+        var cells = await db.PricePools.AsNoTracking()
+            .Where(row => row.Subject != null && row.MinTotalCredits != null && row.MaxTotalCredits != null && row.MinTotalCredits <= row.MaxTotalCredits)
+            .Select(row => new PriceCellDto(row.Subject!.Value.ToString(), row.CourseLevelId, row.MinTotalCredits!.Value, row.MaxTotalCredits!.Value))
+            .ToListAsync(ct);
+        return new CreatorCourseOptionsDto(levels, paths, subjects, cells);
     }
 
     public async Task<IReadOnlyList<CreatorCourseDto>> ListForCreatorAsync(
@@ -74,6 +82,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
 
         var input = await ValidateCourseInputAsync(
             null, request.Code, request.CourseLevelId, request.LearningPathId, ct);
+        var priced = await RequirePricedSubjectAsync(request.CourseSubjectId, input.Level, request.DurationHours, request.CreditCost, request.PriceExceptionReason, ct);
 
         var course = new Course
         {
@@ -82,8 +91,8 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             Status = CourseStatus.Draft,
         };
         ApplyCourseFields(course, input.Code, request.Title, request.Description, request.Category,
-            request.CreditCost, request.LearningOutcomes, input.Level, input.Path);
-        course.Interests = await ValidateInterestsAsync(request.InterestIds, ct);
+            request.CreditCost, request.LearningOutcomes, input.Level, input.Path, priced.Subject, request.DurationHours, priced.ExceptionReason);
+        course.Interests = await ValidateInterestsAsync(request.InterestIds, priced.Subject, ct);
         db.Courses.Add(course);
         await db.SaveChangesAsync(ct);
 
@@ -105,13 +114,14 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
 
         var input = await ValidateCourseInputAsync(
             courseId, request.Code, request.CourseLevelId, request.LearningPathId, ct);
+        var priced = await RequirePricedSubjectAsync(request.CourseSubjectId, input.Level, request.DurationHours, request.CreditCost, request.PriceExceptionReason, ct);
         db.CourseLearningOutcomes.RemoveRange(course.LearningOutcomes);
         var selectedInterestIds = request.InterestIds;
         ApplyCourseFields(course, input.Code, request.Title, request.Description, request.Category,
-            request.CreditCost, request.LearningOutcomes, input.Level, input.Path);
+            request.CreditCost, request.LearningOutcomes, input.Level, input.Path, priced.Subject, request.DurationHours, priced.ExceptionReason);
         if (selectedInterestIds is not null)
         {
-            var validated = await ValidateInterestsAsync(selectedInterestIds, ct);
+            var validated = await ValidateInterestsAsync(selectedInterestIds, priced.Subject, ct);
             var ids = validated.Select(i => i.InterestId).ToHashSet();
             foreach (var removed in course.Interests.Where(i => !ids.Contains(i.InterestId)).ToList())
             {
@@ -360,6 +370,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         var query = db.Courses
             .Include(course => course.Creator)
             .Include(course => course.CourseLevel)
+            .Include(course => course.CourseSubject)
             .Include(course => course.LearningPath)
             .Include(course => course.LearningOutcomes)
             .Include(course => course.Interests).ThenInclude(i => i.Interest)
@@ -394,16 +405,18 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
                 409);
     }
 
-    private async Task<ICollection<CourseInterest>> ValidateInterestsAsync(IReadOnlyList<int>? interestIds, CancellationToken ct)
+    private async Task<ICollection<CourseInterest>> ValidateInterestsAsync(IReadOnlyList<int>? interestIds, CourseSubject subject, CancellationToken ct)
     {
         var ids = (interestIds ?? []).Distinct().ToArray();
         if (ids.Length > 4 || (interestIds?.Count ?? 0) != ids.Length)
             throw new CourseException("INTEREST_LIMIT", "Choose up to four distinct leaf interests.");
-        var selected = await db.Interests.Where(i => ids.Contains(i.Id)).ToListAsync(ct);
+        var selected = await db.Interests.Include(i => i.Parent).Where(i => ids.Contains(i.Id)).ToListAsync(ct);
         if (selected.Count != ids.Length || selected.Any(i => !i.IsActive))
             throw new CourseException("INTEREST_NOT_FOUND", "Choose interests from the current list.");
         if (selected.Any(i => i.ParentId is null))
             throw new CourseException("INTEREST_NOT_LEAF", "Choose leaf interests, not categories.");
+        if (selected.Any(item => InterestSubjectMap.For(item.Parent?.Slug, item.Slug) != subject.Subject))
+            throw new CourseException("INTEREST_SUBJECT_MISMATCH", "Choose interests from the same subject group.", 400, "interestIds");
         return ids.Select(id => new CourseInterest { InterestId = id }).ToList();
     }
 
@@ -433,6 +446,30 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         return (code, level, path);
     }
 
+    private async Task<(CourseSubject Subject, string? ExceptionReason)> RequirePricedSubjectAsync(
+        int courseSubjectId, CourseLevel level, int durationHours, int creditCost, string? exceptionReason, CancellationToken ct)
+    {
+        if (durationHours < 1)
+            throw new CourseException("DURATION_HOURS_INVALID", "Enter a whole number of hours, at least 1.", 400, "durationHours");
+        var subject = await db.CourseSubjects.SingleOrDefaultAsync(item => item.Id == courseSubjectId, ct)
+            ?? throw new CourseException("COURSE_SUBJECT_NOT_FOUND", "Select a subject.", 400, "courseSubjectId");
+        var cell = await db.PricePools.AsNoTracking().SingleOrDefaultAsync(row => row.Subject == subject.Subject && row.CourseLevelId == level.Id, ct);
+        if (cell?.MinTotalCredits is not int min || cell.MaxTotalCredits is not int max || min > max)
+            throw new CourseException("PRICE_POOL_UNAVAILABLE", $"{subject.Name} prices cannot be saved right now.", 409, "creditCost");
+        if (creditCost > max * 2)
+            throw new CourseException("CREDIT_COST_ABOVE_CAP", $"Price cannot be more than {max * 2} credits.", 400, "creditCost");
+        if (creditCost < min || creditCost > max)
+        {
+            if (creditCost < min)
+                throw new CourseException("CREDIT_COST_OUT_OF_RANGE", $"Enter a whole number from {min} to {max} credits.", 400, "creditCost");
+            var reason = exceptionReason?.Trim();
+            if (string.IsNullOrEmpty(reason))
+                throw new CourseException("PRICE_EXCEPTION_REASON_REQUIRED", "Explain why this price is above the range.", 400, "priceExceptionReason");
+            return (subject, reason.Length > 500 ? reason[..500] : reason);
+        }
+        return (subject, null);
+    }
+
     private static void ApplyCourseFields(
         Course course,
         string code,
@@ -442,13 +479,20 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         int creditCost,
         IReadOnlyList<string>? learningOutcomes,
         CourseLevel level,
-        LearningPath path)
+        LearningPath path,
+        CourseSubject subject,
+        int durationHours,
+        string? exceptionReason)
     {
         course.Code = code;
         course.Title = title.Trim();
         course.Description = NormalizeOptional(description);
         course.CourseLevelId = level.Id;
         course.CourseLevel = level;
+        course.CourseSubjectId = subject.Id;
+        course.CourseSubject = subject;
+        course.DurationHours = durationHours;
+        course.PriceExceptionReason = exceptionReason;
         course.LearningPathId = path.Id;
         course.LearningPath = path;
         course.Level = level.Name;
@@ -486,5 +530,9 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             course.LearningOutcomes.OrderBy(outcome => outcome.SortOrder).Select(outcome => outcome.Text).ToList(),
             course.CreatedAt,
             course.Status == CourseStatus.Rejected ? reviewReason : null,
-            course.Interests.Select(i => i.InterestId).ToList());
+            course.Interests.Select(i => i.InterestId).ToList(),
+            course.CourseSubjectId,
+            course.CourseSubject?.Name,
+            course.DurationHours,
+            course.PriceExceptionReason);
 }

@@ -96,6 +96,14 @@ public class CourseLevel
     public ICollection<Course> Courses { get; set; } = new List<Course>();
 }
 
+public class CourseSubject
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public SubjectArea Subject { get; set; }
+    public int SortOrder { get; set; }
+}
+
 public class LearningPath
 {
     public int Id { get; set; }
@@ -151,6 +159,9 @@ public class Course
     public int CreatorId { get; set; }
     public int CreditCost { get; set; }
     public int? CourseLevelId { get; set; }
+    public int? CourseSubjectId { get; set; }
+    public int? DurationHours { get; set; }
+    public string? PriceExceptionReason { get; set; }
     public int? LearningPathId { get; set; }
     public string Level { get; set; } = "Beginner";
     public string Category { get; set; } = string.Empty;
@@ -161,6 +172,7 @@ public class Course
     public User Trainer { get; set; } = null!;
     public User Creator { get; set; } = null!;
     public CourseLevel? CourseLevel { get; set; }
+    public CourseSubject? CourseSubject { get; set; }
     public LearningPath? LearningPath { get; set; }
     public ICollection<CourseIntake> Intakes { get; set; } = new List<CourseIntake>();
     public ICollection<CourseLearningOutcome> LearningOutcomes { get; set; } = new List<CourseLearningOutcome>();
@@ -448,4 +460,5 @@ public class PricePool
     public int ContentSharePercent { get; set; }
     public int DeliverySharePercent { get; set; }
     public int PlatformSharePercent { get; set; }
+    public SubjectArea? Subject { get; set; }
 }

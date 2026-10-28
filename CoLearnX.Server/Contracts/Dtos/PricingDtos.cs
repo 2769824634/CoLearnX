@@ -36,4 +36,5 @@ public record PricePoolRowDto(
     int? MaxTotalCredits,
     int ContentSharePercent,
     int DeliverySharePercent,
-    int PlatformSharePercent);
+    int PlatformSharePercent,
+    string? Subject = null);

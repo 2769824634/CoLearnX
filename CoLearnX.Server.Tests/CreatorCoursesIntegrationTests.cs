@@ -31,7 +31,9 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
             description = "Build inclusive learning experiences.",
             courseLevelId = 1,
             learningPathId = 1,
-            creditCost = 24,
+            courseSubjectId = 1,
+            durationHours = 2,
+            creditCost = 40,
             learningOutcomes = new[] { "Identify accessibility barriers", "Apply inclusive patterns" },
         });
 
@@ -70,7 +72,9 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
             courseLevelId = 2,
             learningPathId = 2,
             category = "Technology",
-            creditCost = 31,
+            courseSubjectId = 1,
+            durationHours = 2,
+            creditCost = 150,
             learningOutcomes = new[] { "Apply the updated method" },
             interestIds = new[] { 2 },
         };
@@ -110,7 +114,9 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
             courseLevelId = 1,
             learningPathId = 1,
             category = " ",
-            creditCost = 20,
+            courseSubjectId = 1,
+            durationHours = 2,
+            creditCost = 40,
             learningOutcomes = Array.Empty<string>(),
         });
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
@@ -137,7 +143,9 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
             title = "Category-free edit",
             courseLevelId = 1,
             learningPathId = 1,
-            creditCost = 20,
+            courseSubjectId = 1,
+            durationHours = 2,
+            creditCost = 40,
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -164,6 +172,110 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
         Assert.Equal("CREATOR_REQUIRED", (await forbidden.Content.ReadFromJsonAsync<ApiError>(ApiJson.Options))?.Code);
     }
+
+    [Fact]
+    public async Task Create_rejects_a_price_outside_the_subject_and_level_cell_and_keeps_an_in_range_price()
+    {
+        using var client = await AsCreatorAsync();
+        var options = JsonNode.Parse(await (await client.GetAsync("/api/creator/courses/options")).Content.ReadAsStringAsync())!.AsObject();
+        var subjectId = options["courseSubjects"]!.AsArray()
+            .Single(item => item!["name"]!.GetValue<string>() == "Software Development")!["id"]!.GetValue<int>();
+        var levelId = options["courseLevels"]!.AsArray()
+            .Single(item => item!["name"]!.GetValue<string>() == "Beginner")!["id"]!.GetValue<int>();
+
+        var tooLow = await client.PostAsJsonAsync("/api/creator/courses", new
+        {
+            code = $"CRT-{Guid.NewGuid():N}",
+            title = "Too cheap",
+            courseLevelId = levelId,
+            learningPathId = 1,
+            courseSubjectId = subjectId,
+            durationHours = 2,
+            creditCost = 39,
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, tooLow.StatusCode);
+        Assert.Equal("CREDIT_COST_OUT_OF_RANGE", (await tooLow.Content.ReadFromJsonAsync<ApiError>(ApiJson.Options))?.Code);
+
+        var created = await client.PostAsJsonAsync("/api/creator/courses", new
+        {
+            code = $"CRT-{Guid.NewGuid():N}",
+            title = "Priced course",
+            courseLevelId = levelId,
+            learningPathId = 1,
+            courseSubjectId = subjectId,
+            durationHours = 1,
+            creditCost = 40,
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var body = JsonNode.Parse(await created.Content.ReadAsStringAsync())!.AsObject();
+        Assert.Equal(40, body["creditCost"]!.GetValue<int>());
+        Assert.Equal(1, body["durationHours"]!.GetValue<int>());
+        Assert.Equal(subjectId, body["courseSubjectId"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task Create_accepts_a_reasoned_price_up_to_twice_the_cell_maximum()
+    {
+        using var client = await AsCreatorAsync();
+        var options = JsonNode.Parse(await (await client.GetAsync("/api/creator/courses/options")).Content.ReadAsStringAsync())!.AsObject();
+        var subjectId = options["courseSubjects"]!.AsArray()
+            .Single(item => item!["name"]!.GetValue<string>() == "Software Development")!["id"]!.GetValue<int>();
+        var levelId = options["courseLevels"]!.AsArray()
+            .Single(item => item!["name"]!.GetValue<string>() == "Beginner")!["id"]!.GetValue<int>();
+
+        var missingReason = await client.PostAsJsonAsync("/api/creator/courses", PricedCourse(levelId, subjectId, 181, null));
+        Assert.Equal(HttpStatusCode.BadRequest, missingReason.StatusCode);
+        Assert.Equal("PRICE_EXCEPTION_REASON_REQUIRED", (await missingReason.Content.ReadFromJsonAsync<ApiError>(ApiJson.Options))?.Code);
+
+        var aboveCap = await client.PostAsJsonAsync("/api/creator/courses", PricedCourse(levelId, subjectId, 361, "A longer certificate"));
+        Assert.Equal(HttpStatusCode.BadRequest, aboveCap.StatusCode);
+        Assert.Equal("CREDIT_COST_ABOVE_CAP", (await aboveCap.Content.ReadFromJsonAsync<ApiError>(ApiJson.Options))?.Code);
+
+        var created = await client.PostAsJsonAsync("/api/creator/courses", PricedCourse(levelId, subjectId, 181, "A longer certificate"));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var body = JsonNode.Parse(await created.Content.ReadAsStringAsync())!.AsObject();
+        Assert.Equal(181, body["creditCost"]!.GetValue<int>());
+        Assert.Equal("A longer certificate", body["priceExceptionReason"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Create_rejects_an_interest_from_another_subject_band()
+    {
+        using var client = await AsCreatorAsync();
+        var options = JsonNode.Parse(await (await client.GetAsync("/api/creator/courses/options")).Content.ReadAsStringAsync())!.AsObject();
+        var subjectId = options["courseSubjects"]!.AsArray()
+            .Single(item => item!["name"]!.GetValue<string>() == "Software Development")!["id"]!.GetValue<int>();
+        var levelId = options["courseLevels"]!.AsArray()
+            .Single(item => item!["name"]!.GetValue<string>() == "Beginner")!["id"]!.GetValue<int>();
+        var tree = await client.GetFromJsonAsync<JsonArray>("/api/interests");
+        var businessLeaf = tree!.Single(item => item!["slug"]!.GetValue<string>() == "business")!["children"]!.AsArray()[0]!["id"]!.GetValue<int>();
+
+        var response = await client.PostAsJsonAsync("/api/creator/courses", new
+        {
+            code = $"CRT-{Guid.NewGuid():N}",
+            title = "Mixed interests",
+            courseLevelId = levelId,
+            learningPathId = 1,
+            courseSubjectId = subjectId,
+            durationHours = 2,
+            creditCost = 40,
+            interestIds = new[] { businessLeaf },
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("INTEREST_SUBJECT_MISMATCH", (await response.Content.ReadFromJsonAsync<ApiError>(ApiJson.Options))?.Code);
+    }
+
+    private static object PricedCourse(int levelId, int subjectId, int creditCost, string? reason) => new
+    {
+        code = $"CRT-{Guid.NewGuid():N}",
+        title = "Exception price",
+        courseLevelId = levelId,
+        learningPathId = 1,
+        courseSubjectId = subjectId,
+        durationHours = 2,
+        creditCost,
+        priceExceptionReason = reason,
+    };
 
     [Fact]
     public async Task Options_ReturnsCourseLevelsAndLearningPathsForTheForm()
@@ -312,7 +424,9 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
             courseLevelId = 1,
             learningPathId = 1,
             category = "Design",
-            creditCost = 20,
+            courseSubjectId = 1,
+            durationHours = 2,
+            creditCost = 40,
             learningOutcomes = new[] { "Complete the workflow" },
             interestIds = new[] { 2 },
         });
@@ -327,7 +441,9 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
         description = "Creator Course request fixture.",
         courseLevelId = 1,
         learningPathId = 1,
-        creditCost = 20,
+        courseSubjectId = 1,
+        durationHours = 2,
+        creditCost = 40,
         learningOutcomes = new[] { "Complete the request" },
     };
 }

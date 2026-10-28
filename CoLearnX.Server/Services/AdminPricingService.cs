@@ -1,6 +1,7 @@
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Entities;
+using CoLearnX.Server.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoLearnX.Server.Services;
@@ -56,10 +57,7 @@ public sealed class AdminPricingService(CoLearnXDbContext db, IAuditLogService a
     public async Task<IReadOnlyList<PricePoolRowDto>> ListPoolAsync(CancellationToken ct = default)
     {
         var rows = await db.PricePools.AsNoTracking()
-            .OrderBy(row => row.SaleMode)
-            .ThenBy(row => row.PriceTierId == null)
-            .ThenBy(row => row.PriceTier!.SortOrder)
-            .ThenBy(row => row.CourseType)
+            .OrderBy(row => row.Subject)
             .ThenBy(row => row.CourseLevel.SortOrder)
             .Select(row => new
             {
@@ -79,6 +77,7 @@ public sealed class AdminPricingService(CoLearnXDbContext db, IAuditLogService a
                 row.ContentSharePercent,
                 row.DeliverySharePercent,
                 row.PlatformSharePercent,
+                row.Subject,
             })
             .ToListAsync(ct);
 
@@ -98,7 +97,8 @@ public sealed class AdminPricingService(CoLearnXDbContext db, IAuditLogService a
             row.MaxTotalCredits,
             row.ContentSharePercent,
             row.DeliverySharePercent,
-            row.PlatformSharePercent)).ToList();
+            row.PlatformSharePercent,
+            SubjectName(row.Subject))).ToList();
     }
 
     private Task<CourseDomainDto> ChangeAsync(int adminAccountId, int? domainId, UpsertCourseDomainRequest? request, bool deactivate, CancellationToken ct)
@@ -178,6 +178,14 @@ public sealed class AdminPricingService(CoLearnXDbContext db, IAuditLogService a
             parts.Add($"Tier: {oldTier} -> {newTier}");
         return parts.Count == 0 ? null : string.Join("; ", parts);
     }
+
+    private static string? SubjectName(SubjectArea? subject) => subject switch
+    {
+        SubjectArea.DigitalTechnology => "Digital Technology",
+        SubjectArea.BusinessManagement => "Business and Management",
+        SubjectArea.HumanitiesHealthCreative => "Humanities, Health and Creative",
+        _ => null,
+    };
 
     private static CourseDomainDto ToDto(CourseDomain domain)
         => new(domain.Id, domain.Name, domain.PriceTierId, domain.PriceTier.Code, domain.IsActive, domain.CreatedAt, domain.UpdatedAt);

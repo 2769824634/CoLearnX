@@ -228,7 +228,10 @@ export default function AdminCourseReviewsPage() {
                       <span>{course.submittedByEmail}</span>
                     </td>
                     <td>{course.learningPath}<span>{course.level}</span></td>
-                    <td><span className="admin-credit-value">{course.creditCost}</span></td>
+                    <td>
+                      <span className={`admin-credit-value${course.priceException ? ' is-exception' : ''}`}>{course.creditCost}</span>
+                      {course.priceException ? <span className="admin-price-exception">Above {course.priceMinimum}–{course.priceMaximum}. {course.priceExceptionReason}</span> : null}
+                    </td>
                     <td>
                       <span className={`admin-status ${course.status.toLowerCase()}`}>
                         {formatStatus(course.status)}
@@ -263,7 +266,8 @@ export default function AdminCourseReviewsPage() {
             <div className="admin-review-summary admin-course-summary">
               <span>{selected.code}</span>
               <strong>{selected.title}</strong>
-              <small>{selected.level} · {formatCount(selected.creditCost, 'credit')}</small>
+              <small>{selected.level} · {selected.courseSubjectName ? `${selected.courseSubjectName} · ` : ''}{formatCount(selected.creditCost, 'credit')}</small>
+              {selected.priceException ? <p className="admin-price-exception">Above the company range {selected.priceMinimum}–{selected.priceMaximum}. {selected.priceExceptionReason}</p> : null}
               {selected.description ? <p>{selected.description}</p> : null}
               <p>Creator: {selected.creatorName || selected.submittedByName}</p>
               <h3>Interests</h3>

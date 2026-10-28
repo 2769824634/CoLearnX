@@ -50,7 +50,7 @@ public sealed class PricingSchemaUpgradeTests
 
         Assert.Contains("IX_PriceTiers_Code|1", await SignatureAsync(created, "PriceTiers", "pragma_index_list"));
         Assert.Contains("IX_CourseDomains_Name|1", await SignatureAsync(created, "CourseDomains", "pragma_index_list"));
-        Assert.Contains("IX_PricePools_SaleMode_PriceTierId_CourseType_CourseLevelId|1", await SignatureAsync(created, "PricePools", "pragma_index_list"));
+        Assert.Contains("IX_PricePools_Subject_CourseLevelId", await SignatureAsync(created, "PricePools", "pragma_index_list"));
     }
 
     private static async Task<(SqliteConnection Connection, CoLearnXDbContext Db)> OpenAsync()

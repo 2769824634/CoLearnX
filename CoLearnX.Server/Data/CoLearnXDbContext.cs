@@ -21,6 +21,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     public DbSet<CourseInterest> CourseInterests => Set<CourseInterest>();
     public DbSet<RoleRequest> RoleRequests => Set<RoleRequest>();
     public DbSet<CourseLevel> CourseLevels => Set<CourseLevel>();
+    public DbSet<CourseSubject> CourseSubjects => Set<CourseSubject>();
     public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<CourseIntake> CourseIntakes => Set<CourseIntake>();
@@ -162,6 +163,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
             e.HasOne(x => x.Trainer).WithMany().HasForeignKey(x => x.TrainerId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Creator).WithMany().HasForeignKey(x => x.CreatorId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.CourseLevel).WithMany(x => x.Courses).HasForeignKey(x => x.CourseLevelId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.CourseSubject).WithMany().HasForeignKey(x => x.CourseSubjectId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.LearningPath).WithMany(x => x.Courses).HasForeignKey(x => x.LearningPathId).OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -171,6 +173,14 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
             var levelName = e.Property(x => x.Name).HasMaxLength(64);
             if (sqlite)
                 levelName.UseCollation("NOCASE");
+        });
+
+        modelBuilder.Entity<CourseSubject>(e =>
+        {
+            var name = e.Property(x => x.Name).HasMaxLength(80).IsRequired();
+            if (sqlite)
+                name.UseCollation("NOCASE");
+            e.HasIndex(x => x.Name).IsUnique();
         });
 
         modelBuilder.Entity<LearningPath>(e =>
@@ -199,7 +209,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
 
         modelBuilder.Entity<PricePool>(e =>
         {
-            e.HasIndex(x => new { x.SaleMode, x.PriceTierId, x.CourseType, x.CourseLevelId }).IsUnique();
+            e.HasIndex(x => new { x.Subject, x.CourseLevelId }).IsUnique();
             e.HasOne(x => x.PriceTier).WithMany().HasForeignKey(x => x.PriceTierId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.CourseLevel).WithMany().HasForeignKey(x => x.CourseLevelId).OnDelete(DeleteBehavior.Restrict);
         });
