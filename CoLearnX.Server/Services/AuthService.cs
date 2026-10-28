@@ -216,6 +216,7 @@ public class AuthService(
             user.Preference?.OnboardingSkippedAt,
             user.HeldCredits,
             user.CreditBalance + user.HeldCredits,
-            user.Country);
+            user.Country,
+            user.Occupation);
     }
 }

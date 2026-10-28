@@ -85,6 +85,8 @@ public class UserService(CoLearnXDbContext db, IFileStorage files) : IUserServic
         if (request.Phone is not null) user.Phone = request.Phone;
         if (request.Bio is not null) user.Bio = request.Bio;
         if (request.Country is not null) user.Country = request.Country.Trim();
+        if (request.Occupation is not null)
+            user.Occupation = string.IsNullOrWhiteSpace(request.Occupation) ? "unknown" : request.Occupation.Trim();
 
         user.Preference ??= new UserPreference { UserId = user.Id };
         if (request.LearningGoals is not null) user.Preference.LearningGoals = request.LearningGoals;

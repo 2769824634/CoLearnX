@@ -13,6 +13,7 @@ public class User
     public string? Phone { get; set; }
     public string? Bio { get; set; }
     public string? Country { get; set; }
+    public string Occupation { get; set; } = "unknown";
     public string? AvatarUrl { get; set; }
     public int CreditBalance { get; set; }
     public int HeldCredits { get; set; }

@@ -57,6 +57,9 @@ describe('Trainer and Creator My Account', () => {
     const labels = ['Full Name', 'Display name', 'Phone', 'Bio',
       ...(role === 'trainer' ? ['Trainer headline', 'Specialisations'] : ['Creator headline', 'Expertise tags'])];
     for (const label of labels) {
+      if (label === 'Trainer headline' || label === 'Creator headline') {
+        fireEvent.click(screen.getByRole('tab', { name: role === 'trainer' ? 'Trainer' : 'Creator' }));
+      }
       const field = screen.getByLabelText(label);
       field.focus();
       for (const value of ['A', 'Ab', 'Abc']) {
@@ -101,6 +104,7 @@ describe('Trainer and Creator My Account', () => {
     expect(document.querySelector('.avatar-frame').dataset.role).toBe('trainer');
     fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }));
     fireEvent.change(screen.getByLabelText('Full Name'), { target: { value: 'Gu Yincheng' } });
+    fireEvent.click(screen.getByRole('tab', { name: 'Trainer' }));
     fireEvent.change(screen.getByLabelText('Trainer headline'), { target: { value: 'Lead workshop trainer' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
@@ -133,6 +137,7 @@ describe('Trainer and Creator My Account', () => {
     expect(screen.getByText('Cybersecurity, Cloud')).toBeTruthy();
     expect(document.querySelector('.avatar-frame').dataset.role).toBe('creator');
     fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Creator' }));
     expect(screen.getByLabelText('Creator headline')).toBeTruthy();
     expect(screen.getByLabelText('Expertise tags')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Save Changes' })).toBeTruthy();
@@ -150,7 +155,9 @@ describe('multi-role profile editing', () => {
     vi.stubGlobal('fetch', fetchMock);
     render(<MemoryRouter initialEntries={[`/${role}/account`]}><AuthContext.Provider value={auth}><AppRouter /></AuthContext.Provider></MemoryRouter>);
     fireEvent.click(await screen.findByRole('button', { name: 'Edit Profile' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Trainer' }));
     expect(screen.getByLabelText('Trainer headline').value).toBe('Senior Trainer');
+    fireEvent.click(screen.getByRole('tab', { name: 'Creator' }));
     expect(screen.getByLabelText('Creator headline').value).toBe('Content creator');
     fireEvent.change(screen.getByLabelText('Expertise tags'), { target: { value: '' } });
     fireEvent.change(screen.getByLabelText('Creator headline'), { target: { value: 'Updated creator' } });

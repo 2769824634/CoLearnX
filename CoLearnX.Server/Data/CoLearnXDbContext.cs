@@ -114,6 +114,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
             e.Property(x => x.Email).HasMaxLength(256);
             e.Property(x => x.FullName).HasMaxLength(128);
             e.Property(x => x.DisplayName).HasMaxLength(64);
+            e.Property(x => x.Occupation).HasMaxLength(120).HasDefaultValue("unknown");
         });
 
         modelBuilder.Entity<UserRole>(e =>

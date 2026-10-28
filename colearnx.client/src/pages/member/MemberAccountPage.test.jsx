@@ -160,7 +160,9 @@ it('shows both role profiles and visibility controls on the member account', asy
   expect(screen.getByText('Trainer title')).toBeTruthy();
   expect(screen.getByText('Creator title')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Trainer' }));
   expect(screen.getByLabelText('Trainer headline').value).toBe('Trainer title');
+  fireEvent.click(screen.getByRole('tab', { name: 'Creator' }));
   expect(screen.getByLabelText('Creator headline').value).toBe('Creator title');
   expect(screen.getByRole('button', { name: 'Creator visibility' }).getAttribute('aria-pressed')).toBe('false');
 });
@@ -170,6 +172,7 @@ it('saves member multi-role details in one request and refreshes the signed-in u
   const user = { ...memberUser, roles: ['Member', 'Trainer', 'Creator'], trainerHeadline: 'Trainer title', specialisations: 'Teaching', creatorHeadline: 'Creator title', expertiseTags: 'Design' };
   const { refreshUser } = renderAccount({ user }, async (path, options = {}) => options.method === 'PUT' ? json({ ...user, ...JSON.parse(options.body) }) : json([]));
   fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Creator' }));
   fireEvent.change(screen.getByLabelText('Creator headline'), { target: { value: 'New creator' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
   await waitFor(() => expect(refreshUser).toHaveBeenCalled());
