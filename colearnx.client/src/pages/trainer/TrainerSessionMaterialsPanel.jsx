@@ -33,7 +33,7 @@ function fileError(file) {
   return null;
 }
 
-export default function TrainerSessionMaterialsPanel({ token, intake }) {
+export default function TrainerSessionMaterialsPanel({ token, intake, api = trainerLaterPhaseApi }) {
   const sessions = useMemo(() => intake?.sessions || [], [intake?.sessions]);
   const sessionIds = useMemo(() => sessions.map(sessionKey).filter(Boolean), [sessions]);
   const [materials, setMaterials] = useState({});
@@ -51,11 +51,11 @@ export default function TrainerSessionMaterialsPanel({ token, intake }) {
 
   const load = useCallback(async (signal) => {
     const result = await Promise.all(sessionIds.map(async (id) => {
-      const list = await trainerLaterPhaseApi.sessionMaterials(token, intakeId, Number(id), signal);
+      const list = await api.sessionMaterials(token, intakeId, Number(id), signal);
       return [id, Array.isArray(list) ? list : []];
     }));
     return Object.fromEntries(result);
-  }, [intakeId, sessionIds, token]);
+  }, [api, intakeId, sessionIds, token]);
 
   useEffect(() => {
     if (!hasSessions) return undefined;
@@ -102,7 +102,7 @@ export default function TrainerSessionMaterialsPanel({ token, intake }) {
     setError(null);
     setNotice('');
     try {
-      await trainerLaterPhaseApi.uploadSessionMaterial(token, intakeId, Number(id), title, draft.file);
+      await api.uploadSessionMaterial(token, intakeId, Number(id), title, draft.file);
       setDrafts((current) => ({ ...current, [id]: { title: '', file: null } }));
       setFormVersion((current) => ({ ...current, [id]: (current[id] || 0) + 1 }));
       setNotice(`Material uploaded for ${sessionLabel(session)}.`);
@@ -121,7 +121,7 @@ export default function TrainerSessionMaterialsPanel({ token, intake }) {
     setError(null);
     setNotice('');
     try {
-      await trainerLaterPhaseApi.downloadSessionMaterial(
+      await api.downloadSessionMaterial(
         token, intakeId, Number(material.courseSessionId || id), material.id, downloadName(material),
       );
       setNotice(`Download started for “${material.title}”.`);

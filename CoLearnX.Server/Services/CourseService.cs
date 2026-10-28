@@ -1,5 +1,6 @@
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
+using CoLearnX.Server.Domain;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ namespace CoLearnX.Server.Services;
 public interface ICourseService
 {
     Task<IReadOnlyList<CourseListItemDto>> ListAsync(int? userId, string? search, string? category, string? level, bool? featured, CancellationToken ct = default);
+    Task<IReadOnlyList<CourseListItemDto>> ListPlatformAsync(int? userId, string? search, string? category, string? level, string? tag, CancellationToken ct = default);
     Task<CourseDetailDto?> GetByIdAsync(int courseId, int? userId, CancellationToken ct = default);
     Task<WishlistResultDto> AddToWishlistAsync(int userId, int courseId, CancellationToken ct = default);
     Task<WishlistResultDto> RemoveFromWishlistAsync(int userId, int courseId, CancellationToken ct = default);
@@ -22,6 +24,19 @@ public interface ICourseService
 
 public class CourseService(CoLearnXDbContext db) : ICourseService
 {
+    public async Task<IReadOnlyList<CourseListItemDto>> ListPlatformAsync(
+        int? userId,
+        string? search,
+        string? category,
+        string? level,
+        string? tag,
+        CancellationToken ct = default)
+        => (await ListAsync(userId, search, category, level, featured: null, ct))
+            .Where(course => course.IsPlatformOwned
+                && (string.IsNullOrWhiteSpace(tag)
+                    || course.Interests?.Any(interest => interest.Name.Contains(tag.Trim(), StringComparison.OrdinalIgnoreCase)) == true))
+            .ToList();
+
     public async Task<CreatorCourseOptionsDto> GetCreatorOptionsAsync(
         int creatorUserId,
         CancellationToken ct = default)
@@ -185,7 +200,8 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
                 c.Level,
                 c.Category,
                 c.IsFeatured,
-                c.Creator.FullName,
+                c.IsPlatformOwned ? PlatformIdentity.Name : c.Creator.FullName,
+                c.IsPlatformOwned,
                 c.LearningPath == null ? null : c.LearningPath.Name))
             .ToListAsync(ct);
         if (courses.Count == 0) return [];
@@ -226,7 +242,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             wished.Contains(c.Id), tags.GetValueOrDefault(c.Id) ?? [],
             stars.GetValueOrDefault(c.Id).Average, stars.GetValueOrDefault(c.Id).Count,
             CreatorName: c.CreatorName, TrainerNames: trainerNames.GetValueOrDefault(c.Id) ?? [],
-            LearningPath: c.LearningPath)).ToList();
+            LearningPath: c.LearningPath, IsPlatformOwned: c.IsPlatformOwned)).ToList();
     }
 
     public async Task<CourseDetailDto?> GetByIdAsync(int courseId, int? userId, CancellationToken ct = default)
@@ -287,7 +303,8 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             course.Intakes.OrderBy(i => i.RegistrationClosesAt).FirstOrDefault()?.MinEnrollment ?? 10,
             course.Intakes.OrderBy(i => i.RegistrationClosesAt).FirstOrDefault()?.RegistrationOpensAt,
             course.Intakes.OrderBy(i => i.RegistrationClosesAt).FirstOrDefault()?.RegistrationClosesAt,
-            course.Creator.FullName, PublicTrainerNames(course), course.LearningPath?.Name);
+            course.IsPlatformOwned ? PlatformIdentity.Name : course.Creator.FullName,
+            PublicTrainerNames(course), course.LearningPath?.Name, course.IsPlatformOwned);
     }
 
     private static string ContainsPattern(string search)
@@ -310,6 +327,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         string Category,
         bool IsFeatured,
         string CreatorName,
+        bool IsPlatformOwned,
         string? LearningPath);
 
     private static IReadOnlyList<string> PublicTrainerNames(Course course)

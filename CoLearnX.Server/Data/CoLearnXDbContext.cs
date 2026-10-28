@@ -10,6 +10,7 @@ namespace CoLearnX.Server.Data;
 public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : DbContext(options)
 {
     public DbSet<AdminAccount> AdminAccounts => Set<AdminAccount>();
+    public DbSet<StaffAccount> StaffAccounts => Set<StaffAccount>();
     public DbSet<User> Users => Set<User>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
@@ -85,6 +86,24 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
             if (sqlite)
                 email.UseCollation("NOCASE");
             e.Property(x => x.PasswordHash).HasMaxLength(128);
+        });
+
+        modelBuilder.Entity<StaffAccount>(e =>
+        {
+            e.HasIndex(x => x.Email).IsUnique();
+            e.HasIndex(x => x.StaffNumber).IsUnique();
+            e.HasIndex(x => x.UserId).IsUnique();
+            var email = e.Property(x => x.Email).HasMaxLength(256);
+            if (sqlite)
+                email.UseCollation("NOCASE");
+            e.Property(x => x.PasswordHash).HasMaxLength(128);
+            e.Property(x => x.FullName).HasMaxLength(128);
+            e.Property(x => x.DisplayName).HasMaxLength(64);
+            e.Property(x => x.Phone).HasMaxLength(32);
+            e.Property(x => x.DocumentPath).HasMaxLength(512);
+            e.HasOne(x => x.User).WithOne().HasForeignKey<StaffAccount>(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.CreatedByAdminAccount).WithMany(x => x.CreatedStaffAccounts)
+                .HasForeignKey(x => x.CreatedByAdminAccountId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<User>(e =>
@@ -271,7 +290,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
         {
             e.ToTable("AuditLogs", table => table.HasCheckConstraint(
                 "CK_AuditLogs_ExactlyOneActor",
-                "(AdminAccountId IS NOT NULL AND UserId IS NULL) OR (AdminAccountId IS NULL AND UserId IS NOT NULL)"));
+                "(CASE WHEN AdminAccountId IS NULL THEN 0 ELSE 1 END + CASE WHEN StaffAccountId IS NULL THEN 0 ELSE 1 END + CASE WHEN UserId IS NULL THEN 0 ELSE 1 END) = 1"));
             e.HasIndex(x => x.CreatedAt);
             e.Property(x => x.Action).HasMaxLength(128);
             e.Property(x => x.EntityType).HasMaxLength(128);
@@ -285,6 +304,10 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
             e.HasOne(x => x.User)
                 .WithMany()
                 .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.StaffAccount)
+                .WithMany(x => x.AuditLogs)
+                .HasForeignKey(x => x.StaffAccountId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

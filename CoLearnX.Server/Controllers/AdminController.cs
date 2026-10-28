@@ -1,6 +1,7 @@
 using CoLearnX.Server.Auth;
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
+using CoLearnX.Server.Domain;
 using CoLearnX.Server.Domain.Enums;
 using CoLearnX.Server.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -18,7 +19,9 @@ public class AdminController(IAdminFinanceService finance) : ControllerBase
     public async Task<ActionResult<IReadOnlyList<AdminUserSummaryDto>>> Users(
         [FromQuery] string? search, [FromServices] CoLearnXDbContext db, CancellationToken ct)
     {
-        var query = db.Users.AsNoTracking().Include(user => user.Roles).AsQueryable();
+        var query = db.Users.AsNoTracking().Include(user => user.Roles)
+            .Where(user => user.Email != PlatformIdentity.Email
+                && !EF.Functions.Like(user.Email, "%@staff.colearnx"));
         if (!string.IsNullOrWhiteSpace(search))
         {
             var text = search.Trim().ToLowerInvariant();

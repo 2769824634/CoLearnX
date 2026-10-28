@@ -4,6 +4,7 @@ import MemberNotifications from '../components/MemberNotifications';
 import { MemberNotificationsProvider } from '../components/MemberNotificationsProvider';
 import { useAuth } from '../auth/AuthContext';
 import useAdminAuth from '../auth/useAdminAuth';
+import useStaffAuth from '../auth/useStaffAuth';
 import { AdminPendingProvider } from '../pages/admin/AdminPendingProvider';
 import { approvalTotal, useAdminPending } from '../pages/admin/adminPending';
 import { ShellChrome, ShellNavLink } from './ShellChrome';
@@ -34,11 +35,17 @@ const NAV = {
     { to: '/admin/home', label: 'Homepage' },
     { to: '/admin/approvals', label: 'Approvals', pending: 'approvals' },
     { to: '/admin/users', label: 'Users' },
+    { to: '/admin/staff', label: 'Staff' },
     { to: '/admin/ledger', label: 'Credit Ledger' },
     { to: '/admin/disputes', label: 'Disputes', pending: 'disputes' },
     { to: '/admin/pricing', label: 'Pricing' },
     { to: '/admin/audit', label: 'Audit Log' },
     { to: '/admin/account', label: 'My Account' },
+  ],
+  staff: [
+    { to: '/staff/home', label: 'Homepage' },
+    { to: '/staff/courses', label: 'Platform courses' },
+    { to: '/staff/intakes', label: 'Classes' },
   ],
 };
 
@@ -56,7 +63,7 @@ function pendingCount(kind, counts) {
   return kind === 'disputes' ? counts.disputes : approvalTotal(counts);
 }
 
-function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspaceSwitcher = false, title, subtitle, accessNotice, onDismissAccessNotice }) {
+function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspaceSwitcher = false, identityLabel = 'Administrator', title, subtitle, accessNotice, onDismissAccessNotice }) {
   const location = useLocation();
   const items = NAV[role] || [];
   const pendingCounts = useAdminPending()?.counts;
@@ -70,7 +77,7 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
       token={token}
       logout={logout}
       extraActions={role === 'trainer' || role === 'creator' ? <MemberNotifications /> : null}
-      identityMeta={showWorkspaceSwitcher ? <WorkspaceSwitcher /> : <div className="role">Administrator</div>}
+      identityMeta={showWorkspaceSwitcher ? <WorkspaceSwitcher /> : <div className="role">{identityLabel}</div>}
       navLabel={`${role} navigation`}
       navHintId={`${role}-nav-scroll-hint`}
       navItems={items.map((item) => {
@@ -132,4 +139,17 @@ export function AdminRoleShell({ title, subtitle }) {
       />
     </AdminPendingProvider>
   );
+}
+
+export function StaffRoleShell({ title, subtitle }) {
+  const { staff, token, logout } = useStaffAuth();
+  return <ShellFrame
+    identityName={staff?.displayName}
+    token={token}
+    role="staff"
+    logout={logout}
+    identityLabel="Platform staff"
+    title={title}
+    subtitle={subtitle}
+  />;
 }

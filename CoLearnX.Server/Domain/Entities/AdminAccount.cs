@@ -12,4 +12,5 @@ public class AdminAccount
 
     public ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
     public ICollection<RoleRequest> ReviewedRoleRequests { get; set; } = new List<RoleRequest>();
+    public ICollection<StaffAccount> CreatedStaffAccounts { get; set; } = new List<StaffAccount>();
 }

@@ -44,6 +44,8 @@ export default function PublicHomePage({ onboardingMode = 'auto' }) {
   if (session === 'booting') return <SessionLoading />;
 
   if (session === 'member') {
+    const platformCourses = courses.filter((course) => course.isPlatformOwned);
+    const otherCourses = courses.filter((course) => !course.isPlatformOwned);
     return (
       <MemberNotificationsProvider>
         <MemberShell onSearch={(query) => navigate(`/member/courses?q=${encodeURIComponent(query)}`)}>
@@ -51,11 +53,15 @@ export default function PublicHomePage({ onboardingMode = 'auto' }) {
             <h1>{SITE_TITLE}</h1>
             <p>Your Path to What's neXt.</p>
           </div>
+          {platformCourses.length ? <>
+            <div className="section-heading"><h2 className="section-title">CoLearnX courses</h2><Link to="/member/platform">View all platform courses</Link></div>
+            <div className="grid-4">{platformCourses.map((course) => <CoursePreview key={course.id} course={course} onOpen={(id) => navigate(`/member/courses/${id}`)} />)}</div>
+          </> : null}
           <h2 className="section-title">Training programs</h2>
           {loading ? <p role="status">Loading programs…</p> : null}
           {error ? <p className="callout warn" role="alert">{error}</p> : null}
           <div className="grid-4">
-            {courses.map((course) => (
+            {otherCourses.map((course) => (
               <CoursePreview key={course.id} course={course} onOpen={(id) => navigate(`/member/courses/${id}`)} />
             ))}
           </div>

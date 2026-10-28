@@ -33,14 +33,9 @@ public sealed class TrainerDeliveryService(CoLearnXDbContext db) : ITrainerDeliv
         session.MeetingLink = NormalizeMeetingLink(request.MeetingLink);
         CourseIntakeValidation.Session(session, intake.StartsAt, intake.EndsAt);
         intake.Version = Guid.NewGuid();
-        db.AuditLogs.Add(new AuditLog
-        {
-            UserId = trainerUserId,
-            Action = "CourseSessionDeliveryUpdated",
-            EntityType = nameof(CourseIntake),
-            EntityId = intake.Id.ToString(),
-            Result = intake.Status.ToString(),
-        });
+        db.AuditLogs.Add(await TrainerAudit.CreateAsync(db, trainerUserId,
+            "CourseSessionDeliveryUpdated", nameof(CourseIntake), intake.Id,
+            intake.Status.ToString(), null, ct));
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException)
         {

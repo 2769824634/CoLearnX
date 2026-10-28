@@ -72,7 +72,7 @@ public sealed partial class TrainerLaterPhaseService
                 Format = MaterialFiles.FormatLabel(extension),
             };
             db.SessionMaterials.Add(material);
-            db.AuditLogs.Add(UserAudit(trainerUserId, "SessionMaterialUploaded", nameof(CourseSession), sessionId, cleanTitle));
+            db.AuditLogs.Add(await TrainerAuditAsync(trainerUserId, "SessionMaterialUploaded", nameof(CourseSession), sessionId, cleanTitle, ct));
             await db.SaveChangesAsync(ct);
             return new SessionMaterialDto(material.Id, material.CourseSessionId, session.Label,
                 material.Title, material.Format, material.UploadedAt);

@@ -42,6 +42,42 @@ export const adminAuthApi = {
   me: (token) => apiRequest('/api/admin/auth/me', { token }),
 };
 
+export const staffAuthApi = {
+  login: (email, password) => apiRequest('/api/staff/auth/login', {
+    method: 'POST', token: '', body: { email, password },
+  }),
+  me: (token) => apiRequest('/api/staff/auth/me', { token }),
+};
+
+export const adminStaffApi = {
+  list: (token, signal) => apiRequest('/api/admin/staff', { token, signal }),
+  provision: (token, { email, fullName, phone, document }) => {
+    const body = new FormData();
+    body.append('email', email);
+    body.append('fullName', fullName);
+    if (phone) body.append('phone', phone);
+    body.append('document', document);
+    return apiRequest('/api/admin/staff', { method: 'POST', token, body, asForm: true });
+  },
+  setActive: (token, id, isActive) => apiRequest(`/api/admin/staff/${encodeURIComponent(id)}/active`, {
+    method: 'PATCH', token, body: { isActive },
+  }),
+};
+
+export const staffCoursesApi = {
+  list: (token, signal) => apiRequest('/api/staff/courses', { token, signal }),
+  options: (token, signal) => apiRequest('/api/staff/courses/options', { token, signal }),
+  get: (token, id, signal) => apiRequest(`/api/staff/courses/${encodeURIComponent(id)}`, { token, signal }),
+  create: (token, body) => apiRequest('/api/staff/courses', { method: 'POST', token, body }),
+  update: (token, id, body) => apiRequest(`/api/staff/courses/${encodeURIComponent(id)}`, { method: 'PUT', token, body }),
+  submit: (token, id) => apiRequest(`/api/staff/courses/${encodeURIComponent(id)}/submit`, { method: 'POST', token }),
+  listIntakes: (token, signal) => apiRequest('/api/staff/intakes', { token, signal }),
+  getIntake: (token, id, signal) => apiRequest(`/api/staff/intakes/${encodeURIComponent(id)}`, { token, signal }),
+  createIntake: (token, courseId, body) => apiRequest(`/api/staff/courses/${encodeURIComponent(courseId)}/intakes`, { method: 'POST', token, body }),
+  createSession: (token, intakeId, body) => apiRequest(`/api/staff/intakes/${encodeURIComponent(intakeId)}/sessions`, { method: 'POST', token, body }),
+  publishIntake: (token, intakeId, version) => apiRequest(`/api/staff/intakes/${encodeURIComponent(intakeId)}/publish`, { method: 'POST', token, body: { version } }),
+};
+
 export const adminAuditApi = {
   list: (token, limit = 100, signal) =>
     apiRequest(`/api/admin/audit-logs?limit=${limit}`, { token, signal }),
@@ -107,13 +143,19 @@ export const coursesApi = {
     const qs = q.toString();
     return apiRequest(`/api/courses${qs ? `?${qs}` : ''}`);
   },
+  platform: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => { if (value != null && value !== '') q.set(key, value); });
+    const query = q.toString();
+    return apiRequest(`/api/courses/platform${query ? `?${query}` : ''}`);
+  },
   get: (id) => apiRequest(`/api/courses/${id}`),
   addWishlist: (id) => apiRequest(`/api/courses/${id}/wishlist`, { method: 'POST' }),
   removeWishlist: (id) => apiRequest(`/api/courses/${id}/wishlist`, { method: 'DELETE' }),
 };
 
 export const interestsApi = {
-  tree: () => apiRequest('/api/interests'),
+  tree: (token) => apiRequest('/api/interests', token ? { token } : undefined),
   my: () => apiRequest('/api/users/me/interests'),
   save: (body) => apiRequest('/api/users/me/interests', { method: 'PUT', body }),
 };

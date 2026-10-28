@@ -1,5 +1,7 @@
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
+using CoLearnX.Server.Domain;
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoLearnX.Server.Data;
@@ -20,6 +22,7 @@ public static class SeedData
             await EnsureSqliteCourseCoreSchemaAsync(db);
         else if (db.Database.IsSqlServer())
             await EnsureSqlServerAccountTokenSchemaAsync(db);
+        await PlatformStaffSchema.EnsureAsync(db);
         await RecommendationSeed.EnsureSchemaAsync(db);
         await CreditReservationSchema.EnsureAsync(db);
         await NotificationSchema.EnsureAsync(db);
@@ -68,6 +71,7 @@ public static class SeedData
 
         if (await db.Users.AnyAsync())
         {
+            await EnsurePlatformCreatorAsync(db);
             await EnsureDemoWorkspaceRolesAsync(db);
             await EnsureRoleRequestFixturesAsync(db);
             await EnsureCourseReviewFixturesAsync(db);
@@ -140,6 +144,8 @@ public static class SeedData
             ExpertiseTags = "Cybersecurity, Cloud",
             Headline = "Content creator",
         });
+        await db.SaveChangesAsync();
+        await EnsurePlatformCreatorAsync(db);
 
         db.CreditPackages.AddRange(
             new CreditPackage { PayAudCents = 2000, Credits = 20, Note = "1:1", SortOrder = 1 },
@@ -415,6 +421,39 @@ public static class SeedData
         await RecommendationSeed.EnsureCourseTagsAsync(db);
         await RecommendationSeed.EnsureDemoProfileAndRatingsAsync(db);
         await CourseTrainerSchema.BackfillAsync(db);
+    }
+
+    private static async Task EnsurePlatformCreatorAsync(CoLearnXDbContext db)
+    {
+        var user = await db.Users.Include(item => item.Roles)
+            .SingleOrDefaultAsync(item => item.Email == PlatformIdentity.Email);
+        if (user is null)
+        {
+            user = new User
+            {
+                Email = PlatformIdentity.Email,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(Convert.ToHexString(RandomNumberGenerator.GetBytes(32))),
+                FullName = PlatformIdentity.Name,
+                DisplayName = PlatformIdentity.Name,
+                CreditBalance = 0,
+                HeldCredits = 0,
+                IsActive = true,
+                EmailVerifiedAt = DateTime.UtcNow,
+                SessionStamp = Guid.NewGuid(),
+            };
+            db.Users.Add(user);
+            await db.SaveChangesAsync();
+        }
+        if (user.Roles.All(role => role.Role != AppRole.Creator))
+        {
+            db.UserRoles.Add(new UserRole
+            {
+                UserId = user.Id,
+                Role = AppRole.Creator,
+                IsVisible = false,
+            });
+            await db.SaveChangesAsync();
+        }
     }
 
     private static async Task EnsureDemoWorkspaceRolesAsync(CoLearnXDbContext db)

@@ -97,7 +97,7 @@ public sealed partial class TrainerLaterPhaseService
             DueAt = request.DueAt,
         };
         db.Assessments.Add(assessment);
-        db.AuditLogs.Add(UserAudit(trainerUserId, "AssessmentCreated", nameof(CourseIntake), intakeId, title));
+        db.AuditLogs.Add(await TrainerAuditAsync(trainerUserId, "AssessmentCreated", nameof(CourseIntake), intakeId, title, ct));
         await db.SaveChangesAsync(ct);
         return ToDto(assessment);
     }
@@ -124,8 +124,8 @@ public sealed partial class TrainerLaterPhaseService
         result.Feedback = request.Feedback?.Trim();
         result.GradedByTrainerId = trainerUserId;
         result.GradedAt = DateTime.UtcNow;
-        db.AuditLogs.Add(UserAudit(trainerUserId, "AssessmentGraded", nameof(Assessment), assessmentId,
-            $"Enrollment {enrollmentId}: {request.Score}/{assessment.MaxScore}"));
+        db.AuditLogs.Add(await TrainerAuditAsync(trainerUserId, "AssessmentGraded", nameof(Assessment), assessmentId,
+            $"Enrollment {enrollmentId}: {request.Score}/{assessment.MaxScore}", ct));
         await db.SaveChangesAsync(ct);
         return new AssessmentResultDto(enrollment.Id, enrollment.UserId, enrollment.User.FullName, result.Score,
             result.Score >= assessment.PassScore, result.Feedback, result.GradedAt);

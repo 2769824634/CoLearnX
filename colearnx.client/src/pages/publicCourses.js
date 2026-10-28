@@ -21,6 +21,7 @@ export function mapPublicCourse(c) {
     averageStars: c.averageStars,
     ratingCount: c.ratingCount || 0,
     sessions: c.sessions || [],
+    isPlatformOwned: Boolean(c.isPlatformOwned),
   };
 }
 

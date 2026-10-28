@@ -47,6 +47,24 @@ public static class SessionStampValidator
             return;
         }
 
+        if (string.Equals(expectedSubjectType, AuthTokenSubjects.Staff, StringComparison.Ordinal))
+        {
+            var rawStaffId = principal.FindFirstValue(StaffAuthorization.StaffAccountIdClaim)
+                ?? principal.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            if (!int.TryParse(rawStaffId, out var staffId) || staffId <= 0)
+            {
+                context.Fail("The staff identity is invalid.");
+                return;
+            }
+            var staff = await db.StaffAccounts.AsNoTracking()
+                .Where(account => account.Id == staffId)
+                .Select(account => new { account.SessionStamp, account.IsActive, UserIsActive = account.User.IsActive })
+                .SingleOrDefaultAsync(context.HttpContext.RequestAborted);
+            if (staff is null || !staff.IsActive || !staff.UserIsActive || !Matches(staff.SessionStamp, tokenStamp))
+                context.Fail(SessionStamps.FailureMessage);
+            return;
+        }
+
         var adminId = ParseAdminAccountId(principal);
         if (adminId <= 0)
             return;

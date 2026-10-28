@@ -162,6 +162,19 @@ public class CoursesController(ICourseService courses) : ControllerBase
         return Ok(await courses.ListAsync(userId, null, null, null, featured: true, ct));
     }
 
+    [HttpGet("platform")]
+    [AllowAnonymous]
+    public async Task<ActionResult<IReadOnlyList<CourseListItemDto>>> Platform(
+        [FromQuery] string? search,
+        [FromQuery] string? category,
+        [FromQuery] string? level,
+        [FromQuery] string? tag,
+        CancellationToken ct)
+    {
+        var userId = User.Identity?.IsAuthenticated == true ? User.GetUserId() : (int?)null;
+        return Ok(await courses.ListPlatformAsync(userId, search, category, level, tag, ct));
+    }
+
     [HttpGet("{id:int}")]
     [AllowAnonymous]
     public async Task<ActionResult<CourseDetailDto>> Get(int id, CancellationToken ct)

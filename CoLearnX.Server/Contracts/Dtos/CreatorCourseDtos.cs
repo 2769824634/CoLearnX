@@ -42,7 +42,8 @@ public record CreatorCourseDto(
     IReadOnlyList<string> LearningOutcomes,
     DateTime CreatedAt,
     string? ReviewReason,
-    IReadOnlyList<int>? InterestIds = null);
+    IReadOnlyList<int>? InterestIds = null,
+    bool IsPlatformOwned = false);
 
 public record CourseOptionDto(int Id, string Name);
 

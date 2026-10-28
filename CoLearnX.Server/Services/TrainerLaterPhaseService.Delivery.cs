@@ -64,7 +64,7 @@ public sealed partial class TrainerLaterPhaseService
                 CourseIntakeId = intake.Id,
                 TrainerId = trainerUserId,
             });
-            db.AuditLogs.Add(UserAudit(trainerUserId, "IntakeMaterialAttached", nameof(CourseIntake), intakeId, version.LearningMaterial.Title));
+            db.AuditLogs.Add(await TrainerAuditAsync(trainerUserId, "IntakeMaterialAttached", nameof(CourseIntake), intakeId, version.LearningMaterial.Title, ct));
             await db.SaveChangesAsync(ct);
         }
         return new IntakeMaterialDto(version.Id, version.LearningMaterialId, version.LearningMaterial.Title,
@@ -117,7 +117,7 @@ public sealed partial class TrainerLaterPhaseService
             RecordingUrl = normalizedUrl,
         };
         db.SessionRecordings.Add(recording);
-        db.AuditLogs.Add(UserAudit(trainerUserId, "SessionRecordingAdded", nameof(CourseSession), sessionId, title));
+        db.AuditLogs.Add(await TrainerAuditAsync(trainerUserId, "SessionRecordingAdded", nameof(CourseSession), sessionId, title, ct));
         await db.SaveChangesAsync(ct);
         return ToDto(recording);
     }
@@ -162,8 +162,8 @@ public sealed partial class TrainerLaterPhaseService
             record.RecordedAt = now;
             record.RecordedByTrainerId = trainerUserId;
         }
-        db.AuditLogs.Add(UserAudit(trainerUserId, "AttendanceRecorded", nameof(CourseSession), sessionId,
-            $"{request.Records.Count} learner(s)"));
+        db.AuditLogs.Add(await TrainerAuditAsync(trainerUserId, "AttendanceRecorded", nameof(CourseSession), sessionId,
+            $"{request.Records.Count} learner(s)", ct));
         await db.SaveChangesAsync(ct);
         return request.Records.Select(row =>
         {

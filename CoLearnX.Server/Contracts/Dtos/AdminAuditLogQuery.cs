@@ -12,6 +12,6 @@ public sealed class AdminAuditLogQuery
     public string? EntityType { get; init; }
     [MaxLength(32)]
     public string? Result { get; init; }
-    [RegularExpression("^(Admin|User)$")]
+    [RegularExpression("^(Admin|Staff|User)$")]
     public string? ActorType { get; init; }
 }

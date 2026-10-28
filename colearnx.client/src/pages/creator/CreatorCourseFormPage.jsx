@@ -258,7 +258,7 @@ function MaterialsStep({ pendingFiles, setPendingFiles, busy }) {
 
 const MAX_INTERESTS = 4;
 
-function InterestPicker({ tree, selectedIds, onToggle }) {
+export function InterestPicker({ tree, selectedIds, onToggle }) {
   const [query, setQuery] = useState('');
   const [activeId, setActiveId] = useState(null);
   const needle = query.trim().toLowerCase();

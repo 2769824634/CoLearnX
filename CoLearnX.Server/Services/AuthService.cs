@@ -1,6 +1,7 @@
 using CoLearnX.Server.Auth;
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
+using CoLearnX.Server.Domain;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -39,8 +40,11 @@ public class AuthService(
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
     {
         var email = request.Email.Trim().ToLowerInvariant();
+        if (PlatformIdentity.IsInternalEmail(email))
+            throw new InvalidOperationException(PasswordRules.TakenMessage);
         var taken = await db.Users.AnyAsync(u => u.Email == email, ct)
-            || await db.AdminAccounts.AnyAsync(account => account.Email == email, ct);
+            || await db.AdminAccounts.AnyAsync(account => account.Email == email, ct)
+            || await db.StaffAccounts.AnyAsync(account => account.Email == email, ct);
         if (taken)
             throw new InvalidOperationException(PasswordRules.TakenMessage);
         if (!PasswordRules.Meets(request.Password, email))
@@ -135,6 +139,8 @@ public class AuthService(
     private async Task<User> AuthenticateUserAsync(string email, string password, CancellationToken ct)
     {
         var normalized = email.Trim().ToLowerInvariant();
+        if (PlatformIdentity.IsInternalEmail(normalized))
+            throw new UnauthorizedAccessException("Invalid email or password.");
         var admin = await db.AdminAccounts.AsNoTracking()
             .FirstOrDefaultAsync(account => account.Email == normalized, ct);
         if (admin is not null)

@@ -2,10 +2,10 @@ import { HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/s
 
 const offline = { connected: false, stop: async () => {} };
 
-export function connectNotificationRealtime(token, onNotification) {
+export function connectNotificationRealtime(token, onNotification, createBuilder = () => new HubConnectionBuilder()) {
   let connection;
   try {
-    connection = new HubConnectionBuilder()
+    connection = createBuilder()
       .withUrl(new URL('/hubs/notifications', window.location.origin).href, { accessTokenFactory: () => token })
       .withAutomaticReconnect()
       .configureLogging(LogLevel.None)

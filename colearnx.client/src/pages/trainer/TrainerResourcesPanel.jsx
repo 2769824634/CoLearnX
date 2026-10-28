@@ -7,7 +7,7 @@ function downloadName(item) {
   return `${item.title}.${ext}`;
 }
 
-export default function TrainerResourcesPanel({ token, intake }) {
+export default function TrainerResourcesPanel({ token, intake, api = trainerLaterPhaseApi }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [materialVersionId, setMaterialVersionId] = useState('');
@@ -21,13 +21,13 @@ export default function TrainerResourcesPanel({ token, intake }) {
   const downloadBusy = Boolean(download?.busy);
 
   const load = useCallback((signal) => Promise.all([
-    trainerLaterPhaseApi.availableMaterials(token, signal, intake.courseId),
-    trainerLaterPhaseApi.intakeMaterials(token, intake.id, signal),
+    api.availableMaterials(token, signal, intake.courseId),
+    api.intakeMaterials(token, intake.id, signal),
     Promise.all(sessions.map(async (session) => ({
       sessionId: session.id,
-      items: await trainerLaterPhaseApi.recordings(token, intake.id, session.id, signal),
+      items: await api.recordings(token, intake.id, session.id, signal),
     }))),
-  ]).then(([available, attached, recordings]) => ({ available, attached, recordings })), [token, intake.id, intake.courseId, sessions]);
+  ]).then(([available, attached, recordings]) => ({ available, attached, recordings })), [api, token, intake.id, intake.courseId, sessions]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -59,7 +59,7 @@ export default function TrainerResourcesPanel({ token, intake }) {
     setDownload({ id: item.materialVersionId, busy: true });
     setError(null);
     try {
-      const blob = await trainerLaterPhaseApi.downloadMaterial(token, intake.id, item.materialVersionId, downloadName(item));
+      const blob = await api.downloadMaterial(token, intake.id, item.materialVersionId, downloadName(item));
       if (canPreviewMaterial(item.format) && blob) {
         setPreview({
             id: item.materialVersionId,
@@ -93,11 +93,11 @@ export default function TrainerResourcesPanel({ token, intake }) {
         {preview?.url ? (String(preview.format).replace(/^\./, '').toUpperCase() === 'PDF'
           ? <iframe title={preview.title} src={preview.url} className="trainer-material-preview" />
           : <img alt={preview.title} src={preview.url} className="trainer-material-preview" />) : null}
-        <form className="later-inline-form" onSubmit={(event) => { event.preventDefault(); mutate(() => trainerLaterPhaseApi.attachMaterial(token, intake.id, Number(materialVersionId)), () => setMaterialVersionId('')); }}><label htmlFor="attach-material">Attach approved version</label><select id="attach-material" required value={materialVersionId} onChange={(event) => setMaterialVersionId(event.target.value)}><option value="">Select…</option>{selectableMaterials.map((item) => <option key={item.versionId} value={item.versionId}>{item.title} · v{item.versionNumber}</option>)}</select><button className="btn btn-ghost" disabled={busy || downloadBusy || !selectableMaterials.length}>Attach</button></form>
+        <form className="later-inline-form" onSubmit={(event) => { event.preventDefault(); mutate(() => api.attachMaterial(token, intake.id, Number(materialVersionId)), () => setMaterialVersionId('')); }}><label htmlFor="attach-material">Attach approved version</label><select id="attach-material" required value={materialVersionId} onChange={(event) => setMaterialVersionId(event.target.value)}><option value="">Select…</option>{selectableMaterials.map((item) => <option key={item.versionId} value={item.versionId}>{item.title} · v{item.versionNumber}</option>)}</select><button className="btn btn-ghost" disabled={busy || downloadBusy || !selectableMaterials.length}>Attach</button></form>
         {!selectableMaterials.length ? <p className="trainer-help">No more approved versions are available to attach.</p> : null}
       </div>
       <div><h3>Session recordings</h3>{data.recordings.flatMap((group) => group.items).length ? <ul className="later-resource-list">{data.recordings.flatMap((group) => group.items).map((item) => <li key={item.id}><div><strong>{item.title}</strong><small>Session #{item.courseSessionId}</small></div><a href={item.recordingUrl} target="_blank" rel="noreferrer">Watch</a></li>)}</ul> : <p className="trainer-help">No recording link has been added.</p>}
-        <form className="later-stack-form" onSubmit={(event) => { event.preventDefault(); mutate(() => trainerLaterPhaseApi.addRecording(token, intake.id, Number(sessionId), recording), () => setRecording({ title: '', recordingUrl: '' })); }}><div className="form-group"><label htmlFor="recording-session">Session</label><select id="recording-session" required value={sessionId} onChange={(event) => setSessionId(event.target.value)}>{intake.sessions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div><div className="form-group"><label htmlFor="recording-title">Recording title</label><input id="recording-title" required maxLength="160" value={recording.title} onChange={(event) => setRecording({ ...recording, title: event.target.value })} /></div><div className="form-group"><label htmlFor="recording-url">HTTPS recording URL</label><input id="recording-url" type="url" required maxLength="1024" value={recording.recordingUrl} onChange={(event) => setRecording({ ...recording, recordingUrl: event.target.value })} /></div><button className="btn btn-ghost" disabled={busy || downloadBusy || !intake.sessions.length}>Add recording</button></form>
+        <form className="later-stack-form" onSubmit={(event) => { event.preventDefault(); mutate(() => api.addRecording(token, intake.id, Number(sessionId), recording), () => setRecording({ title: '', recordingUrl: '' })); }}><div className="form-group"><label htmlFor="recording-session">Session</label><select id="recording-session" required value={sessionId} onChange={(event) => setSessionId(event.target.value)}>{intake.sessions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div><div className="form-group"><label htmlFor="recording-title">Recording title</label><input id="recording-title" required maxLength="160" value={recording.title} onChange={(event) => setRecording({ ...recording, title: event.target.value })} /></div><div className="form-group"><label htmlFor="recording-url">HTTPS recording URL</label><input id="recording-url" type="url" required maxLength="1024" value={recording.recordingUrl} onChange={(event) => setRecording({ ...recording, recordingUrl: event.target.value })} /></div><button className="btn btn-ghost" disabled={busy || downloadBusy || !intake.sessions.length}>Add recording</button></form>
       </div>
     </div> : null}
   </section>;

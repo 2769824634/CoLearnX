@@ -59,14 +59,7 @@ public sealed partial class TrainerLaterPhaseService(CoLearnXDbContext db, IMate
             throw new LaterPhaseException("DELIVERY_NOT_EDITABLE", "Delivery resources can be changed only for Published or In Progress Intakes.", 409);
     }
 
-    private static AuditLog UserAudit(int userId, string action, string entityType, int entityId, string? reason)
-        => new()
-        {
-            UserId = userId,
-            Action = action,
-            EntityType = entityType,
-            EntityId = entityId.ToString(),
-            Result = "Succeeded",
-            Reason = reason,
-        };
+    private Task<AuditLog> TrainerAuditAsync(int userId, string action, string entityType,
+        int entityId, string? reason, CancellationToken ct)
+        => TrainerAudit.CreateAsync(db, userId, action, entityType, entityId, "Succeeded", reason, ct);
 }

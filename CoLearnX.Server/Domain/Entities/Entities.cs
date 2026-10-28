@@ -156,6 +156,7 @@ public class Course
     public string Category { get; set; } = string.Empty;
     public CourseStatus Status { get; set; } = CourseStatus.Draft;
     public bool IsFeatured { get; set; }
+    public bool IsPlatformOwned { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public User Trainer { get; set; } = null!;

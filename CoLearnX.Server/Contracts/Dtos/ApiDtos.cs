@@ -88,7 +88,8 @@ public record CourseListItemDto(
     DateTime? RegistrationClosesAt = null,
     string? CreatorName = null,
     IReadOnlyList<string>? TrainerNames = null,
-    string? LearningPath = null);
+    string? LearningPath = null,
+    bool IsPlatformOwned = false);
 
 public record CourseSessionDto(
     int Id,
@@ -132,7 +133,8 @@ public record CourseDetailDto(
     DateTime? RegistrationClosesAt = null,
     string? CreatorName = null,
     IReadOnlyList<string>? TrainerNames = null,
-    string? LearningPath = null);
+    string? LearningPath = null,
+    bool IsPlatformOwned = false);
 
 public record WishlistResultDto(int CourseId, bool InWishlist);
 

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using CoLearnX.Server.Auth;
 using CoLearnX.Server.Data;
+using CoLearnX.Server.Domain;
 using CoLearnX.Server.Domain.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -28,6 +29,7 @@ public class PasswordResetService(
     public async Task RequestAsync(string email, CancellationToken ct = default)
     {
         var normalized = email.Trim().ToLowerInvariant();
+        if (PlatformIdentity.IsInternalEmail(normalized)) return;
         var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Email == normalized && x.IsActive, ct);
         if (user is null) return; // AdminAccount is intentionally a different identity store.
         var opts = options.Value;

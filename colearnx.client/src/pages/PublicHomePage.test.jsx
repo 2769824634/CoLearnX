@@ -73,8 +73,8 @@ function stubCourses(detail, list = courseList()) {
   }));
 }
 
-function mountHome(auth = guestAuth) {
-  stubCourses();
+function mountHome(auth = guestAuth, list = courseList()) {
+  stubCourses(undefined, list);
   return render(
     <MemoryRouter>
       <AuthContext.Provider value={auth}>
@@ -129,6 +129,30 @@ it('shows a signed-in member as signed in on the homepage, including Courses', a
   expect(screen.queryByRole('link', { name: 'Log in' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Sign up' })).toBeNull();
   expect(await screen.findByRole('heading', { name: 'Frontend React Bootcamp' })).toBeTruthy();
+});
+
+it('places published CoLearnX courses above the general member catalogue', async () => {
+  const platformCourse = {
+    ...courseList()[0],
+    id: 17,
+    code: 'CLX 1001',
+    title: 'CoLearnX Digital Skills',
+    creatorName: 'CoLearnX',
+    isPlatformOwned: true,
+  };
+  mountHome({
+    booting: false,
+    isAuthenticated: true,
+    activeRole: 'member',
+    token: 'token',
+    logout: () => {},
+    user: { fullName: 'Huang Yousheng', roles: ['Member'], activeRole: 'Member', onboardingSkippedAt: new Date().toISOString() },
+  }, [platformCourse, ...courseList()]);
+
+  expect(await screen.findByRole('heading', { name: 'CoLearnX courses' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'View all platform courses' }).getAttribute('href')).toBe('/member/platform');
+  const headings = screen.getAllByRole('heading').map((heading) => heading.textContent);
+  expect(headings.indexOf('CoLearnX courses')).toBeLessThan(headings.indexOf('Training programs'));
 });
 
 it.each(['trainer', 'creator'])('does not ask a signed-in %s for Member interests on the homepage', async (role) => {

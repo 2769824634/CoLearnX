@@ -62,7 +62,7 @@ export default function AdminAuditLogsPage() {
           </label>
           <label>Actor
             <select value={filters.actorType} onChange={(event) => updateFilter('actorType', event.target.value)}>
-              <option value="">All actors</option><option value="Admin">Administrators</option><option value="User">Users</option>
+              <option value="">All actors</option><option value="Admin">Administrators</option><option value="Staff">Staff</option><option value="User">Users</option>
             </select>
           </label>
           <button type="button" className="btn btn-ghost" onClick={() => { setFilters(EMPTY_FILTERS); setCursors([null]); }}>

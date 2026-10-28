@@ -10,7 +10,9 @@ export function formatAuditTime(value) {
 }
 
 export function auditActor(log) {
-  return log.adminAccountId != null ? `Admin #${log.adminAccountId}` : `User #${log.userId}`;
+  if (log.adminAccountId != null) return `Admin #${log.adminAccountId}`;
+  if (log.staffAccountId != null) return `Staff #${log.staffAccountId}`;
+  return `User #${log.userId}`;
 }
 
 const ENTITY_TYPE_LABELS = {
