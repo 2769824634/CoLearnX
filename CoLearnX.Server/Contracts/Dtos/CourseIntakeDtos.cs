@@ -6,11 +6,11 @@ namespace CoLearnX.Server.Contracts.Dtos;
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record CreateCourseIntakeRequest([property: JsonRequired] DateTime RegistrationOpensAt,
     [property: JsonRequired] DateTime RegistrationClosesAt, [property: JsonRequired] DateTime StartsAt,
-    [property: JsonRequired] DateTime EndsAt, [property: JsonRequired] int TrainerId, int MinEnrollment = 10);
+    [property: JsonRequired] DateTime EndsAt, [property: JsonRequired] int TrainerId, int MinEnrollment = 10, int DaysBeforeTeaching = 0);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record UpdateCourseIntakeRequest([property: JsonRequired] DateTime RegistrationOpensAt,
     [property: JsonRequired] DateTime RegistrationClosesAt, [property: JsonRequired] DateTime StartsAt,
-    [property: JsonRequired] DateTime EndsAt, [property: JsonRequired] Guid Version, int? MinEnrollment = null);
+    [property: JsonRequired] DateTime EndsAt, [property: JsonRequired] Guid Version, int? MinEnrollment = null, int DaysBeforeTeaching = 0);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record CreateCourseSessionRequest([property: JsonRequired] string Label, [property: JsonRequired] DateTime StartsAt,
     [property: JsonRequired] DateTime EndsAt, string? MeetingLink,

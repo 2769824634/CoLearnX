@@ -41,7 +41,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
                 throw new CourseIntakeException("POSTPONEMENT_ALREADY_CREATED", "This class already has a replacement Intake.", 409);
             await RequirePublishedCourseAsync(original.CourseId, ct);
             await RequireAcceptedTrainerAsync(original.CourseId, original.TrainerId, ct);
-            ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt, request.EndsAt);
+            ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt, request.EndsAt, request.DaysBeforeTeaching);
             ValidateMinEnrollment(request.MinEnrollment);
             if (request.StartsAt <= original.StartsAt || request.RegistrationClosesAt <= now)
                 throw new CourseIntakeException("INVALID_POSTPONEMENT_DATES", "The replacement must start later and have an open future registration window.");
@@ -116,7 +116,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
 
             await RequireOwnedPublishedCourseAsync(creatorUserId, courseId, ct);
             await RequireAcceptedTrainerAsync(courseId, request.TrainerId, ct);
-            ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt, request.EndsAt);
+            ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt, request.EndsAt, request.DaysBeforeTeaching);
             ValidateMinEnrollment(request.MinEnrollment);
             await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
             var intake = new CourseIntake { CourseId = courseId, TrainerId = request.TrainerId,
@@ -134,7 +134,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
     public async Task<CourseIntakeDetailDto> UpdateAsync(int creatorUserId, int courseIntakeId, UpdateCourseIntakeRequest request, CancellationToken ct = default)
     {
         var intake = await LoadEditableAsync(creatorUserId, courseIntakeId, request.Version, ct);
-        ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt, request.EndsAt);
+        ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt, request.EndsAt, request.DaysBeforeTeaching);
         var minEnrollment = request.MinEnrollment ?? intake.MinEnrollment;
         ValidateMinEnrollment(minEnrollment);
         foreach (var session in intake.Sessions)
@@ -329,13 +329,13 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
     }
 
 
-    private static void ValidateDates(DateTime opens, DateTime closes, DateTime starts, DateTime ends)
+    private static void ValidateDates(DateTime opens, DateTime closes, DateTime starts, DateTime ends, int daysBeforeTeaching = 0)
     {
         CourseIntakeValidation.Utc(opens, "registrationOpensAt");
         CourseIntakeValidation.Utc(closes, "registrationClosesAt");
         CourseIntakeValidation.Utc(starts, "startsAt");
         CourseIntakeValidation.Utc(ends, "endsAt");
-        CourseIntakeValidation.Dates(opens, closes, starts, ends);
+        CourseIntakeValidation.Dates(opens, closes, starts, ends, daysBeforeTeaching);
     }
 
     private static void ValidateMinEnrollment(int value)

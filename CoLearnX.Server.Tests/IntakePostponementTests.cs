@@ -199,10 +199,14 @@ public class IntakePostponementTests
         Assert.Equal((HttpStatusCode)status, (await member.PostAsync($"/api/enrollments/{id}/withdraw", null)).StatusCode);
     }
 
-    private static object Schedule() => new {
-        registrationOpensAt = DateTime.UtcNow.AddMinutes(-1), registrationClosesAt = DateTime.UtcNow.AddDays(5),
-        startsAt = DateTime.UtcNow.AddDays(30), endsAt = DateTime.UtcNow.AddDays(32), trainerId = 1, minEnrollment = 10,
-    };
+    private static object Schedule()
+    {
+        var now = DateTime.UtcNow;
+        return new {
+        registrationOpensAt = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, DateTimeKind.Utc), registrationClosesAt = now.AddDays(5),
+        startsAt = now.AddDays(30), endsAt = now.AddDays(32), trainerId = 1, minEnrollment = 10,
+        };
+    }
 
     private static async Task<(int IntakeId, int EnrollmentId)> FailedClass(CoLearnXApiFactory factory)
     {

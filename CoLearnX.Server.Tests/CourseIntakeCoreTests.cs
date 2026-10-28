@@ -20,7 +20,7 @@ public class CourseIntakeCoreTests
     public async Task MinimumEnrollmentRulesRejectLateClosingAndUndersizedPhysicalRoom()
     {
         await using var f = await Fixture.CreateAsync();
-        var late = DraftRequest with { RegistrationClosesAt = Start.AddDays(-9) };
+        var late = DraftRequest with { RegistrationClosesAt = Start.AddDays(-9), DaysBeforeTeaching = 10 };
         Assert.Equal("INVALID_INTAKE_DATES", (await Assert.ThrowsAsync<CourseIntakeException>(
             () => f.Service.CreateAsync(1, 1, late))).Code);
         var draft = await f.Service.CreateAsync(1, 1, DraftRequest);
@@ -115,7 +115,7 @@ public class CourseIntakeCoreTests
         {
             Assert.Equal("INVALID_INTAKE_DATES", error.Code);
             Assert.True(error.FieldErrors.ContainsKey("registrationClosesAt"));
-            Assert.Contains("ten days", error.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("on or before", error.Message, StringComparison.OrdinalIgnoreCase);
         }
         else if (scenario == 2)
         {
@@ -125,6 +125,31 @@ public class CourseIntakeCoreTests
         }
         Assert.Empty(await f.Db.CourseIntakes.ToListAsync());
         Assert.Empty(await f.Db.AuditLogs.ToListAsync());
+    }
+
+    [Fact]
+    public async Task RegistrationCannotStartInThePast_AndLeadTimeIsChosenByTheCreator()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var past = DraftRequest with
+        {
+            RegistrationOpensAt = DateTime.UtcNow.AddMinutes(-2),
+            RegistrationClosesAt = DateTime.UtcNow.AddDays(2),
+            StartsAt = DateTime.UtcNow.AddDays(4),
+            EndsAt = DateTime.UtcNow.AddDays(6),
+        };
+        var pastError = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.CreateAsync(1, 1, past));
+        Assert.Equal("REGISTRATION_IN_THE_PAST", pastError.Code);
+        Assert.True(pastError.FieldErrors.ContainsKey("registrationOpensAt"));
+
+        var shortGap = DraftRequest with { DaysBeforeTeaching = 11 };
+        var gapError = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.CreateAsync(1, 1, shortGap));
+        Assert.Equal("INVALID_INTAKE_DATES", gapError.Code);
+        Assert.Contains("11 days", gapError.Message, StringComparison.OrdinalIgnoreCase);
+
+        var chosen = DraftRequest with { RegistrationClosesAt = Start.AddDays(-3), DaysBeforeTeaching = 3 };
+        var draft = await f.Service.CreateAsync(1, 1, chosen);
+        Assert.Equal("Draft", draft.Status);
     }
 
     [Fact]

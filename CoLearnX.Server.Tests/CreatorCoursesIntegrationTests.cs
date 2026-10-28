@@ -224,10 +224,11 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
             });
             await db.SaveChangesAsync();
         }
-        var start = DateTime.UtcNow.AddDays(14);
+        var now = DateTime.UtcNow;
+        var start = now.AddDays(14);
         var intakeCreate = await creator.PostAsJsonAsync($"/api/creator/courses/{courseId}/intakes", new
         {
-            registrationOpensAt = DateTime.UtcNow.AddDays(-1),
+            registrationOpensAt = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, DateTimeKind.Utc),
             registrationClosesAt = start.AddDays(-10),
             startsAt = start,
             endsAt = start.AddDays(2),

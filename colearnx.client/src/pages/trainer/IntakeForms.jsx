@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { clearFieldErrors, fieldMessages, initialSchedule, initialSession, localTimezone, schedulePayload, sessionEndLocal, sessionPayload } from './intakeForm';
+import { clearFieldErrors, fieldMessages, initialSchedule, initialSession, localTimezone, schedulePayload, sessionEndLocal, sessionPayload, todayInput } from './intakeForm';
 import { TrainerField } from './TrainerUi';
 
 function WhenField({ name, label, kind, value, onChange, required, error, min, max }) {
@@ -14,7 +14,7 @@ function WhenField({ name, label, kind, value, onChange, required, error, min, m
   }
   return <div className="form-group">
     {kind === 'date'
-      ? <><label htmlFor={`trainer-${name}`}>{label}</label><input id={`trainer-${name}`} name={name} type="date" required={required} value={value || ''} aria-invalid={invalid} aria-describedby={describedBy} onChange={onChange} /></>
+      ? <><label htmlFor={`trainer-${name}`}>{label}</label><input id={`trainer-${name}`} name={name} type="date" required={required} value={value || ''} min={min} aria-invalid={invalid} aria-describedby={describedBy} onChange={onChange} /></>
       : <><span id={`trainer-${name}-label`}>{label}</span><div className="trainer-datetime" role="group" aria-labelledby={`trainer-${name}-label`}>
         <input type="date" aria-label={`${label} date`} required={required} value={date} min={min ? String(min).slice(0, 10) : undefined} max={max ? String(max).slice(0, 10) : undefined} aria-invalid={invalid} aria-describedby={describedBy} onChange={(event) => emit(event.target.value, time)} />
         <input type="time" aria-label={`${label} time`} required={required} step="60" value={time} aria-invalid={invalid} aria-describedby={describedBy} onChange={(event) => emit(date, event.target.value)} />
@@ -43,17 +43,30 @@ export function ScheduleForm({ intake, courses, trainers, onCourseChange, onSave
     event.preventDefault();
     try { onSave(schedulePayload(values, intake?.version, intake, trainerId), courseId); } catch (failure) { onError(failure); }
   }
+  function setSchedule(key, errorName) {
+    return (event) => {
+      setValues((current) => ({ ...current, [key]: event.target.value }));
+      clearField(errorName);
+    };
+  }
   return <form onSubmit={submit} className="trainer-form">
     <fieldset disabled={busy || blocked}><legend>{intake ? 'Edit Intake schedule' : 'Create a Draft'}</legend>
-      <p>Registration is a calendar date (UTC), with no time. Delivery uses hours and minutes in {localTimezone}, saved in UTC.</p>
+      <p>Registration opens on a date at a time in {localTimezone} and stays open for the number of days you enter. Teaching dates have no clock time. Times are saved in UTC.</p>
       {!intake && courses ? <TrainerField name="courseId" label="Published course" value={courseId} onChange={(event) => { setCourseId(event.target.value); setTrainerId(''); onCourseChange?.(event.target.value); }} required error={error}><option value="">Choose a published course</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.code} — {course.title}</option>)}</TrainerField> : null}
       {!intake && trainers ? <TrainerField name="trainerId" label="Accepted Trainer" value={trainerId} onChange={(event) => setTrainerId(event.target.value)} required error={error}><option value="">Choose a Trainer who accepted this course</option>{trainers.map((trainer) => <option key={trainer.trainerId} value={trainer.trainerId}>{trainer.fullName}</option>)}</TrainerField> : null}
       <div className="trainer-form-grid">
-        {[['registrationOpensAt', 'Registration opens'], ['registrationClosesAt', 'Registration closes']].map(([name, label]) => <WhenField key={name} name={name} label={label} kind="date" value={values[name]} onChange={change} required error={error} />)}
-        {[['startsAt', 'Delivery starts'], ['endsAt', 'Delivery ends']].map(([name, label]) => <WhenField key={name} name={name} label={label} value={values[name]} onChange={change} required error={error} />)}
+        <WhenField name="registrationOpensAt" label="Registration starts" kind="date" value={values.registrationStartDate} onChange={setSchedule('registrationStartDate', 'registrationOpensAt')} required error={error} min={todayInput()} />
+        <div className="form-group">
+          <label htmlFor="trainer-registrationStartTime">Registration time</label>
+          <input id="trainer-registrationStartTime" name="registrationStartTime" type="time" step="60" required value={values.registrationStartTime} onChange={setSchedule('registrationStartTime', 'registrationOpensAt')} />
+        </div>
+        <TrainerField name="registrationClosesAt" label="Registration length (days)" type="number" min="1" step="1" value={values.registrationDays} onChange={setSchedule('registrationDays', 'registrationClosesAt')} required error={error} />
+        <TrainerField name="daysBeforeTeaching" label="Days before teaching" type="number" min="0" step="1" value={values.daysBeforeTeaching} onChange={setSchedule('daysBeforeTeaching', 'daysBeforeTeaching')} required error={error} />
+        <WhenField name="startsAt" label="First teaching date" kind="date" value={values.deliveryStartDate} onChange={setSchedule('deliveryStartDate', 'startsAt')} required error={error} />
+        <WhenField name="endsAt" label="Last teaching date" kind="date" value={values.deliveryEndDate} onChange={setSchedule('deliveryEndDate', 'endsAt')} required error={error} />
       </div>
       {allowMinEnrollment ? <TrainerField name="minEnrollment" label="Minimum enrollment" type="number" min="2" max="200" step="1" value={values.minEnrollment} onChange={change} required error={error} /> : null}
-      <p className="trainer-help">Registration must close at least 10 days before delivery starts. All Sessions must fit inside the delivery period.</p>
+      <p className="trainer-help">Registration cannot start before the current time. Days before teaching is the gap you choose between registration closing and the first teaching date. Sessions must fall on the teaching dates, each with its own start time and length.</p>
     </fieldset>
     <FormActions busy={busy} blocked={blocked} onCancel={onCancel} label={submitLabel || (intake ? 'Save schedule' : 'Create Draft')} />
   </form>;
@@ -86,7 +99,7 @@ export function SessionForm({ session, intake, onSave, onCancel, busy, blocked, 
       <p>One session stays on a single day in {localTimezone}. Choose the date and start time. It lasts 2 hours unless this session already has another length.</p>
       <TrainerField name="label" label="Session label" maxLength={128} value={values.label} onChange={change} required error={error} />
       <div className="trainer-form-grid">
-        <WhenField name="sessionDate" label="Class date" kind="date" value={values.sessionDate} min={delivery.startsAt} max={delivery.endsAt} onChange={changeClassTime} required error={error} />
+        <WhenField name="sessionDate" label="Class date" kind="date" value={values.sessionDate} min={delivery.deliveryStartDate} max={delivery.deliveryEndDate} onChange={changeClassTime} required error={error} />
         <div className="form-group">
           <label htmlFor="trainer-startTime">Class starts</label>
           <input id="trainer-startTime" name="startTime" type="time" step="60" required value={values.startTime} onChange={changeClassTime} />
