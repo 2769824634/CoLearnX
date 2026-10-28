@@ -129,7 +129,9 @@ public sealed class AdminCourseReviewTests : IClassFixture<CoLearnXApiFactory>
             courseLevelId = 1,
             learningPathId = 1,
             category = "Design",
-            creditCost = 20,
+            courseSubjectId = 1,
+            durationHours = 2,
+            creditCost = 40,
             learningOutcomes = new[] { "Review course materials" },
             interestIds = new[] { interestId },
         }, ApiJson.Options);

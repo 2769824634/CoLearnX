@@ -36,6 +36,7 @@ public sealed class AdminCourseReviewService(
             .Include(course => course.Trainer)
             .Include(course => course.Creator)
             .Include(course => course.LearningPath)
+            .Include(course => course.CourseSubject)
             .Include(course => course.LearningOutcomes)
             .AsQueryable();
 
@@ -65,11 +66,25 @@ public sealed class AdminCourseReviewService(
             .GroupBy(log => log.EntityId!)
             .ToDictionary(group => group.Key, group => group.First());
 
+        var priceCells = await db.PricePools.AsNoTracking()
+            .Where(row => row.Subject != null && row.MinTotalCredits != null && row.MaxTotalCredits != null)
+            .ToListAsync(ct);
+
         return courses
-            .Select(course => ToDto(
-                course,
-                latestReviewByCourseId.GetValueOrDefault(course.Id.ToString()),
-                details))
+            .Select(course =>
+            {
+                var cell = priceCells.SingleOrDefault(row => row.Subject == course.CourseSubject?.Subject && row.CourseLevelId == course.CourseLevelId);
+                var above = cell?.MaxTotalCredits is int max && course.CreditCost > max;
+                return ToDto(
+                    course,
+                    latestReviewByCourseId.GetValueOrDefault(course.Id.ToString()),
+                    details,
+                    above && !string.IsNullOrWhiteSpace(course.PriceExceptionReason),
+                    course.PriceExceptionReason,
+                    cell?.MinTotalCredits,
+                    cell?.MaxTotalCredits,
+                    course.CourseSubject?.Name);
+            })
             .ToList();
     }
 
@@ -240,7 +255,15 @@ public sealed class AdminCourseReviewService(
             .OrderByDescending(log => log.CreatedAt)
             .FirstOrDefaultAsync(ct);
 
-    private static AdminCourseDto ToDto(Course course, AuditLog? reviewLog, CourseReviewDetails details)
+    private static AdminCourseDto ToDto(
+        Course course,
+        AuditLog? reviewLog,
+        CourseReviewDetails details,
+        bool priceException = false,
+        string? priceExceptionReason = null,
+        int? priceMinimum = null,
+        int? priceMaximum = null,
+        string? courseSubjectName = null)
     {
         var materials = details.MaterialsByCourseId.GetValueOrDefault(course.Id);
         return new(
@@ -266,7 +289,12 @@ public sealed class AdminCourseReviewService(
             materials?.Versions.Count ?? 0,
             materials?.StatusCounts ?? EmptyStatusCounts(),
             materials?.Versions ?? [],
-            details.TrainersByCourseId.GetValueOrDefault(course.Id) ?? []);
+            details.TrainersByCourseId.GetValueOrDefault(course.Id) ?? [],
+            priceException,
+            priceExceptionReason,
+            priceMinimum,
+            priceMaximum,
+            courseSubjectName);
     }
 
     private static MaterialSummary BuildMaterialSummary(IEnumerable<MaterialRow> rows)

@@ -663,8 +663,18 @@
   font-size: 11px;
 }
 
-.admin-credit-value {
-  display: inline-flex;
+.admin-credit-value.is-exception {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.admin-price-exception {
+  display: block;
+  margin-top: 6px;
+  color: var(--danger);
+  font-weight: 700;
+  max-width: 220px;
+}
   min-width: 34px;
   height: 34px;
   align-items: center;

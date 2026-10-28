@@ -71,7 +71,9 @@ describe('Creator Course workspace', () => {
     fireEvent.change(screen.getByLabelText('Course code'), { target: { value: 'CRT-44' } });
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Inclusive Design' } });
     fireEvent.change(screen.getByLabelText('Course level'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Subject'), { target: { value: '1' } });
     fireEvent.change(screen.getByLabelText('Learning path'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('Duration (hours)'), { target: { value: '2' } });
     const category = screen.getByRole('combobox', { name: 'Category (optional)' });
     expect(category.required).toBe(false);
     expect(within(category).getAllByRole('option').map((option) => option.textContent)).toEqual(['No category', 'Programming', 'Design', 'Business']);
@@ -87,14 +89,15 @@ describe('Creator Course workspace', () => {
     expect(screen.getByText('notes.pdf')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
-    fireEvent.click(screen.getByLabelText('Sketching'));
-    fireEvent.change(screen.getByLabelText('Credit cost'), { target: { value: '24' } });
+    fireEvent.click(screen.getByRole('button', { name: /Development/ }));
+    fireEvent.click(screen.getByLabelText('Web Development'));
+    fireEvent.change(screen.getByLabelText('Credit cost'), { target: { value: '40' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
 
     expect(await screen.findByRole('heading', { name: 'Inclusive Design' })).toBeTruthy();
     const createRequest = globalThis.fetch.mock.calls.find(([path, options]) => path === '/api/creator/courses' && options?.method === 'POST');
     const payload = JSON.parse(createRequest[1].body);
-    expect(payload).toMatchObject({ code: 'CRT-44', title: 'Inclusive Design', courseLevelId: 1, learningPathId: 3, category: 'Design', creditCost: 24, interestIds: [2] });
+    expect(payload).toMatchObject({ code: 'CRT-44', title: 'Inclusive Design', courseLevelId: 1, courseSubjectId: 1, learningPathId: 3, durationHours: 2, category: 'Design', creditCost: 40, interestIds: [5] });
     expect(globalThis.fetch.mock.calls.filter(([path, options]) => path === '/api/materials' && options?.method === 'POST')).toHaveLength(1);
   });
 
@@ -294,10 +297,17 @@ function stubCourseApi({ existing, materials = [], failUploadAt = 0, holdUpload,
       return json([{ id: 1, slug: 'design', name: 'Design', children: [
         { id: 2, slug: 'sketching', name: 'Sketching', children: [] },
         { id: 3, slug: 'typography', name: 'Typography', children: [] },
+      ] }, { id: 4, slug: 'development', name: 'Development', children: [
+        { id: 5, slug: 'web-development', name: 'Web Development', children: [] },
       ] }]);
     }
     if (path === '/api/creator/courses/options') {
-      return json({ courseLevels: [{ id: 1, name: 'Beginner' }], learningPaths: [{ id: 3, name: 'Design' }] });
+      return json({
+        courseLevels: [{ id: 1, name: 'Beginner' }],
+        learningPaths: [{ id: 3, name: 'Design' }],
+        courseSubjects: [{ id: 1, name: 'Software Development', band: 'DigitalTechnology' }],
+        priceCells: [{ band: 'DigitalTechnology', courseLevelId: 1, minCredits: 40, maxCredits: 180 }],
+      });
     }
     if (path === '/api/creator/courses' && options.method === 'POST') {
       return json(course({ id: 44, ...JSON.parse(options.body) }));
@@ -365,7 +375,9 @@ function course(overrides = {}) {
     learningPathId: 3,
     learningPathName: 'Design',
     category: 'Design',
-    creditCost: 24,
+    creditCost: 40,
+    courseSubjectId: 1,
+    durationHours: 2,
     status: 'Draft',
     learningOutcomes: [],
     createdAt: '2026-09-09T00:00:00Z',

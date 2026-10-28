@@ -19,8 +19,8 @@ async function loadCourseForm(token, courseId, signal) {
 }
 
 const emptyCourse = {
-  code: '', title: '', description: '', courseLevelId: '', learningPathId: '',
-  creditCost: '', learningOutcomes: [], interestIds: [], status: 'Draft',
+  code: '', title: '', description: '', courseLevelId: '', learningPathId: '', courseSubjectId: '',
+  durationHours: '', creditCost: '', priceExceptionReason: '', learningOutcomes: [], interestIds: [], status: 'Draft',
 };
 
 const NEW_COURSE_STEPS = [
@@ -258,10 +258,11 @@ function MaterialsStep({ pendingFiles, setPendingFiles, busy }) {
 
 const MAX_INTERESTS = 4;
 
-export function InterestPicker({ tree, selectedIds, onToggle }) {
+export function InterestPicker({ tree, selectedIds, onToggle, band }) {
   const [query, setQuery] = useState('');
   const [activeId, setActiveId] = useState(null);
   const needle = query.trim().toLowerCase();
+  const allowed = (category, leaf) => !band || interestBand(category.slug, leaf.slug) === band;
   const selectedLeaves = tree.flatMap((category) => category.children || [])
     .filter((leaf) => selectedIds.includes(leaf.id));
   const atLimit = selectedIds.length >= MAX_INTERESTS;
@@ -274,7 +275,7 @@ export function InterestPicker({ tree, selectedIds, onToggle }) {
 
   return <div className="creator-interests">
     <div className="creator-interest-status">
-      <p aria-live="polite">Selected {selectedIds.length} of {MAX_INTERESTS}{atLimit ? '. Uncheck one interest before choosing another.' : '.'}</p>
+      <p aria-live="polite">Selected {selectedIds.length} of {MAX_INTERESTS}{atLimit ? '. Uncheck one interest before choosing another.' : '.'}{band ? ' Interests outside the chosen subject stay unavailable.' : ''}</p>
       <span className="creator-interest-meter" aria-hidden="true">
         {Array.from({ length: MAX_INTERESTS }, (_, index) => <span key={index} className={index < selectedIds.length ? 'filled' : ''} />)}
       </span>
@@ -299,12 +300,36 @@ export function InterestPicker({ tree, selectedIds, onToggle }) {
       <div className="creator-interest-options">{active.leaves.map((leaf) => {
         const checked = selectedIds.includes(leaf.id);
         return <label key={leaf.id} className="creator-interest-option">
-          <input type="checkbox" checked={checked} disabled={!checked && atLimit} onChange={() => onToggle(leaf.id)} />
+          <input type="checkbox" checked={checked} disabled={(!checked && atLimit) || !allowed(active.category, leaf)} onChange={() => onToggle(leaf.id)} />
           <span>{leaf.name}</span>
         </label>;
       })}</div>
     </> : <p className="creator-interest-empty">No interests match “{query.trim()}”.</p>}
   </div>;
+}
+
+function interestBand(categorySlug, leafSlug) {
+  if (categorySlug === 'design') {
+    return ['user-experience-design', 'ui-visual-design', 'ux-research', 'web-design', 'design-systems'].includes(leafSlug)
+      ? 'DigitalTechnology'
+      : 'HumanitiesHealthCreative';
+  }
+  return {
+    development: 'DigitalTechnology',
+    'it-software': 'DigitalTechnology',
+    'data-ai': 'DigitalTechnology',
+    business: 'BusinessManagement',
+    'finance-accounting': 'BusinessManagement',
+    marketing: 'BusinessManagement',
+    'office-productivity': 'BusinessManagement',
+    art: 'HumanitiesHealthCreative',
+    'photography-video': 'HumanitiesHealthCreative',
+    'health-fitness': 'HumanitiesHealthCreative',
+    music: 'HumanitiesHealthCreative',
+    'language-learning': 'HumanitiesHealthCreative',
+    'personal-development': 'HumanitiesHealthCreative',
+    'teaching-academics': 'HumanitiesHealthCreative',
+  }[categorySlug] || null;
 }
 
 const fieldChanger = (setForm) => (field) => (event) => setForm((value) => ({ ...value, [field]: event.target.value }));
@@ -319,25 +344,36 @@ function BasicFields({ form, options, setForm }) {
     <div className="form-group"><label htmlFor="creator-course-description">Description</label><textarea id="creator-course-description" value={form.description} onChange={change('description')} /></div>
     <div className="creator-step-grid">
       <div className="form-group"><label htmlFor="creator-course-level">Course level</label><select id="creator-course-level" required value={form.courseLevelId} onChange={change('courseLevelId')}><option value="">Choose a level</option>{options.courseLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
+      <div className="form-group"><label htmlFor="creator-course-subject">Subject</label><select id="creator-course-subject" required value={form.courseSubjectId} onChange={change('courseSubjectId')}><option value="">Choose a subject</option>{(options.courseSubjects || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
       <div className="form-group"><label htmlFor="creator-learning-path">Learning path</label><select id="creator-learning-path" required value={form.learningPathId} onChange={change('learningPathId')}><option value="">Choose a path</option>{options.learningPaths.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
+      <div className="form-group"><label htmlFor="creator-course-hours">Duration (hours)</label><input id="creator-course-hours" type="number" min="1" step="1" required value={form.durationHours} onChange={change('durationHours')} /></div>
     </div>
     <div className="form-group"><label htmlFor="creator-course-category">Category (optional)</label><select id="creator-course-category" value={form.category || ''} onChange={change('category')}><option value="">No category</option>{categoryChoices(form.category).map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
     <div className="form-group"><label htmlFor="creator-course-outcomes">Learning outcomes</label><textarea id="creator-course-outcomes" value={form.learningOutcomes} onChange={change('learningOutcomes')} placeholder="One outcome per line" /></div>
   </>;
 }
 
+function priceCell(form, options) {
+  const subject = (options.courseSubjects || []).find((item) => String(item.id) === String(form.courseSubjectId));
+  return (options.priceCells || []).find((item) => item.band === subject?.band && String(item.courseLevelId) === String(form.courseLevelId));
+}
+
 function InterestPriceFields({ form, options, setForm }) {
   const change = fieldChanger(setForm);
+  const cell = priceCell(form, options);
+  const aboveRange = cell && Number(form.creditCost) > cell.maxCredits;
+  const subject = (options.courseSubjects || []).find((item) => String(item.id) === String(form.courseSubjectId));
   const toggleInterest = (id) => setForm((value) => ({ ...value,
     interestIds: value.interestIds.includes(id) ? value.interestIds.filter((item) => item !== id)
       : value.interestIds.length < MAX_INTERESTS ? [...value.interestIds, id] : value.interestIds }));
   return <>
     <div className="form-group"><label htmlFor="creator-interest-search">Course interests (choose 1–4 leaves before submitting)</label>
-      <InterestPicker tree={options.interestTree || []} selectedIds={form.interestIds} onToggle={toggleInterest} />
+      <InterestPicker tree={options.interestTree || []} selectedIds={form.interestIds} onToggle={toggleInterest} band={subject?.band} />
     </div>
-    <div className="form-group creator-price-field"><label htmlFor="creator-course-cost">Credit cost</label><input id="creator-course-cost" type="number" min="1" step="1" required value={form.creditCost} onChange={change('creditCost')} aria-describedby="creator-course-cost-hint" />
-      <small id="creator-course-cost-hint">Whole credits a Member pays to enrol.</small>
+    <div className="form-group creator-price-field"><label htmlFor="creator-course-cost">Credit cost</label><input id="creator-course-cost" type="number" min={cell ? cell.minCredits : undefined} max={cell ? cell.maxCredits * 2 : undefined} step="1" required value={form.creditCost} onChange={change('creditCost')} aria-describedby="creator-course-cost-hint" />
+      <small id="creator-course-cost-hint">{cell ? `Enter a whole number from ${cell.minCredits} to ${cell.maxCredits} credits. A higher price up to ${cell.maxCredits * 2} needs a reason.` : 'Choose a level and subject before setting the price.'}</small>
     </div>
+    {aboveRange ? <div className="form-group"><label htmlFor="creator-price-reason">Reason for a higher price</label><textarea id="creator-price-reason" required maxLength={500} value={form.priceExceptionReason} onChange={change('priceExceptionReason')} /></div> : null}
   </>;
 }
 
@@ -347,9 +383,12 @@ function toForm(course) {
     title: course.title,
     description: course.description || '',
     courseLevelId: String(course.courseLevelId || ''),
+    courseSubjectId: String(course.courseSubjectId || ''),
     learningPathId: String(course.learningPathId || ''),
+    durationHours: course.durationHours ? String(course.durationHours) : '',
     category: course.category || '',
     creditCost: String(course.creditCost || ''),
+    priceExceptionReason: course.priceExceptionReason || '',
     learningOutcomes: (course.learningOutcomes || []).join('\n'),
     interestIds: course.interestIds || [],
   };
@@ -359,8 +398,11 @@ function toPayload(form) {
   return {
     ...form,
     courseLevelId: Number(form.courseLevelId),
+    courseSubjectId: Number(form.courseSubjectId),
     learningPathId: Number(form.learningPathId),
+    durationHours: Number(form.durationHours),
     creditCost: Number(form.creditCost),
+    priceExceptionReason: form.priceExceptionReason,
     learningOutcomes: form.learningOutcomes.split('\n').map((item) => item.trim()).filter(Boolean),
     interestIds: form.interestIds,
   };

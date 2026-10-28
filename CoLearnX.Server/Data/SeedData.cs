@@ -30,6 +30,7 @@ public static class SeedData
         await SessionMaterialSchema.EnsureAsync(db);
         await PricingSchema.EnsureAsync(db);
         await CourseTrainerSchema.EnsureAsync(db);
+        await CourseSubjectSchema.EnsureAsync(db);
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
         var verifiedAt = DateTime.UtcNow;
 

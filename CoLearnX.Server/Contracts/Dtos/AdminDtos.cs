@@ -75,7 +75,12 @@ public record AdminCourseDto(
     int MaterialVersionCount = 0,
     IReadOnlyDictionary<string, int>? MaterialVersionStatusCounts = null,
     IReadOnlyList<AdminCourseMaterialVersionDto>? MaterialVersions = null,
-    IReadOnlyList<AdminCourseTrainerDto>? Trainers = null);
+    IReadOnlyList<AdminCourseTrainerDto>? Trainers = null,
+    bool PriceException = false,
+    string? PriceExceptionReason = null,
+    int? PriceMinimum = null,
+    int? PriceMaximum = null,
+    string? CourseSubjectName = null);
 
 public record AdminCourseTrainerDto(int TrainerId, string FullName, string Status);
 

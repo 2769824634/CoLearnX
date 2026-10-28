@@ -11,7 +11,10 @@ public record CreateCreatorCourseRequest(
     [MaxLength(100)] string? Category,
     [Range(1, int.MaxValue)] int CreditCost,
     IReadOnlyList<string>? LearningOutcomes,
-    IReadOnlyList<int>? InterestIds = null);
+    IReadOnlyList<int>? InterestIds = null,
+    int CourseSubjectId = 0,
+    int DurationHours = 0,
+    string? PriceExceptionReason = null);
 
 public record UpdateCreatorCourseRequest(
     [Required, MaxLength(64)] string Code,
@@ -22,7 +25,10 @@ public record UpdateCreatorCourseRequest(
     [MaxLength(100)] string? Category,
     [Range(1, int.MaxValue)] int CreditCost,
     IReadOnlyList<string>? LearningOutcomes,
-    IReadOnlyList<int>? InterestIds = null);
+    IReadOnlyList<int>? InterestIds = null,
+    int CourseSubjectId = 0,
+    int DurationHours = 0,
+    string? PriceExceptionReason = null);
 
 public record CreatorCourseDto(
     int Id,
@@ -43,10 +49,20 @@ public record CreatorCourseDto(
     DateTime CreatedAt,
     string? ReviewReason,
     IReadOnlyList<int>? InterestIds = null,
-    bool IsPlatformOwned = false);
+    bool IsPlatformOwned = false,
+    int? CourseSubjectId = null,
+    string? CourseSubjectName = null,
+    int? DurationHours = null,
+    string? PriceExceptionReason = null);
 
 public record CourseOptionDto(int Id, string Name);
 
+public record CourseSubjectOptionDto(int Id, string Name, string Band);
+
+public record PriceCellDto(string Band, int CourseLevelId, int MinCredits, int MaxCredits);
+
 public record CreatorCourseOptionsDto(
     IReadOnlyList<CourseOptionDto> CourseLevels,
-    IReadOnlyList<CourseOptionDto> LearningPaths);
+    IReadOnlyList<CourseOptionDto> LearningPaths,
+    IReadOnlyList<CourseSubjectOptionDto>? CourseSubjects = null,
+    IReadOnlyList<PriceCellDto>? PriceCells = null);

@@ -26,7 +26,7 @@ export default function CreatorCoursesPage() {
         : courses.length === 0 ? <div className="creator-empty"><strong>No Courses yet</strong><p>Create a draft to begin.</p></div>
           : <div className="creator-application-list">{courses.map((course) => <Link className="creator-application-row creator-course-row" key={course.id} to={`/creator/courses/${course.id}`}>
             <div className="creator-application-index">{course.code}</div>
-            <div><p className="creator-eyebrow">{course.learningPathName} · {course.courseLevelName}</p><h2>{course.title}</h2><p>{formatCount(course.creditCost, 'credit')}</p></div>
+            <div><p className="creator-eyebrow">{[course.courseSubjectName, course.courseLevelName].filter(Boolean).join(' · ') || course.learningPathName}</p><h2>{course.title}</h2><p>{formatCount(course.creditCost, 'credit')}</p></div>
             <span className={`creator-status ${course.status.toLowerCase()}`}>{course.status}</span>
           </Link>)}</div>}
   </section>;

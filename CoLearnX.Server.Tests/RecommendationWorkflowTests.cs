@@ -171,7 +171,7 @@ public class RecommendationWorkflowTests
             .Single(item => item!["slug"]!.GetValue<string>() == "user-experience-design")!["id"]!.GetValue<int>();
         var created = await creator.PostAsJsonAsync("/api/creator/courses", new {
             code = $"REC-{Guid.NewGuid():N}", title = "UX Progression", courseLevelId = 2,
-            learningPathId = 1, category = "Design", creditCost = 10,
+            learningPathId = 1, category = "Design", courseSubjectId = 1, durationHours = 2, creditCost = 150,
             interestIds = new[] { ux }, learningOutcomes = new[] { "Advance" }
         });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);

@@ -65,14 +65,19 @@ public static class PricingSchema
                         ContentSharePercent int NOT NULL,
                         DeliverySharePercent int NOT NULL,
                         PlatformSharePercent int NOT NULL,
+                        Subject int NULL,
                         CONSTRAINT FK_PricePools_PriceTiers_PriceTierId
                             FOREIGN KEY (PriceTierId) REFERENCES dbo.PriceTiers (Id) ON DELETE NO ACTION,
                         CONSTRAINT FK_PricePools_CourseLevels_CourseLevelId
                             FOREIGN KEY (CourseLevelId) REFERENCES dbo.CourseLevels (Id) ON DELETE NO ACTION
                     );
                 END;
-                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PricePools_SaleMode_PriceTierId_CourseType_CourseLevelId' AND object_id = OBJECT_ID(N'dbo.PricePools'))
-                    CREATE UNIQUE INDEX IX_PricePools_SaleMode_PriceTierId_CourseType_CourseLevelId ON dbo.PricePools (SaleMode, PriceTierId, CourseType, CourseLevelId);
+                IF COL_LENGTH(N'dbo.PricePools', N'Subject') IS NULL
+                    ALTER TABLE dbo.PricePools ADD Subject int NULL;
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PricePools_SaleMode_PriceTierId_CourseType_CourseLevelId' AND object_id = OBJECT_ID(N'dbo.PricePools'))
+                    DROP INDEX IX_PricePools_SaleMode_PriceTierId_CourseType_CourseLevelId ON dbo.PricePools;
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PricePools_Subject_CourseLevelId' AND object_id = OBJECT_ID(N'dbo.PricePools'))
+                    CREATE UNIQUE INDEX IX_PricePools_Subject_CourseLevelId ON dbo.PricePools (Subject, CourseLevelId);
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PricePools_PriceTierId' AND object_id = OBJECT_ID(N'dbo.PricePools'))
                     CREATE INDEX IX_PricePools_PriceTierId ON dbo.PricePools (PriceTierId);
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PricePools_CourseLevelId' AND object_id = OBJECT_ID(N'dbo.PricePools'))
@@ -143,6 +148,7 @@ public static class PricingSchema
                     ContentSharePercent INTEGER NOT NULL,
                     DeliverySharePercent INTEGER NOT NULL,
                     PlatformSharePercent INTEGER NOT NULL,
+                    Subject INTEGER NULL,
                     CONSTRAINT FK_PricePools_PriceTiers_PriceTierId
                         FOREIGN KEY (PriceTierId) REFERENCES PriceTiers (Id) ON DELETE RESTRICT,
                     CONSTRAINT FK_PricePools_CourseLevels_CourseLevelId
@@ -151,9 +157,14 @@ public static class PricingSchema
                 """, ct);
         }
 
+        var subjectColumn = await db.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) AS Value FROM pragma_table_info('PricePools') WHERE name = 'Subject'").SingleAsync(ct);
+        if (subjectColumn == 0)
+            await db.Database.ExecuteSqlRawAsync("ALTER TABLE PricePools ADD COLUMN Subject INTEGER NULL", ct);
+        await db.Database.ExecuteSqlRawAsync("DROP INDEX IF EXISTS IX_PricePools_SaleMode_PriceTierId_CourseType_CourseLevelId", ct);
         await db.Database.ExecuteSqlRawAsync("""
-            CREATE UNIQUE INDEX IF NOT EXISTS IX_PricePools_SaleMode_PriceTierId_CourseType_CourseLevelId
-                ON PricePools (SaleMode, PriceTierId, CourseType, CourseLevelId)
+            CREATE UNIQUE INDEX IF NOT EXISTS IX_PricePools_Subject_CourseLevelId
+                ON PricePools (Subject, CourseLevelId)
             """, ct);
         await db.Database.ExecuteSqlRawAsync("""
             CREATE INDEX IF NOT EXISTS IX_PricePools_PriceTierId ON PricePools (PriceTierId)
@@ -174,4 +185,5 @@ public static class PricingSchema
         };
         return await db.Database.SqlQueryRaw<int>(sql).SingleAsync(ct) == 0;
     }
+
 }
