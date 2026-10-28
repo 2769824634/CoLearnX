@@ -244,7 +244,10 @@ app.UseRateLimiter();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-    await SeedData.InitializeAsync(db, seedDemoAdmin: !app.Environment.IsProduction());
+    await SeedData.InitializeAsync(
+        db,
+        seedDemoAdmin: !app.Environment.IsProduction(),
+        seedDemoStaff: app.Environment.IsDevelopment());
 }
 
 var storage = app.Services.GetRequiredService<IFileStorage>();

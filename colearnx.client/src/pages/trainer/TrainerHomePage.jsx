@@ -13,8 +13,8 @@ const PIPELINE = [
 ];
 
 const QUICK_ACTIONS = [
-  ['/trainer/attendance', 'Attendance', 'Record attendance for your Sessions.'],
-  ['/trainer/learners', 'Learner List', 'Learners enrolled in your Intakes.'],
+  ['/trainer/courses', 'Attendance', 'Choose a Course, Intake and Session to record attendance.'],
+  ['/trainer/courses', 'Learner List', 'Choose a Course to manage its learners.'],
 ];
 
 const DELIVERY_STEPS = ['Accept the teaching invitation', 'Open the assigned class', 'Update the meeting link', 'Record attendance'];
@@ -90,7 +90,7 @@ export default function TrainerHomePage() {
           </li>)}
         </ol>
         <section aria-labelledby="trainer-prepare-title">
-          <div className="trainer-section-heading"><h2 id="trainer-prepare-title">Pick up where you left off</h2><Link to="/trainer/courses">All Intakes →</Link></div>
+          <div className="trainer-section-heading"><h2 id="trainer-prepare-title">Pick up where you left off</h2><Link to="/trainer/courses">All Courses →</Link></div>
           <TrainerError error={query.data.catalogError} onRetry={query.refresh} retryLabel="Reload course names" />
           <IntakeRows intakes={[...teaching, ...upcoming].slice(0, 5)} courses={query.data.courses} empty="No assigned classes yet. Accept a teaching invitation to be added to a course." />
         </section>
@@ -98,7 +98,7 @@ export default function TrainerHomePage() {
       <aside className="trainer-home-side">
         <section className="trainer-quick-actions" aria-labelledby="trainer-actions-title">
           <h2 id="trainer-actions-title">Quick actions</h2>
-          {QUICK_ACTIONS.map(([to, label, desc]) => <Link key={to} to={to}><strong>{label}</strong><span>{desc}</span></Link>)}
+          {QUICK_ACTIONS.map(([to, label, desc]) => <Link key={label} to={to}><strong>{label}</strong><span>{desc}</span></Link>)}
         </section>
         <section className="trainer-delivery-path" aria-labelledby="trainer-path-title">
           <h2 id="trainer-path-title">Your path to delivery</h2>

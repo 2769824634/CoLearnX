@@ -14,8 +14,12 @@ public static class SeedData
     public const string TrainerEmail = "gu.yincheng@colearnx.com";
     public const string CreatorEmail = "zou.ruiqi@colearnx.com";
     public const string AdminEmail = "zhu.zirui@colearnx.com";
+    public const string StaffEmail = "qingkong@colearnx.com";
 
-    public static async Task InitializeAsync(CoLearnXDbContext db, bool seedDemoAdmin = true)
+    public static async Task InitializeAsync(
+        CoLearnXDbContext db,
+        bool seedDemoAdmin = true,
+        bool seedDemoStaff = false)
     {
         await db.Database.EnsureCreatedAsync();
         if (db.Database.IsSqlite())
@@ -30,6 +34,7 @@ public static class SeedData
         await NotificationSchema.EnsureAsync(db);
         await MaterialUsageSchema.EnsureAsync(db);
         await SessionMaterialSchema.EnsureAsync(db);
+        await SessionRecordingFileSchema.EnsureAsync(db);
         await PricingSchema.EnsureAsync(db);
         await CourseTrainerSchema.EnsureAsync(db);
         await CourseSubjectSchema.EnsureAsync(db);
@@ -74,6 +79,8 @@ public static class SeedData
 
         if (await db.Users.AnyAsync())
         {
+            if (seedDemoStaff && adminAccount is not null)
+                await EnsureDemoStaffAsync(db, adminAccount.Id, hash, verifiedAt);
             await EnsurePlatformCreatorAsync(db);
             await EnsureDemoWorkspaceRolesAsync(db);
             await EnsureRoleRequestFixturesAsync(db);
@@ -417,6 +424,8 @@ public static class SeedData
         }
 
         await db.SaveChangesAsync();
+        if (seedDemoStaff && adminAccount is not null)
+            await EnsureDemoStaffAsync(db, adminAccount.Id, hash, verifiedAt);
         await EnsureDemoWorkspaceRolesAsync(db);
         await EnsureRoleRequestFixturesAsync(db);
         await EnsureCourseReviewFixturesAsync(db);
@@ -424,6 +433,63 @@ public static class SeedData
         await RecommendationSeed.EnsureCourseTagsAsync(db);
         await RecommendationSeed.EnsureDemoProfileAndRatingsAsync(db);
         await CourseTrainerSchema.BackfillAsync(db);
+    }
+
+    private static async Task EnsureDemoStaffAsync(
+        CoLearnXDbContext db,
+        int adminAccountId,
+        string passwordHash,
+        DateTime verifiedAt)
+    {
+        const string localName = "qingkong";
+        var existing = await db.StaffAccounts.Include(account => account.User)
+            .SingleOrDefaultAsync(account => account.Email == StaffEmail);
+        if (existing is not null)
+        {
+            existing.FullName = localName;
+            existing.DisplayName = localName;
+            existing.User.FullName = localName;
+            existing.User.DisplayName = localName;
+            await db.SaveChangesAsync();
+            return;
+        }
+
+        var staffNumber = (await db.StaffAccounts.MaxAsync(account => (int?)account.StaffNumber) ?? 0) + 1;
+        var hiddenUser = new User
+        {
+            Email = $"demo-staff-{staffNumber}@staff.colearnx",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(Convert.ToHexString(RandomNumberGenerator.GetBytes(32))),
+            FullName = localName,
+            DisplayName = localName,
+            CreditBalance = 0,
+            HeldCredits = 0,
+            IsActive = true,
+            EmailVerifiedAt = verifiedAt,
+            SessionStamp = Guid.NewGuid(),
+        };
+        db.Users.Add(hiddenUser);
+        await db.SaveChangesAsync();
+
+        db.UserRoles.Add(new UserRole
+        {
+            UserId = hiddenUser.Id,
+            Role = AppRole.Trainer,
+            IsVisible = false,
+        });
+        db.TrainerProfiles.Add(new TrainerProfile { UserId = hiddenUser.Id });
+        db.StaffAccounts.Add(new StaffAccount
+        {
+            Email = StaffEmail,
+            PasswordHash = passwordHash,
+            FullName = localName,
+            DisplayName = localName,
+            StaffNumber = staffNumber,
+            DocumentPath = "demo/staff/qingkong.pdf",
+            UserId = hiddenUser.Id,
+            CreatedByAdminAccountId = adminAccountId,
+            SessionStamp = Guid.NewGuid(),
+        });
+        await db.SaveChangesAsync();
     }
 
     private static async Task EnsurePlatformCreatorAsync(CoLearnXDbContext db)

@@ -176,7 +176,9 @@ public record PostponementOptionDto(int IntakeId, int CourseSessionId, string La
     DateTime EndsAt, DateTime RegistrationClosesAt, int CreditsRequired, int? SeatsLeft);
 
 public record MemberHubMaterialDto(int Id, string Title, string Format, DateTime AttachedAt);
-public record MemberHubRecordingDto(int Id, string Title, string RecordingUrl, DateTime CreatedAt);
+public record MemberHubRecordingDto(int Id, string Title, string RecordingUrl, DateTime CreatedAt,
+    bool IsUploadedFile = false,
+    string? DownloadName = null);
 public record MemberHubSessionMaterialDto(
     int Id,
     int CourseSessionId,

@@ -248,6 +248,18 @@ public class EnrollmentsController(IEnrollmentService enrollments, IMemberLearni
         catch (KeyNotFoundException) { return NotFound(new ApiError("ENROLLMENT_NOT_FOUND", "Enrollment not found.")); }
     }
 
+    [HttpGet("{enrollmentId:int}/recordings/{recordingId:int}/file")]
+    public async Task<IActionResult> RecordingFile(int enrollmentId, int recordingId, CancellationToken ct)
+    {
+        try
+        {
+            var file = await hub.OpenRecordingAsync(User.GetUserId(), enrollmentId, recordingId, ct);
+            return File(file.Stream, file.ContentType, file.DownloadName);
+        }
+        catch (KeyNotFoundException) { return NotFound(new ApiError("ENROLLMENT_NOT_FOUND", "Enrollment not found.")); }
+        catch (FileNotFoundException) { return NotFound(new ApiError("RECORDING_NOT_FOUND", "Recording not found.")); }
+    }
+
     [HttpGet("{enrollmentId:int}/materials/{versionId:int}/file")]
     public async Task<IActionResult> MaterialFile(int enrollmentId, int versionId, CancellationToken ct)
     {

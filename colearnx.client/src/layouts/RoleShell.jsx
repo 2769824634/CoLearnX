@@ -18,8 +18,6 @@ const NAV = {
     { to: '/trainer/home', label: 'Homepage' },
     { to: '/trainer/courses', label: 'Course' },
     { to: '/trainer/invitations', label: 'Teaching invitations' },
-    { to: '/trainer/attendance', label: 'Attendance' },
-    { to: '/trainer/learners', label: 'Learner List' },
     { to: '/trainer/account', label: 'My Account' },
   ],
   creator: [

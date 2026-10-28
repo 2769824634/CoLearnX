@@ -121,6 +121,11 @@ export default function MemberProgramsPage() {
     catch (error) { showToast(userFacingError(error, 'Could not download this Session material. Please try again.')); }
   }
 
+  async function downloadRecording(item) {
+    try { await enrollmentsApi.downloadRecording(hub.enrollmentId, item.id, item.downloadName || item.title, query.token); }
+    catch (error) { showToast(userFacingError(error, 'Could not download this recording. Please try again.')); }
+  }
+
   const sessionMaterialGroups = (query.data?.sessionMaterials || []).reduce((groups, item) => {
     const key = String(item.courseSessionId);
     const existing = groups.find((group) => group.key === key);
@@ -198,7 +203,9 @@ export default function MemberProgramsPage() {
               <h3>Session materials</h3>
               {sessionMaterialGroups.length ? sessionMaterialGroups.map((group) => <section key={group.key} aria-label={`${group.label} materials`}><h4>{group.label}</h4>{group.items.map((item) => <button key={item.id} type="button" className="btn btn-ghost btn-block" onClick={() => downloadSessionMaterial(item)}>{item.title} · {item.format}</button>)}</section>) : <p>No Session materials uploaded yet.</p>}
                <h3>Recordings</h3>
-              {query.data.recordings.length ? query.data.recordings.map((item) => <a key={item.id} className="btn btn-ghost btn-block" href={item.recordingUrl} target="_blank" rel="noopener noreferrer">{item.title}</a>) : <p>No recordings added yet.</p>}
+              {query.data.recordings.length ? query.data.recordings.map((item) => item.isUploadedFile
+                ? <button key={item.id} type="button" className="btn btn-ghost btn-block" onClick={() => downloadRecording(item)}>{item.title}</button>
+                : <a key={item.id} className="btn btn-ghost btn-block" href={item.recordingUrl} target="_blank" rel="noopener noreferrer">{item.title}</a>) : <p>No recordings added yet.</p>}
               {hub.meetingLink ? <a className="btn btn-primary btn-block" href={hub.meetingLink} target="_blank" rel="noopener noreferrer">Join Live Session</a> : null}
             </> : null}
             {hub ? <><p>For an enrollment issue or refund review, ask Admin through My Disputes.</p><button type="button" className="btn btn-ghost btn-block" onClick={() => navigate(`/member/disputes?enrollmentId=${hub.enrollmentId}`)}>View or submit a dispute</button></> : null}

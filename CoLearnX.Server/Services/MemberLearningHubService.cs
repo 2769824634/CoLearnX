@@ -14,6 +14,7 @@ public interface IMemberLearningHubService
     Task<IReadOnlyList<MemberHubRecordingDto>> RecordingsAsync(int userId, int enrollmentId, CancellationToken ct = default);
     Task<MaterialFileResult> OpenMaterialAsync(int userId, int enrollmentId, int versionId, CancellationToken ct = default);
     Task<MaterialFileResult> OpenSessionMaterialAsync(int userId, int enrollmentId, int materialId, CancellationToken ct = default);
+    Task<MaterialFileResult> OpenRecordingAsync(int userId, int enrollmentId, int recordingId, CancellationToken ct = default);
 }
 
 public sealed class MemberLearningHubService(CoLearnXDbContext db, IFileStorage files) : IMemberLearningHubService
@@ -46,11 +47,15 @@ public sealed class MemberLearningHubService(CoLearnXDbContext db, IFileStorage 
     public async Task<IReadOnlyList<MemberHubRecordingDto>> RecordingsAsync(int userId, int enrollmentId, CancellationToken ct = default)
     {
         var enrollment = await RequireEnrollmentAsync(userId, enrollmentId, ct);
-        return await db.SessionRecordings.AsNoTracking()
+        var recordings = await db.SessionRecordings.AsNoTracking()
             .Where(item => item.CourseSessionId == enrollment.CourseSessionId)
             .OrderByDescending(item => item.CreatedAt)
-            .Select(item => new MemberHubRecordingDto(item.Id, item.Title, item.RecordingUrl, item.CreatedAt))
+            .Select(item => new { item.Id, item.Title, item.RecordingUrl, item.FilePath, item.CreatedAt })
             .ToListAsync(ct);
+        return recordings.Select(item => new MemberHubRecordingDto(item.Id, item.Title,
+            item.FilePath is null ? item.RecordingUrl : $"/api/enrollments/{enrollmentId}/recordings/{item.Id}/file",
+            item.CreatedAt, item.FilePath is not null,
+            item.FilePath is null ? null : RecordingFiles.DownloadName(item.Title, item.FilePath))).ToList();
     }
 
     public async Task<MaterialFileResult> OpenMaterialAsync(int userId, int enrollmentId, int versionId, CancellationToken ct = default)
@@ -76,6 +81,21 @@ public sealed class MemberLearningHubService(CoLearnXDbContext db, IFileStorage 
             ?? throw new FileNotFoundException("Session material not found.");
         return new MaterialFileResult(stream, MaterialFiles.ContentType(Path.GetExtension(material.FilePath)),
             MaterialFiles.DownloadName(material.Title, material.FilePath));
+    }
+
+    public async Task<MaterialFileResult> OpenRecordingAsync(int userId, int enrollmentId, int recordingId,
+        CancellationToken ct = default)
+    {
+        var enrollment = await RequireEnrollmentAsync(userId, enrollmentId, ct);
+        var recording = await db.SessionRecordings.AsNoTracking()
+            .Where(item => item.Id == recordingId && item.CourseSessionId == enrollment.CourseSessionId
+                && item.FilePath != null)
+            .Select(item => new { item.FilePath, item.Title })
+            .SingleOrDefaultAsync(ct) ?? throw new FileNotFoundException("Recording not found.");
+        var filePath = recording.FilePath!;
+        var stream = await files.OpenAsync(filePath, ct) ?? throw new FileNotFoundException("Recording not found.");
+        return new MaterialFileResult(stream, RecordingFiles.ContentType(Path.GetExtension(filePath)),
+            RecordingFiles.DownloadName(recording.Title, filePath));
     }
 
     private async Task<Enrollment> RequireEnrollmentAsync(int userId, int enrollmentId, CancellationToken ct)

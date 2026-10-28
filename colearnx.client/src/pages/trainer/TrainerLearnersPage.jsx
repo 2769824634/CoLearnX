@@ -6,10 +6,11 @@ import useTrainerQuery from './useTrainerQuery';
 import TrainerReservationPanel from './TrainerReservationPanel';
 import { formatCount } from '../businessPresentation';
 
-async function loadLearnerWorkspace(token, _key, signal) {
+async function loadLearnerWorkspace(token, courseId, signal) {
   const summaries = await trainerIntakesApi.list(token, signal);
+  const selected = courseId ? summaries.filter((item) => item.courseId === Number(courseId)) : summaries;
   const [cohorts, certificateRequests] = await Promise.all([
-    Promise.all(summaries.map(async (summary) => {
+    Promise.all(selected.map(async (summary) => {
       const [intake, learners, assessments] = await Promise.all([
         trainerIntakesApi.get(token, summary.id, signal),
         trainerLaterPhaseApi.learners(token, summary.id, signal),
@@ -32,8 +33,8 @@ function LearnerAttendance({ learner, sessions = [] }) {
   })}</>;
 }
 
-export default function TrainerLearnersPage() {
-  const query = useTrainerQuery(loadLearnerWorkspace);
+export default function TrainerLearnersPage({ courseId = null, embedded = false }) {
+  const query = useTrainerQuery(loadLearnerWorkspace, courseId || '');
   const [choice, setChoice] = useState('');
   const [assessment, setAssessment] = useState(initialAssessment);
   const [grade, setGrade] = useState(initialGrade);
@@ -78,8 +79,8 @@ export default function TrainerLearnersPage() {
     }), 'Grade saved.', () => setGrade(initialGrade));
   }
 
-  const submittedRequests = query.data?.certificateRequests.filter((item) => item.status === 'Submitted') || [];
-  return <section className="trainer-page later-page">
+  const submittedRequests = query.data?.certificateRequests.filter((item) => item.status === 'Submitted' && (!courseId || item.courseId === courseId)) || [];
+  return <section className={embedded ? "later-panel" : "trainer-page later-page"}>
     <TrainerHeader title="Learner list">Monitor progress, attendance, assessment results and certificate readiness by Intake.</TrainerHeader>
     {query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <>
       <div className="trainer-toolbar"><div className="form-group"><label htmlFor="learner-intake">Intake</label><select id="learner-intake" value={cohort?.id || ''} onChange={(event) => setChoice(event.target.value)}>{query.data.cohorts.map((item) => <option key={item.id} value={item.id}>Intake #{item.id} · {item.status}</option>)}</select></div></div>

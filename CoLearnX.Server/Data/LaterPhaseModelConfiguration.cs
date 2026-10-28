@@ -35,6 +35,7 @@ internal static class LaterPhaseModelConfiguration
             entity.HasIndex(item => new { item.CourseSessionId, item.RecordingUrl }).IsUnique();
             entity.Property(item => item.Title).HasMaxLength(160);
             entity.Property(item => item.RecordingUrl).HasMaxLength(sqlite ? 1024 : 450);
+            entity.Property(item => item.FilePath).HasMaxLength(512);
             entity.HasOne(item => item.CourseSession).WithMany().HasForeignKey(item => item.CourseSessionId)
                 .OnDelete(DeleteBehavior.Restrict);
         });

@@ -27,6 +27,8 @@ import StaffIntakeCreatePage from '../pages/staff/StaffIntakeCreatePage';
 import StaffIntakeDetailPage from '../pages/staff/StaffIntakeDetailPage';
 import TrainerHomePage from '../pages/trainer/TrainerHomePage';
 import TrainerIntakesPage from '../pages/trainer/TrainerIntakesPage';
+import TrainerCourseDetailPage from '../pages/trainer/TrainerCourseDetailPage';
+import TrainerSessionDetailPage from '../pages/trainer/TrainerSessionDetailPage';
 import TrainerIntakeDetailPage from '../pages/trainer/TrainerIntakeDetailPage';
 import TrainerAttendancePage from '../pages/trainer/TrainerAttendancePage';
 import TrainerLearnersPage from '../pages/trainer/TrainerLearnersPage';
@@ -140,7 +142,9 @@ export default function AppRouter() {
           <Route path="/trainer" element={<RoleShell role="trainer" />}>
             <Route path="home" element={<TrainerHomePage />} />
             <Route path="courses" element={<TrainerIntakesPage />} />
+            <Route path="courses/:courseId" element={<TrainerCourseDetailPage />} />
             <Route path="courses/intakes/:courseIntakeId" element={<TrainerIntakeDetailPage />} />
+            <Route path="courses/intakes/:courseIntakeId/sessions/:courseSessionId" element={<TrainerSessionDetailPage />} />
             <Route path="invitations" element={<TrainerInvitationsPage />} />
             <Route path="attendance" element={<TrainerAttendancePage />} />
             <Route path="learners" element={<TrainerLearnersPage />} />

@@ -33,7 +33,7 @@ function fileError(file) {
   return null;
 }
 
-export default function TrainerSessionMaterialsPanel({ token, intake, api = trainerLaterPhaseApi }) {
+export default function TrainerSessionMaterialsPanel({ token, intake, api = trainerLaterPhaseApi, singleSession = false }) {
   const sessions = useMemo(() => intake?.sessions || [], [intake?.sessions]);
   const sessionIds = useMemo(() => sessions.map(sessionKey).filter(Boolean), [sessions]);
   const [materials, setMaterials] = useState({});
@@ -137,10 +137,10 @@ export default function TrainerSessionMaterialsPanel({ token, intake, api = trai
       <div className="trainer-section-heading">
         <div>
           <p className="trainer-eyebrow">Per-Session resources</p>
-          <h2 id="trainer-session-materials-title">Session materials</h2>
+          <h2 id="trainer-session-materials-title">{singleSession ? 'Session material' : 'Session materials'}</h2>
         </div>
       </div>
-      <p className="trainer-help">Upload a PDF, PPTX, DOCX, PNG or JPG/JPEG file for the Session where learners will use it. Files must be 20 MB or smaller.</p>
+      <p className="trainer-help">Upload a PDF, PPTX, DOCX, PNG or JPG/JPEG file for the Session where learners will use it. Files must be 20 MB or smaller.{singleSession ? ' A new upload replaces the current material.' : ''}</p>
       <TrainerError error={error} onRetry={() => { setNotice(''); setRevision((current) => current + 1); }} retryLabel="Refresh Session materials" />
       {notice ? <p className="trainer-notice" role="status">{notice}</p> : null}
       {loading ? <div className="trainer-empty" role="status">Loading Session materials…</div> : !sessions.length ? <div className="trainer-empty">No Sessions are configured for this Intake.</div> : (
@@ -179,7 +179,7 @@ export default function TrainerSessionMaterialsPanel({ token, intake, api = trai
                     <label htmlFor={`session-material-file-${id}`}>Material file for {label}</label>
                     <input id={`session-material-file-${id}`} type="file" accept={ACCEPT} required disabled={Boolean(busy)} onChange={(event) => updateDraft(id, { file: event.target.files?.[0] || null })} />
                   </div>
-                  <button className="btn btn-primary" type="submit" disabled={Boolean(busy)}>{uploadBusy ? 'Uploading…' : `Upload material for ${label}`}</button>
+                  <button className="btn btn-primary" type="submit" disabled={Boolean(busy)}>{uploadBusy ? 'Uploading…' : `${list.length ? 'Replace' : 'Upload'} material for ${label}`}</button>
                 </form>
               </article>
             );

@@ -16,6 +16,8 @@ public interface ITrainerLaterPhaseService
     Task<IReadOnlyList<TrainerReservationDto>> ListReservationsAsync(int trainerUserId, int intakeId, CancellationToken ct = default);
     Task<IReadOnlyList<SessionRecordingDto>> ListRecordingsAsync(int trainerUserId, int intakeId, int sessionId, CancellationToken ct = default);
     Task<SessionRecordingDto> AddRecordingAsync(int trainerUserId, int intakeId, int sessionId, CreateSessionRecordingRequest request, CancellationToken ct = default);
+    Task<SessionRecordingDto> UploadRecordingAsync(int trainerUserId, int intakeId, int sessionId, string? title, IFormFile? file, CancellationToken ct = default);
+    Task<MaterialFileResult> OpenRecordingAsync(int trainerUserId, int intakeId, int sessionId, int recordingId, CancellationToken ct = default);
     Task<IReadOnlyList<SessionMaterialDto>> ListSessionMaterialsAsync(int trainerUserId, int intakeId, int sessionId, CancellationToken ct = default);
     Task<SessionMaterialDto> UploadSessionMaterialAsync(int trainerUserId, int intakeId, int sessionId, string? title, IFormFile? file, CancellationToken ct = default);
     Task<MaterialFileResult> OpenSessionMaterialAsync(int trainerUserId, int intakeId, int sessionId, int materialId, CancellationToken ct = default);

@@ -24,6 +24,19 @@ function createLaterPhaseApi(scope) {
   addRecording: (token, intakeId, sessionId, body) => apiRequest(`${intakePath(intakeId)}/sessions/${encodeURIComponent(sessionId)}/recordings`, {
     method: 'POST', token, body,
   }),
+  uploadRecording: (token, intakeId, sessionId, title, file) => {
+    const body = new FormData();
+    body.append('title', title);
+    body.append('file', file);
+    return apiRequest(`${intakePath(intakeId)}/sessions/${encodeURIComponent(sessionId)}/recordings`, {
+      method: 'POST', token, body, asForm: true,
+    });
+  },
+  downloadRecording: (token, intakeId, sessionId, recordingId, fileName) => downloadFile(
+    `${intakePath(intakeId)}/sessions/${encodeURIComponent(sessionId)}/recordings/${encodeURIComponent(recordingId)}/file`,
+    fileName,
+    token,
+  ),
   sessionMaterials: (token, intakeId, sessionId, signal) => apiRequest(`${intakePath(intakeId)}/sessions/${encodeURIComponent(sessionId)}/materials`, { token, signal }),
   uploadSessionMaterial: (token, intakeId, sessionId, title, file) => {
     const body = new FormData();
