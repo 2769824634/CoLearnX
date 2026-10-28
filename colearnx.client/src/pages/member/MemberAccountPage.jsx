@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
-import Modal from '../../components/Modal';
+import { useAuth } from '../../auth/AuthContext';
+import { ProfileEditor, ProfileDetails, IdentityVisibility } from '../account/ProfileEditor';
 import { maskEmail, maskPhone } from '../../data/memberMock';
 import { useMemberData } from './memberDataState';
 import RoleApplicationsPanel from '../account/RoleApplicationsPanel';
@@ -10,24 +11,9 @@ import AvatarEditor from '../account/AvatarEditor';
 // Masked account + Edit Profile.
 export default function MemberAccountPage() {
   const navigate = useNavigate();
-  const { state, saveProfile } = useMemberData();
+  const { state, showToast } = useMemberData();
+  const { user } = useAuth();
   const [editOpen, setEditOpen] = useState(false);
-  const [draft, setDraft] = useState(null);
-  const vis = state.identityVisibility;
-
-  function openEdit() {
-    setDraft({
-      user: { ...state.user },
-      identityVisibility: { ...state.identityVisibility },
-      prefs: { ...state.prefs },
-    });
-    setEditOpen(true);
-  }
-
-  async function save() {
-    await saveProfile(draft);
-    setEditOpen(false);
-  }
 
   return (
     <>
@@ -56,7 +42,7 @@ export default function MemberAccountPage() {
                 <h3 style={{ fontSize: 15, marginBottom: 4 }}>Account details</h3>
                 <p style={{ fontSize: 12, color: 'var(--slate)', margin: 0 }}>Privacy protected. Update profile details from Edit Profile.</p>
               </div>
-              <button type="button" className="btn btn-primary" onClick={openEdit}>Edit Profile</button>
+              <button type="button" className="btn btn-primary" onClick={() => setEditOpen(true)}>Edit Profile</button>
               <button type="button" className="btn btn-ghost" onClick={() => navigate('/member/onboarding')}>Edit interests</button>
             </div>
             <div className="card" style={{ marginBottom: 12 }}>
@@ -68,6 +54,7 @@ export default function MemberAccountPage() {
                   <div className="masked-field"><div className="label">Email</div><div className="value">{maskEmail(state.user.email)}</div></div>
                   <div className="masked-field"><div className="label">Phone</div><div className="value">{maskPhone(state.user.phone || '')}</div></div>
                 </div>
+                <ProfileDetails user={user} />
                 <div className="callout" style={{ marginTop: 12 }}>
                   <div className="callout-title">Privacy</div>
                   Email and phone are masked on My Account.
@@ -77,9 +64,7 @@ export default function MemberAccountPage() {
             <div className="card">
               <div className="card-header">Identity visibility</div>
               <div className="card-body">
-                <div style={{ display: 'flex', marginBottom: 8, fontSize: 13 }}><span>Member</span><span style={{ flex: 1 }} /><span className="pill">{vis.member ? 'Visible' : 'Hidden'}</span></div>
-                <div style={{ display: 'flex', marginBottom: 8, fontSize: 13 }}><span>Trainer</span><span style={{ flex: 1 }} /><span className="pill">{vis.trainer ? 'Visible' : 'Hidden'}</span></div>
-                <div style={{ display: 'flex', fontSize: 13 }}><span>Creator</span><span style={{ flex: 1 }} /><span className="pill muted">{vis.creator ? 'Visible' : 'Hidden / pending'}</span></div>
+                <IdentityVisibility user={user} />
               </div>
             </div>
             <RoleApplicationsPanel />
@@ -87,34 +72,7 @@ export default function MemberAccountPage() {
         </div>
       </MemberShell>
 
-      <Modal open={editOpen && Boolean(draft)} title="Edit Profile" onClose={() => setEditOpen(false)} width={640}>
-        {draft ? (
-          <>
-            <div className="grid-2">
-              <div className="form-group"><label htmlFor="member-fullName">Full Name</label><input id="member-fullName" value={draft.user.fullName} onChange={(e) => setDraft({ ...draft, user: { ...draft.user, fullName: e.target.value } })} /></div>
-              <div className="form-group"><label htmlFor="member-displayName">Display name</label><input id="member-displayName" value={draft.user.displayName} onChange={(e) => setDraft({ ...draft, user: { ...draft.user, displayName: e.target.value } })} /></div>
-              <div className="form-group"><label htmlFor="member-phone">Phone</label><input id="member-phone" value={draft.user.phone ?? ''} onChange={(e) => setDraft({ ...draft, user: { ...draft.user, phone: e.target.value } })} /></div>
-              <div className="form-group"><label htmlFor="member-bio">Bio</label><input id="member-bio" value={draft.user.bio ?? ''} onChange={(e) => setDraft({ ...draft, user: { ...draft.user, bio: e.target.value } })} /></div>
-            </div>
-            <div className="identity-block">
-              <div className="ib-head">
-                <span className="grow">Member visibility</span>
-                <button type="button" className={`switch${draft.identityVisibility.member ? ' on' : ''}`} onClick={() => setDraft({ ...draft, identityVisibility: { ...draft.identityVisibility, member: !draft.identityVisibility.member } })} />
-              </div>
-            </div>
-            <div className="identity-block">
-              <div className="ib-head">
-                <span className="grow">Trainer visibility</span>
-                <button type="button" className={`switch${draft.identityVisibility.trainer ? ' on' : ''}`} onClick={() => setDraft({ ...draft, identityVisibility: { ...draft.identityVisibility, trainer: !draft.identityVisibility.trainer } })} />
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setEditOpen(false)}>Cancel</button>
-              <button type="button" className="btn btn-primary" onClick={save}>Save Changes</button>
-            </div>
-          </>
-        ) : null}
-      </Modal>
+      {editOpen && <ProfileEditor onClose={(saved) => { setEditOpen(false); if (saved) showToast('Profile saved'); }} />}
     </>
   );
 }
