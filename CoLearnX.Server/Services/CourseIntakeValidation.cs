@@ -19,14 +19,24 @@ internal static class CourseIntakeValidation
             throw new CourseIntakeException("INVALID_UTC_TIME", "Provide a UTC timestamp with a Z suffix.", field: field);
     }
 
-    public static void Dates(DateTime opens, DateTime closes, DateTime starts, DateTime ends)
+    public static void Dates(DateTime opens, DateTime closes, DateTime starts, DateTime ends, int daysBeforeTeaching = 0, DateTime? utcNow = null)
     {
+        var now = utcNow ?? DateTime.UtcNow;
+        var currentMinute = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, DateTimeKind.Utc);
+        if (opens < currentMinute)
+            throw new CourseIntakeException("REGISTRATION_IN_THE_PAST", "Registration cannot start before the current time.", field: "registrationOpensAt");
+        if (daysBeforeTeaching < 0)
+            throw new CourseIntakeException("INVALID_INTAKE_DATES", "Days before teaching cannot be negative.", field: "daysBeforeTeaching");
         if (!(opens < closes))
             throw new CourseIntakeException("INVALID_INTAKE_DATES", "Registration must close after it opens.", field: "registrationClosesAt");
         if (!(starts < ends))
             throw new CourseIntakeException("INVALID_INTAKE_DATES", "Delivery must end after it starts.", field: "endsAt");
-        if (!(closes <= starts.AddDays(-10)))
-            throw new CourseIntakeException("INVALID_INTAKE_DATES", "Registration must close at least ten days before delivery starts.", field: "registrationClosesAt");
+        if (!(closes <= starts.AddDays(-daysBeforeTeaching)))
+            throw new CourseIntakeException("INVALID_INTAKE_DATES",
+                daysBeforeTeaching == 0
+                    ? "Registration must close on or before teaching starts."
+                    : $"Registration must close at least {daysBeforeTeaching} days before teaching starts.",
+                field: "registrationClosesAt");
     }
 
     public static void Session(CourseSession session, DateTime starts, DateTime ends)

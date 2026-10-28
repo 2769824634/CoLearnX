@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import useTrainerQuery, { loadTrainerOverview } from './useTrainerQuery';
 import { IntakeRows, TrainerError, TrainerHeader, TrainerLoading } from './TrainerUi';
-import { intakeStatuses, isEditable, statusLabel } from './intakeForm';
+import { intakeStatuses, statusLabel } from './intakeForm';
 
 export default function TrainerIntakesPage() {
   const query = useTrainerQuery(loadTrainerOverview);
@@ -14,7 +14,7 @@ export default function TrainerIntakesPage() {
   const term = search.trim().toLowerCase();
   const intakes = (query.data?.intakes || []).filter((intake) => {
     const course = courseMap.get(intake.courseId);
-    const matchesStatus = !status || (status === 'editable' ? isEditable(intake.status) : status === 'delivery' ? ['Published', 'InProgress'].includes(intake.status) : intake.status === status);
+    const matchesStatus = !status || (status === 'delivery' ? ['Published', 'InProgress'].includes(intake.status) : intake.status === status);
     return matchesStatus && `${intake.id} ${intake.courseId} ${course?.title || ''} ${course?.code || ''}`.toLowerCase().includes(term);
   });
   return <section className="trainer-page">
@@ -23,13 +23,13 @@ export default function TrainerIntakesPage() {
     </TrainerHeader>
     <div className="trainer-toolbar">
       <div className="form-group"><label htmlFor="intake-search">Find an Intake</label><input id="intake-search" type="search" placeholder="Course title, code or Intake ID" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
-      <div className="form-group"><label htmlFor="intake-status">Status</label><select id="intake-status" value={status} onChange={(event) => setParams(event.target.value ? { status: event.target.value } : {})}><option value="">All statuses</option><option value="editable">Draft & rejected</option><option value="delivery">Published & in progress</option>{intakeStatuses.map((value) => <option key={value} value={value}>{statusLabel(value)}</option>)}</select></div>
+      <div className="form-group"><label htmlFor="intake-status">Status</label><select id="intake-status" value={status} onChange={(event) => setParams(event.target.value ? { status: event.target.value } : {})}><option value="">All statuses</option><option value="delivery">Published & in progress</option>{intakeStatuses.map((value) => <option key={value} value={value}>{statusLabel(value)}</option>)}</select></div>
       <button type="button" className="btn btn-ghost" onClick={query.refresh} disabled={query.loading}>Refresh</button>
     </div>
     {query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <>
       <TrainerError error={query.data.catalogError} onRetry={query.refresh} retryLabel="Reload course names" />
       <p className="trainer-result-count">{intakes.length} {intakes.length === 1 ? 'Intake' : 'Intakes'} · Times in UTC</p>
-      <IntakeRows intakes={intakes} courses={courses} empty={status || term ? 'No Intakes match these filters.' : undefined} />
+      <IntakeRows intakes={intakes} courses={courses} empty={status || term ? 'No classes match these filters.' : 'No classes have been assigned to you yet. Accept a teaching invitation, then the Creator can assign you.'} />
     </>}
   </section>;
 }

@@ -24,7 +24,7 @@ it('clears only the date field that the trainer changed', () => {
     onSave={vi.fn()}
   />);
 
-  fireEvent.change(screen.getByLabelText('Registration closes'), { target: { value: '2026-09-21' } });
+  fireEvent.change(screen.getByLabelText('Registration length (days)'), { target: { value: '21' } });
   expect(onError).toHaveBeenCalledWith({
     message: 'Please correct the remaining fields: Delivery must end after it starts.',
     fieldErrors: { endsAt: ['Delivery must end after it starts.'] },

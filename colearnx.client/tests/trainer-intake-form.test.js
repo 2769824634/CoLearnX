@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import process from 'node:process';
-import { fieldMessages, initialSchedule, initialSession, safeMeetingLink, schedulePayload, sessionEndLocal, sessionPayload, toLocalInput, toUtc, toUtcDateInput } from '../src/pages/trainer/intakeForm.js';
+import { fieldMessages, initialSchedule, initialSession, safeMeetingLink, schedulePayload, sessionEndLocal, sessionPayload, toLocalInput, toUtc } from '../src/pages/trainer/intakeForm.js';
 
 const intake = { startsAt: '2026-10-10T00:00:00.000Z', endsAt: '2026-10-11T08:00:00.000Z', version: 'current-parent-version' };
 const session = { label: 'Workshop', startsAt: '2026-10-10T01:00:00.000Z', endsAt: '2026-10-10T02:00:00.000Z', meetingLink: 'https://example.com/meeting' };
@@ -31,34 +31,57 @@ test('editing an unrelated field preserves the later occurrence of a repeated DS
   try {
     process.env.TZ = 'America/New_York';
     const original = { ...intake, registrationOpensAt: '2026-10-01T00:00:00Z', registrationClosesAt: '2026-10-20T00:00:00Z', startsAt: '2026-11-01T06:30:00.000Z', endsAt: '2026-11-01T08:00:00.000Z' };
-    assert.equal(schedulePayload(initialSchedule(original), original.version, original).startsAt, original.startsAt);
+    assert.equal(schedulePayload(initialSchedule(original), original.version, original, undefined, new Date('2026-08-01T00:00:00Z')).startsAt, original.startsAt);
     const originalSession = { ...session, startsAt: original.startsAt, endsAt: original.endsAt };
     assert.equal(sessionPayload(initialSession(originalSession, original), original, originalSession).startsAt, original.startsAt);
   } finally { if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous; }
 });
 
-test('registration dates stay on the UTC calendar day and drop any clock time', () => {
-  const original = { registrationOpensAt: '2026-09-01T08:30:45.000Z', registrationClosesAt: '2026-09-30T18:45:12.000Z', startsAt: intake.startsAt, endsAt: intake.endsAt };
-  assert.equal(toUtcDateInput(original.registrationClosesAt), '2026-09-30');
-  const values = initialSchedule(original);
-  assert.equal(values.registrationOpensAt, '2026-09-01');
-  assert.equal(values.registrationClosesAt, '2026-09-30');
-  const changed = schedulePayload({ ...values, registrationClosesAt: '2026-10-02' }, intake.version, original);
-  assert.equal(changed.registrationClosesAt, '2026-10-02T00:00:00.000Z');
-  assert.equal(changed.registrationOpensAt, '2026-09-01T08:30:45.000Z');
+test('registration is a start date, a clock time and a number of days', () => {
+  const previous = process.env.TZ;
+  try {
+    process.env.TZ = 'UTC';
+    const original = { registrationOpensAt: '2026-09-01T08:30:45.000Z', registrationClosesAt: '2026-09-30T18:45:12.000Z', startsAt: intake.startsAt, endsAt: intake.endsAt };
+    const values = initialSchedule(original);
+    assert.equal(values.registrationStartDate, '2026-09-01');
+    assert.equal(values.registrationStartTime, '08:30');
+    assert.equal(values.registrationDays, '29');
+    const then = new Date('2026-08-01T00:00:00Z');
+    const unchanged = schedulePayload(values, intake.version, original, undefined, then);
+    assert.equal(unchanged.registrationOpensAt, '2026-09-01T08:30:45.000Z');
+    assert.equal(unchanged.registrationClosesAt, '2026-09-30T18:45:12.000Z');
+    const changed = schedulePayload({ ...values, registrationDays: '31', daysBeforeTeaching: '0' }, intake.version, original, undefined, then);
+    assert.equal(changed.registrationOpensAt, '2026-09-01T08:30:45.000Z');
+    assert.equal(changed.registrationClosesAt, '2026-10-02T08:30:45.000Z');
+  } finally { if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous; }
 });
 
 test('schedule payload converts local times and forwards minEnrollment without local business rules', () => {
-  const close = '2026-09-30T00:00:00.000Z';
-  const values = initialSchedule({ ...intake, registrationOpensAt: '2026-09-01T00:00:00Z', registrationClosesAt: close });
-  const body = schedulePayload({ ...values, status: 'Published', trainerId: 99 }, intake.version);
-  assert.equal(body.registrationClosesAt, close);
-  assert.equal(body.version, intake.version);
-  assert.equal('status' in body, false);
-  assert.equal('trainerId' in body, false);
-  const inverted = schedulePayload({ ...values, registrationOpensAt: values.registrationClosesAt, registrationClosesAt: values.registrationOpensAt }, intake.version);
-  assert.ok(inverted.registrationOpensAt);
-  assert.ok(inverted.registrationClosesAt);
+  const previous = process.env.TZ;
+  try {
+    process.env.TZ = 'UTC';
+    const close = '2026-09-30T00:00:00.000Z';
+    const stored = { ...intake, registrationOpensAt: '2026-09-01T00:00:00Z', registrationClosesAt: close };
+    const values = initialSchedule(stored);
+    const then = new Date('2026-08-01T00:00:00Z');
+    const body = schedulePayload({ ...values, status: 'Published', trainerId: 99 }, intake.version, stored, undefined, then);
+    assert.equal(body.registrationClosesAt, close);
+    assert.equal(body.version, intake.version);
+    assert.equal('status' in body, false);
+    assert.equal('trainerId' in body, false);
+    assert.equal(body.daysBeforeTeaching, 10);
+    const longer = schedulePayload({ ...values, registrationDays: '40', daysBeforeTeaching: '0', deliveryStartDate: '2026-10-12', deliveryEndDate: '2026-10-13' }, intake.version, stored, undefined, then);
+    assert.equal(longer.registrationOpensAt, '2026-09-01T00:00:00.000Z');
+    assert.equal(longer.registrationClosesAt, '2026-10-11T00:00:00.000Z');
+    assert.throws(
+      () => schedulePayload(values, intake.version, stored, undefined, new Date('2026-09-15T00:00:00Z')),
+      (error) => error.code === 'INVALID_FORM' && Boolean(error.fieldErrors.registrationOpensAt),
+    );
+    assert.throws(
+      () => schedulePayload({ ...values, daysBeforeTeaching: '11' }, intake.version, stored, undefined, then),
+      (error) => error.code === 'INVALID_FORM' && Boolean(error.fieldErrors.daysBeforeTeaching),
+    );
+  } finally { if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous; }
 });
 
 test('switching physical delivery off clears hidden physical fields and retains the latest parent version', () => {

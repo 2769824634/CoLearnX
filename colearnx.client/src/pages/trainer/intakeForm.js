@@ -4,7 +4,6 @@ import { formatUtcDateTime } from '../businessPresentation.js';
 
 export const intakeStatuses = ['Draft', 'PendingApproval', 'Published', 'InProgress', 'Completed', 'Rejected', 'Cancelled'];
 export const statusLabel = (status) => ({ PendingApproval: 'Pending approval', InProgress: 'In progress' })[status] || status;
-export const isEditable = (status) => status === 'Draft' || status === 'Rejected';
 export const intakeLink = (id) => `/trainer/courses/intakes/${id}`;
 export const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 export const formatDate = (value) => value ? formatUtcDateTime(value) : '—';
@@ -53,14 +52,6 @@ export function toUtcDateInput(value) {
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
 }
 
-function registrationInstant(value, field, original) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) invalid(field, 'Enter a valid date.');
-  if (original && toUtcDateInput(original) === value) return utcDate(original).toISOString();
-  const date = new Date(`${value}T00:00:00.000Z`);
-  if (date.toISOString().slice(0, 10) !== value) invalid(field, 'Enter a valid date.');
-  return date.toISOString();
-}
-
 function invalid(field, message) {
   throw new ApiError('INVALID_FORM', message, 400, { [field]: [message] });
 }
@@ -75,20 +66,107 @@ export function toUtc(value, field, original) {
   return date.toISOString();
 }
 
-const registrationFields = ['registrationOpensAt', 'registrationClosesAt'];
-const deliveryFields = ['startsAt', 'endsAt'];
-export const initialSchedule = (intake = {}) => ({
-  ...Object.fromEntries(registrationFields.map((field) => [field, toUtcDateInput(intake[field])])),
-  ...Object.fromEntries(deliveryFields.map((field) => [field, toLocalInput(intake[field])])),
-  minEnrollment: intake.minEnrollment ?? 10,
-});
+function wholeDays(opens, closes) {
+  const span = utcDate(closes).getTime() - utcDate(opens).getTime();
+  const days = Math.round(span / 86400000);
+  return days >= 1 ? String(days) : '1';
+}
 
-export function schedulePayload(values, version, original, trainerId) {
-  const payload = {
-    ...Object.fromEntries(registrationFields.map((field) => [field, registrationInstant(values[field], field, original?.[field])])),
-    ...Object.fromEntries(deliveryFields.map((field) => [field, toUtc(values[field], field, original?.[field])])),
+function leadDays(closes, starts) {
+  const span = utcDate(starts).getTime() - utcDate(closes).getTime();
+  const days = Math.floor(span / 86400000);
+  return days >= 0 ? String(days) : '0';
+}
+
+export function todayInput(now = new Date()) {
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+function addUtcDays(iso, days) {
+  const date = utcDate(iso);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString();
+}
+
+function addLocalDays(dateString, days) {
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function localDate(value) {
+  return toLocalInput(value).slice(0, 10);
+}
+
+function inclusiveDeliveryEnd(endsAt, startDate) {
+  const endLocal = toLocalInput(endsAt);
+  let endDate = endLocal.slice(0, 10);
+  if (endLocal.slice(11, 16) === '00:00' && endDate) {
+    const previous = addLocalDays(endDate, -1);
+    if (previous >= startDate) endDate = previous;
+  }
+  return endDate;
+}
+
+export const initialSchedule = (intake = {}) => {
+  const openLocal = toLocalInput(intake.registrationOpensAt);
+  const startDate = localDate(intake.startsAt);
+  return {
+    registrationStartDate: openLocal.slice(0, 10),
+    registrationStartTime: openLocal.slice(11, 16),
+    registrationDays: intake.registrationOpensAt && intake.registrationClosesAt ? wholeDays(intake.registrationOpensAt, intake.registrationClosesAt) : '',
+    daysBeforeTeaching: intake.registrationClosesAt && intake.startsAt ? leadDays(intake.registrationClosesAt, intake.startsAt) : '',
+    deliveryStartDate: startDate,
+    deliveryEndDate: intake.endsAt ? inclusiveDeliveryEnd(intake.endsAt, startDate) : '',
+    minEnrollment: intake.minEnrollment ?? 10,
   };
-  payload.minEnrollment = Number(values.minEnrollment);
+};
+
+export function schedulePayload(values, version, original, trainerId, now = new Date()) {
+  const shown = original ? initialSchedule(original) : null;
+  const same = (key) => shown && values[key] === shown[key];
+  let registrationOpensAt;
+  let registrationClosesAt;
+  if (same('registrationStartDate') && same('registrationStartTime') && same('registrationDays')) {
+    registrationOpensAt = utcDate(original.registrationOpensAt).toISOString();
+    registrationClosesAt = utcDate(original.registrationClosesAt).toISOString();
+  } else {
+    const time = String(values.registrationStartTime || '').slice(0, 5);
+    const days = Number(values.registrationDays);
+    if (!Number.isInteger(days) || days < 1) invalid('registrationClosesAt', 'Enter how many days registration stays open.');
+    registrationOpensAt = same('registrationStartDate') && same('registrationStartTime') && original?.registrationOpensAt
+      ? utcDate(original.registrationOpensAt).toISOString()
+      : toUtc(`${values.registrationStartDate}T${time}`, 'registrationOpensAt');
+    registrationClosesAt = addUtcDays(registrationOpensAt, days);
+  }
+  let startsAt;
+  let endsAt;
+  if (same('deliveryStartDate') && same('deliveryEndDate')) {
+    startsAt = utcDate(original.startsAt).toISOString();
+    endsAt = utcDate(original.endsAt).toISOString();
+  } else {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(values.deliveryStartDate || '')) invalid('startsAt', 'Choose the first teaching date.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(values.deliveryEndDate || '')) invalid('endsAt', 'Choose the last teaching date.');
+    if (values.deliveryEndDate < values.deliveryStartDate) invalid('endsAt', 'Teaching must end on or after the day it starts.');
+    startsAt = toUtc(`${values.deliveryStartDate}T00:00`, 'startsAt');
+    endsAt = toUtc(`${addLocalDays(values.deliveryEndDate, 1)}T00:00`, 'endsAt');
+  }
+  const lead = Number(values.daysBeforeTeaching);
+  if (values.daysBeforeTeaching === '' || values.daysBeforeTeaching == null || !Number.isInteger(lead) || lead < 0) {
+    invalid('daysBeforeTeaching', 'Enter how many days must pass after registration closes before teaching starts.');
+  }
+  const currentMinute = new Date(now);
+  currentMinute.setSeconds(0, 0);
+  if (utcDate(registrationOpensAt).getTime() < currentMinute.getTime()) {
+    invalid('registrationOpensAt', 'Registration cannot start before the current time.');
+  }
+  if (utcDate(startsAt).getTime() < utcDate(registrationClosesAt).getTime() + lead * 86400000) {
+    invalid('daysBeforeTeaching', lead === 0
+      ? 'Teaching must start on or after registration closes.'
+      : `Teaching must start at least ${lead} days after registration closes.`);
+  }
+  const payload = { registrationOpensAt, registrationClosesAt, startsAt, endsAt, minEnrollment: Number(values.minEnrollment), daysBeforeTeaching: lead };
   if (version) return { ...payload, version };
   return trainerId ? { ...payload, trainerId: Number(trainerId) } : payload;
 }
