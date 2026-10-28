@@ -176,12 +176,16 @@ it('saves member multi-role details in one request and refreshes the signed-in u
   expect(refreshUser.mock.calls[0][0]).toMatchObject({ trainerHeadline: 'Trainer title', creatorHeadline: 'New creator' });
 });
 
-it('limits member-only editing to the member role', () => {
-  renderAccount({}, async () => json([]));
+it('limits member-only editing and submitted visibility to the member role', async () => {
+  const { refreshUser } = renderAccount({}, async (path, options = {}) => options.method === 'PUT' ? json(memberUser) : json([]));
   fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }));
   expect(screen.getByRole('button', { name: 'Member visibility' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Trainer visibility' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Creator visibility' })).toBeNull();
   expect(screen.queryByLabelText('Trainer headline')).toBeNull();
   expect(screen.queryByLabelText('Creator headline')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+  await waitFor(() => expect(refreshUser).toHaveBeenCalled());
+  const call = fetch.mock.calls.find(([path, options]) => path === '/api/users/1' && options.method === 'PUT');
+  expect(JSON.parse(call[1].body).identityVisibility).toEqual({ member: true });
 });

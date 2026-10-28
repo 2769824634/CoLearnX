@@ -69,7 +69,7 @@ describe('Trainer and Creator My Account', () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it('shows a masked trainer profile and saves Edit Profile changes', async () => {
+  it('shows a trainer profile and saves Edit Profile changes', async () => {
     const auth = authFor('trainer');
     vi.stubGlobal('fetch', vi.fn(async (path, options = {}) => {
       if (path === '/api/trainer/intakes') return json([{ id: 9, status: 'Published' }, { id: 10, status: 'Draft' }]);
@@ -95,8 +95,8 @@ describe('Trainer and Creator My Account', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Profile / My Account' })).toBeTruthy();
-    expect(screen.getByText('t****r@colearnx.test')).toBeTruthy();
-    expect(screen.getByText('****2333')).toBeTruthy();
+    expect(screen.getByText('trainer@colearnx.test')).toBeTruthy();
+    expect(screen.getByText('0411222333')).toBeTruthy();
     expect(screen.getByText('Intakes')).toBeTruthy();
     expect(document.querySelector('.avatar-frame').dataset.role).toBe('trainer');
     fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }));
@@ -111,7 +111,7 @@ describe('Trainer and Creator My Account', () => {
     expect(auth.refreshUser.mock.calls[0][0].trainerHeadline).toBe('Lead workshop trainer');
   });
 
-  it('shows a masked creator profile with role fields in Edit Profile', async () => {
+  it('shows a creator profile with role fields in Edit Profile', async () => {
     const auth = authFor('creator');
     vi.stubGlobal('fetch', vi.fn(async (path) => {
       if (path === '/api/creator/courses') {
@@ -129,7 +129,7 @@ describe('Trainer and Creator My Account', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Profile / My Account' })).toBeTruthy();
-    expect(screen.getByText('c****r@colearnx.test')).toBeTruthy();
+    expect(screen.getByText('creator@colearnx.test')).toBeTruthy();
     expect(screen.getByText('Cybersecurity, Cloud')).toBeTruthy();
     expect(document.querySelector('.avatar-frame').dataset.role).toBe('creator');
     fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }));
@@ -178,4 +178,5 @@ it.each(['trainer', 'creator'])('does not submit unowned role fields from the %s
   await waitFor(() => expect(auth.refreshUser).toHaveBeenCalled());
   const body = JSON.parse(fetchMock.mock.calls.find(([path, options]) => path === '/api/users/3' && options.method === 'PUT')[1].body);
   expect(body).not.toHaveProperty(role === 'trainer' ? 'creatorHeadline' : 'trainerHeadline');
+  expect(body.identityVisibility).toEqual({ [role]: true });
 });

@@ -675,6 +675,9 @@
   font-weight: 700;
   max-width: 220px;
 }
+
+.admin-credit-value {
+  display: inline-flex;
   min-width: 34px;
   height: 34px;
   align-items: center;

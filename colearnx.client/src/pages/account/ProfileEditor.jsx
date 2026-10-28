@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { usersApi } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import Modal from '../../components/Modal';
+import { COUNTRIES } from '../../data/countries';
 
 const IDENTITY_ROWS = [
   { key: 'member', label: 'Member', grantedHint: 'Learner profile & certificates' },
@@ -35,6 +36,7 @@ function profileDraft(user) {
     displayName: user?.displayName ?? '',
     phone: user?.phone ?? '',
     bio: user?.bio ?? '',
+    country: user?.country ?? '',
     trainerHeadline: user?.trainerHeadline ?? '',
     specialisations: user?.specialisations ?? '',
     creatorHeadline: user?.creatorHeadline ?? '',
@@ -60,8 +62,10 @@ export function ProfileEditor({ onClose }) {
     setError('');
     try {
       const updated = await usersApi.update(user.id, {
-        fullName: draft.fullName, displayName: draft.displayName, phone: draft.phone, bio: draft.bio,
-        identityVisibility: draft.identityVisibility,
+        fullName: draft.fullName, displayName: draft.displayName, phone: draft.phone, bio: draft.bio, country: draft.country,
+        identityVisibility: Object.fromEntries(
+          IDENTITY_ROWS.filter((row) => granted.has(row.key)).map((row) => [row.key, draft.identityVisibility[row.key]]),
+        ),
         ...(granted.has('trainer') ? { trainerHeadline: draft.trainerHeadline, specialisations: draft.specialisations } : {}),
         ...(granted.has('creator') ? { creatorHeadline: draft.creatorHeadline, expertiseTags: draft.expertiseTags } : {}),
       });
@@ -81,6 +85,15 @@ export function ProfileEditor({ onClose }) {
             <div className="grid-2">
               <AccountField id="account-fullName" label="Full Name" value={draft.fullName} onChange={(fullName) => setDraft({ ...draft, fullName })} />
               <AccountField id="account-displayName" label="Display name" value={draft.displayName} onChange={(displayName) => setDraft({ ...draft, displayName })} />
+              <div className="form-group">
+                <label htmlFor="account-email">Email</label>
+                <input id="account-email" type="email" value={user?.email ?? ''} disabled />
+              </div>
+              <div className="form-group">
+                <label htmlFor="account-country">Country / Region</label>
+                <input id="account-country" list="account-countries" maxLength={120} value={draft.country} onChange={(event) => setDraft({ ...draft, country: event.target.value })} />
+                <datalist id="account-countries">{COUNTRIES.map((name) => <option key={name} value={name} />)}</datalist>
+              </div>
               <AccountField id="account-phone" label="Phone" value={draft.phone} onChange={(phone) => setDraft({ ...draft, phone })} />
               <AccountField id="account-bio" label="Bio" value={draft.bio} onChange={(bio) => setDraft({ ...draft, bio })} />
               {granted.has('trainer') ? (
@@ -127,7 +140,8 @@ export function ProfileEditor({ onClose }) {
 export function ProfileDetails({ user }) {
   const roles = roleSet(user);
   return (<>
-    <div className="masked-field" style={{ marginTop: 12 }}><div className="label">Bio</div><div className="value">{user?.bio || 'No bio yet.'}</div></div>
+    <div className="masked-field" style={{ marginTop: 12 }}><div className="label">Country / Region</div><div className="value">{user?.country || '—'}</div></div>
+    <div className="masked-field"><div className="label">Bio</div><div className="value">{user?.bio || 'No bio yet.'}</div></div>
     {roles.has('trainer') && <><div className="masked-field"><div className="label">Trainer headline</div><div className="value">{user?.trainerHeadline || '—'}</div></div><div className="masked-field"><div className="label">Specialisations</div><div className="value">{user?.specialisations || '—'}</div></div></>}
     {roles.has('creator') && <><div className="masked-field"><div className="label">Creator headline</div><div className="value">{user?.creatorHeadline || '—'}</div></div><div className="masked-field"><div className="label">Expertise tags</div><div className="value">{user?.expertiseTags || '—'}</div></div></>}
   </>);

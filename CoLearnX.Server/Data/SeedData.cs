@@ -22,6 +22,7 @@ public static class SeedData
             await EnsureSqliteCourseCoreSchemaAsync(db);
         else if (db.Database.IsSqlServer())
             await EnsureSqlServerAccountTokenSchemaAsync(db);
+        await ProfileCountrySchema.EnsureAsync(db);
         await PlatformStaffSchema.EnsureAsync(db);
         await RecommendationSeed.EnsureSchemaAsync(db);
         await CreditReservationSchema.EnsureAsync(db);

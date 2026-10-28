@@ -113,7 +113,7 @@ export default function RoleApplicationsPanel() {
   }
 
   return (
-    <div className="card" style={{ marginTop: 12 }}>
+    <div id="account-applications" className="card" style={{ marginTop: 12, scrollMarginTop: 90 }}>
       <div className="card-header">Workspace applications</div>
       <div className="card-body">
         <p style={{ fontSize: 12, color: 'var(--slate)', marginTop: 0 }}>

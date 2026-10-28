@@ -113,15 +113,19 @@ it('shows the public homepage courses and Log in / Sign up without member APIs',
 });
 
 it('shows a signed-in member as signed in on the homepage, including Courses', async () => {
+  const logout = vi.fn();
   mountHome({
     booting: false,
     isAuthenticated: true,
     activeRole: 'member',
     token: 'token',
-    logout: () => {},
+    logout,
     user: { fullName: 'Huang Yousheng', roles: ['Member'], activeRole: 'Member', creditBalance: 0, heldCredits: 0 },
   });
-  expect(screen.getByRole('button', { name: 'Log out' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+  expect(logout).toHaveBeenCalledOnce();
   expect(screen.getByText('Huang Yousheng')).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Courses' }).getAttribute('href')).toBe('/member/courses');
   expect(screen.getByRole('link', { name: 'Wallet' }).getAttribute('href')).toBe('/member/payment');

@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
-import { maskEmail, maskPhone } from '../../data/memberMock';
 import RoleApplicationsPanel from './RoleApplicationsPanel';
 import AvatarEditor from './AvatarEditor';
 import { ProfileEditor, ProfileDetails, IdentityVisibility } from './ProfileEditor';
+import useAccountShortcuts from './useAccountShortcuts';
 
 export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summaryStats = [] }) {
   const { user } = useAuth();
-  const [editOpen, setEditOpen] = useState(false);
+  const { editOpen, setEditOpen, closeEdit: closeShortcut } = useAccountShortcuts();
   const [toast, setToast] = useState('');
 
   function closeEdit(saved) {
-    setEditOpen(false);
+    closeShortcut();
     if (saved) {
       setToast('Profile saved');
       window.setTimeout(() => setToast(''), 2200);
@@ -26,7 +26,7 @@ export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summ
           <div>
             <p className="account-eyebrow">{eyebrow}</p>
             <h1>Profile / My Account</h1>
-            <p>Privacy protected · email/phone masked · profile updates are available from Edit Profile</p>
+            <p>Profile updates are available from Edit Profile</p>
           </div>
           <button type="button" className="btn btn-primary" onClick={() => setEditOpen(true)}>Edit Profile</button>
         </div>
@@ -57,20 +57,16 @@ export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summ
           </div>
           <div>
             <div className="card" style={{ marginBottom: 12 }}>
-              <div className="card-header">Personal info <span className="pill" style={{ marginLeft: 8 }}>Masked</span></div>
+              <div className="card-header">Personal info</div>
               <div className="card-body">
                 <div className="grid-2">
                   <div className="masked-field"><div className="label">Full Name</div><div className="value">{user?.fullName || '—'}</div></div>
                   <div className="masked-field"><div className="label">Display name</div><div className="value">{user?.displayName || '—'}</div></div>
                   <div className="masked-field"><div className="label">Active identities</div><div className="value">{(user?.roles || []).join(' · ') || '—'}</div></div>
-                  <div className="masked-field"><div className="label">Email</div><div className="value">{maskEmail(user?.email || '')}</div></div>
-                  <div className="masked-field"><div className="label">Phone</div><div className="value">{maskPhone(user?.phone || '')}</div></div>
+                  <div className="masked-field"><div className="label">Email</div><div className="value">{user?.email || '—'}</div></div>
+                  <div className="masked-field"><div className="label">Phone</div><div className="value">{user?.phone || '—'}</div></div>
                 </div>
                 <ProfileDetails user={user} />
-                <div className="callout" style={{ marginTop: 12 }}>
-                  <div className="callout-title">Privacy</div>
-                  Email and phone are masked on My Account.
-                </div>
               </div>
             </div>
             <div className="card">
