@@ -215,6 +215,8 @@ public class AuthService(
             user.Preference?.OnboardingCompletedAt,
             user.Preference?.OnboardingSkippedAt,
             user.HeldCredits,
-            user.CreditBalance + user.HeldCredits);
+            user.CreditBalance + user.HeldCredits,
+            user.Country,
+            user.Occupation);
     }
 }

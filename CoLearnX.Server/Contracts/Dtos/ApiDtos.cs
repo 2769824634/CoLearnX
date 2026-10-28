@@ -54,7 +54,9 @@ public record UserMeDto(
     DateTime? OnboardingCompletedAt = null,
     DateTime? OnboardingSkippedAt = null,
     int HeldCredits = 0,
-    int TotalCredits = 0);
+    int TotalCredits = 0,
+    string? Country = null,
+    string Occupation = "unknown");
 
 public record UpdateProfileRequest(
     string? FullName,
@@ -68,7 +70,9 @@ public record UpdateProfileRequest(
     string? Specialisations,
     string? TrainerHeadline,
     string? ExpertiseTags = null,
-    string? CreatorHeadline = null);
+    string? CreatorHeadline = null,
+    [MaxLength(120)] string? Country = null,
+    [MaxLength(120)] string? Occupation = null);
 
 public record CourseListItemDto(
     int Id,

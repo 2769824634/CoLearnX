@@ -1,19 +1,17 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import { useAuth } from '../../auth/AuthContext';
 import { ProfileEditor, ProfileDetails, IdentityVisibility } from '../account/ProfileEditor';
-import { maskEmail, maskPhone } from '../../data/memberMock';
 import { useMemberData } from './memberDataState';
 import RoleApplicationsPanel from '../account/RoleApplicationsPanel';
 import AvatarEditor from '../account/AvatarEditor';
+import useAccountShortcuts from '../account/useAccountShortcuts';
 
-// Masked account + Edit Profile.
 export default function MemberAccountPage() {
   const navigate = useNavigate();
   const { state, showToast } = useMemberData();
   const { user } = useAuth();
-  const [editOpen, setEditOpen] = useState(false);
+  const { editOpen, setEditOpen, closeEdit } = useAccountShortcuts();
 
   return (
     <>
@@ -40,25 +38,21 @@ export default function MemberAccountPage() {
             <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
               <div style={{ flex: 1 }}>
                 <h3 style={{ fontSize: 15, marginBottom: 4 }}>Account details</h3>
-                <p style={{ fontSize: 12, color: 'var(--slate)', margin: 0 }}>Privacy protected. Update profile details from Edit Profile.</p>
+                <p style={{ fontSize: 12, color: 'var(--slate)', margin: 0 }}>Update profile details from Edit Profile.</p>
               </div>
               <button type="button" className="btn btn-primary" onClick={() => setEditOpen(true)}>Edit Profile</button>
               <button type="button" className="btn btn-ghost" onClick={() => navigate('/member/onboarding')}>Edit interests</button>
             </div>
             <div className="card" style={{ marginBottom: 12 }}>
-              <div className="card-header">Personal info <span className="pill" style={{ marginLeft: 8 }}>Masked</span></div>
+              <div className="card-header">Personal info</div>
               <div className="card-body">
                 <div className="grid-2">
                   <div className="masked-field"><div className="label">Full Name</div><div className="value">{state.user.fullName}</div></div>
                   <div className="masked-field"><div className="label">Display name</div><div className="value">{state.user.displayName}</div></div>
-                  <div className="masked-field"><div className="label">Email</div><div className="value">{maskEmail(state.user.email)}</div></div>
-                  <div className="masked-field"><div className="label">Phone</div><div className="value">{maskPhone(state.user.phone || '')}</div></div>
+                  <div className="masked-field"><div className="label">Email</div><div className="value">{user?.email || '—'}</div></div>
+                  <div className="masked-field"><div className="label">Phone</div><div className="value">{user?.phone || '—'}</div></div>
                 </div>
                 <ProfileDetails user={user} />
-                <div className="callout" style={{ marginTop: 12 }}>
-                  <div className="callout-title">Privacy</div>
-                  Email and phone are masked on My Account.
-                </div>
               </div>
             </div>
             <div className="card">
@@ -72,7 +66,7 @@ export default function MemberAccountPage() {
         </div>
       </MemberShell>
 
-      {editOpen && <ProfileEditor onClose={(saved) => { setEditOpen(false); if (saved) showToast('Profile saved'); }} />}
+      {editOpen && <ProfileEditor onClose={(saved) => { closeEdit(); if (saved) showToast('Profile saved'); }} />}
     </>
   );
 }

@@ -36,7 +36,8 @@ it('runs interest selection in a stepped dialog over the site homepage', async (
   expect(dialog).toBeTruthy();
   expect(screen.getByText('Step 1 of 3 · You can change this later in Account.')).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'CoLearnX' })).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Log out' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Account menu' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Log in' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Sign up' })).toBeNull();
   expect(screen.getByRole('navigation', { name: 'Member navigation' })).toBeTruthy();
@@ -58,6 +59,8 @@ it('saves the selected leaf after the three onboarding steps and opens the site 
     expect(screen.queryByRole('dialog', { name: 'Your learning interests' })).toBeNull();
   });
   expect(screen.getByRole('heading', { name: 'CoLearnX' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
   expect(screen.getByRole('button', { name: 'Log out' })).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Log in' })).toBeNull();
   const save = globalThis.fetch.mock.calls.find(([path, options]) => path === '/api/users/me/interests' && options.method === 'PUT');

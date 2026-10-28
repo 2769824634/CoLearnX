@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../auth/AuthContext';
 import AdminAuthContext from '../auth/AdminAuthContext';
@@ -64,6 +64,8 @@ it('sends an unfinished member from workspace home to the site homepage', () => 
     logout: () => {},
   });
   expect(screen.getByRole('heading', { name: 'CoLearnX' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
   expect(screen.getByRole('button', { name: 'Log out' })).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Courses' }).getAttribute('href')).toBe('/member/courses');
   expect(screen.queryByRole('link', { name: 'Log in' })).toBeNull();
