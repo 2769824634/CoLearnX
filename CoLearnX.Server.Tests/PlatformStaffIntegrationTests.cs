@@ -53,6 +53,11 @@ public sealed class PlatformStaffIntegrationTests(CoLearnXApiFactory factory)
             .FirstAsync(log => log.Action == "StaffAccountProvisioned");
         Assert.NotNull(audit.AdminAccountId);
         Assert.Null(audit.UserId);
+
+        var listed = await admin.GetAsync("/api/admin/staff");
+        Assert.Equal(HttpStatusCode.OK, listed.StatusCode);
+        using var listBody = JsonDocument.Parse(await listed.Content.ReadAsStringAsync());
+        Assert.Contains(listBody.RootElement.EnumerateArray(), item => item.GetProperty("email").GetString() == "trainer.one@example.com");
     }
 
     [Fact]
@@ -96,14 +101,19 @@ public sealed class PlatformStaffIntegrationTests(CoLearnXApiFactory factory)
         using var admin = await ApiClient.AsOperationsAdminAsync(factory);
         var provisioned = await ProvisionAsync(admin, "trainer.three@example.com", "Trainer Three");
         using var staffClient = await LoginAsStaffAsync("trainer.three@example.com", provisioned.InitialPassword);
-        int levelId;
-        int pathId;
-        using (var scope = factory.Services.CreateScope())
+        var (levelId, pathId, subjectId) = await PricedCourseInputsAsync();
+
+        var belowRange = await staffClient.PostAsJsonAsync("/api/staff/courses", new
         {
-            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-            levelId = await db.CourseLevels.OrderBy(level => level.SortOrder).Select(level => level.Id).FirstAsync();
-            pathId = await db.LearningPaths.OrderBy(path => path.Id).Select(path => path.Id).FirstAsync();
-        }
+            code = $"LOW-{Guid.NewGuid():N}"[..16],
+            title = "Too cheap",
+            courseLevelId = levelId,
+            learningPathId = pathId,
+            courseSubjectId = subjectId,
+            durationHours = 2,
+            creditCost = 19,
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, belowRange.StatusCode);
 
         var response = await staffClient.PostAsJsonAsync("/api/staff/courses", new
         {
@@ -112,6 +122,8 @@ public sealed class PlatformStaffIntegrationTests(CoLearnXApiFactory factory)
             description = "Created by platform staff.",
             courseLevelId = levelId,
             learningPathId = pathId,
+            courseSubjectId = subjectId,
+            durationHours = 2,
             category = "IT & Data",
             creditCost = 30,
             learningOutcomes = new[] { "Use the platform workflow" },
@@ -144,14 +156,7 @@ public sealed class PlatformStaffIntegrationTests(CoLearnXApiFactory factory)
         using var admin = await ApiClient.AsOperationsAdminAsync(factory);
         var provisioned = await ProvisionAsync(admin, "trainer.four@example.com", "Trainer Four");
         using var staffClient = await LoginAsStaffAsync("trainer.four@example.com", provisioned.InitialPassword);
-        int levelId;
-        int pathId;
-        using (var scope = factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-            levelId = await db.CourseLevels.Select(item => item.Id).FirstAsync();
-            pathId = await db.LearningPaths.Select(item => item.Id).FirstAsync();
-        }
+        var (levelId, pathId, subjectId) = await PricedCourseInputsAsync();
         var code = $"PUB-{Guid.NewGuid():N}"[..16];
         var create = await staffClient.PostAsJsonAsync("/api/staff/courses", new
         {
@@ -159,6 +164,8 @@ public sealed class PlatformStaffIntegrationTests(CoLearnXApiFactory factory)
             title = "Published Platform Course",
             courseLevelId = levelId,
             learningPathId = pathId,
+            courseSubjectId = subjectId,
+            durationHours = 2,
             category = "IT & Data",
             creditCost = 20,
             learningOutcomes = Array.Empty<string>(),
@@ -225,20 +232,15 @@ public sealed class PlatformStaffIntegrationTests(CoLearnXApiFactory factory)
         using var admin = await ApiClient.AsOperationsAdminAsync(factory);
         var provisioned = await ProvisionAsync(admin, "trainer.six@example.com", "Trainer Six");
         using var staffClient = await LoginAsStaffAsync("trainer.six@example.com", provisioned.InitialPassword);
-        int levelId;
-        int pathId;
-        using (var scope = factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-            levelId = await db.CourseLevels.Select(item => item.Id).FirstAsync();
-            pathId = await db.LearningPaths.Select(item => item.Id).FirstAsync();
-        }
+        var (levelId, pathId, subjectId) = await PricedCourseInputsAsync();
         var createCourse = await staffClient.PostAsJsonAsync("/api/staff/courses", new
         {
             code = $"INT-{Guid.NewGuid():N}"[..16],
             title = "Platform Intake Course",
             courseLevelId = levelId,
             learningPathId = pathId,
+            courseSubjectId = subjectId,
+            durationHours = 2,
             category = "IT & Data",
             creditCost = 20,
             learningOutcomes = Array.Empty<string>(),
@@ -312,6 +314,20 @@ public sealed class PlatformStaffIntegrationTests(CoLearnXApiFactory factory)
             log.Action == "CourseSessionDeliveryUpdated" && log.EntityId == intakeId.ToString());
         Assert.Equal(provisioned.StaffId, deliveryAudit.StaffAccountId);
         Assert.Null(deliveryAudit.UserId);
+    }
+
+    private async Task<(int LevelId, int PathId, int SubjectId)> PricedCourseInputsAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        var levelId = await db.CourseLevels.Where(item => item.Name == "Beginner").Select(item => item.Id).SingleAsync();
+        var pathId = await db.LearningPaths.Select(item => item.Id).FirstAsync();
+        var subjectId = await db.CourseSubjects
+            .Where(item => item.Subject == SubjectArea.HumanitiesHealthCreative)
+            .OrderBy(item => item.SortOrder)
+            .Select(item => item.Id)
+            .FirstAsync();
+        return (levelId, pathId, subjectId);
     }
 
     private async Task<(int StaffId, string InitialPassword)> ProvisionAsync(

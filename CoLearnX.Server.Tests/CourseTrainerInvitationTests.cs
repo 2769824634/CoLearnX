@@ -217,6 +217,45 @@ public sealed class CourseTrainerInvitationTests
     }
 
     [Fact]
+    public async Task A_staff_trainers_invitation_response_is_audited_as_the_staff_account()
+    {
+        using var factory = await RosterFactory.CreateAsync();
+        var staffId = await factory.ReadAsync(async db =>
+        {
+            var admin = new AdminAccount { Email = "roster-admin@example.com", PasswordHash = "x" };
+            db.AdminAccounts.Add(admin);
+            await db.SaveChangesAsync();
+            var staff = new StaffAccount
+            {
+                Email = "alex-staff@example.com",
+                PasswordHash = "x",
+                FullName = "Alex Chen",
+                DisplayName = "Alex",
+                StaffNumber = 7,
+                DocumentPath = "staff/7/document.pdf",
+                UserId = Alex,
+                CreatedByAdminAccountId = admin.Id,
+                SessionStamp = Guid.NewGuid(),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            };
+            db.StaffAccounts.Add(staff);
+            await db.SaveChangesAsync();
+            return staff.Id;
+        });
+        using var creator = factory.UserClient(Creator, AppRole.Creator);
+        using var alex = factory.UserClient(Alex, AppRole.Trainer);
+        await Read<CourseTrainerDto>(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(Alex)));
+        var invitationId = (await alex.GetFromJsonAsync<List<CourseInvitationDto>>("/api/trainer/course-invitations"))!.Single().Id;
+        await Read<CourseInvitationDto>(await alex.PostAsync($"/api/trainer/course-invitations/{invitationId}/accept", null));
+
+        var entry = await factory.ReadAsync(db => db.AuditLogs.SingleAsync(log => log.Action == "CourseInvitationAccepted"));
+        Assert.Equal(staffId, entry.StaffAccountId);
+        Assert.Null(entry.UserId);
+        Assert.Null(entry.AdminAccountId);
+    }
+
+    [Fact]
     public async Task A_creator_adding_themselves_is_audited_as_accepted()
     {
         using var factory = await RosterFactory.CreateAsync();

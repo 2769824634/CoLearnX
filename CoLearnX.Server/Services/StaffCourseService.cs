@@ -20,11 +20,19 @@ public interface IStaffCourseService
 public sealed class StaffCourseService(CoLearnXDbContext db) : IStaffCourseService
 {
     public async Task<CreatorCourseOptionsDto> OptionsAsync(CancellationToken ct = default)
-        => new(
-            await db.CourseLevels.AsNoTracking().OrderBy(item => item.SortOrder)
-                .Select(item => new CourseOptionDto(item.Id, item.Name)).ToListAsync(ct),
-            await db.LearningPaths.AsNoTracking().OrderBy(item => item.Name)
-                .Select(item => new CourseOptionDto(item.Id, item.Name)).ToListAsync(ct));
+    {
+        var levels = await db.CourseLevels.AsNoTracking().OrderBy(item => item.SortOrder)
+            .Select(item => new CourseOptionDto(item.Id, item.Name)).ToListAsync(ct);
+        var paths = await db.LearningPaths.AsNoTracking().OrderBy(item => item.Name)
+            .Select(item => new CourseOptionDto(item.Id, item.Name)).ToListAsync(ct);
+        var subjects = await db.CourseSubjects.AsNoTracking().OrderBy(item => item.SortOrder)
+            .Select(item => new CourseSubjectOptionDto(item.Id, item.Name, item.Subject.ToString())).ToListAsync(ct);
+        var cells = await db.PricePools.AsNoTracking()
+            .Where(row => row.Subject != null && row.MinTotalCredits != null && row.MaxTotalCredits != null && row.MinTotalCredits <= row.MaxTotalCredits)
+            .Select(row => new PriceCellDto(row.Subject!.Value.ToString(), row.CourseLevelId, row.MinTotalCredits!.Value, row.MaxTotalCredits!.Value))
+            .ToListAsync(ct);
+        return new CreatorCourseOptionsDto(levels, paths, subjects, cells);
+    }
 
     public async Task<IReadOnlyList<CreatorCourseDto>> ListAsync(int staffAccountId, CancellationToken ct = default)
     {
@@ -45,6 +53,7 @@ public sealed class StaffCourseService(CoLearnXDbContext db) : IStaffCourseServi
         var account = await RequireStaffAsync(staffAccountId, ct);
         var creator = await db.Users.SingleAsync(item => item.Email == PlatformIdentity.Email, ct);
         var (code, level, path) = await ValidateInputAsync(null, request.Code, request.CourseLevelId, request.LearningPathId, ct);
+        var priced = await CoursePriceFence.RequireAsync(db, request.CourseSubjectId, level, request.DurationHours, request.CreditCost, request.PriceExceptionReason, ct);
         var course = new Course
         {
             CreatorId = creator.Id,
@@ -54,8 +63,8 @@ public sealed class StaffCourseService(CoLearnXDbContext db) : IStaffCourseServi
             Status = CourseStatus.Draft,
         };
         Apply(course, code, request.Title, request.Description, request.Category, request.CreditCost,
-            request.LearningOutcomes, level, path);
-        course.Interests = await ValidateInterestsAsync(request.InterestIds, ct);
+            request.LearningOutcomes, level, path, priced.Subject, request.DurationHours, priced.ExceptionReason);
+        course.Interests = await ValidateInterestsAsync(request.InterestIds, priced.Subject, ct);
         db.Courses.Add(course);
         db.CourseTrainers.Add(new CourseTrainer
         {
@@ -80,13 +89,14 @@ public sealed class StaffCourseService(CoLearnXDbContext db) : IStaffCourseServi
         var course = await RequireOwnedCourseAsync(staffAccountId, courseId, tracked: true, ct);
         EnsureEditable(course);
         var (code, level, path) = await ValidateInputAsync(courseId, request.Code, request.CourseLevelId, request.LearningPathId, ct);
+        var priced = await CoursePriceFence.RequireAsync(db, request.CourseSubjectId, level, request.DurationHours, request.CreditCost, request.PriceExceptionReason, ct);
         db.CourseLearningOutcomes.RemoveRange(course.LearningOutcomes);
         Apply(course, code, request.Title, request.Description, request.Category, request.CreditCost,
-            request.LearningOutcomes, level, path);
+            request.LearningOutcomes, level, path, priced.Subject, request.DurationHours, priced.ExceptionReason);
         if (request.InterestIds is not null)
         {
             db.CourseInterests.RemoveRange(course.Interests);
-            course.Interests = await ValidateInterestsAsync(request.InterestIds, ct);
+            course.Interests = await ValidateInterestsAsync(request.InterestIds, priced.Subject, ct);
         }
         AppendAudit(staffAccountId, course, "PlatformCourseUpdated", course.Status.ToString());
         await db.SaveChangesAsync(ct);
@@ -125,6 +135,7 @@ public sealed class StaffCourseService(CoLearnXDbContext db) : IStaffCourseServi
         .Include(item => item.CourseLevel)
         .Include(item => item.LearningPath)
         .Include(item => item.LearningOutcomes)
+        .Include(item => item.CourseSubject)
         .Include(item => item.Interests).ThenInclude(item => item.Interest);
 
     private async Task<(string Code, CourseLevel Level, LearningPath Path)> ValidateInputAsync(
@@ -140,19 +151,23 @@ public sealed class StaffCourseService(CoLearnXDbContext db) : IStaffCourseServi
         return (code, level, path);
     }
 
-    private async Task<ICollection<CourseInterest>> ValidateInterestsAsync(IReadOnlyList<int>? requested, CancellationToken ct)
+    private async Task<ICollection<CourseInterest>> ValidateInterestsAsync(IReadOnlyList<int>? requested, CourseSubject subject, CancellationToken ct)
     {
         var ids = (requested ?? []).Distinct().ToArray();
         if (ids.Length > 4 || ids.Length != (requested?.Count ?? 0))
             throw new CourseException("INTEREST_LIMIT", "Choose up to four distinct leaf interests.");
-        var valid = await db.Interests.CountAsync(item => ids.Contains(item.Id) && item.IsActive && item.ParentId != null, ct);
-        if (valid != ids.Length)
+        if (ids.Length == 0) return [];
+        var selected = await db.Interests.Include(item => item.Parent).Where(item => ids.Contains(item.Id)).ToListAsync(ct);
+        if (selected.Count != ids.Length || selected.Any(item => !item.IsActive || item.ParentId is null))
             throw new CourseException("INTEREST_NOT_FOUND", "Choose active leaf interests.");
+        if (selected.Any(item => InterestSubjectMap.For(item.Parent?.Slug, item.Slug) != subject.Subject))
+            throw new CourseException("INTEREST_SUBJECT_MISMATCH", "Choose interests from the same subject group.", 400, "interestIds");
         return ids.Select(id => new CourseInterest { InterestId = id }).ToList();
     }
 
     private static void Apply(Course course, string code, string title, string? description, string? category,
-        int creditCost, IReadOnlyList<string>? outcomes, CourseLevel level, LearningPath path)
+        int creditCost, IReadOnlyList<string>? outcomes, CourseLevel level, LearningPath path,
+        CourseSubject subject, int durationHours, string? exceptionReason)
     {
         course.Code = code;
         course.Title = title.Trim();
@@ -162,6 +177,10 @@ public sealed class StaffCourseService(CoLearnXDbContext db) : IStaffCourseServi
         course.CourseLevelId = level.Id;
         course.CourseLevel = level;
         course.Level = level.Name;
+        course.CourseSubjectId = subject.Id;
+        course.CourseSubject = subject;
+        course.DurationHours = durationHours;
+        course.PriceExceptionReason = exceptionReason;
         course.LearningPathId = path.Id;
         course.LearningPath = path;
         course.LearningOutcomes = (outcomes ?? []).Where(item => !string.IsNullOrWhiteSpace(item))
@@ -190,5 +209,6 @@ public sealed class StaffCourseService(CoLearnXDbContext db) : IStaffCourseServi
         course.CourseLevel?.Name ?? course.Level, course.LearningPathId ?? 0,
         course.LearningPath?.Name ?? "Unassigned", course.Category, course.CreditCost,
         course.Status.ToString(), course.LearningOutcomes.OrderBy(item => item.SortOrder).Select(item => item.Text).ToList(),
-        course.CreatedAt, null, course.Interests.Select(item => item.InterestId).ToList(), true);
+        course.CreatedAt, null, course.Interests.Select(item => item.InterestId).ToList(), true,
+        course.CourseSubjectId, course.CourseSubject?.Name, course.DurationHours, course.PriceExceptionReason);
 }

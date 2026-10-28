@@ -85,7 +85,10 @@ public static class PlatformStaffSchema
     }
 
     private static async Task EnsureSqlServerAsync(CoLearnXDbContext db, CancellationToken ct)
-        => await db.Database.ExecuteSqlRawAsync("""
+    {
+        // SQL Server compiles a batch before running it. Statements that mention StaffAccountId
+        // must run after the column has been added, in a later batch.
+        await db.Database.ExecuteSqlRawAsync("""
             IF OBJECT_ID(N'dbo.StaffAccounts', N'U') IS NULL
             BEGIN
                 CREATE TABLE dbo.StaffAccounts (
@@ -114,6 +117,8 @@ public static class PlatformStaffSchema
                 ALTER TABLE dbo.Courses ADD IsPlatformOwned bit NOT NULL CONSTRAINT DF_Courses_IsPlatformOwned DEFAULT 0;
             IF COL_LENGTH('dbo.AuditLogs', 'StaffAccountId') IS NULL
                 ALTER TABLE dbo.AuditLogs ADD StaffAccountId int NULL;
+            """, ct);
+        await db.Database.ExecuteSqlRawAsync("""
             IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_AuditLogs_ExactlyOneActor')
                 ALTER TABLE dbo.AuditLogs DROP CONSTRAINT CK_AuditLogs_ExactlyOneActor;
             IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_AuditLogs_StaffAccounts_StaffAccountId')
@@ -126,6 +131,7 @@ public static class PlatformStaffSchema
             IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_AuditLogs_StaffAccountId' AND object_id = OBJECT_ID(N'dbo.AuditLogs'))
                 CREATE INDEX IX_AuditLogs_StaffAccountId ON dbo.AuditLogs(StaffAccountId);
             """, ct);
+    }
 
     private static async Task<bool> ColumnMissingAsync(
         CoLearnXDbContext db,

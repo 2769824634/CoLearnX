@@ -34,7 +34,7 @@ public sealed class PricingSchemaUpgradeTests
 
         Assert.Equal(1, await CountAsync(upgraded, "PriceTiers"));
         Assert.Equal(1, await CountAsync(upgraded, "CourseDomains"));
-        Assert.Equal(1, await CountAsync(upgraded, "PricePools"));
+        Assert.Equal(0, await CountAsync(upgraded, "PricePools"));
 
         var (createdConnection, created) = await OpenAsync();
         await using var createdScope = createdConnection;

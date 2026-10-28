@@ -4,7 +4,6 @@ import { creatorCoursesApi, interestsApi, materialsApi } from '../../api';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import CourseMaterialsCard from './CourseMaterialsCard';
 import CourseTrainersCard from './CourseTrainersCard';
-import { categoryChoices } from './courseCategories';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 
 async function loadCourseForm(token, courseId, signal) {
@@ -89,7 +88,7 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
     for (const file of files) {
       await materialsApi.upload({
         title: titleFromFile(file),
-        category: form.category || 'General',
+        category: 'Design',
         file,
         courseId,
         token,
@@ -348,7 +347,6 @@ function BasicFields({ form, options, setForm }) {
       <div className="form-group"><label htmlFor="creator-learning-path">Learning path</label><select id="creator-learning-path" required value={form.learningPathId} onChange={change('learningPathId')}><option value="">Choose a path</option>{options.learningPaths.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
       <div className="form-group"><label htmlFor="creator-course-hours">Duration (hours)</label><input id="creator-course-hours" type="number" min="1" step="1" required value={form.durationHours} onChange={change('durationHours')} /></div>
     </div>
-    <div className="form-group"><label htmlFor="creator-course-category">Category (optional)</label><select id="creator-course-category" value={form.category || ''} onChange={change('category')}><option value="">No category</option>{categoryChoices(form.category).map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
     <div className="form-group"><label htmlFor="creator-course-outcomes">Learning outcomes</label><textarea id="creator-course-outcomes" value={form.learningOutcomes} onChange={change('learningOutcomes')} placeholder="One outcome per line" /></div>
   </>;
 }
@@ -386,7 +384,6 @@ function toForm(course) {
     courseSubjectId: String(course.courseSubjectId || ''),
     learningPathId: String(course.learningPathId || ''),
     durationHours: course.durationHours ? String(course.durationHours) : '',
-    category: course.category || '',
     creditCost: String(course.creditCost || ''),
     priceExceptionReason: course.priceExceptionReason || '',
     learningOutcomes: (course.learningOutcomes || []).join('\n'),

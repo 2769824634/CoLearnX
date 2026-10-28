@@ -74,6 +74,9 @@ public static class PricingSchema
                 END;
                 IF COL_LENGTH(N'dbo.PricePools', N'Subject') IS NULL
                     ALTER TABLE dbo.PricePools ADD Subject int NULL;
+                """, ct);
+            await db.Database.ExecuteSqlRawAsync("""
+                DELETE FROM dbo.PricePools WHERE Subject IS NULL;
                 IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PricePools_SaleMode_PriceTierId_CourseType_CourseLevelId' AND object_id = OBJECT_ID(N'dbo.PricePools'))
                     DROP INDEX IX_PricePools_SaleMode_PriceTierId_CourseType_CourseLevelId ON dbo.PricePools;
                 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PricePools_Subject_CourseLevelId' AND object_id = OBJECT_ID(N'dbo.PricePools'))
@@ -161,6 +164,7 @@ public static class PricingSchema
             "SELECT COUNT(*) AS Value FROM pragma_table_info('PricePools') WHERE name = 'Subject'").SingleAsync(ct);
         if (subjectColumn == 0)
             await db.Database.ExecuteSqlRawAsync("ALTER TABLE PricePools ADD COLUMN Subject INTEGER NULL", ct);
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM PricePools WHERE Subject IS NULL", ct);
         await db.Database.ExecuteSqlRawAsync("DROP INDEX IF EXISTS IX_PricePools_SaleMode_PriceTierId_CourseType_CourseLevelId", ct);
         await db.Database.ExecuteSqlRawAsync("""
             CREATE UNIQUE INDEX IF NOT EXISTS IX_PricePools_Subject_CourseLevelId
