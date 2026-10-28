@@ -17,6 +17,9 @@ public sealed class NotificationRealtime(IHubContext<NotificationHub> hub, ILogg
     {
         "N-course-published",
         "N-course-rejected",
+        "N-course-invitation",
+        "N-course-invitation-accepted",
+        "N-course-invitation-declined",
         "N-intake-application-confirmed",
         "N-intake-application-rejected",
         "N-role-approved",

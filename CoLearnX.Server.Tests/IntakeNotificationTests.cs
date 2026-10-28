@@ -56,17 +56,17 @@ public class IntakeNotificationTests
         Assert.Contains("reserve again", released["message"]!.GetValue<string>());
         foreach (var (client, code, path) in new[] {
             (trainer, "N-intake-cancelled", $"/trainer/courses/intakes/{id}"),
-            (creator, "N-intake-cancelled-creator", $"/creator/courses/intake-applications/{id}") })
+            (creator, "N-intake-cancelled-creator", $"/creator/intakes/{id}") })
         {
             var inbox = await client.GetFromJsonAsync<JsonObject>("/api/notifications/my");
             var notice = inbox!["items"]!.AsArray().Single(n => n!["type"]!.GetValue<string>() == code);
             Assert.Equal(path, notice!["targetPath"]!.GetValue<string>());
             Assert.Equal(id, notice["intakeId"]?.GetValue<int>());
         }
-        var creatorDetail = await creator.GetAsync($"/api/creator/intake-applications/{id}");
+        var creatorDetail = await creator.GetAsync($"/api/creator/intakes/{id}");
         Assert.True(creatorDetail.IsSuccessStatusCode, await creatorDetail.Content.ReadAsStringAsync());
         var detail = await creatorDetail.Content.ReadFromJsonAsync<JsonObject>();
-        Assert.Equal("Cancelled", detail!["currentIntake"]!["status"]!.GetValue<string>());
+        Assert.Equal("Cancelled", detail!["status"]!.GetValue<string>());
     }
 
     [Theory]

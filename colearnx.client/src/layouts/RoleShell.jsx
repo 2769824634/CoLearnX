@@ -14,7 +14,7 @@ const NAV = {
   trainer: [
     { to: '/trainer/home', label: 'Homepage' },
     { to: '/trainer/courses', label: 'Course' },
-    { to: '/trainer/approvals', label: 'Approval status' },
+    { to: '/trainer/invitations', label: 'Teaching invitations' },
     { to: '/trainer/attendance', label: 'Attendance' },
     { to: '/trainer/learners', label: 'Learner List' },
     { to: '/trainer/account', label: 'My Account' },
@@ -24,7 +24,7 @@ const NAV = {
     { to: '/creator/courses', label: 'Courses', match: 'courses' },
     { to: '/creator/courses/new', label: 'Create Course', end: true },
     { to: '/creator/approvals', label: 'Approval status' },
-    { to: '/creator/courses/intake-applications', label: 'Session approvals' },
+    { to: '/creator/intakes', label: 'Classes', match: 'intakes' },
     { to: '/creator/usage', label: 'Usage Records' },
     { to: '/creator/account', label: 'My Account' },
   ],
@@ -45,9 +45,7 @@ function isNavActive(item, pathname, isActive) {
     return pathname === '/creator/courses' || /^\/creator\/courses\/\d+$/.test(pathname);
   }
   if (item.to === '/creator/courses/new') return pathname === item.to;
-  if (item.to === '/creator/courses/intake-applications') {
-    return pathname === item.to || pathname.startsWith(`${item.to}/`);
-  }
+  if (item.match === 'intakes') return pathname === '/creator/intakes' || pathname.startsWith('/creator/intakes/');
   return isActive;
 }
 

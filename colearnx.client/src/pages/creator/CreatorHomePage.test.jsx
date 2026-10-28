@@ -23,17 +23,12 @@ const courses = [
   { id: 5, code: 'CRT-5', title: 'Needs Rework', status: 'Rejected' },
 ];
 
-const applications = [
-  { applicationId: 11, courseIntakeId: 42, courseCode: 'CRT-4', courseTitle: 'Live Course', kind: 'New', trainerName: 'Gu Yincheng', submittedAt: '2026-10-01T02:00:00Z', status: 'Pending' },
-  { applicationId: 12, courseIntakeId: 43, courseCode: 'CRT-4', courseTitle: 'Old Decision', kind: 'New', trainerName: 'Gu Yincheng', submittedAt: '2026-09-01T02:00:00Z', status: 'Confirmed' },
-];
-
-function stubApi({ failApplications = false } = {}) {
+function stubApi({ failCourses = false } = {}) {
   vi.stubGlobal('fetch', vi.fn(async (path) => {
-    if (path === '/api/creator/intake-applications' && failApplications) {
+    if (path === '/api/creator/courses' && failCourses) {
       return new Response(JSON.stringify({ message: 'Unavailable' }), { status: 503, headers: { 'Content-Type': 'application/json' } });
     }
-    const data = path === '/api/creator/courses' ? courses : path === '/api/creator/intake-applications' ? applications : [];
+    const data = path === '/api/creator/courses' ? courses : [];
     return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }));
 }
@@ -52,7 +47,7 @@ it('greets the Creator and summarises what needs attention', async () => {
   stubApi();
   renderHome();
   expect(await screen.findByRole('heading', { name: 'Welcome back, Zou.' })).toBeTruthy();
-  expect(screen.getByText('1 session approval and 1 returned course need your attention.')).toBeTruthy();
+  expect(screen.getByText('1 returned course needs your attention.')).toBeTruthy();
 });
 
 it('counts courses at each stage of the publishing pipeline', async () => {
@@ -64,11 +59,10 @@ it('counts courses at each stage of the publishing pipeline', async () => {
   expect(screen.getByRole('link', { name: /Needs Rework/ }).getAttribute('href')).toBe('/creator/courses/5');
 });
 
-it('lists only waiting session approvals and keeps quick actions', async () => {
+it('links to classes and keeps quick actions', async () => {
   stubApi();
   renderHome();
-  expect(await screen.findByRole('link', { name: 'Approve sessions →' })).toBeTruthy();
-  expect(screen.queryByText('Old Decision')).toBeNull();
+  expect(await screen.findByRole('link', { name: 'All classes →' })).toBeTruthy();
   expect(screen.getByRole('link', { name: '+ Create Course' }).getAttribute('href')).toBe('/creator/courses/new');
   const actions = screen.getByRole('region', { name: 'Quick actions' });
   expect(within(actions).queryByRole('link', { name: /Upload Material/ })).toBeNull();
@@ -76,7 +70,7 @@ it('lists only waiting session approvals and keeps quick actions', async () => {
 });
 
 it('offers a retry when the workspace overview cannot load', async () => {
-  stubApi({ failApplications: true });
+  stubApi({ failCourses: true });
   renderHome();
   expect(await screen.findByRole('button', { name: 'Retry loading' })).toBeTruthy();
 });

@@ -11,7 +11,7 @@ import MemberBadgesPage from './member/MemberBadgesPage';
 import MemberDisputesPage from './member/MemberDisputesPage';
 import CreatorCourseFormPage from './creator/CreatorCourseFormPage';
 import CreatorUsagePage from './creator/CreatorUsagePage';
-import CreatorIntakeApplicationsPage from './creator/CreatorIntakeApplicationsPage';
+import CreatorIntakesPage from './creator/CreatorIntakesPage';
 import TrainerAttendancePage from './trainer/TrainerAttendancePage';
 import TrainerLearnersPage from './trainer/TrainerLearnersPage';
 import { TrainerError } from './trainer/TrainerUi';
@@ -110,9 +110,9 @@ it('keeps a submitted Course definition visible as read-only', async () => {
   expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
 });
 
-it('removes action-required language from an empty Creator approval queue', async () => {
-  mount(<CreatorIntakeApplicationsPage />);
-  await screen.findByText('No session approvals waiting');
+it('shows an empty class list without an approval queue', async () => {
+  mount(<CreatorIntakesPage />);
+  await screen.findByText('No classes yet');
   expect(screen.queryByText('Action required')).toBeNull();
 });
 

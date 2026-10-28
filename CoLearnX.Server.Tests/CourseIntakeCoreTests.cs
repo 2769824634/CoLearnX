@@ -12,7 +12,7 @@ namespace CoLearnX.Server.Tests;
 public class CourseIntakeCoreTests
 {
     private static readonly DateTime Start = new(2027, 1, 10, 9, 0, 0, DateTimeKind.Utc);
-    private static CreateCourseIntakeRequest DraftRequest => new(Start.AddDays(-20), Start.AddDays(-10), Start, Start.AddDays(2));
+    private static CreateCourseIntakeRequest DraftRequest => new(Start.AddDays(-20), Start.AddDays(-10), Start, Start.AddDays(2), TrainerId: 1);
     private static CreateCourseSessionRequest SessionRequest(Guid version) => new("Session 1", Start, Start.AddHours(1),
         "https://example.com/meeting", null, 0, null, version);
 
@@ -42,14 +42,14 @@ public class CourseIntakeCoreTests
         Assert.Equal("Draft", draft.Status);
         Assert.Empty(draft.Sessions);
         Assert.Equal("SESSION_REQUIRED", (await Assert.ThrowsAsync<CourseIntakeException>(
-            () => f.Service.SubmitAsync(1, draft.Id, draft.Version))).Code);
+            () => f.Service.PublishAsync(1, draft.Id, draft.Version))).Code);
         var scheduled = await f.Service.AddSessionAsync(1, draft.Id, SessionRequest(draft.Version));
         Assert.NotEqual(draft.Version, scheduled.Version);
-        var pending = await f.Service.SubmitAsync(1, draft.Id, scheduled.Version);
-        Assert.Equal("PendingApproval", pending.Status);
+        var pending = await f.Service.PublishAsync(1, draft.Id, scheduled.Version);
+        Assert.Equal("Published", pending.Status);
         Assert.NotNull(pending.SubmittedAt);
-        Assert.Null(pending.ConfirmedByCreatorId);
-        Assert.Equal(pending.Version, (await f.Service.SubmitAsync(1, draft.Id, pending.Version)).Version);
+        Assert.Equal(1, pending.ConfirmedByCreatorId);
+        Assert.Equal(pending.Version, (await f.Service.PublishAsync(1, draft.Id, pending.Version)).Version);
         f.Db.ChangeTracker.Clear();
         var saved = await f.Service.GetOwnedAsync(1, draft.Id);
         Assert.Equal(DateTimeKind.Utc, saved.StartsAt.Kind);
@@ -60,13 +60,13 @@ public class CourseIntakeCoreTests
         var logs = await f.Db.AuditLogs.OrderBy(x => x.Id).ToListAsync();
         Assert.Equal(3, logs.Count);
         Assert.All(logs, x => { Assert.Equal(1, x.UserId); Assert.Null(x.AdminAccountId); Assert.Equal(draft.Id.ToString(), x.EntityId); });
-        Assert.Equal("CourseIntakeSubmitted", logs[^1].Action);
+        Assert.Equal("CourseIntakePublished", logs[^1].Action);
     }
 
     [Theory]
     [InlineData(0, "UNAUTHENTICATED")]
-    [InlineData(3, "TRAINER_REQUIRED")]
-    [InlineData(4, "TRAINER_REQUIRED")]
+    [InlineData(3, "CREATOR_REQUIRED")]
+    [InlineData(4, "CREATOR_REQUIRED")]
     public async Task Create_RequiresAuthenticatedActiveTrainer(int actor, string code)
     {
         await using var f = await Fixture.CreateAsync();
@@ -132,20 +132,20 @@ public class CourseIntakeCoreTests
     {
         await using var f = await Fixture.CreateAsync();
         var d = await f.Service.CreateAsync(1, 1, DraftRequest);
-        var other = await f.Service.CreateAsync(2, 1, DraftRequest);
+        Assert.Equal("CREATOR_REQUIRED", (await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.CreateAsync(2, 1, DraftRequest))).Code);
         Assert.Equal(d.Id, Assert.Single(await f.Service.ListOwnedAsync(1)).Id);
+        Assert.Equal("INTAKE_NOT_FOUND", (await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.GetOwnedAsync(2, d.Id))).Code);
         var commands = new Func<Task>[] {
-            async () => await f.Service.GetOwnedAsync(2, d.Id),
             async () => await f.Service.UpdateAsync(2, d.Id, new(DraftRequest.RegistrationOpensAt, DraftRequest.RegistrationClosesAt, Start, Start.AddDays(2), d.Version)),
             async () => await f.Service.AddSessionAsync(2, d.Id, SessionRequest(d.Version)),
             async () => await f.Service.UpdateSessionAsync(2, d.Id, 1, new("Changed", Start, Start.AddHours(1), "https://example.com", null, 0, null, d.Version)),
             async () => await f.Service.DeleteSessionAsync(2, d.Id, 1, d.Version),
-            async () => await f.Service.SubmitAsync(2, d.Id, d.Version),
+            async () => await f.Service.PublishAsync(2, d.Id, d.Version),
         };
         foreach (var command in commands)
-            Assert.Equal("INTAKE_NOT_FOUND", (await Assert.ThrowsAsync<CourseIntakeException>(command)).Code);
-        Assert.Equal(2, other.TrainerId);
-        Assert.Equal(2, await f.Db.AuditLogs.CountAsync());
+            Assert.Equal("CREATOR_REQUIRED", (await Assert.ThrowsAsync<CourseIntakeException>(command)).Code);
+        Assert.Equal(1, d.TrainerId);
+        Assert.Equal(1, await f.Db.AuditLogs.CountAsync());
     }
 
     [Theory]
@@ -192,8 +192,6 @@ public class CourseIntakeCoreTests
 
     [Theory]
     [InlineData(CourseIntakeStatus.PendingApproval)]
-    [InlineData(CourseIntakeStatus.Published)]
-    [InlineData(CourseIntakeStatus.InProgress)]
     [InlineData(CourseIntakeStatus.Completed)]
     [InlineData(CourseIntakeStatus.Cancelled)]
     public async Task LockedStates_BlockStructuralCommands(CourseIntakeStatus status)
@@ -218,7 +216,7 @@ public class CourseIntakeCoreTests
         d = await f.Service.AddSessionAsync(1, d.Id, SessionRequest(d.Version));
         Assert.Equal("Draft", d.Status);
         Assert.Null(d.ConfirmationNote);
-        Assert.Equal("PendingApproval", (await f.Service.SubmitAsync(1, d.Id, d.Version)).Status);
+        Assert.Equal("Published", (await f.Service.PublishAsync(1, d.Id, d.Version)).Status);
     }
 
     [Fact]
@@ -235,7 +233,7 @@ public class CourseIntakeCoreTests
         Assert.Equal(1, await f.Db.CourseSessions.CountAsync());
         Assert.Equal(2, await f.Db.AuditLogs.CountAsync());
         Assert.Equal("INTAKE_VERSION_CONFLICT", (await Assert.ThrowsAsync<CourseIntakeException>(
-            () => f.Service.SubmitAsync(1, d.Id, d.Version))).Code);
+            () => f.Service.PublishAsync(1, d.Id, d.Version))).Code);
     }
 
     [Fact]
@@ -328,7 +326,7 @@ public class CourseIntakeCoreTests
         (await f.Db.Courses.SingleAsync()).Status = CourseStatus.Archived;
         await f.Db.SaveChangesAsync();
         Assert.Equal("COURSE_NOT_PUBLISHED", (await Assert.ThrowsAsync<CourseIntakeException>(
-            () => f.Service.SubmitAsync(1, d.Id, d.Version))).Code);
+            () => f.Service.PublishAsync(1, d.Id, d.Version))).Code);
         Assert.Equal("Draft", (await f.Service.GetOwnedAsync(1, d.Id)).Status);
         Assert.Equal(2, await f.Db.AuditLogs.CountAsync());
     }
@@ -397,8 +395,11 @@ public class CourseIntakeCoreTests
             await db.Database.EnsureCreatedAsync();
             db.Users.AddRange(Enumerable.Range(1, 4).Select(id => new User { Id = id, Email = $"b1-{id}@example.com", FullName = $"User {id}",
                 CreditBalance = 100, IsActive = id != 4,
-                Roles = [new UserRole { Role = id == 3 ? AppRole.Member : AppRole.Trainer }] }));
+                Roles = id == 1
+                    ? [new UserRole { Role = AppRole.Member }, new UserRole { Role = AppRole.Trainer }, new UserRole { Role = AppRole.Creator }]
+                    : [new UserRole { Role = id == 3 ? AppRole.Member : AppRole.Trainer }] }));
             db.Courses.Add(new Course { Id = 1, Code = "B1", Title = "B1 Test", TrainerId = 1, CreatorId = 1, Status = CourseStatus.Published, CreditCost = 20 });
+            db.CourseTrainers.Add(new CourseTrainer { CourseId = 1, TrainerId = 1, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 1, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow });
             await db.SaveChangesAsync();
             return new Fixture(connection, db, options);
         }

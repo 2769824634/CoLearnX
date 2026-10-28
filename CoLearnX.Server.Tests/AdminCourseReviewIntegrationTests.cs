@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
+using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -218,6 +219,51 @@ public class AdminCourseReviewIntegrationTests
             var response = await client.GetAsync($"/api/courses/{courseId}");
 
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+        finally
+        {
+            factory.Dispose();
+            factory.DeleteDatabase();
+        }
+    }
+
+    [Fact]
+    public async Task CourseList_ShowsAcceptedAndInvitedTrainersOnly()
+    {
+        var factory = new CourseReviewApiFactory();
+        try
+        {
+            using var client = await CreateAdminClientAsync(factory);
+            var course = await FindPendingCourseAsync(client);
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+                db.CourseTrainers.RemoveRange(db.CourseTrainers.Where(row => row.CourseId == course.Id));
+                var invitedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+                foreach (var (id, name, status) in new[]
+                {
+                    (900, "Zoe Invited", CourseTrainerStatus.Invited),
+                    (901, "Yuri Accepted", CourseTrainerStatus.Accepted),
+                    (902, "Xena Declined", CourseTrainerStatus.Declined),
+                    (903, "Wes Removed", CourseTrainerStatus.Removed),
+                })
+                {
+                    db.Users.Add(new User { Id = id, Email = $"trainer{id}@example.com", FullName = name });
+                    db.CourseTrainers.Add(new CourseTrainer
+                    {
+                        CourseId = course.Id, TrainerId = id, Status = status,
+                        InvitedByUserId = course.SubmittedByUserId, InvitedAt = invitedAt,
+                    });
+                }
+                await db.SaveChangesAsync();
+            }
+
+            var listed = Assert.Single(
+                (await client.GetFromJsonAsync<List<AdminCourseDto>>("/api/admin/courses?status=PendingApproval"))!);
+
+            Assert.Equal(
+                new[] { new AdminCourseTrainerDto(901, "Yuri Accepted", "Accepted"), new AdminCourseTrainerDto(900, "Zoe Invited", "Invited") },
+                listed.Trainers!);
         }
         finally
         {

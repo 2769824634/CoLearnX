@@ -44,9 +44,10 @@ describe('Creator Course workspace', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Course workspace' })).toBeTruthy();
-    expect(screen.getByText('Accessible Learning')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Session approvals' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: /Approve Trainer sessions/i })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Accessible Learning/ }).getAttribute('href')).toBe('/creator/courses/17');
+    expect(screen.queryByRole('link', { name: 'Open →' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Classes' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Open and publish classes/i })).toBeTruthy();
     expect(screen.getAllByRole('link', { name: /Create Course/i }).length).toBeGreaterThan(0);
     expect(screen.getByText('24 credits')).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Upload Material' })).toBeNull();
@@ -304,15 +305,16 @@ function stubCourseApi({ existing, materials = [], failUploadAt = 0, holdUpload,
     if (path === '/api/creator/courses/44/submit') {
       return json(course({ id: 44, status: 'PendingApproval' }));
     }
+    if (String(path).includes('/trainers')) return json([]);
     if (path === '/api/materials' && options.method === 'POST') {
       uploads += 1;
       if (holdUpload && uploads === 1) await holdUpload;
-    if (failUploadAt && uploads === failUploadAt) {
-      return new Response(JSON.stringify(uploadFailure || { message: 'File must be 20 MB or smaller.', traceId: 'trace-upload-1' }), {
-        status: uploadFailure?.status || 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
+      if (failUploadAt && uploads === failUploadAt) {
+        return new Response(JSON.stringify(uploadFailure || { message: 'File must be 20 MB or smaller.', traceId: 'trace-upload-1' }), {
+          status: uploadFailure?.status || 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       const item = material({ id: 90 + uploads, title: options.body.get('title') });
       library.push(item);
       return json(item);

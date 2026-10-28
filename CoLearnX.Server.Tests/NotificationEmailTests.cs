@@ -47,8 +47,9 @@ public class NotificationEmailTests
         await dispatcher.DispatchPendingAsync();
         Assert.Equal(6, sender.Messages.Count);
         Assert.Equal(2, sender.Messages.Count(m => m.Body.Contains("Location:")));
-        await settlement.CancelIntakeAsync(intake.TrainerId, id);
-        await settlement.CancelIntakeAsync(intake.TrainerId, id);
+        var creatorId = await db.Courses.Where(c => c.Id == intake.CourseId).Select(c => c.CreatorId).SingleAsync();
+        await settlement.CancelIntakeAsync(creatorId, id);
+        await settlement.CancelIntakeAsync(creatorId, id);
         await dispatcher.DispatchPendingAsync();
         await dispatcher.DispatchPendingAsync();
         Assert.Equal(10, sender.Messages.Count);
@@ -99,7 +100,7 @@ public class NotificationEmailTests
         await dispatcher.DispatchPendingAsync();
         Assert.Equal(3, sender.Messages.Count);
         Assert.Contains(sender.Messages, m => m.Path == $"/trainer/courses/intakes/{id}");
-        Assert.Contains(sender.Messages, m => m.Path == $"/creator/courses/intake-applications/{id}");
+        Assert.Contains(sender.Messages, m => m.Path == $"/creator/intakes/{id}");
         Assert.Contains(sender.Messages, m => m.Email == SeedData.MemberEmail && m.Body.Contains("7 days"));
         Assert.False(await db.Notifications.AnyAsync(n => n.IntakeId == id && n.EmailPending));
         Assert.Equal(3, await db.Notifications.CountAsync(n => n.IntakeId == id && n.EmailSentAt != null));

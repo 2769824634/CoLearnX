@@ -12,29 +12,27 @@ public interface ICourseIntakeService
 {
     Task<IReadOnlyList<CourseIntakeSummaryDto>> ListOwnedAsync(int trainerUserId, CancellationToken ct = default);
     Task<CourseIntakeDetailDto> GetOwnedAsync(int trainerUserId, int courseIntakeId, CancellationToken ct = default);
-    Task<CourseIntakeDetailDto> CreateAsync(int trainerUserId, int courseId, CreateCourseIntakeRequest request, CancellationToken ct = default);
-    Task<CourseIntakeDetailDto> PostponeAsync(int trainerUserId, int intakeId, CreateCourseIntakeRequest request, CancellationToken ct = default);
-    Task<CourseIntakeDetailDto> UpdateAsync(int trainerUserId, int courseIntakeId, UpdateCourseIntakeRequest request, CancellationToken ct = default);
-    Task<CourseIntakeDetailDto> AddSessionAsync(int trainerUserId, int courseIntakeId, CreateCourseSessionRequest request, CancellationToken ct = default);
-    Task<CourseIntakeDetailDto> UpdateSessionAsync(int trainerUserId, int courseIntakeId, int courseSessionId, UpdateCourseSessionRequest request, CancellationToken ct = default);
-    Task<CourseIntakeDetailDto> DeleteSessionAsync(int trainerUserId, int courseIntakeId, int courseSessionId, Guid version, CancellationToken ct = default);
-    Task<CourseIntakeDetailDto> SubmitAsync(int trainerUserId, int courseIntakeId, Guid version, CancellationToken ct = default);
-    Task<CourseIntakeDetailDto> RequestChangeAsync(int trainerUserId, int courseIntakeId, CreateCourseIntakeChangeRequest request, CancellationToken ct = default);
-    Task<IReadOnlyList<CreatorIntakeApplicationSummaryDto>> ListCreatorApplicationsAsync(int creatorUserId, CancellationToken ct = default);
-    Task<CreatorIntakeApplicationDetailDto> GetCreatorApplicationAsync(int creatorUserId, int courseIntakeId, CancellationToken ct = default);
-    Task<CourseIntakeDetailDto> ReviewAsync(int creatorUserId, int courseIntakeId, ReviewIntakeApplicationRequest request, CancellationToken ct = default);
+    Task<IReadOnlyList<CourseIntakeSummaryDto>> ListForCreatorAsync(int creatorUserId, int? courseId, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> GetForCreatorAsync(int creatorUserId, int courseIntakeId, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> CreateAsync(int creatorUserId, int courseId, CreateCourseIntakeRequest request, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> PostponeAsync(int creatorUserId, int intakeId, CreateCourseIntakeRequest request, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> UpdateAsync(int creatorUserId, int courseIntakeId, UpdateCourseIntakeRequest request, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> AddSessionAsync(int creatorUserId, int courseIntakeId, CreateCourseSessionRequest request, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> UpdateSessionAsync(int creatorUserId, int courseIntakeId, int courseSessionId, UpdateCourseSessionRequest request, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> DeleteSessionAsync(int creatorUserId, int courseIntakeId, int courseSessionId, Guid version, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> PublishAsync(int creatorUserId, int courseIntakeId, Guid version, CancellationToken ct = default);
 }
 
 public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealtime? realtime = null) : ICourseIntakeService
 {
-    public async Task<CourseIntakeDetailDto> PostponeAsync(int trainerUserId, int intakeId,
+    public async Task<CourseIntakeDetailDto> PostponeAsync(int creatorUserId, int intakeId,
         CreateCourseIntakeRequest request, CancellationToken ct = default)
     {
         return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
             db.ChangeTracker.Clear();
             await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
-            var original = await LoadOwnedAsync(trainerUserId, intakeId, ct);
+            var original = await LoadForCreatorAsync(creatorUserId, intakeId, ct);
             var now = DateTime.UtcNow;
             if (original.Status != CourseIntakeStatus.Cancelled || original.CancellationReason != "MinimumEnrollmentNotMet"
                 || original.CancelledAt is null || now > original.CancelledAt.Value.AddDays(7))
@@ -42,12 +40,15 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             if (original.ReplacementIntake is not null)
                 throw new CourseIntakeException("POSTPONEMENT_ALREADY_CREATED", "This class already has a replacement Intake.", 409);
             await RequirePublishedCourseAsync(original.CourseId, ct);
+            await RequireAcceptedTrainerAsync(original.CourseId, original.TrainerId, ct);
             ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt, request.EndsAt);
             ValidateMinEnrollment(request.MinEnrollment);
             if (request.StartsAt <= original.StartsAt || request.RegistrationClosesAt <= now)
                 throw new CourseIntakeException("INVALID_POSTPONEMENT_DATES", "The replacement must start later and have an open future registration window.");
-            var replacement = new CourseIntake { CourseId = original.CourseId, TrainerId = trainerUserId,
-                ReplacementForIntakeId = original.Id, RegistrationOpensAt = request.RegistrationOpensAt,
+            var replacement = new CourseIntake { CourseId = original.CourseId, TrainerId = original.TrainerId,
+                ReplacementForIntakeId = original.Id, Status = CourseIntakeStatus.Published,
+                ConfirmedByCreatorId = creatorUserId, ConfirmedAt = now,
+                RegistrationOpensAt = request.RegistrationOpensAt,
                 RegistrationClosesAt = request.RegistrationClosesAt, StartsAt = request.StartsAt,
                 EndsAt = request.EndsAt, MinEnrollment = request.MinEnrollment };
             var shift = request.StartsAt - original.StartsAt;
@@ -59,10 +60,18 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
                 ValidateCapacity(copy, replacement.MinEnrollment);
                 replacement.Sessions.Add(copy);
             }
+            if (replacement.Sessions.Count == 0)
+                throw new CourseIntakeException("SESSION_REQUIRED", "The replacement needs at least one session.", field: "sessions");
             db.CourseIntakes.Add(replacement);
             original.Version = Guid.NewGuid();
+            var learners = await db.Enrollments.Where(e => e.CourseSession.CourseIntakeId == original.Id
+                && e.PostponementEligible && e.Status == EnrollmentStatus.Cancelled)
+                .Select(e => new { e.UserId, e.Id }).ToListAsync(ct);
             await db.SaveChangesAsync(ct);
-            await SaveAsync(replacement, "CourseIntakePostponed", ct);
+            foreach (var learner in learners)
+                db.Notifications.Add(new Notification { UserId = learner.UserId, IntakeId = replacement.Id, EnrollmentId = learner.Id, EmailPending = true, Code = "N-postponement-offered",
+                    Title = "Postponed class available", Body = $"Intake #{replacement.Id} replaces Intake #{original.Id}. Choose a session in My Programs to reserve again using your available credits." });
+            await SaveAsync(replacement, creatorUserId, "CourseIntakePostponed", ct);
             await tx.CommitAsync(ct);
             return ToDto(replacement);
         });
@@ -78,45 +87,53 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
     public async Task<CourseIntakeDetailDto> GetOwnedAsync(int trainerUserId, int courseIntakeId, CancellationToken ct = default)
         => ToDto(await LoadOwnedAsync(trainerUserId, courseIntakeId, ct));
 
-    public async Task<CourseIntakeDetailDto> CreateAsync(int trainerUserId, int courseId, CreateCourseIntakeRequest request, CancellationToken ct = default)
+    public async Task<IReadOnlyList<CourseIntakeSummaryDto>> ListForCreatorAsync(int creatorUserId, int? courseId, CancellationToken ct = default)
+    {
+        await RequireCreatorAsync(creatorUserId, ct);
+        return await db.CourseIntakes.AsNoTracking()
+            .Where(i => i.Course.CreatorId == creatorUserId && (courseId == null || i.CourseId == courseId))
+            .OrderByDescending(i => i.Id)
+            .Select(i => new CourseIntakeSummaryDto(i.Id, i.CourseId, i.TrainerId, i.StartsAt, i.EndsAt, i.Status.ToString(), i.Version))
+            .ToListAsync(ct);
+    }
+
+    public async Task<CourseIntakeDetailDto> GetForCreatorAsync(int creatorUserId, int courseIntakeId, CancellationToken ct = default)
+        => ToDto(await LoadForCreatorAsync(creatorUserId, courseIntakeId, ct));
+
+    public async Task<CourseIntakeDetailDto> CreateAsync(int creatorUserId, int courseId, CreateCourseIntakeRequest request, CancellationToken ct = default)
     {
         var creationVersion = Guid.NewGuid();
         return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
             db.ChangeTracker.Clear();
-            await RequireTrainerAsync(trainerUserId, ct);
-
-            // The version is a stable request marker. If a transient failure is
-            // reported after commit, a strategy replay returns the committed
-            // Intake instead of creating a second aggregate.
+            await RequireCreatorAsync(creatorUserId, ct);
             var existing = await db.CourseIntakes
                 .Include(item => item.Sessions).ThenInclude(session => session.Enrollments)
                 .Include(item => item.Applications)
-                .SingleOrDefaultAsync(item => item.CourseId == courseId && item.TrainerId == trainerUserId
-                    && item.Version == creationVersion, ct);
+                .SingleOrDefaultAsync(item => item.CourseId == courseId && item.Version == creationVersion, ct);
             if (existing is not null)
                 return ToDto(existing);
 
-            await RequirePublishedCourseAsync(courseId, ct);
+            await RequireOwnedPublishedCourseAsync(creatorUserId, courseId, ct);
+            await RequireAcceptedTrainerAsync(courseId, request.TrainerId, ct);
             ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt, request.EndsAt);
             ValidateMinEnrollment(request.MinEnrollment);
             await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
-            var intake = new CourseIntake { CourseId = courseId, TrainerId = trainerUserId,
+            var intake = new CourseIntake { CourseId = courseId, TrainerId = request.TrainerId,
                 RegistrationOpensAt = request.RegistrationOpensAt, RegistrationClosesAt = request.RegistrationClosesAt,
                 StartsAt = request.StartsAt, EndsAt = request.EndsAt, MinEnrollment = request.MinEnrollment,
                 Version = creationVersion };
-            // A zero-session Draft is allowed; submission enforces the diagram's 1..* structure.
             db.CourseIntakes.Add(intake);
-            await db.SaveChangesAsync(ct); // obtain the generated ID before writing its audit record
-            await SaveWithCurrentVersionAsync(intake, trainerUserId, "CourseIntakeCreated", null, ct);
+            await db.SaveChangesAsync(ct);
+            await SaveWithCurrentVersionAsync(intake, creatorUserId, "CourseIntakeCreated", null, ct);
             await transaction.CommitAsync(ct);
             return ToDto(intake);
         });
     }
 
-    public async Task<CourseIntakeDetailDto> UpdateAsync(int trainerUserId, int courseIntakeId, UpdateCourseIntakeRequest request, CancellationToken ct = default)
+    public async Task<CourseIntakeDetailDto> UpdateAsync(int creatorUserId, int courseIntakeId, UpdateCourseIntakeRequest request, CancellationToken ct = default)
     {
-        var intake = await LoadEditableAsync(trainerUserId, courseIntakeId, request.Version, ct);
+        var intake = await LoadEditableAsync(creatorUserId, courseIntakeId, request.Version, ct);
         ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt, request.EndsAt);
         var minEnrollment = request.MinEnrollment ?? intake.MinEnrollment;
         ValidateMinEnrollment(minEnrollment);
@@ -130,26 +147,26 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         intake.StartsAt = request.StartsAt;
         intake.EndsAt = request.EndsAt;
         intake.MinEnrollment = minEnrollment;
-        ResetDraft(intake);
-        await SaveAsync(intake, "CourseIntakeUpdated", ct);
+        KeepScheduleStatus(intake);
+        await SaveAsync(intake, creatorUserId, "CourseIntakeUpdated", ct);
         return ToDto(intake);
     }
 
-    public async Task<CourseIntakeDetailDto> AddSessionAsync(int trainerUserId, int courseIntakeId, CreateCourseSessionRequest request, CancellationToken ct = default)
+    public async Task<CourseIntakeDetailDto> AddSessionAsync(int creatorUserId, int courseIntakeId, CreateCourseSessionRequest request, CancellationToken ct = default)
     {
-        var intake = await LoadEditableAsync(trainerUserId, courseIntakeId, request.Version, ct);
+        var intake = await LoadEditableAsync(creatorUserId, courseIntakeId, request.Version, ct);
         var session = BuildSession(request.Label, request.StartsAt, request.EndsAt, request.MeetingLink,
             request.PhysicalAddress, request.PhysicalCapacity, request.PhysicalBookingDeadline, intake);
         ValidateCapacity(session, intake.MinEnrollment);
         intake.Sessions.Add(session);
-        ResetDraft(intake);
-        await SaveAsync(intake, "CourseSessionAdded", ct);
+        KeepScheduleStatus(intake);
+        await SaveAsync(intake, creatorUserId, "CourseSessionAdded", ct);
         return ToDto(intake);
     }
 
-    public async Task<CourseIntakeDetailDto> UpdateSessionAsync(int trainerUserId, int courseIntakeId, int courseSessionId, UpdateCourseSessionRequest request, CancellationToken ct = default)
+    public async Task<CourseIntakeDetailDto> UpdateSessionAsync(int creatorUserId, int courseIntakeId, int courseSessionId, UpdateCourseSessionRequest request, CancellationToken ct = default)
     {
-        var intake = await LoadEditableAsync(trainerUserId, courseIntakeId, request.Version, ct);
+        var intake = await LoadEditableAsync(creatorUserId, courseIntakeId, request.Version, ct);
         var session = FindSession(intake, courseSessionId);
         var next = BuildSession(request.Label, request.StartsAt, request.EndsAt, request.MeetingLink,
             request.PhysicalAddress, request.PhysicalCapacity, request.PhysicalBookingDeadline, intake);
@@ -162,209 +179,62 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         session.PhysicalAddress = next.PhysicalAddress;
         session.PhysicalCapacity = next.PhysicalCapacity;
         session.PhysicalBookingDeadline = next.PhysicalBookingDeadline;
-        ResetDraft(intake);
-        await SaveAsync(intake, "CourseSessionUpdated", ct);
+        KeepScheduleStatus(intake);
+        await SaveAsync(intake, creatorUserId, "CourseSessionUpdated", ct);
         return ToDto(intake);
     }
 
-    public async Task<CourseIntakeDetailDto> DeleteSessionAsync(int trainerUserId, int courseIntakeId, int courseSessionId, Guid version, CancellationToken ct = default)
+    public async Task<CourseIntakeDetailDto> DeleteSessionAsync(int creatorUserId, int courseIntakeId, int courseSessionId, Guid version, CancellationToken ct = default)
     {
-        var intake = await LoadEditableAsync(trainerUserId, courseIntakeId, version, ct);
+        var intake = await LoadEditableAsync(creatorUserId, courseIntakeId, version, ct);
         var session = FindSession(intake, courseSessionId);
         await RequireNoHistoryAsync(session.Id, ct);
         db.CourseSessions.Remove(session);
         intake.Sessions.Remove(session);
-        ResetDraft(intake);
-        await SaveAsync(intake, "CourseSessionDeleted", ct);
+        KeepScheduleStatus(intake);
+        await SaveAsync(intake, creatorUserId, "CourseSessionDeleted", ct);
         return ToDto(intake);
     }
 
-    public async Task<CourseIntakeDetailDto> SubmitAsync(int trainerUserId, int courseIntakeId, Guid version, CancellationToken ct = default)
+    public async Task<CourseIntakeDetailDto> PublishAsync(int creatorUserId, int courseIntakeId, Guid version, CancellationToken ct = default)
     {
-        var intake = await LoadOwnedAsync(trainerUserId, courseIntakeId, ct);
+        var intake = await LoadForCreatorAsync(creatorUserId, courseIntakeId, ct);
         CourseIntakeValidation.Version(intake, version);
-        if (intake.Status == CourseIntakeStatus.PendingApproval) return ToDto(intake);
-        CourseIntakeValidation.Editable(intake);
+        if (intake.Status == CourseIntakeStatus.Published) return ToDto(intake);
+        if (intake.Status is not (CourseIntakeStatus.Draft or CourseIntakeStatus.Rejected))
+            throw new CourseIntakeException("INTAKE_NOT_PUBLISHABLE", "Only a draft Intake can be published.", 409);
         await RequirePublishedCourseAsync(intake.CourseId, ct);
+        await RequireAcceptedTrainerAsync(intake.CourseId, intake.TrainerId, ct);
         CourseIntakeValidation.Dates(intake.RegistrationOpensAt, intake.RegistrationClosesAt, intake.StartsAt, intake.EndsAt);
         if (intake.Sessions.Count == 0)
-            throw new CourseIntakeException("SESSION_REQUIRED", "Add at least one valid session before submission.", field: "sessions");
+            throw new CourseIntakeException("SESSION_REQUIRED", "Add at least one valid session before publishing.", field: "sessions");
         foreach (var session in intake.Sessions)
         {
             CourseIntakeValidation.Session(session, intake.StartsAt, intake.EndsAt);
             ValidateCapacity(session, intake.MinEnrollment);
         }
-        intake.Status = CourseIntakeStatus.PendingApproval;
-        intake.SubmittedAt = DateTime.UtcNow;
-        intake.ConfirmedByCreatorId = null;
-        intake.ConfirmedAt = null;
-        intake.ConfirmationNote = null;
-        var applicationVersion = Guid.NewGuid();
-        intake.Version = applicationVersion;
-        intake.Applications.Add(new CourseIntakeApplication
-        {
-            ApplicationVersion = applicationVersion,
-            Kind = CourseIntakeApplicationKind.Initial,
-            SubmittedByTrainerId = trainerUserId,
-            SubmittedAt = intake.SubmittedAt.Value,
-        });
-        await SaveWithCurrentVersionAsync(intake, trainerUserId, "CourseIntakeSubmitted", null, ct);
-        return ToDto(intake);
-    }
-
-    public async Task<CourseIntakeDetailDto> RequestChangeAsync(int trainerUserId, int courseIntakeId,
-        CreateCourseIntakeChangeRequest request, CancellationToken ct = default)
-    {
-        var intake = await LoadOwnedAsync(trainerUserId, courseIntakeId, ct);
-        CourseIntakeValidation.Version(intake, request.Version);
-        var latest = intake.Applications.OrderByDescending(a => a.Id).FirstOrDefault();
-        CourseIntakeStatus restoreStatus;
-        if (intake.Status is CourseIntakeStatus.Published or CourseIntakeStatus.InProgress)
-            restoreStatus = intake.Status;
-        else if (intake.Status == CourseIntakeStatus.Rejected
-                 && latest is { Kind: CourseIntakeApplicationKind.Change, Status: CourseIntakeApplicationStatus.Rejected, RestoreStatus: not null })
-            restoreStatus = latest.RestoreStatus.Value;
-        else
-            throw new CourseIntakeException("CHANGE_REQUEST_NOT_ALLOWED", "A structural change request requires a Published, In Progress, or previously rejected changed Intake.", 409);
-
-        ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt, request.EndsAt);
-        if (request.Sessions.Count == 0)
-            throw new CourseIntakeException("SESSION_REQUIRED", "A change request must contain at least one valid session.", field: "sessions");
-        var proposalSessions = BuildProposalSessions(request, intake);
-        await RequireHistorySafeProposalAsync(intake, proposalSessions, ct);
-        if (intake.ConfirmedToRunAt is not null || await db.Enrollments.AnyAsync(e => e.CourseSession.CourseIntakeId == intake.Id
-            && (e.Status == EnrollmentStatus.Reserved || e.Status == EnrollmentStatus.Active), ct))
-            throw new CourseIntakeException("INTAKE_HAS_COMMITTED_ENROLLMENTS",
-                "A class with reserved or confirmed places cannot reopen its schedule. Cancel it to return learners' credits.", 409);
-        if (!HasMaterialChange(intake, request, proposalSessions))
-            throw new CourseIntakeException("NO_MATERIAL_CHANGE", "Use the delivery-link action when only a meeting link changes.", 409);
-
-        var applicationVersion = Guid.NewGuid();
-        var submittedAt = DateTime.UtcNow;
-        var snapshot = new ChangeSnapshot(request.RegistrationOpensAt, request.RegistrationClosesAt,
-            request.StartsAt, request.EndsAt, proposalSessions.Select(ToSnapshot).ToList());
-        intake.Status = CourseIntakeStatus.PendingApproval;
-        intake.SubmittedAt = submittedAt;
-        intake.Version = applicationVersion;
-        intake.Applications.Add(new CourseIntakeApplication
-        {
-            ApplicationVersion = applicationVersion,
-            Kind = CourseIntakeApplicationKind.Change,
-            RestoreStatus = restoreStatus,
-            ProposalJson = JsonSerializer.Serialize(snapshot),
-            SubmittedByTrainerId = trainerUserId,
-            SubmittedAt = submittedAt,
-        });
-        await SaveWithCurrentVersionAsync(intake, trainerUserId, "CourseIntakeChangeRequested", null, ct);
-        return ToDto(intake);
-    }
-
-    public async Task<IReadOnlyList<CreatorIntakeApplicationSummaryDto>> ListCreatorApplicationsAsync(int creatorUserId, CancellationToken ct = default)
-    {
-        await RequireCreatorAsync(creatorUserId, ct);
-        var applications = await db.CourseIntakeApplications.AsNoTracking()
-            .Where(a => a.CourseIntake.Course.CreatorId == creatorUserId
-                && !db.CourseIntakeApplications.Any(newer => newer.CourseIntakeId == a.CourseIntakeId && newer.Id > a.Id))
-            .Include(a => a.CourseIntake).ThenInclude(i => i.Course)
-            .Include(a => a.CourseIntake).ThenInclude(i => i.Trainer)
-            .OrderBy(a => a.Status).ThenByDescending(a => a.SubmittedAt).ToListAsync(ct);
-        return applications.Select(ToCreatorSummary).ToList();
-    }
-
-    public async Task<CreatorIntakeApplicationDetailDto> GetCreatorApplicationAsync(int creatorUserId, int courseIntakeId, CancellationToken ct = default)
-    {
-        var intake = await LoadForCreatorAsync(creatorUserId, courseIntakeId, ct);
-        var application = intake.Applications.OrderByDescending(a => a.Id).FirstOrDefault();
-        // Imported/legacy published Intakes may have no application history. Ownership is still enforced.
-        if (application is null)
-            return new CreatorIntakeApplicationDetailDto(null, ToDto(intake), null);
-        return new CreatorIntakeApplicationDetailDto(ToCreatorSummary(application), ToDto(intake),
-            application.Kind == CourseIntakeApplicationKind.Change ? ToChangeDto(application) : null);
-    }
-
-    public async Task<CourseIntakeDetailDto> ReviewAsync(int creatorUserId, int courseIntakeId,
-        ReviewIntakeApplicationRequest request, CancellationToken ct = default)
-    {
-        var intake = await LoadForCreatorAsync(creatorUserId, courseIntakeId, ct);
-        // The course creator is the only reviewer. When they also teach the course, they confirm their own sessions.
-        var application = intake.Applications.OrderByDescending(a => a.Id).FirstOrDefault()
-            ?? throw new CourseIntakeException("INTAKE_APPLICATION_NOT_FOUND", "The Intake application was not found.", 404);
-        if (application.ApplicationVersion != request.Version)
-            throw new CourseIntakeException("INTAKE_VERSION_CONFLICT", "The Intake application changed. Reload it before reviewing.", 409);
-
-        var decision = ParseDecision(request.Decision);
-        var note = NormalizeReviewNote(request.ConfirmationNote);
-        if (decision == CourseIntakeApplicationStatus.Rejected && note is null)
-            throw new CourseIntakeException("REJECTION_NOTE_REQUIRED", "Explain what the Trainer must change.", field: "confirmationNote");
-        if (application.Status != CourseIntakeApplicationStatus.Pending)
-        {
-            if (application.Status == decision && string.Equals(application.ReviewNote, note, StringComparison.Ordinal))
-                return ToDto(intake);
-            throw new CourseIntakeException("INTAKE_REVIEW_CONFLICT", "This application already has a different review outcome.", 409);
-        }
-        CourseIntakeValidation.Version(intake, request.Version);
-        if (intake.Status != CourseIntakeStatus.PendingApproval)
-            throw new CourseIntakeException("INTAKE_NOT_PENDING", "Only a pending Intake application can be reviewed.", 409);
-
-        if (decision == CourseIntakeApplicationStatus.Confirmed && intake.ReplacementForIntakeId is not null)
-        {
-            var original = await db.CourseIntakes.AsNoTracking().SingleAsync(i => i.Id == intake.ReplacementForIntakeId, ct);
-            if (original.CancelledAt is null || DateTime.UtcNow > original.CancelledAt.Value.AddDays(7))
-                throw new CourseIntakeException("POSTPONEMENT_EXPIRED", "The seven-day replacement publication window has expired.", 409);
-            if (intake.StartsAt <= original.StartsAt || intake.RegistrationClosesAt <= DateTime.UtcNow)
-                throw new CourseIntakeException("INVALID_POSTPONEMENT_DATES", "The replacement must start later and still accept registrations.", 409);
-            var learners = await db.Enrollments.Where(e => e.CourseSession.CourseIntakeId == original.Id
-                && e.PostponementEligible && e.Status == EnrollmentStatus.Cancelled)
-                .Select(e => new { e.UserId, e.Id }).ToListAsync(ct);
-            foreach (var learner in learners)
-                db.Notifications.Add(new Notification { UserId = learner.UserId, IntakeId = intake.Id, EnrollmentId = learner.Id, EmailPending = true, Code = "N-postponement-offered",
-                    Title = "Postponed class available", Body = $"Intake #{intake.Id} replaces Intake #{original.Id}. Choose a session in My Programs to reserve again using your available credits." });
-        }
-
-        if (application.Kind == CourseIntakeApplicationKind.Change && decision == CourseIntakeApplicationStatus.Confirmed)
-        {
-            var snapshot = ReadSnapshot(application);
-            await RequireHistorySafeSnapshotAsync(intake, snapshot, ct);
-            ApplySnapshot(intake, snapshot);
-            intake.Status = application.RestoreStatus
-                ?? throw new CourseIntakeException("INTAKE_SAVE_FAILED", "The change request has no status to restore.", 500);
-        }
-        else
-            intake.Status = decision == CourseIntakeApplicationStatus.Confirmed
-                ? CourseIntakeStatus.Published : CourseIntakeStatus.Rejected;
-
-        application.Status = decision;
-        application.ReviewedByCreatorId = creatorUserId;
-        application.ReviewedAt = DateTime.UtcNow;
-        application.ReviewNote = note;
+        var now = DateTime.UtcNow;
+        intake.Status = CourseIntakeStatus.Published;
         intake.ConfirmedByCreatorId = creatorUserId;
-        intake.ConfirmedAt = application.ReviewedAt;
-        intake.ConfirmationNote = note;
-        intake.Version = Guid.NewGuid();
+        intake.ConfirmedAt = now;
+        intake.SubmittedAt = now;
         Notification? notification = null;
         if (intake.TrainerId != creatorUserId)
         {
-            notification = decision == CourseIntakeApplicationStatus.Confirmed
-                ? new Notification
-                {
-                    UserId = intake.TrainerId, IntakeId = intake.Id, Code = "N-intake-application-confirmed",
-                    Title = "Intake approved",
-                    Body = $"The Creator approved Intake #{intake.Id} for {intake.Course.Code} {intake.Course.Title}.",
-                }
-                : new Notification
-                {
-                    UserId = intake.TrainerId, IntakeId = intake.Id, Code = "N-intake-application-rejected",
-                    Title = "Intake needs changes",
-                    Body = $"The Creator returned Intake #{intake.Id} for {intake.Course.Code}: {note}",
-                };
+            notification = new Notification
+            {
+                UserId = intake.TrainerId, IntakeId = intake.Id, EmailPending = true, Code = "N-intake-published",
+                Title = "Class assigned",
+                Body = $"You are teaching Intake #{intake.Id} for {intake.Course.Code} {intake.Course.Title}.",
+            };
             db.Notifications.Add(notification);
         }
-        await SaveWithCurrentVersionAsync(intake, creatorUserId,
-            decision == CourseIntakeApplicationStatus.Confirmed ? "CourseIntakeConfirmed" : "CourseIntakeRejected", note, ct);
+        await SaveWithCurrentVersionAsync(intake, creatorUserId, "CourseIntakePublished", null, ct);
         if (notification is not null && realtime is not null)
             await realtime.PublishAsync(notification, ct);
         return ToDto(intake);
     }
+
 
     private async Task RequireTrainerAsync(int userId, CancellationToken ct)
     {
@@ -386,6 +256,23 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             throw new CourseIntakeException("COURSE_NOT_PUBLISHED", "The Course must be published.", 409);
     }
 
+    private async Task RequireOwnedPublishedCourseAsync(int creatorUserId, int courseId, CancellationToken ct)
+    {
+        var course = await db.Courses.AsNoTracking().SingleOrDefaultAsync(c => c.Id == courseId && c.CreatorId == creatorUserId, ct)
+            ?? throw new CourseIntakeException("COURSE_NOT_FOUND", "Course was not found.", 404);
+        if (course.Status != CourseStatus.Published)
+            throw new CourseIntakeException("COURSE_NOT_PUBLISHED", "The Course must be published.", 409);
+    }
+
+    private async Task RequireAcceptedTrainerAsync(int courseId, int trainerId, CancellationToken ct)
+    {
+        var accepted = await db.CourseTrainers.AnyAsync(item => item.CourseId == courseId && item.TrainerId == trainerId
+            && item.Status == CourseTrainerStatus.Accepted
+            && item.Trainer.IsActive && item.Trainer.Roles.Any(role => role.Role == AppRole.Trainer), ct);
+        if (!accepted)
+            throw new CourseIntakeException("TRAINER_NOT_ACCEPTED", "Choose a Trainer who has accepted this course.", 409, "trainerId");
+    }
+
     private async Task<CourseIntake> LoadOwnedAsync(int userId, int id, CancellationToken ct)
     {
         await RequireTrainerAsync(userId, ct);
@@ -402,17 +289,14 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             .Include(i => i.Applications).Include(i => i.ReplacementIntake).AsSplitQuery()
             .Include(i => i.Course).Include(i => i.Trainer)
             .SingleOrDefaultAsync(i => i.Id == id && i.Course.CreatorId == userId, ct)
-            ?? throw new CourseIntakeException("INTAKE_APPLICATION_NOT_FOUND", "The Intake application was not found.", 404);
+            ?? throw new CourseIntakeException("INTAKE_NOT_FOUND", "Owned Intake was not found.", 404);
     }
 
     private async Task<CourseIntake> LoadEditableAsync(int userId, int id, Guid version, CancellationToken ct)
     {
-        var intake = await LoadOwnedAsync(userId, id, ct);
+        var intake = await LoadForCreatorAsync(userId, id, ct);
         CourseIntakeValidation.Version(intake, version);
         CourseIntakeValidation.Editable(intake);
-        if (intake.Status == CourseIntakeStatus.Rejected
-            && intake.Applications.OrderByDescending(a => a.Id).FirstOrDefault()?.Kind == CourseIntakeApplicationKind.Change)
-            throw new CourseIntakeException("CHANGE_REQUEST_REQUIRED", "Revise and resubmit the structural change request instead of editing the live schedule.", 409);
         return intake;
     }
 
@@ -444,85 +328,6 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         return session;
     }
 
-    private static List<CourseSession> BuildProposalSessions(CreateCourseIntakeChangeRequest request, CourseIntake intake)
-    {
-        var identifiers = request.Sessions.Where(s => s.Id.HasValue).Select(s => s.Id!.Value).ToList();
-        if (identifiers.Any(id => id <= 0) || identifiers.Distinct().Count() != identifiers.Count)
-            throw new CourseIntakeException("INVALID_SESSION_REFERENCE", "Each existing Session may appear once and must use a positive ID.", field: "sessions");
-        var known = intake.Sessions.Select(s => s.Id).ToHashSet();
-        if (identifiers.Any(id => !known.Contains(id)))
-            throw new CourseIntakeException("SESSION_NOT_FOUND", "A proposed Session does not belong to this Intake.", 404);
-
-        return request.Sessions.Select(proposed =>
-        {
-            var session = BuildSession(proposed.Label, proposed.StartsAt, proposed.EndsAt, proposed.MeetingLink,
-                proposed.PhysicalAddress, proposed.PhysicalCapacity, proposed.PhysicalBookingDeadline, new CourseIntake
-                {
-                    Id = intake.Id,
-                    StartsAt = request.StartsAt,
-                    EndsAt = request.EndsAt,
-                });
-            ValidateCapacity(session, intake.MinEnrollment);
-            session.Id = proposed.Id ?? 0;
-            return session;
-        }).ToList();
-    }
-
-    private async Task RequireHistorySafeProposalAsync(CourseIntake intake, IReadOnlyList<CourseSession> proposed, CancellationToken ct)
-    {
-        var byId = proposed.Where(s => s.Id > 0).ToDictionary(s => s.Id);
-        foreach (var current in intake.Sessions)
-        {
-            if (!byId.TryGetValue(current.Id, out var next) || !SameStructure(current, next))
-                await RequireNoHistoryAsync(current.Id, ct);
-        }
-    }
-
-    private async Task RequireHistorySafeSnapshotAsync(CourseIntake intake, ChangeSnapshot snapshot, CancellationToken ct)
-    {
-        var proposed = snapshot.Sessions.Select(FromSnapshot).ToList();
-        await RequireHistorySafeProposalAsync(intake, proposed, ct);
-    }
-
-    private static bool HasMaterialChange(CourseIntake intake, CreateCourseIntakeChangeRequest request, IReadOnlyList<CourseSession> proposed)
-    {
-        if (intake.RegistrationOpensAt != request.RegistrationOpensAt || intake.RegistrationClosesAt != request.RegistrationClosesAt
-            || intake.StartsAt != request.StartsAt || intake.EndsAt != request.EndsAt || intake.Sessions.Count != proposed.Count)
-            return true;
-        var byId = proposed.Where(s => s.Id > 0).ToDictionary(s => s.Id);
-        return intake.Sessions.Any(current => !byId.TryGetValue(current.Id, out var next) || !SameStructure(current, next));
-    }
-
-    private static bool SameStructure(CourseSession first, CourseSession second)
-        => first.Label == second.Label && first.StartsAt == second.StartsAt && first.EndsAt == second.EndsAt
-            && first.PhysicalAddress == second.PhysicalAddress && first.PhysicalCapacity == second.PhysicalCapacity
-            && first.PhysicalBookingDeadline == second.PhysicalBookingDeadline;
-
-    private void ApplySnapshot(CourseIntake intake, ChangeSnapshot snapshot)
-    {
-        intake.RegistrationOpensAt = snapshot.RegistrationOpensAt;
-        intake.RegistrationClosesAt = snapshot.RegistrationClosesAt;
-        intake.StartsAt = snapshot.StartsAt;
-        intake.EndsAt = snapshot.EndsAt;
-        var proposedIds = snapshot.Sessions.Where(s => s.Id.HasValue).Select(s => s.Id!.Value).ToHashSet();
-        foreach (var removed in intake.Sessions.Where(s => !proposedIds.Contains(s.Id)).ToList())
-        {
-            db.CourseSessions.Remove(removed);
-            intake.Sessions.Remove(removed);
-        }
-        foreach (var proposed in snapshot.Sessions)
-        {
-            var target = proposed.Id.HasValue ? FindSession(intake, proposed.Id.Value) : new CourseSession { CourseIntakeId = intake.Id };
-            target.Label = proposed.Label;
-            target.StartsAt = proposed.StartsAt;
-            target.EndsAt = proposed.EndsAt;
-            target.MeetingLink = proposed.MeetingLink;
-            target.PhysicalAddress = proposed.PhysicalAddress;
-            target.PhysicalCapacity = proposed.PhysicalCapacity;
-            target.PhysicalBookingDeadline = proposed.PhysicalBookingDeadline;
-            if (!proposed.Id.HasValue) intake.Sessions.Add(target);
-        }
-    }
 
     private static void ValidateDates(DateTime opens, DateTime closes, DateTime starts, DateTime ends)
     {
@@ -546,8 +351,9 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
                 "Physical capacity must be at least the minimum enrollment.", field: "physicalCapacity");
     }
 
-    private static void ResetDraft(CourseIntake intake)
+    private static void KeepScheduleStatus(CourseIntake intake)
     {
+        if (intake.Status is not (CourseIntakeStatus.Draft or CourseIntakeStatus.Rejected)) return;
         intake.Status = CourseIntakeStatus.Draft;
         intake.SubmittedAt = null;
         intake.ConfirmedByCreatorId = null;
@@ -555,10 +361,10 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         intake.ConfirmationNote = null;
     }
 
-    private async Task SaveAsync(CourseIntake intake, string action, CancellationToken ct)
+    private async Task SaveAsync(CourseIntake intake, int actorUserId, string action, CancellationToken ct)
     {
         intake.Version = Guid.NewGuid();
-        await SaveWithCurrentVersionAsync(intake, intake.TrainerId, action, null, ct);
+        await SaveWithCurrentVersionAsync(intake, actorUserId, action, null, ct);
     }
 
     private async Task SaveWithCurrentVersionAsync(CourseIntake intake, int actorUserId, string action, string? reason, CancellationToken ct)
@@ -589,14 +395,6 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             reserved, active, remaining);
     }
 
-    private static CreatorIntakeApplicationSummaryDto ToCreatorSummary(CourseIntakeApplication application)
-    {
-        var intake = application.CourseIntake;
-        return new CreatorIntakeApplicationSummaryDto(intake.Id, application.Id, intake.CourseId,
-            intake.Course.Code, intake.Course.Title, intake.TrainerId, intake.Trainer.FullName,
-            application.Kind.ToString(), application.Status.ToString(), application.SubmittedAt, application.ApplicationVersion);
-    }
-
     private static CourseIntakeChangeDto ToChangeDto(CourseIntakeApplication application)
     {
         var snapshot = ReadSnapshot(application);
@@ -606,21 +404,6 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
                 s.StartsAt, s.EndsAt, s.MeetingLink, s.PhysicalAddress, s.PhysicalCapacity, s.PhysicalBookingDeadline)).ToList());
     }
 
-    private static CourseIntakeApplicationStatus ParseDecision(string value)
-        => value?.Trim() switch
-        {
-            "Confirm" => CourseIntakeApplicationStatus.Confirmed,
-            "Reject" => CourseIntakeApplicationStatus.Rejected,
-            _ => throw new CourseIntakeException("INVALID_REVIEW_DECISION", "Decision must be Confirm or Reject.", field: "decision"),
-        };
-
-    private static string? NormalizeReviewNote(string? value)
-    {
-        var note = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-        if (note?.Length > 512)
-            throw new CourseIntakeException("INVALID_CONFIRMATION_NOTE", "Confirmation notes may contain at most 512 characters.", field: "confirmationNote");
-        return note;
-    }
 
     private static ChangeSnapshot ReadSnapshot(CourseIntakeApplication application)
     {

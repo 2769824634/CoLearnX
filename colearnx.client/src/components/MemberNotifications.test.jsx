@@ -5,21 +5,25 @@ import { AuthContext } from '../auth/AuthContext';
 import { notificationsApi } from '../api';
 import { MemberNotificationsProvider } from './MemberNotificationsProvider';
 import MemberNotifications from './MemberNotifications';
-import { safeNotificationPath } from './memberNotificationsState';
+import { importantNotificationTypes, safeNotificationPath } from './memberNotificationsState';
 import { connectNotificationRealtime } from './notificationRealtime';
 
-it.each(['/trainer/courses/intakes/42', '/creator/courses/intake-applications/42'])('opens the exact Intake notification: %s', async (path) => {
+it.each(['/trainer/courses/intakes/42', '/creator/intakes/42'])('opens the exact Intake notification: %s', async (path) => {
   notificationsApi.my.mockResolvedValue({ unreadCount: 1, items: [{ id: 42, title: 'Class confirmed', message: 'Intake #42 will run.', isRead: false, targetPath: path, createdAt: '2026-09-30T12:00:00Z' }] });
   mount();
   fireEvent.click(await screen.findByRole('button', { name: 'Notifications, 1 unread' }));
   expect(screen.getByRole('link', { name: 'Open related page' }).getAttribute('href')).toBe(path);
 });
 
-it.each(['/member/programs', '/member/programs?tab=reserved', '/member/programs?tab=active&enrollmentId=11', '/creator/approvals', '/trainer/approvals'])('opens an approved notification path: %s', (path) => {
+it.each(['/member/programs', '/member/programs?tab=reserved', '/member/programs?tab=active&enrollmentId=11', '/creator/approvals', '/creator/intakes', '/trainer/courses', '/trainer/invitations', '/creator/courses'])('opens an approved notification path: %s', (path) => {
   expect(safeNotificationPath(path)).toBe(path);
 });
 
-it.each(['//example.com', '/trainer/courses/intakes/0', '/trainer/courses/intakes/42/../43', '/trainer/courses/intakes/42?next=https://example.com', '/creator/courses/intake-applications/42#other', '/trainer/courses/intakes/%34%32', '/member/programs?tab=unknown', '/member/programs?next=https://example.com', '/member/home', '/member/account', '/member/courses'])('rejects an unapproved notification path: %s', (path) => {
+it.each(['N-course-invitation', 'N-course-invitation-accepted', 'N-course-invitation-declined'])('raises a toast for teaching invitation updates: %s', (type) => {
+  expect(importantNotificationTypes.has(type)).toBe(true);
+});
+
+it.each(['//example.com', '/trainer/courses/intakes/0', '/trainer/courses/intakes/42/../43', '/trainer/courses/intakes/42?next=https://example.com', '/creator/intakes/42#other', '/trainer/courses/intakes/%34%32', '/member/programs?tab=unknown', '/member/programs?next=https://example.com', '/member/home', '/member/account', '/member/courses'])('rejects an unapproved notification path: %s', (path) => {
   expect(safeNotificationPath(path)).toBeNull();
 });
 
@@ -101,11 +105,11 @@ it('pops up a decision as soon as it is pushed', async () => {
 it('checks for new decisions every minute and pops them up', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   try {
-    notificationsApi.my.mockResolvedValueOnce({ unreadCount: 0, items: [] }).mockResolvedValue({ unreadCount: 1, items: [{ ...published, type: 'N-intake-application-rejected', title: 'Intake needs changes', message: 'Clarify the delivery dates', targetPath: '/trainer/courses/intakes/12' }] });
+    notificationsApi.my.mockResolvedValueOnce({ unreadCount: 0, items: [] }).mockResolvedValue({ unreadCount: 1, items: [{ ...published, type: 'N-intake-published', title: 'Class assigned', message: 'A class was published for you.', targetPath: '/trainer/courses/intakes/12' }] });
     mount();
     expect(await screen.findByRole('button', { name: 'Notifications, 0 unread' })).toBeTruthy();
     await act(() => vi.advanceTimersByTimeAsync(60_000));
-    expect(await screen.findByRole('dialog', { name: 'Intake needs changes' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Class assigned' })).toBeTruthy();
     expect(notificationsApi.my).toHaveBeenCalledTimes(2);
   } finally { vi.useRealTimers(); }
 });

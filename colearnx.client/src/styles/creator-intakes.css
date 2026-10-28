@@ -14,6 +14,8 @@
 .creator-section-heading h2 { margin: 0; font-size: 20px; }
 .creator-application-list { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .creator-application-row { display: grid; grid-template-columns: minmax(80px, 140px) minmax(0, 1fr) auto auto; gap: 18px; align-items: center; padding: 20px; }
+a.creator-course-row { grid-template-columns: minmax(80px, 140px) minmax(0, 1fr) auto; color: inherit; text-decoration: none; transition: background-color .16s ease; }
+a.creator-course-row:hover { background: var(--chrome); }
 .creator-application-row + .creator-application-row { border-top: 1px solid var(--border); }
 .creator-application-row h2 { margin: 2px 0 5px; font-size: 17px; }
 .creator-application-row p:last-child { margin: 0; color: var(--slate); font-size: 12px; }
@@ -141,4 +143,4 @@
 @media (max-width: 650px) { .creator-pipeline { grid-template-columns: 1fr; } .creator-pipeline li, .creator-pipeline li:first-child, .creator-pipeline li:last-child { border-radius: 0; } .creator-pipeline li + li { border-top: 1px solid var(--border); border-left: 0; } .creator-pipeline li:not(:last-child)::after { top: auto; right: auto; bottom: -7px; left: 32px; transform: rotate(135deg); } .creator-quick-actions { grid-template-columns: 1fr; } }
 @media (max-width: 650px) { .creator-interests { padding: 14px; } .creator-interest-status { align-items: flex-start; flex-direction: column; gap: 8px; } }
 @media (max-width: 850px) { .creator-review-layout { grid-template-columns: 1fr; } .creator-review-desk { position: static; } }
-@media (max-width: 650px) { .creator-header { align-items: flex-start; flex-direction: column; } .creator-application-row { grid-template-columns: minmax(70px, 110px) minmax(0, 1fr); } .creator-application-row .creator-status, .creator-application-row > a, .creator-application-row > time { grid-column: 2; justify-self: start; } .creator-schedule { padding: 16px; } .creator-schedule dl { grid-template-columns: 1fr; } }
+@media (max-width: 650px) { .creator-header { align-items: flex-start; flex-direction: column; } .creator-application-row, a.creator-course-row { grid-template-columns: minmax(70px, 110px) minmax(0, 1fr); } .creator-application-row .creator-status, .creator-application-row > a, .creator-application-row > time { grid-column: 2; justify-self: start; } .creator-schedule { padding: 16px; } .creator-schedule dl { grid-template-columns: 1fr; } }

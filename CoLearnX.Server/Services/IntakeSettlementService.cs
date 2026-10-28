@@ -11,19 +11,19 @@ public record IntakeSettlementResult(int IntakeId, bool Confirmed, int Processed
 public interface IIntakeSettlementService
 {
     Task<IntakeSettlementResult> SettleIfDueAsync(int intakeId, CancellationToken ct = default);
-    Task<IntakeSettlementResult> CancelIntakeAsync(int trainerUserId, int intakeId, CancellationToken ct = default);
+    Task<IntakeSettlementResult> CancelIntakeAsync(int creatorUserId, int intakeId, CancellationToken ct = default);
     Task ProcessDueAsync(CancellationToken ct = default);
 }
 
 public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettlementService
 {
-    public async Task<IntakeSettlementResult> CancelIntakeAsync(int trainerUserId, int intakeId, CancellationToken ct = default)
+    public async Task<IntakeSettlementResult> CancelIntakeAsync(int creatorUserId, int intakeId, CancellationToken ct = default)
     {
         return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
             db.ChangeTracker.Clear();
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
-            var intake = await db.CourseIntakes.AsNoTracking().SingleOrDefaultAsync(i => i.Id == intakeId && i.TrainerId == trainerUserId, ct)
+            var intake = await db.CourseIntakes.AsNoTracking().SingleOrDefaultAsync(i => i.Id == intakeId && i.Course.CreatorId == creatorUserId, ct)
                 ?? throw new CourseException("INTAKE_NOT_FOUND", "Owned Intake was not found.", 404);
             if (intake.CancelledAt is not null && intake.Status == CourseIntakeStatus.Cancelled)
                 return new IntakeSettlementResult(intakeId, false, 0);
@@ -33,7 +33,7 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
             var changed = await db.CourseIntakes.Where(i => i.Id == intakeId && i.CancelledAt == null
                     && (i.Status == CourseIntakeStatus.Published || i.Status == CourseIntakeStatus.InProgress))
                 .ExecuteUpdateAsync(setters => setters.SetProperty(i => i.CancelledAt, now)
-                    .SetProperty(i => i.CancellationReason, "TrainerCancelled")
+                    .SetProperty(i => i.CancellationReason, "CreatorCancelled")
                     .SetProperty(i => i.Version, Guid.NewGuid())
                     .SetProperty(i => i.Status, CourseIntakeStatus.Cancelled), ct);
             if (changed != 1)
@@ -61,7 +61,7 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
                 Title = "Class cancelled", Body = $"{course.Code} Intake #{intakeId} was cancelled." });
             db.Notifications.Add(new Notification { UserId = course.CreatorId, IntakeId = intake.Id, EmailPending = true, Code = "N-intake-cancelled-creator",
                 Title = "Class cancelled", Body = $"{course.Code} Intake #{intakeId} was cancelled." });
-            db.AuditLogs.Add(new AuditLog { UserId = trainerUserId, Action = "CourseIntakeCancelled",
+            db.AuditLogs.Add(new AuditLog { UserId = creatorUserId, Action = "CourseIntakeCancelled",
                 EntityType = nameof(CourseIntake), EntityId = intakeId.ToString(), Result = "Succeeded" });
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);

@@ -109,7 +109,7 @@ public class CreditReservationWorkflowTests
     public async Task TrainerCancellationBeforeConfirmationReleasesEveryReservation()
     {
         using var factory = new CoLearnXApiFactory();
-        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");
+        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.CreatorEmail, "Creator");
         int intakeId;
         int enrollmentId;
         int available;
@@ -131,7 +131,7 @@ public class CreditReservationWorkflowTests
             await db.SaveChangesAsync();
             enrollmentId = enrollment.Id;
         }
-        var response = await trainer.PostAsync($"/api/trainer/intakes/{intakeId}/cancel", null);
+        var response = await trainer.PostAsync($"/api/creator/intakes/{intakeId}/cancel", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var check = factory.Services.CreateScope();
         var saved = check.ServiceProvider.GetRequiredService<CoLearnXDbContext>();

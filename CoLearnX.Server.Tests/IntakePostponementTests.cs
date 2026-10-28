@@ -27,11 +27,10 @@ public class IntakePostponementTests
         foreach (var session in intake.Sessions)
         { session.StartsAt = intake.StartsAt; session.EndsAt = intake.StartsAt.AddHours(2); }
         await db.SaveChangesAsync();
-        var request = new CreateCourseIntakeChangeRequest(intake.RegistrationOpensAt, intake.RegistrationClosesAt.AddDays(1),
-            intake.StartsAt, intake.EndsAt, intake.Sessions.Select(s => new ProposedCourseSessionRequest(s.Id, s.Label,
-                s.StartsAt, s.EndsAt, s.MeetingLink, s.PhysicalAddress, s.PhysicalCapacity, s.PhysicalBookingDeadline)).ToList(), intake.Version);
+        var creatorId = await db.Users.Where(u => u.Email == SeedData.CreatorEmail).Select(u => u.Id).SingleAsync();
         var error = await Assert.ThrowsAsync<CourseIntakeException>(() => scope.ServiceProvider.GetRequiredService<ICourseIntakeService>()
-            .RequestChangeAsync(intake.TrainerId, intake.Id, request));
+            .UpdateAsync(creatorId, intake.Id, new UpdateCourseIntakeRequest(intake.RegistrationOpensAt, intake.RegistrationClosesAt.AddDays(1),
+                intake.StartsAt, intake.EndsAt, intake.Version)));
         Assert.Equal("INTAKE_HAS_COMMITTED_ENROLLMENTS", error.Code);
     }
 
@@ -59,7 +58,7 @@ public class IntakePostponementTests
     public async Task ReplacementCreationEnforcesSevenDayWindow(int days, int minutes, int expected)
     {
         using var factory = new CoLearnXApiFactory();
-        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");
+        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.CreatorEmail, "Creator");
         var (oldId, _) = await FailedClass(factory);
         using (var scope = factory.Services.CreateScope())
         {
@@ -68,7 +67,7 @@ public class IntakePostponementTests
             old.CancelledAt = DateTime.UtcNow.AddDays(-days).AddMinutes(-minutes);
             await db.SaveChangesAsync();
         }
-        Assert.Equal((HttpStatusCode)expected, (await trainer.PostAsJsonAsync($"/api/trainer/intakes/{oldId}/postpone", Schedule())).StatusCode);
+        Assert.Equal((HttpStatusCode)expected, (await trainer.PostAsJsonAsync($"/api/creator/intakes/{oldId}/postpone", Schedule())).StatusCode);
     }
 
     [Theory]
@@ -82,9 +81,9 @@ public class IntakePostponementTests
     {
         using var factory = new CoLearnXApiFactory();
         using var member = await ApiClient.AsMemberAsync(factory);
-        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");
+        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.CreatorEmail, "Creator");
         var (oldId, enrollmentId) = await FailedClass(factory);
-        var response = await trainer.PostAsJsonAsync($"/api/trainer/intakes/{oldId}/postpone", Schedule());
+        var response = await trainer.PostAsJsonAsync($"/api/creator/intakes/{oldId}/postpone", Schedule());
         response.EnsureSuccessStatusCode();
         var draft = (await response.Content.ReadFromJsonAsync<JsonObject>())!;
         var id = draft["id"]!.GetValue<int>();
@@ -118,10 +117,10 @@ public class IntakePostponementTests
     public async Task WrongTrainerAndTrainerCancellationCannotCreateReplacement()
     {
         using var factory = new CoLearnXApiFactory();
-        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");
+        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.CreatorEmail, "Creator");
         using var member = await ApiClient.AsMemberAsync(factory);
         var (oldId, _) = await FailedClass(factory);
-        Assert.Equal(HttpStatusCode.Forbidden, (await member.PostAsJsonAsync($"/api/trainer/intakes/{oldId}/postpone", Schedule())).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await member.PostAsJsonAsync($"/api/creator/intakes/{oldId}/postpone", Schedule())).StatusCode);
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
@@ -129,39 +128,31 @@ public class IntakePostponementTests
             old.CancellationReason = "TrainerCancelled";
             await db.SaveChangesAsync();
         }
-        Assert.Equal(HttpStatusCode.Conflict, (await trainer.PostAsJsonAsync($"/api/trainer/intakes/{oldId}/postpone", Schedule())).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await trainer.PostAsJsonAsync($"/api/creator/intakes/{oldId}/postpone", Schedule())).StatusCode);
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
             var old = (await db.CourseIntakes.FindAsync(oldId))!;
-            old.TrainerId = await db.Users.Where(u => u.Email == SeedData.CreatorEmail).Select(u => u.Id).SingleAsync();
+            (await db.Courses.FindAsync(old.CourseId))!.CreatorId = old.TrainerId;
             await db.SaveChangesAsync();
         }
-        Assert.Equal(HttpStatusCode.NotFound, (await trainer.PostAsJsonAsync($"/api/trainer/intakes/{oldId}/postpone", Schedule())).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await trainer.PostAsJsonAsync($"/api/creator/intakes/{oldId}/postpone", Schedule())).StatusCode);
     }
 
     [Fact]
     public async Task FailedClassCanBeReplacedReviewedAndReservedOnce()
     {
         using var factory = new CoLearnXApiFactory();
-        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");
+        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.CreatorEmail, "Creator");
         using var member = await ApiClient.AsMemberAsync(factory);
         var (oldId, enrollmentId) = await FailedClass(factory);
-        var replacement = await trainer.PostAsJsonAsync($"/api/trainer/intakes/{oldId}/postpone", Schedule());
+        var replacement = await trainer.PostAsJsonAsync($"/api/creator/intakes/{oldId}/postpone", Schedule());
         Assert.Equal(HttpStatusCode.Created, replacement.StatusCode);
         var draft = (await replacement.Content.ReadFromJsonAsync<JsonObject>())!;
         Assert.Equal(oldId, draft["replacementForIntakeId"]!.GetValue<int>());
-        Assert.Equal("Draft", draft["status"]!.GetValue<string>());
-        var id = draft["id"]!.GetValue<int>();
+        Assert.Equal("Published", draft["status"]!.GetValue<string>());
         var sessionId = draft["sessions"]![0]!["id"]!.GetValue<int>();
-        Assert.Equal(HttpStatusCode.Conflict, (await trainer.PostAsJsonAsync($"/api/trainer/intakes/{oldId}/postpone", Schedule())).StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict, (await member.PostAsJsonAsync($"/api/enrollments/{enrollmentId}/accept-postponement", new { courseSessionId = sessionId })).StatusCode);
-        var submitted = await trainer.PostAsJsonAsync($"/api/trainer/intakes/{id}/submit", new { version = draft["version"]!.GetValue<string>() });
-        submitted.EnsureSuccessStatusCode();
-        var pending = (await submitted.Content.ReadFromJsonAsync<JsonObject>())!;
-        using var creator = await ApiClient.AsRoleAsync(factory, SeedData.CreatorEmail, "Creator");
-        var review = await creator.PostAsJsonAsync($"/api/creator/intake-applications/{id}/review", new { decision = "Confirm", version = pending["version"]!.GetValue<string>() });
-        review.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Conflict, (await trainer.PostAsJsonAsync($"/api/creator/intakes/{oldId}/postpone", Schedule())).StatusCode);
         var mine = (await member.GetFromJsonAsync<JsonArray>("/api/enrollments/my"))!;
         var old = mine.Single(e => e!["id"]!.GetValue<int>() == enrollmentId)!;
         Assert.Single(old["postponementOptions"]!.AsArray());
@@ -210,7 +201,7 @@ public class IntakePostponementTests
 
     private static object Schedule() => new {
         registrationOpensAt = DateTime.UtcNow.AddMinutes(-1), registrationClosesAt = DateTime.UtcNow.AddDays(5),
-        startsAt = DateTime.UtcNow.AddDays(30), endsAt = DateTime.UtcNow.AddDays(32), minEnrollment = 10,
+        startsAt = DateTime.UtcNow.AddDays(30), endsAt = DateTime.UtcNow.AddDays(32), trainerId = 1, minEnrollment = 10,
     };
 
     private static async Task<(int IntakeId, int EnrollmentId)> FailedClass(CoLearnXApiFactory factory)

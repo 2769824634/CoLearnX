@@ -35,13 +35,30 @@ export function clearFieldErrors(error, name) {
   };
 }
 
-// datetime-local has no zone. Minute precision only — never include seconds.
+const pad = (part) => String(part).padStart(2, '0');
+
+// datetime values have no zone. Minute precision only — never include seconds.
 export function toLocalInput(value) {
   if (!value) return '';
   const date = value instanceof Date ? value : utcDate(value);
   if (!Number.isFinite(date.getTime())) return '';
-  const pad = (part) => String(part).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+// Registration is a UTC calendar date. The stored instant stays 00:00:00Z and is not shown.
+export function toUtcDateInput(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : utcDate(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+}
+
+function registrationInstant(value, field, original) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) invalid(field, 'Enter a valid date.');
+  if (original && toUtcDateInput(original) === value) return utcDate(original).toISOString();
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (date.toISOString().slice(0, 10) !== value) invalid(field, 'Enter a valid date.');
+  return date.toISOString();
 }
 
 function invalid(field, message) {
@@ -58,22 +75,53 @@ export function toUtc(value, field, original) {
   return date.toISOString();
 }
 
-const scheduleFields = ['registrationOpensAt', 'registrationClosesAt', 'startsAt', 'endsAt'];
+const registrationFields = ['registrationOpensAt', 'registrationClosesAt'];
+const deliveryFields = ['startsAt', 'endsAt'];
 export const initialSchedule = (intake = {}) => ({
-  ...Object.fromEntries(scheduleFields.map((field) => [field, toLocalInput(intake[field])])),
+  ...Object.fromEntries(registrationFields.map((field) => [field, toUtcDateInput(intake[field])])),
+  ...Object.fromEntries(deliveryFields.map((field) => [field, toLocalInput(intake[field])])),
   minEnrollment: intake.minEnrollment ?? 10,
 });
 
-export function schedulePayload(values, version, original) {
-  const payload = Object.fromEntries(scheduleFields.map((field) => [field, toUtc(values[field], field, original?.[field])]));
+export function schedulePayload(values, version, original, trainerId) {
+  const payload = {
+    ...Object.fromEntries(registrationFields.map((field) => [field, registrationInstant(values[field], field, original?.[field])])),
+    ...Object.fromEntries(deliveryFields.map((field) => [field, toUtc(values[field], field, original?.[field])])),
+  };
   payload.minEnrollment = Number(values.minEnrollment);
-  return version ? { ...payload, version } : payload;
+  if (version) return { ...payload, version };
+  return trainerId ? { ...payload, trainerId: Number(trainerId) } : payload;
+}
+
+export const DEFAULT_SESSION_MINUTES = 120;
+
+function clockMinutes(value) {
+  const [hour, minute] = String(value || '').split(':').map(Number);
+  return hour * 60 + minute;
+}
+
+export function sessionEndLocal(sessionDate, startTime, durationMinutes = DEFAULT_SESSION_MINUTES) {
+  const time = String(startTime || '').slice(0, 5);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(sessionDate || '') || !/^\d{2}:\d{2}$/.test(time)) return '';
+  const length = Number(durationMinutes);
+  const end = clockMinutes(time) + length;
+  if (!Number.isInteger(length) || length < 1 || end >= 24 * 60) return '';
+  return `${sessionDate}T${pad(Math.floor(end / 60))}:${pad(end % 60)}`;
 }
 
 export function initialSession(session, intake) {
+  const startLocal = toLocalInput(session?.startsAt || intake?.startsAt);
+  const sessionDate = startLocal.slice(0, 10);
+  let startTime = startLocal.slice(11, 16);
+  let durationMinutes = DEFAULT_SESSION_MINUTES;
+  if (session?.startsAt && session?.endsAt) {
+    const endLocal = toLocalInput(session.endsAt);
+    const length = clockMinutes(endLocal.slice(11, 16)) - clockMinutes(startTime);
+    if (endLocal.slice(0, 10) === sessionDate && length > 0) durationMinutes = length;
+  }
+  if (!sessionEndLocal(sessionDate, startTime, durationMinutes)) startTime = '09:00';
   return {
-    label: session?.label || '', startsAt: toLocalInput(session?.startsAt || intake.startsAt),
-    endsAt: toLocalInput(session?.endsAt || intake.endsAt), meetingLink: session?.meetingLink || '',
+    label: session?.label || '', sessionDate, startTime, durationMinutes, meetingLink: session?.meetingLink || '',
     physical: Boolean(session?.physicalAddress), physicalAddress: session?.physicalAddress || '',
     physicalCapacity: session?.physicalCapacity || 1, physicalBookingDeadline: toLocalInput(session?.physicalBookingDeadline),
   };
@@ -81,8 +129,12 @@ export function initialSession(session, intake) {
 
 export function sessionPayload(values, intake, original) {
   const label = values.label.trim();
-  const startsAt = toUtc(values.startsAt, 'startsAt', original?.startsAt);
-  const endsAt = toUtc(values.endsAt, 'endsAt', original?.endsAt);
+  const startTime = String(values.startTime || '').slice(0, 5);
+  const startLocal = `${values.sessionDate}T${startTime}`;
+  const endLocal = sessionEndLocal(values.sessionDate, startTime, values.durationMinutes);
+  if (!endLocal) invalid('startsAt', 'A session must start and end on the same day. The default length is 2 hours.');
+  const startsAt = toUtc(startLocal, 'startsAt', original?.startsAt);
+  const endsAt = toUtc(endLocal, 'endsAt', original?.endsAt);
   const meetingLink = values.meetingLink.trim() || null;
   const physicalAddress = values.physical ? values.physicalAddress.trim() : null;
   const physicalCapacity = values.physical ? Number(values.physicalCapacity) : 0;

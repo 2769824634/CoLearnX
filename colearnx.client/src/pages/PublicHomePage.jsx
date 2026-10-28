@@ -37,7 +37,9 @@ export default function PublicHomePage({ onboardingMode = 'auto' }) {
   const session = resolveAuthSession(auth);
   const { courses, loading, error } = usePublicCourses();
   const gate = useGuestGate();
-  const showOnboarding = onboardingMode === 'edit' || (onboardingMode === 'auto' && needsMemberOnboarding(auth.user));
+  // The interests API only serves the Member role, so other sessions would get a dialog that can neither load nor skip.
+  const showOnboarding = session === 'member'
+    && (onboardingMode === 'edit' || (onboardingMode === 'auto' && needsMemberOnboarding(auth.user)));
 
   if (session === 'booting') return <SessionLoading />;
 
@@ -72,7 +74,6 @@ export default function PublicHomePage({ onboardingMode = 'auto' }) {
     <PublicSiteShell>
       <GuestHome courses={courses} loading={loading} error={error} onWishlist={gate.openAuth} />
       <AuthRequiredModal open={gate.authOpen} onClose={gate.closeAuth} />
-      {showOnboarding ? <MemberOnboardingModal dismissible={onboardingMode === 'edit'} /> : null}
     </PublicSiteShell>
   );
 }

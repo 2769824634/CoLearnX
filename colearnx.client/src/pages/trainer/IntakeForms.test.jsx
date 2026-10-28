@@ -24,7 +24,7 @@ it('clears only the date field that the trainer changed', () => {
     onSave={vi.fn()}
   />);
 
-  fireEvent.change(screen.getByLabelText('Registration closes'), { target: { value: '2026-09-21T08:00' } });
+  fireEvent.change(screen.getByLabelText('Registration closes'), { target: { value: '2026-09-21' } });
   expect(onError).toHaveBeenCalledWith({
     message: 'Please correct the remaining fields: Delivery must end after it starts.',
     fieldErrors: { endsAt: ['Delivery must end after it starts.'] },
@@ -68,7 +68,7 @@ it('clears a matching nested Session error while preserving other field errors',
     onSave={vi.fn()}
   />);
 
-  fireEvent.change(screen.getByLabelText('Session starts'), { target: { value: '2026-10-10T09:00' } });
+  fireEvent.change(screen.getByLabelText('Class date'), { target: { value: '2026-10-09' } });
   expect(onError).toHaveBeenCalledWith({
     code: 'INVALID_INPUT',
     message: 'Please correct the remaining fields: Provide a valid meeting link.',
@@ -95,7 +95,7 @@ it('updates the parent TrainerError banner when a nested field is corrected', ()
   }
 
   render(<Harness />);
-  fireEvent.change(screen.getByLabelText('Session starts'), { target: { value: '2026-10-10T09:00' } });
+  fireEvent.change(screen.getByLabelText('Class date'), { target: { value: '2026-10-09' } });
   const banner = screen.getByRole('alert');
   expect(banner.textContent).toMatch(/Provide a valid meeting link/);
   expect(banner.textContent).not.toMatch(/Check the session|Session start is invalid/);
@@ -116,7 +116,7 @@ it('does not dismiss authentication or version conflict banners while editing', 
     onSave={vi.fn()}
   />);
 
-  fireEvent.change(screen.getByLabelText('Session starts'), { target: { value: '2026-10-10T08:00' } });
+  fireEvent.change(screen.getByLabelText('Class date'), { target: { value: '2026-10-09' } });
   expect(onError).not.toHaveBeenCalled();
 });
 

@@ -40,6 +40,7 @@ public sealed class FirstRoundRetryStrategyTests
                     IntakeStart.AddDays(-10),
                     IntakeStart,
                     IntakeStart.AddDays(2),
+                    TrainerId: 1,
                     MinEnrollment: 2));
 
             Assert.Equal("Draft", result.Status);
@@ -116,7 +117,7 @@ public sealed class FirstRoundRetryStrategyTests
             Id = 1,
             Email = "retry-trainer@example.com",
             FullName = "Retry Trainer",
-            Roles = [new UserRole { Role = AppRole.Trainer }],
+            Roles = [new UserRole { Role = AppRole.Member }, new UserRole { Role = AppRole.Trainer }, new UserRole { Role = AppRole.Creator }],
         });
         db.Courses.Add(new Course
         {
@@ -128,6 +129,7 @@ public sealed class FirstRoundRetryStrategyTests
             Status = CourseStatus.Published,
             CreditCost = 20,
         });
+        db.CourseTrainers.Add(new CourseTrainer { CourseId = 1, TrainerId = 1, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 1, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
     }
 

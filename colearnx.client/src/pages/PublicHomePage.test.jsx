@@ -131,6 +131,21 @@ it('shows a signed-in member as signed in on the homepage, including Courses', a
   expect(await screen.findByRole('heading', { name: 'Frontend React Bootcamp' })).toBeTruthy();
 });
 
+it.each(['trainer', 'creator'])('does not ask a signed-in %s for Member interests on the homepage', async (role) => {
+  mountHome({
+    booting: false,
+    isAuthenticated: true,
+    activeRole: role,
+    token: 'token',
+    logout: () => {},
+    user: { fullName: 'Gu Yincheng', roles: ['Member', 'Trainer', 'Creator'], activeRole: role, onboardingCompletedAt: null, onboardingSkippedAt: null },
+  });
+  expect(await screen.findByRole('heading', { name: 'Frontend React Bootcamp' })).toBeTruthy();
+  expect(screen.queryByRole('dialog', { name: 'Your learning interests' })).toBeNull();
+  const paths = globalThis.fetch.mock.calls.map(([path]) => String(path));
+  expect(paths.some((path) => path.includes('/api/users/me/interests'))).toBe(false);
+});
+
 it('shows guests only public navigation and a sign-up path', async () => {
   mountHome();
   const nav = screen.getByRole('navigation', { name: 'Site navigation' });

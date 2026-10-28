@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { creatorCoursesApi, interestsApi, materialsApi } from '../../api';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import CourseMaterialsCard from './CourseMaterialsCard';
+import CourseTrainersCard from './CourseTrainersCard';
 import { categoryChoices } from './courseCategories';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 
@@ -55,9 +56,9 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
   const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(toPayload(toForm(initialCourse || emptyCourse))));
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const steps = course ? EXISTING_COURSE_STEPS : NEW_COURSE_STEPS;
   const lastStep = steps.length - 1;
-  const [uploadOpen, setUploadOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [reached, setReached] = useState(initialCourse ? EXISTING_COURSE_STEPS.length - 1 : 0);
   const formRef = useRef(null);
@@ -219,6 +220,7 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
       </form>
     </>}
     {course ? <CourseMaterialsCard course={course} materials={materials} onMaterials={setMaterials} token={token} open={uploadOpen} onOpenChange={setUploadOpen} /> : null}
+    {course ? <CourseTrainersCard courseId={course.id} /> : null}
   </section>;
 }
 

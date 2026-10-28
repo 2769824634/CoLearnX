@@ -5,7 +5,7 @@ import Modal from '../../components/Modal';
 import { useMemberSlices } from './memberDataState';
 import { enrollmentsApi } from '../../api';
 import useTrainerQuery from '../trainer/useTrainerQuery';
-import { formatCount, formatUtcDateTime, userFacingError } from '../businessPresentation';
+import { formatCount, formatUtcDate, formatUtcDateTime, userFacingError } from '../businessPresentation';
 
 const tabForEnrollmentStatus = (status) => ({
   reserved: 'reserved', active: 'active', completed: 'completed', cancelled: 'history', refunded: 'history',
@@ -39,7 +39,7 @@ function PostponementPicker({ enrollment, busy, onReserve }) {
       </select>
     </div>
     <p>Intake #{selected.intakeId} · {formatUtcDateTime(selected.startsAt)} to {formatUtcDateTime(selected.endsAt)}</p>
-    <p>Registration closes {formatUtcDateTime(selected.registrationClosesAt)}. {selected.seatsLeft == null ? 'Online places available.' : `${formatCount(selected.seatsLeft, 'place')} left.`}</p>
+    <p>Registration closes {formatUtcDate(selected.registrationClosesAt)}. {selected.seatsLeft == null ? 'Online places available.' : `${formatCount(selected.seatsLeft, 'place')} left.`}</p>
     <p>A new reservation holds {formatCount(selected.creditsRequired, 'credit')} from your available balance.</p>
     <button type="button" className="btn btn-primary" disabled={busy || selected.seatsLeft === 0} onClick={() => onReserve({ enrollmentId: enrollment.enrollmentId, action: 'postpone', ...selected })}>Reserve replacement place</button>
   </section>;
@@ -165,7 +165,7 @@ export default function MemberProgramsPage() {
                 <div className="card-body">
                   <strong>{e.courseCode} — {e.courseTitle}</strong>
                   <div style={{ fontSize: 12, color: 'var(--slate)' }}>Trainer: {e.trainer}</div>
-                  {e.status === 'reserved' ? <div style={{ marginTop: 6 }}>On hold: {formatCount(e.heldCredits, 'credit')} · Registration closes {formatUtcDateTime(e.registrationClosesAt)}</div> : null}
+                  {e.status === 'reserved' ? <div style={{ marginTop: 6 }}>On hold: {formatCount(e.heldCredits, 'credit')} · Registration closes {formatUtcDate(e.registrationClosesAt)}</div> : null}
                   <div style={{ marginTop: 8 }}>
                     <strong style={{ color: 'var(--purple)' }}>{e.progress}%</strong>
                     <div className="progress-bar" style={{ width: 120, marginTop: 4 }}>

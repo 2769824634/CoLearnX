@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import useTrainerQuery, { loadTrainerOverview } from './useTrainerQuery';
 import { IntakeRows, TrainerError, TrainerHeader, TrainerLoading } from './TrainerUi';
 import { intakeStatuses, isEditable, statusLabel } from './intakeForm';
@@ -18,8 +18,8 @@ export default function TrainerIntakesPage() {
     return matchesStatus && `${intake.id} ${intake.courseId} ${course?.title || ''} ${course?.code || ''}`.toLowerCase().includes(term);
   });
   return <section className="trainer-page">
-    <TrainerHeader eyebrow="Course / My Intakes" title="Make room for your next cohort." action={<Link className="btn btn-primary" to="/trainer/courses/new">+ Create Intake</Link>}>
-      Manage your own teaching runs, from the first draft to Creator confirmation.
+    <TrainerHeader eyebrow="Course / My Intakes" title="Classes assigned to you." action={<button type="button" className="btn btn-ghost" onClick={query.refresh} disabled={query.loading}>Refresh</button>}>
+      The course Creator opens the class and assigns you. Update the meeting link, attendance, and learner list from here.
     </TrainerHeader>
     <div className="trainer-toolbar">
       <div className="form-group"><label htmlFor="intake-search">Find an Intake</label><input id="intake-search" type="search" placeholder="Course title, code or Intake ID" value={search} onChange={(event) => setSearch(event.target.value)} /></div>

@@ -2,6 +2,7 @@ using CoLearnX.Server.Domain;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace CoLearnX.Server.Data;
 
@@ -23,6 +24,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     public DbSet<CourseLevel> CourseLevels => Set<CourseLevel>();
     public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
     public DbSet<Course> Courses => Set<Course>();
+    public DbSet<CourseTrainer> CourseTrainers => Set<CourseTrainer>();
     public DbSet<CourseIntake> CourseIntakes => Set<CourseIntake>();
     public DbSet<CourseSession> CourseSessions => Set<CourseSession>();
     public DbSet<CourseIntakeApplication> CourseIntakeApplications => Set<CourseIntakeApplication>();
@@ -163,6 +165,20 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
             e.HasOne(x => x.Creator).WithMany().HasForeignKey(x => x.CreatorId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.CourseLevel).WithMany(x => x.Courses).HasForeignKey(x => x.CourseLevelId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.LearningPath).WithMany(x => x.Courses).HasForeignKey(x => x.LearningPathId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<CourseTrainer>(e =>
+        {
+            var utc = new ValueConverter<DateTime, DateTime>(value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
+            var optionalUtc = new ValueConverter<DateTime?, DateTime?>(value => value,
+                value => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : value);
+            e.HasIndex(x => new { x.CourseId, x.TrainerId }).IsUnique();
+            e.HasIndex(x => x.TrainerId);
+            e.Property(x => x.InvitedAt).HasConversion(utc);
+            e.Property(x => x.RespondedAt).HasConversion(optionalUtc);
+            e.Property(x => x.RemovedAt).HasConversion(optionalUtc);
+            e.HasOne(x => x.Course).WithMany().HasForeignKey(x => x.CourseId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Trainer).WithMany().HasForeignKey(x => x.TrainerId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<CourseLevel>(e =>

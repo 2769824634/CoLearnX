@@ -21,42 +21,23 @@ namespace CoLearnX.Server.Tests;
 public sealed class B4WorkflowIntegrationTests
 {
     private static readonly DateTime Start = new(2027, 4, 1, 9, 0, 0, DateTimeKind.Utc);
-    private static CreateCourseIntakeRequest Draft => new(Start.AddDays(-30), Start.AddDays(-10), Start, Start.AddDays(2));
+    private static CreateCourseIntakeRequest DraftFor(int trainerId) => new(Start.AddDays(-30), Start.AddDays(-10), Start, Start.AddDays(2), TrainerId: trainerId);
 
     [Fact]
-    public async Task CreatorApplicationQueue_IsAvailableToCreator()
-    {
-        using var factory = new B4ApiFactory();
-        using var creator = factory.UserClient(3, AppRole.Creator);
-
-        using var response = await creator.GetAsync("/api/creator/intake-applications");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task TrainerSubmit_CreatorConfirm_DeliveryAndConfirmedChange_RunEndToEnd()
+    public async Task CreatorPublishesAssignedClass_AndTrainerUpdatesDelivery()
     {
         using var factory = new B4ApiFactory();
         await factory.InitializeAsync();
         using var trainer = factory.UserClient(100, AppRole.Trainer);
         using var creator = factory.UserClient(103, AppRole.Creator);
 
-        var intake = await CreateSubmittedAsync(trainer);
-        var queue = await creator.GetFromJsonAsync<List<CreatorIntakeApplicationSummaryDto>>("/api/creator/intake-applications");
-        var queued = Assert.Single(queue!, item => item.CourseIntakeId == intake.Id);
-        Assert.Equal("Initial", queued.Kind);
-        Assert.Equal("Pending", queued.Status);
-        var application = await creator.GetFromJsonAsync<CreatorIntakeApplicationDetailDto>($"/api/creator/intake-applications/{intake.Id}");
-        Assert.Null(application!.ProposedChange);
-
-        intake = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{intake.Id}/review",
-            new ReviewIntakeApplicationRequest("Confirm", "Ready to deliver", queued.Version)));
+        var intake = await CreatePublishedAsync(creator);
         Assert.Equal("Published", intake.Status);
         Assert.Equal(103, intake.ConfirmedByCreatorId);
+        Assert.Equal(100, intake.TrainerId);
         var inbox = await trainer.GetFromJsonAsync<NotificationInboxDto>("/api/notifications/my");
-        var confirmedNotice = Assert.Single(inbox!.Items, item => item.Type == "N-intake-application-confirmed");
-        Assert.Equal($"/trainer/courses/intakes/{intake.Id}", confirmedNotice.TargetPath);
+        var assigned = Assert.Single(inbox!.Items, item => item.Type == "N-intake-published");
+        Assert.Equal($"/trainer/courses/intakes/{intake.Id}", assigned.TargetPath);
 
         var session = Assert.Single(intake.Sessions);
         intake = await Detail(await trainer.PatchAsJsonAsync($"/api/trainer/intakes/{intake.Id}/sessions/{session.Id}/delivery",
@@ -64,44 +45,31 @@ public sealed class B4WorkflowIntegrationTests
         Assert.Equal("https://example.com/live-room", Assert.Single(intake.Sessions).MeetingLink);
 
         var changedEnd = intake.EndsAt.AddDays(1);
-        var proposal = new CreateCourseIntakeChangeRequest(intake.RegistrationOpensAt, intake.RegistrationClosesAt,
-            intake.StartsAt, changedEnd,
-            [new ProposedCourseSessionRequest(session.Id, "Advanced workshop", session.StartsAt, session.EndsAt,
-                "https://example.com/live-room", null, 0, null)], intake.Version);
-        var pending = await Detail(await trainer.PostAsJsonAsync($"/api/trainer/intakes/{intake.Id}/change-requests", proposal));
-        Assert.Equal("PendingApproval", pending.Status);
-        Assert.Equal(Draft.EndsAt, pending.EndsAt); // active confirmed data remains live during review
-        Assert.Equal("Session 1", Assert.Single(pending.Sessions).Label);
-        Assert.Equal("Advanced workshop", Assert.Single(pending.LatestChangeRequest!.Sessions).Label);
-
-        application = await creator.GetFromJsonAsync<CreatorIntakeApplicationDetailDto>($"/api/creator/intake-applications/{intake.Id}");
-        Assert.NotNull(application!.Application);
-        Assert.Equal("Change", application.Application.Kind);
-        Assert.Equal(changedEnd, application.ProposedChange!.EndsAt);
-        intake = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{intake.Id}/review",
-            new ReviewIntakeApplicationRequest("Confirm", null, application.Application.Version)));
+        intake = await Detail(await creator.PutAsJsonAsync($"/api/creator/intakes/{intake.Id}/sessions/{session.Id}",
+            new UpdateCourseSessionRequest("Advanced workshop", session.StartsAt, session.EndsAt,
+                "https://example.com/live-room", null, 0, null, intake.Version)));
+        intake = await Detail(await creator.PutAsJsonAsync($"/api/creator/intakes/{intake.Id}",
+            new UpdateCourseIntakeRequest(intake.RegistrationOpensAt, intake.RegistrationClosesAt, intake.StartsAt, changedEnd, intake.Version)));
         Assert.Equal("Published", intake.Status);
         Assert.Equal(changedEnd, intake.EndsAt);
         Assert.Equal("Advanced workshop", Assert.Single(intake.Sessions).Label);
 
         var logs = await factory.ReadAsync(db => db.AuditLogs.Where(log => log.EntityType == nameof(CourseIntake)
             && log.EntityId == intake.Id.ToString()).ToListAsync());
-        Assert.Contains(logs, log => log.Action == "CourseIntakeConfirmed" && log.UserId == 103);
+        Assert.Contains(logs, log => log.Action == "CourseIntakePublished" && log.UserId == 103);
         Assert.Contains(logs, log => log.Action == "CourseSessionDeliveryUpdated" && log.UserId == 100);
-        Assert.Contains(logs, log => log.Action == "CourseIntakeChangeRequested" && log.UserId == 100);
+        Assert.Contains(logs, log => log.Action == "CourseIntakeUpdated" && log.UserId == 103);
     }
 
     [Fact]
-    public async Task ChangeRequest_CannotRemoveSessionAfterRealSessionMaterialUpload()
+    public async Task CreatorCannotDeleteSessionAfterRealSessionMaterialUpload()
     {
         using var factory = new B4ApiFactory();
         await factory.InitializeAsync();
         using var trainer = factory.UserClient(100, AppRole.Trainer);
         using var creator = factory.UserClient(103, AppRole.Creator);
 
-        var submitted = await CreateSubmittedAsync(trainer);
-        var published = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{submitted.Id}/review",
-            new ReviewIntakeApplicationRequest("Confirm", null, submitted.Version)));
+        var published = await CreatePublishedAsync(creator);
         var session = Assert.Single(published.Sessions);
         var title = $"Uploaded before removal {Guid.NewGuid():N}";
         var payload = "uploaded session material"u8.ToArray();
@@ -111,12 +79,7 @@ public sealed class B4WorkflowIntegrationTests
         var material = await upload.Content.ReadFromJsonAsync<SessionMaterialDto>();
         Assert.NotNull(material);
 
-        var replacement = new ProposedCourseSessionRequest(null, "Replacement session", session.StartsAt,
-            session.EndsAt, session.MeetingLink, session.PhysicalAddress, session.PhysicalCapacity,
-            session.PhysicalBookingDeadline);
-        var proposal = new CreateCourseIntakeChangeRequest(published.RegistrationOpensAt, published.RegistrationClosesAt,
-            published.StartsAt, published.EndsAt.AddDays(1), [replacement], published.Version);
-        await Error(await trainer.PostAsJsonAsync($"/api/trainer/intakes/{published.Id}/change-requests", proposal),
+        await Error(await creator.DeleteAsync($"/api/creator/intakes/{published.Id}/sessions/{session.Id}?version={published.Version}"),
             409, "SESSION_HAS_MATERIALS");
 
         var current = await trainer.GetFromJsonAsync<CourseIntakeDetailDto>($"/api/trainer/intakes/{published.Id}");
@@ -130,167 +93,81 @@ public sealed class B4WorkflowIntegrationTests
     }
 
     [Fact]
-    public async Task CreatorConfirmation_RechecksUploadedSessionMaterialsBeforeApplyingRemovalSnapshot()
+    public async Task IntakeOwnership_StaysWithTheCourseCreator()
     {
         using var factory = new B4ApiFactory();
         await factory.InitializeAsync();
-        using var trainer = factory.UserClient(100, AppRole.Trainer);
-        using var creator = factory.UserClient(103, AppRole.Creator);
-
-        var submitted = await CreateSubmittedAsync(trainer);
-        var published = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{submitted.Id}/review",
-            new ReviewIntakeApplicationRequest("Confirm", null, submitted.Version)));
-        var session = Assert.Single(published.Sessions);
-        var replacement = new ProposedCourseSessionRequest(null, "Replacement session", session.StartsAt,
-            session.EndsAt, session.MeetingLink, session.PhysicalAddress, session.PhysicalCapacity,
-            session.PhysicalBookingDeadline);
-        var proposal = new CreateCourseIntakeChangeRequest(published.RegistrationOpensAt, published.RegistrationClosesAt,
-            published.StartsAt, published.EndsAt.AddDays(1), [replacement], published.Version);
-
-        // Submit the removal snapshot while the Session is still empty. The upload
-        // is then added before Creator confirmation to model a concurrent delivery update.
-        await Detail(await trainer.PostAsJsonAsync($"/api/trainer/intakes/{published.Id}/change-requests", proposal));
-        var application = await creator.GetFromJsonAsync<CreatorIntakeApplicationDetailDto>(
-            $"/api/creator/intake-applications/{published.Id}");
-        Assert.Equal("Pending", application!.Application!.Status);
-        var path = $"session-materials/100/{session.Id}/{Guid.NewGuid():N}.pdf";
-        var payload = "late upload"u8.ToArray();
-        var storage = factory.Services.GetRequiredService<IFileStorage>();
-        await using (var content = new MemoryStream(payload))
-            await storage.SaveAsync(path, content, "application/pdf");
-        var materialId = await factory.ReadAsync(async db =>
-        {
-            var material = new SessionMaterial
-            {
-                CourseSessionId = session.Id,
-                AddedByTrainerId = 100,
-                Title = "Uploaded while change was pending",
-                FilePath = path,
-                Format = "PDF",
-            };
-            db.SessionMaterials.Add(material);
-            await db.SaveChangesAsync();
-            return material.Id;
-        });
-
-        await Error(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{published.Id}/review",
-            new ReviewIntakeApplicationRequest("Confirm", null, application.Application.Version)),
-            409, "SESSION_HAS_MATERIALS");
-
-        Assert.True(await factory.ReadAsync(db => db.SessionMaterials.AnyAsync(item => item.Id == materialId)));
-        Assert.True(await factory.ReadAsync(db => db.CourseSessions.AnyAsync(item => item.Id == session.Id)));
-        Assert.Equal("PendingApproval", (await trainer.GetFromJsonAsync<CourseIntakeDetailDto>(
-            $"/api/trainer/intakes/{published.Id}"))!.Status);
-        await using var preserved = await storage.OpenAsync(path);
-        Assert.NotNull(preserved);
-        using var preservedBytes = new MemoryStream();
-        await preserved!.CopyToAsync(preservedBytes);
-        Assert.Equal(payload, preservedBytes.ToArray());
-    }
-
-    [Fact]
-    public async Task Reject_IsNotAdminReview_IsIdempotent_AndRequiresANote()
-    {
-        using var factory = new B4ApiFactory();
-        await factory.InitializeAsync();
-        using var trainer = factory.UserClient(100, AppRole.Trainer);
         using var creator = factory.UserClient(103, AppRole.Creator);
         using var otherCreator = factory.UserClient(104, AppRole.Creator);
         using var admin = factory.AdminClient();
-        var intake = await CreateSubmittedAsync(trainer);
+        using var member = factory.UserClient(102, AppRole.Member);
+        var intake = await CreatePublishedAsync(creator);
 
-        await Error(await admin.GetAsync("/api/creator/intake-applications"), 401, "UNAUTHENTICATED");
-        await Error(await otherCreator.GetAsync($"/api/creator/intake-applications/{intake.Id}"), 404, "INTAKE_APPLICATION_NOT_FOUND");
-        await Error(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{intake.Id}/review",
-            new ReviewIntakeApplicationRequest("Reject", null, intake.Version)), 400, "REJECTION_NOTE_REQUIRED");
-        var rejected = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{intake.Id}/review",
-            new ReviewIntakeApplicationRequest("Reject", "Clarify the delivery dates", intake.Version)));
-        Assert.Equal("Rejected", rejected.Status);
-        Assert.Equal("Clarify the delivery dates", rejected.ConfirmationNote);
-
-        var replay = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{intake.Id}/review",
-            new ReviewIntakeApplicationRequest("Reject", "Clarify the delivery dates", intake.Version)));
-        Assert.Equal(rejected.Version, replay.Version);
-        var inbox = await trainer.GetFromJsonAsync<NotificationInboxDto>("/api/notifications/my");
-        var notice = Assert.Single(inbox!.Items, item => item.Type == "N-intake-application-rejected");
-        Assert.Contains("Clarify the delivery dates", notice.Message);
-        Assert.Equal($"/trainer/courses/intakes/{intake.Id}", notice.TargetPath);
-        await Error(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{intake.Id}/review",
-            new ReviewIntakeApplicationRequest("Confirm", null, intake.Version)), 409, "INTAKE_REVIEW_CONFLICT");
-        var updated = await Detail(await trainer.PutAsJsonAsync($"/api/trainer/intakes/{intake.Id}",
-            new UpdateCourseIntakeRequest(rejected.RegistrationOpensAt, rejected.RegistrationClosesAt,
-                rejected.StartsAt, rejected.EndsAt.AddDays(1), rejected.Version)));
-        Assert.Equal("Draft", updated.Status);
+        await Error(await admin.GetAsync("/api/creator/intakes"), 401, "UNAUTHENTICATED");
+        await Error(await otherCreator.GetAsync($"/api/creator/intakes/{intake.Id}"), 404, "INTAKE_NOT_FOUND");
+        await Error(await member.GetAsync("/api/creator/intakes"), 403, "CREATOR_REQUIRED");
+        var replay = await Detail(await creator.PostAsJsonAsync($"/api/creator/intakes/{intake.Id}/publish",
+            new SubmitCourseIntakeRequest(intake.Version)));
+        Assert.Equal(intake.Version, replay.Version);
+        Assert.Equal(1, await factory.ReadAsync(db => db.AuditLogs.CountAsync(log => log.Action == "CourseIntakePublished" && log.EntityId == intake.Id.ToString())));
     }
 
     [Fact]
-    public async Task CourseCreatorCanApproveIntakeTheyTeach_AndRolesStaySeparate()
+    public async Task CourseCreatorWhoAlsoTeaches_PublishesWithoutASecondRoleToken()
     {
         using var factory = new B4ApiFactory();
         await factory.InitializeAsync();
-        using var dual = factory.UserClient(105, AppRole.Trainer, AppRole.Trainer, AppRole.Creator);
-        var draft = await Detail(await dual.PostAsJsonAsync("/api/trainer/courses/101/intakes", Draft), HttpStatusCode.Created);
-        draft = await Detail(await dual.PostAsJsonAsync($"/api/trainer/intakes/{draft.Id}/sessions",
-            new CreateCourseSessionRequest("Session 1", Start, Start.AddHours(2), "https://example.com", null, 0, null, draft.Version)));
-        var pending = await Detail(await dual.PostAsJsonAsync($"/api/trainer/intakes/{draft.Id}/submit", new SubmitCourseIntakeRequest(draft.Version)));
+        using var dualTrainer = factory.UserClient(105, AppRole.Trainer, AppRole.Trainer, AppRole.Creator);
         using var dualCreator = factory.UserClient(105, AppRole.Creator, AppRole.Trainer, AppRole.Creator);
-        var published = await Detail(await dualCreator.PostAsJsonAsync($"/api/creator/intake-applications/{draft.Id}/review",
-            new ReviewIntakeApplicationRequest("Confirm", null, pending.Version)));
+        var published = await CreatePublishedAsync(dualCreator, 101, 105);
         Assert.Equal("Published", published.Status);
         Assert.Equal(105, published.ConfirmedByCreatorId);
-        await Error(await dual.GetAsync("/api/creator/intake-applications"), 403, "CREATOR_REQUIRED");
+        Assert.Equal(published.Id, Assert.Single((await dualTrainer.GetFromJsonAsync<List<CourseIntakeSummaryDto>>("/api/trainer/intakes"))!).Id);
+        await Error(await dualTrainer.PostAsJsonAsync("/api/creator/courses/101/intakes", DraftFor(105)), 403, "CREATOR_REQUIRED");
         await Error(await dualCreator.GetAsync("/api/trainer/intakes"), 403, "TRAINER_REQUIRED");
-        using var member = factory.UserClient(102, AppRole.Member);
-        await Error(await member.GetAsync("/api/creator/intake-applications"), 403, "CREATOR_REQUIRED");
     }
 
     [Fact]
-    public async Task RejectedChange_RetainsLiveSchedule_AndCanBeRevisedAndResubmitted()
+    public async Task PublishedSchedule_CanBeEditedUntilALearnerCommits()
     {
         using var factory = new B4ApiFactory();
         await factory.InitializeAsync();
-        using var trainer = factory.UserClient(100, AppRole.Trainer);
         using var creator = factory.UserClient(103, AppRole.Creator);
-        var pending = await CreateSubmittedAsync(trainer);
-        var published = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{pending.Id}/review",
-            new ReviewIntakeApplicationRequest("Confirm", null, pending.Version)));
+        var published = await CreatePublishedAsync(creator);
         var session = Assert.Single(published.Sessions);
-        var firstProposal = Change(published, session, "First proposed label");
-        var changed = await Detail(await trainer.PostAsJsonAsync($"/api/trainer/intakes/{published.Id}/change-requests", firstProposal));
-        var rejected = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{published.Id}/review",
-            new ReviewIntakeApplicationRequest("Reject", "Use the agreed workshop title", changed.Version)));
-        Assert.Equal("Rejected", rejected.Status);
-        Assert.Equal("Session 1", Assert.Single(rejected.Sessions).Label);
-        Assert.Equal("First proposed label", Assert.Single(rejected.LatestChangeRequest!.Sessions).Label);
-        await Error(await trainer.PutAsJsonAsync($"/api/trainer/intakes/{published.Id}",
-            new UpdateCourseIntakeRequest(rejected.RegistrationOpensAt, rejected.RegistrationClosesAt,
-                rejected.StartsAt, rejected.EndsAt, rejected.Version)), 409, "CHANGE_REQUEST_REQUIRED");
+        var edited = await Detail(await creator.PutAsJsonAsync($"/api/creator/intakes/{published.Id}/sessions/{session.Id}",
+            new UpdateCourseSessionRequest("Agreed workshop title", session.StartsAt, session.EndsAt,
+                session.MeetingLink, null, 0, null, published.Version)));
+        Assert.Equal("Published", edited.Status);
+        Assert.Equal("Agreed workshop title", Assert.Single(edited.Sessions).Label);
 
-        var second = Change(rejected, Assert.Single(rejected.Sessions), "Agreed workshop title");
-        var resubmitted = await Detail(await trainer.PostAsJsonAsync($"/api/trainer/intakes/{published.Id}/change-requests", second));
-        Assert.Equal("PendingApproval", resubmitted.Status);
-        var queue = await creator.GetFromJsonAsync<List<CreatorIntakeApplicationSummaryDto>>("/api/creator/intake-applications");
-        Assert.Single(queue!, item => item.CourseIntakeId == published.Id);
-        var confirmed = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{published.Id}/review",
-            new ReviewIntakeApplicationRequest("Confirm", null, resubmitted.Version)));
-        Assert.Equal("Published", confirmed.Status);
-        Assert.Equal("Agreed workshop title", Assert.Single(confirmed.Sessions).Label);
+        await factory.ReadAsync(async db =>
+        {
+            db.Enrollments.Add(new Enrollment { UserId = 102, CourseId = 100, CourseSessionId = session.Id,
+                CreditsSpent = 10, Status = EnrollmentStatus.Active });
+            return await db.SaveChangesAsync();
+        });
+        await Error(await creator.PutAsJsonAsync($"/api/creator/intakes/{published.Id}",
+            new UpdateCourseIntakeRequest(edited.RegistrationOpensAt, edited.RegistrationClosesAt,
+                edited.StartsAt, edited.EndsAt, edited.Version)), 409, "INTAKE_HAS_COMMITTED_ENROLLMENTS");
     }
 
     [Fact]
-    public async Task DeliveryAndChangeEndpoints_EnforceWhitelistOwnershipVersionAndHistory()
+    public async Task DeliveryAndStructuralEdits_EnforceWhitelistOwnershipVersionAndCommitments()
     {
         using var factory = new B4ApiFactory();
         await factory.InitializeAsync();
         using var trainer = factory.UserClient(100, AppRole.Trainer);
         using var otherTrainer = factory.UserClient(101, AppRole.Trainer);
         using var creator = factory.UserClient(103, AppRole.Creator);
-        var pending = await CreateSubmittedAsync(trainer);
-        var session = Assert.Single(pending.Sessions);
-        await Error(await trainer.PatchAsJsonAsync($"/api/trainer/intakes/{pending.Id}/sessions/{session.Id}/delivery",
-            new UpdateSessionDeliveryRequest("https://example.com", pending.Version)), 409, "DELIVERY_NOT_EDITABLE");
-        var published = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{pending.Id}/review",
-            new ReviewIntakeApplicationRequest("Confirm", null, pending.Version)));
+        var draft = await Detail(await creator.PostAsJsonAsync("/api/creator/courses/100/intakes", DraftFor(100)), HttpStatusCode.Created);
+        draft = await Detail(await creator.PostAsJsonAsync($"/api/creator/intakes/{draft.Id}/sessions",
+            new CreateCourseSessionRequest("Session 1", Start, Start.AddHours(2), "https://example.com/class", null, 0, null, draft.Version)));
+        var session = Assert.Single(draft.Sessions);
+        await Error(await trainer.PatchAsJsonAsync($"/api/trainer/intakes/{draft.Id}/sessions/{session.Id}/delivery",
+            new UpdateSessionDeliveryRequest("https://example.com", draft.Version)), 409, "DELIVERY_NOT_EDITABLE");
+        var published = await Detail(await creator.PostAsJsonAsync($"/api/creator/intakes/{draft.Id}/publish",
+            new SubmitCourseIntakeRequest(draft.Version)));
         session = Assert.Single(published.Sessions);
         await Error(await otherTrainer.PatchAsJsonAsync($"/api/trainer/intakes/{published.Id}/sessions/{session.Id}/delivery",
             new UpdateSessionDeliveryRequest("https://example.com/forged", published.Version)), 404, "INTAKE_NOT_FOUND");
@@ -305,8 +182,12 @@ public sealed class B4WorkflowIntegrationTests
                 CreditsSpent = 10, Status = EnrollmentStatus.Active });
             return await db.SaveChangesAsync();
         });
-        await Error(await trainer.PostAsJsonAsync($"/api/trainer/intakes/{published.Id}/change-requests",
-            Change(published, session, "Cannot rewrite history")), 409, "SESSION_HAS_HISTORY");
+        await Error(await creator.PutAsJsonAsync($"/api/creator/intakes/{published.Id}/sessions/{session.Id}",
+            new UpdateCourseSessionRequest("Cannot rewrite history", session.StartsAt, session.EndsAt,
+                session.MeetingLink, null, 0, null, published.Version)), 409, "INTAKE_HAS_COMMITTED_ENROLLMENTS");
+        var delivered = await Detail(await trainer.PatchAsJsonAsync($"/api/trainer/intakes/{published.Id}/sessions/{session.Id}/delivery",
+            new UpdateSessionDeliveryRequest("https://example.com/still-open", published.Version)));
+        Assert.Equal("https://example.com/still-open", Assert.Single(delivered.Sessions).MeetingLink);
     }
 
     [Fact]
@@ -316,9 +197,7 @@ public sealed class B4WorkflowIntegrationTests
         await factory.InitializeAsync();
         using var trainer = factory.UserClient(100, AppRole.Trainer);
         using var creator = factory.UserClient(103, AppRole.Creator);
-        var pending = await CreateSubmittedAsync(trainer);
-        var published = await Detail(await creator.PostAsJsonAsync($"/api/creator/intake-applications/{pending.Id}/review",
-            new ReviewIntakeApplicationRequest("Confirm", null, pending.Version)));
+        var published = await CreatePublishedAsync(creator);
         await factory.ReadAsync(async db =>
         {
             (await db.CourseIntakes.FindAsync(published.Id))!.Status = CourseIntakeStatus.InProgress;
@@ -331,17 +210,12 @@ public sealed class B4WorkflowIntegrationTests
         Assert.Equal("https://example.com/in-progress", Assert.Single(delivered.Sessions).MeetingLink);
     }
 
-    private static CreateCourseIntakeChangeRequest Change(CourseIntakeDetailDto intake, CourseSessionDto session, string label)
-        => new(intake.RegistrationOpensAt, intake.RegistrationClosesAt, intake.StartsAt, intake.EndsAt.AddDays(1),
-            [new ProposedCourseSessionRequest(session.Id, label, session.StartsAt, session.EndsAt, session.MeetingLink,
-                session.PhysicalAddress, session.PhysicalCapacity, session.PhysicalBookingDeadline)], intake.Version);
-
-    private static async Task<CourseIntakeDetailDto> CreateSubmittedAsync(HttpClient trainer)
+    private static async Task<CourseIntakeDetailDto> CreatePublishedAsync(HttpClient creator, int courseId = 100, int trainerId = 100)
     {
-        var intake = await Detail(await trainer.PostAsJsonAsync("/api/trainer/courses/100/intakes", Draft), HttpStatusCode.Created);
-        intake = await Detail(await trainer.PostAsJsonAsync($"/api/trainer/intakes/{intake.Id}/sessions",
+        var intake = await Detail(await creator.PostAsJsonAsync($"/api/creator/courses/{courseId}/intakes", DraftFor(trainerId)), HttpStatusCode.Created);
+        intake = await Detail(await creator.PostAsJsonAsync($"/api/creator/intakes/{intake.Id}/sessions",
             new CreateCourseSessionRequest("Session 1", Start, Start.AddHours(2), "https://example.com/class", null, 0, null, intake.Version)));
-        return await Detail(await trainer.PostAsJsonAsync($"/api/trainer/intakes/{intake.Id}/submit",
+        return await Detail(await creator.PostAsJsonAsync($"/api/creator/intakes/{intake.Id}/publish",
             new SubmitCourseIntakeRequest(intake.Version)));
     }
 
@@ -434,6 +308,9 @@ public sealed class B4WorkflowIntegrationTests
                 db.Courses.AddRange(
                     new Course { Id = 100, Code = "B4-100", Title = "B4 Workflow", TrainerId = 100, CreatorId = 103, CreditCost = 10, Status = CourseStatus.Published },
                     new Course { Id = 101, Code = "B4-101", Title = "Self Review", TrainerId = 105, CreatorId = 105, CreditCost = 10, Status = CourseStatus.Published });
+                db.CourseTrainers.AddRange(
+                    new CourseTrainer { CourseId = 100, TrainerId = 100, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 103, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow },
+                    new CourseTrainer { CourseId = 101, TrainerId = 105, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 105, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow });
                 return await db.SaveChangesAsync();
             });
         }

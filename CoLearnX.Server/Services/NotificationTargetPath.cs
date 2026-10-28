@@ -13,11 +13,12 @@ public static class NotificationTargetPath
         "N-session-full" or "N-session-reopened" or "N-min-reached" or "N-under-enrolled" or "N-intake-confirmed" or "N-intake-cancelled"
             => intakeId > 0 ? $"/trainer/courses/intakes/{intakeId}" : "/trainer/courses",
         "N-intake-confirmed-creator" or "N-intake-cancelled-creator"
-            => intakeId > 0 ? $"/creator/courses/intake-applications/{intakeId}" : "/creator/courses/intake-applications",
+            => intakeId > 0 ? $"/creator/intakes/{intakeId}" : "/creator/courses",
         "N-learner-withdrew" => intakeId > 0 ? $"/trainer/courses/intakes/{intakeId}" : "/trainer/learners",
         "N-course-published" or "N-course-rejected" => "/creator/approvals",
-        "N-intake-application-confirmed" or "N-intake-application-rejected"
-            => intakeId > 0 ? $"/trainer/courses/intakes/{intakeId}" : "/trainer/approvals",
+        "N-course-invitation" or "N-course-trainer-removed" => "/trainer/invitations",
+        "N-course-invitation-accepted" or "N-course-invitation-declined" => "/creator/courses",
+        "N-intake-published" => intakeId > 0 ? $"/trainer/courses/intakes/{intakeId}" : "/trainer/courses",
         "N-09" => "/member/disputes",
         _ => null,
     };

@@ -69,8 +69,7 @@ public sealed class AdminCourseReviewService(
             .Select(course => ToDto(
                 course,
                 latestReviewByCourseId.GetValueOrDefault(course.Id.ToString()),
-                details.InterestsByCourseId.GetValueOrDefault(course.Id) ?? [],
-                details.MaterialsByCourseId.GetValueOrDefault(course.Id)))
+                details))
             .ToList();
     }
 
@@ -106,11 +105,7 @@ public sealed class AdminCourseReviewService(
                 if (course.Status == targetStatus && existingReview?.Action == targetAction)
                 {
                     var existingDetails = await LoadDetailsAsync([course.Id], ct);
-                    return new AdminCourseReviewResultDto(ToDto(
-                        course,
-                        existingReview,
-                        existingDetails.InterestsByCourseId.GetValueOrDefault(course.Id) ?? [],
-                        existingDetails.MaterialsByCourseId.GetValueOrDefault(course.Id)), true);
+                    return new AdminCourseReviewResultDto(ToDto(course, existingReview, existingDetails), true);
                 }
 
                 throw new AdminReviewConflictException(
@@ -155,11 +150,7 @@ public sealed class AdminCourseReviewService(
 
             var reviewLog = await FindLatestReviewLogAsync(course.Id, ct);
             var details = await LoadDetailsAsync([course.Id], ct);
-            return new AdminCourseReviewResultDto(ToDto(
-                course,
-                reviewLog,
-                details.InterestsByCourseId.GetValueOrDefault(course.Id) ?? [],
-                details.MaterialsByCourseId.GetValueOrDefault(course.Id)), false);
+            return new AdminCourseReviewResultDto(ToDto(course, reviewLog, details), false);
         });
     }
 
@@ -202,6 +193,13 @@ public sealed class AdminCourseReviewService(
                 version.Status,
             }).ToListAsync(ct);
 
+        var trainerRows = await db.CourseTrainers
+            .AsNoTracking()
+            .Where(row => courseIds.Contains(row.CourseId)
+                && (row.Status == CourseTrainerStatus.Accepted || row.Status == CourseTrainerStatus.Invited))
+            .Select(row => new { row.CourseId, row.TrainerId, row.Trainer.FullName, row.Status })
+            .ToListAsync(ct);
+
         var interestsByCourseId = interestRows
             .GroupBy(item => item.CourseId)
             .ToDictionary(
@@ -220,8 +218,17 @@ public sealed class AdminCourseReviewService(
                     item.Format,
                     item.VersionNumber,
                     item.Status))));
+        var trainersByCourseId = trainerRows
+            .GroupBy(item => item.CourseId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<AdminCourseTrainerDto>)group
+                    .OrderBy(item => item.Status == CourseTrainerStatus.Accepted ? 0 : 1)
+                    .ThenBy(item => item.FullName, StringComparer.OrdinalIgnoreCase)
+                    .Select(item => new AdminCourseTrainerDto(item.TrainerId, item.FullName, item.Status.ToString()))
+                    .ToList());
 
-        return new CourseReviewDetails(interestsByCourseId, materialsByCourseId);
+        return new CourseReviewDetails(interestsByCourseId, materialsByCourseId, trainersByCourseId);
     }
 
     private Task<AuditLog?> FindLatestReviewLogAsync(int courseId, CancellationToken ct)
@@ -233,12 +240,10 @@ public sealed class AdminCourseReviewService(
             .OrderByDescending(log => log.CreatedAt)
             .FirstOrDefaultAsync(ct);
 
-    private static AdminCourseDto ToDto(
-        Course course,
-        AuditLog? reviewLog,
-        IReadOnlyList<CourseInterestDto>? interests = null,
-        MaterialSummary? materials = null)
-        => new(
+    private static AdminCourseDto ToDto(Course course, AuditLog? reviewLog, CourseReviewDetails details)
+    {
+        var materials = details.MaterialsByCourseId.GetValueOrDefault(course.Id);
+        return new(
             course.Id,
             course.Code,
             course.Title,
@@ -257,10 +262,12 @@ public sealed class AdminCourseReviewService(
             course.LearningOutcomes.OrderBy(outcome => outcome.SortOrder).Select(outcome => outcome.Text).ToList(),
             course.LearningPath?.Name,
             course.Creator.FullName,
-            interests ?? [],
+            details.InterestsByCourseId.GetValueOrDefault(course.Id) ?? [],
             materials?.Versions.Count ?? 0,
             materials?.StatusCounts ?? EmptyStatusCounts(),
-            materials?.Versions ?? []);
+            materials?.Versions ?? [],
+            details.TrainersByCourseId.GetValueOrDefault(course.Id) ?? []);
+    }
 
     private static MaterialSummary BuildMaterialSummary(IEnumerable<MaterialRow> rows)
     {
@@ -297,10 +304,12 @@ public sealed class AdminCourseReviewService(
 
     private sealed record CourseReviewDetails(
         IReadOnlyDictionary<int, IReadOnlyList<CourseInterestDto>> InterestsByCourseId,
-        IReadOnlyDictionary<int, MaterialSummary> MaterialsByCourseId)
+        IReadOnlyDictionary<int, MaterialSummary> MaterialsByCourseId,
+        IReadOnlyDictionary<int, IReadOnlyList<AdminCourseTrainerDto>> TrainersByCourseId)
     {
         public static CourseReviewDetails Empty { get; } = new(
             new Dictionary<int, IReadOnlyList<CourseInterestDto>>(),
-            new Dictionary<int, MaterialSummary>());
+            new Dictionary<int, MaterialSummary>(),
+            new Dictionary<int, IReadOnlyList<AdminCourseTrainerDto>>());
     }
 }
