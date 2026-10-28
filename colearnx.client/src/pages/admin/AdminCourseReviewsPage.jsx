@@ -4,6 +4,7 @@ import { adminCourseReviewsApi } from '../../api';
 import { adminLaterPhaseApi } from '../../api/adminLaterPhase';
 import Modal from '../../components/Modal';
 import { formatCount, formatUtcDateTime } from '../businessPresentation';
+import { useAdminPending } from './adminPending';
 
 const FILTERS = [
   { value: 'PendingApproval', label: 'Pending approval' },
@@ -35,6 +36,7 @@ export default function AdminCourseReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [reviewNotice, setReviewNotice] = useState('');
+  const pending = useAdminPending();
   const [selected, setSelected] = useState(null);
   const [decision, setDecision] = useState('Approve');
   const [reason, setReason] = useState('');
@@ -122,6 +124,7 @@ export default function AdminCourseReviewsPage() {
       });
       setReviewNotice(`${reviewed.code} is now ${formatStatus(reviewed.status).toLowerCase()}.`);
       setSelected(null);
+      pending?.refresh();
     } catch (error) {
       setReviewError(error.message || 'The course review could not be saved.');
     } finally {

@@ -1,20 +1,38 @@
 import { Link } from 'react-router-dom';
-import { adminAuditApi, adminCourseReviewsApi, adminRoleRequestsApi } from '../../api';
+import { adminAuditApi, adminOverviewApi } from '../../api';
 import useAdminQuery from './useAdminQuery';
 import AdminDataState from './AdminDataState';
+import { pendingTotal, useAdminPending } from './adminPending';
 import { actionLabel, auditActor, formatAuditTime, resultClass, resultLabel } from './adminDisplay';
 
+const QUEUE_CARDS = [
+  { key: 'roleRequests', number: '01 / Access', title: 'Role requests', to: '/admin/approvals?queue=roles',
+    detail: 'Trainer and Creator applications awaiting a decision.', link: 'Open role requests' },
+  { key: 'courses', number: '02 / Catalogue', title: 'Courses to review', to: '/admin/approvals?queue=courses',
+    detail: 'Submitted courses awaiting publication or feedback.', link: 'Open course reviews' },
+  { key: 'materialVersions', number: '03 / Materials', title: 'Material versions', to: '/admin/approvals?queue=materials',
+    detail: 'New material versions waiting before Trainers can use them.', link: 'Open material versions' },
+  { key: 'certificates', number: '04 / Certificates', title: 'Certificates', to: '/admin/approvals?queue=certificates',
+    detail: 'Trainer-approved certificates awaiting final issue.', link: 'Open certificates' },
+  { key: 'disputes', number: '05 / Disputes', title: 'Disputes', to: '/admin/disputes',
+    detail: 'Open disputes awaiting a resolution.', link: 'Open disputes' },
+];
+
 async function loadOverview(token, _queryKey, signal) {
-  const [roles, courses, activity] = await Promise.all([
-    adminRoleRequestsApi.list(token, 'Pending', signal),
-    adminCourseReviewsApi.list(token, 'PendingApproval', signal),
+  const [counts, activity] = await Promise.all([
+    adminOverviewApi.pendingCounts(token, signal),
     adminAuditApi.list(token, 5, signal),
   ]);
-  return { roles, courses, activity, loadedAt: new Date().toISOString() };
+  return { counts, activity, loadedAt: new Date().toISOString() };
 }
 
 export default function AdminHomePage() {
-  const { data, loading, error, refresh } = useAdminQuery(loadOverview);
+  const { data, loading, error, refresh: refreshOverview } = useAdminQuery(loadOverview);
+  const pending = useAdminPending();
+  const refresh = () => {
+    refreshOverview();
+    pending?.refresh();
+  };
   return (
     <div className="admin-overview">
       <header className="admin-review-header">
@@ -28,23 +46,18 @@ export default function AdminHomePage() {
       <AdminDataState loading={loading} error={error} onRetry={refresh} />
       {data ? <>
         <section className="admin-overview-queues" aria-label="Pending review queues">
-          <Link className="admin-queue-card" to="/admin/approvals?queue=roles">
-            <span className="admin-queue-number">01 / Access</span>
-            <strong className="admin-queue-total">{data.roles.length}</strong>
-            <h2>Role requests</h2>
-            <p>Trainer and Creator applications awaiting a decision.</p>
-            <span className="admin-queue-link">Open role requests <span aria-hidden="true">↗</span></span>
-          </Link>
-          <Link className="admin-queue-card" to="/admin/approvals?queue=courses">
-            <span className="admin-queue-number">02 / Catalogue</span>
-            <strong className="admin-queue-total">{data.courses.length}</strong>
-            <h2>Courses to review</h2>
-            <p>Submitted courses awaiting publication or feedback.</p>
-            <span className="admin-queue-link">Open course reviews <span aria-hidden="true">↗</span></span>
-          </Link>
+          {QUEUE_CARDS.map((card) => (
+            <Link key={card.key} className="admin-queue-card" to={card.to}>
+              <span className="admin-queue-number">{card.number}</span>
+              <strong className="admin-queue-total">{data.counts[card.key]}</strong>
+              <h2>{card.title}</h2>
+              <p>{card.detail}</p>
+              <span className="admin-queue-link">{card.link} <span aria-hidden="true">↗</span></span>
+            </Link>
+          ))}
         </section>
-        {data.roles.length + data.courses.length === 0 ? (
-          <p className="admin-review-notice" role="status">All caught up. No role requests or courses are awaiting review.</p>
+        {pendingTotal(data.counts) === 0 ? (
+          <p className="admin-review-notice" role="status">All caught up. Nothing is waiting for review.</p>
         ) : null}
         <section className="admin-activity-panel" aria-labelledby="recent-activity-title">
           <div className="admin-section-heading">

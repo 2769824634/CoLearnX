@@ -1,6 +1,7 @@
 using CoLearnX.Server.Auth;
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
+using CoLearnX.Server.Domain.Enums;
 using CoLearnX.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -29,6 +30,15 @@ public class AdminController(IAdminFinanceService finance) : ControllerBase
         return Ok(users.Select(user => new AdminUserSummaryDto(user.Id, user.FullName, user.Email,
             user.CreditBalance, user.HeldCredits, user.IsActive, user.Roles.Select(role => role.Role.ToString()).ToList())).ToList());
     }
+
+    [HttpGet("pending-counts")]
+    public async Task<ActionResult<AdminPendingCountsDto>> PendingCounts([FromServices] CoLearnXDbContext db, CancellationToken ct)
+        => Ok(new AdminPendingCountsDto(
+            await db.RoleRequests.CountAsync(item => item.Status == RoleRequestStatus.Pending, ct),
+            await db.Courses.CountAsync(item => item.Status == CourseStatus.PendingApproval, ct),
+            await db.CourseMaterialVersions.CountAsync(item => item.Status == MaterialVersionStatus.PendingApproval, ct),
+            await db.CertificateRequests.CountAsync(item => item.Status == CertificateRequestStatus.TrainerApproved, ct),
+            await db.Disputes.CountAsync(item => item.Status == DisputeStatus.Open, ct)));
 
     [HttpGet("credits/ledger")]
     public async Task<ActionResult<IReadOnlyList<AdminCreditLedgerItemDto>>> Ledger(

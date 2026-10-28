@@ -18,6 +18,7 @@ public interface IAuditLogService
 
     Task<IReadOnlyList<AuditLogDto>> ListAsync(int limit = 100, CancellationToken ct = default);
     Task<IReadOnlyList<AuditLogDto>> QueryAsync(AdminAuditLogQuery query, CancellationToken ct = default);
+    Task<AuditLogFilterOptionsDto> FilterOptionsAsync(CancellationToken ct = default);
 }
 
 public class AuditLogService(CoLearnXDbContext db) : IAuditLogService
@@ -75,6 +76,15 @@ public class AuditLogService(CoLearnXDbContext db) : IAuditLogService
                 log.Reason,
                 log.CreatedAt))
             .ToListAsync(ct);
+    }
+
+    public async Task<AuditLogFilterOptionsDto> FilterOptionsAsync(CancellationToken ct = default)
+    {
+        var entityTypes = await db.AuditLogs.AsNoTracking().Select(log => log.EntityType).Distinct().ToListAsync(ct);
+        var results = await db.AuditLogs.AsNoTracking().Select(log => log.Result).Distinct().ToListAsync(ct);
+        return new AuditLogFilterOptionsDto(
+            entityTypes.Order(StringComparer.Ordinal).ToList(),
+            results.Order(StringComparer.Ordinal).ToList());
     }
 
     private static string Required(string value, string parameterName)

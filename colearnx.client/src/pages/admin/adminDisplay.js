@@ -13,6 +13,24 @@ export function auditActor(log) {
   return log.adminAccountId != null ? `Admin #${log.adminAccountId}` : `User #${log.userId}`;
 }
 
+const ENTITY_TYPE_LABELS = {
+  AdminAccount: 'Admin accounts',
+  CertificateRequest: 'Certificate requests',
+  Course: 'Courses',
+  CourseDomain: 'Course domains',
+  CourseIntake: 'Intakes',
+  CourseMaterialVersion: 'Material versions',
+  CourseTrainer: 'Course trainers',
+  Dispute: 'Disputes',
+  Enrollment: 'Enrollments',
+  RoleRequest: 'Role requests',
+  User: 'Users',
+};
+
+export function entityTypeLabel(entityType) {
+  return ENTITY_TYPE_LABELS[entityType] ?? entityType;
+}
+
 export function actionLabel(action) {
   return action.replace(/([a-z])([A-Z])/g, '$1 $2');
 }
