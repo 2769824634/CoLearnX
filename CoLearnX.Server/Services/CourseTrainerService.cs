@@ -90,7 +90,7 @@ public sealed class CourseTrainerService(CoLearnXDbContext db, INotificationReal
             db.Notifications.Add(notification);
         }
 
-        Audit(creatorId, "CourseTrainerInvited", row);
+        await Audit(creatorId, "CourseTrainerInvited", row, ct);
         await db.SaveChangesAsync(ct);
         await PublishAsync(notification, ct);
         return ToDto(row);
@@ -123,7 +123,7 @@ public sealed class CourseTrainerService(CoLearnXDbContext db, INotificationReal
             db.Notifications.Add(notification);
         }
 
-        Audit(creatorId, "CourseTrainerRemoved", row);
+        await Audit(creatorId, "CourseTrainerRemoved", row, ct);
         await db.SaveChangesAsync(ct);
         return ToDto(row);
     }
@@ -164,19 +164,20 @@ public sealed class CourseTrainerService(CoLearnXDbContext db, INotificationReal
             Body = $"{row.Trainer.FullName} {(accept ? "accepted" : "declined")} your invitation to teach {CourseName(row.Course)}.",
         };
         db.Notifications.Add(notification);
-        Audit(trainerId, accept ? "CourseInvitationAccepted" : "CourseInvitationDeclined", row);
+        await Audit(trainerId, accept ? "CourseInvitationAccepted" : "CourseInvitationDeclined", row, ct);
         await db.SaveChangesAsync(ct);
         await PublishAsync(notification, ct);
         return ToInvitationDto(row);
     }
 
     // A first invitation has no row Id until saved; the course/trainer pair keeps the entry in the same save.
-    private void Audit(int actorUserId, string action, CourseTrainer row)
-        => db.AuditLogs.Add(new AuditLog
-        {
-            UserId = actorUserId, Action = action, EntityType = nameof(CourseTrainer),
-            EntityId = $"{row.CourseId}/{row.TrainerId}", Result = row.Status.ToString(),
-        });
+    private async Task Audit(int actorUserId, string action, CourseTrainer row, CancellationToken ct)
+    {
+        var log = await TrainerAudit.CreateAsync(
+            db, actorUserId, action, nameof(CourseTrainer), row.CourseId, row.Status.ToString(), null, ct);
+        log.EntityId = $"{row.CourseId}/{row.TrainerId}";
+        db.AuditLogs.Add(log);
+    }
 
     private IQueryable<User> ActiveTrainers()
         => db.Users.Where(user => user.IsActive && user.Roles.Any(role => role.Role == AppRole.Trainer));

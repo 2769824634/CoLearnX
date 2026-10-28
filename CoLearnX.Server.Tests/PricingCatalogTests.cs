@@ -33,8 +33,30 @@ public sealed class PricingCatalogTests
             Assert.Equal((25, 25, 50), (row.ContentSharePercent, row.DeliverySharePercent, row.PlatformSharePercent));
         }
 
+        var tier = new PriceTier
+        {
+            Code = "A",
+            TheoryMinHourlyCredits = 40,
+            TheoryMaxHourlyCredits = 120,
+            PracticeMinHourlyCredits = 60,
+            PracticeMaxHourlyCredits = 150,
+            SortOrder = 1,
+        };
+        db.PriceTiers.Add(tier);
+        await db.SaveChangesAsync();
+        db.CourseDomains.Add(new CourseDomain
+        {
+            Name = "Kept domain",
+            PriceTierId = tier.Id,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
         await SeedData.InitializeAsync(db, seedDemoAdmin: false);
         Assert.Equal(9, await db.PricePools.CountAsync());
+        Assert.Equal(1, await db.PriceTiers.CountAsync());
+        Assert.Equal("Kept domain", await db.CourseDomains.Select(item => item.Name).SingleAsync());
     }
 
     private static async Task<(SqliteConnection Connection, CoLearnXDbContext Db)> OpenAsync()

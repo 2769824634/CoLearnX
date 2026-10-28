@@ -54,10 +54,11 @@ public static class PricingSeed
         await db.SaveChangesAsync(ct);
 
         var obsolete = await db.PricePools.Where(row => row.Subject == null).ToListAsync(ct);
-        db.PricePools.RemoveRange(obsolete);
-        db.CourseDomains.RemoveRange(await db.CourseDomains.ToListAsync(ct));
-        db.PriceTiers.RemoveRange(await db.PriceTiers.ToListAsync(ct));
-        await db.SaveChangesAsync(ct);
+        if (obsolete.Count > 0)
+        {
+            db.PricePools.RemoveRange(obsolete);
+            await db.SaveChangesAsync(ct);
+        }
 
         var levels = await db.CourseLevels.ToDictionaryAsync(level => level.Name, level => level.Id, ct);
         var existing = (await db.PricePools

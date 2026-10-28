@@ -10,6 +10,7 @@ public static class CourseSubjectSchema
         if (db.Database.IsSqlite())
             await EnsureSqliteAsync(db, ct);
         else if (db.Database.IsSqlServer())
+        {
             await db.Database.ExecuteSqlRawAsync("""
                 IF OBJECT_ID(N'dbo.CourseSubjects', N'U') IS NULL
                 BEGIN
@@ -28,10 +29,13 @@ public static class CourseSubjectSchema
                     ALTER TABLE dbo.Courses ADD DurationHours int NULL;
                 IF COL_LENGTH(N'dbo.Courses', N'PriceExceptionReason') IS NULL
                     ALTER TABLE dbo.Courses ADD PriceExceptionReason nvarchar(500) NULL;
+                """, ct);
+            await db.Database.ExecuteSqlRawAsync("""
                 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Courses_CourseSubjects_CourseSubjectId')
                     ALTER TABLE dbo.Courses ADD CONSTRAINT FK_Courses_CourseSubjects_CourseSubjectId
                         FOREIGN KEY (CourseSubjectId) REFERENCES dbo.CourseSubjects (Id);
                 """, ct);
+        }
     }
 
     private static async Task EnsureSqliteAsync(CoLearnXDbContext db, CancellationToken ct)

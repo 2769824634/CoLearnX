@@ -25,10 +25,12 @@ public interface IAdminStaffService
 public sealed class AdminStaffService(CoLearnXDbContext db, IRoleRequestFileStorage files) : IAdminStaffService
 {
     public async Task<IReadOnlyList<StaffAccountDto>> ListAsync(CancellationToken ct = default)
-        => await db.StaffAccounts.AsNoTracking()
+    {
+        var accounts = await db.StaffAccounts.AsNoTracking()
             .OrderBy(account => account.StaffNumber)
-            .Select(account => Map(account))
             .ToListAsync(ct);
+        return accounts.Select(Map).ToList();
+    }
 
     public async Task<StaffProvisioningResultDto> ProvisionAsync(
         int adminAccountId,

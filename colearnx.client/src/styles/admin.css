@@ -663,6 +663,17 @@
   font-size: 11px;
 }
 
+.admin-credit-value {
+  display: inline-flex;
+  min-width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-weight: 700;
+}
+
 .admin-credit-value.is-exception {
   border-color: var(--danger);
   color: var(--danger);
@@ -674,14 +685,6 @@
   color: var(--danger);
   font-weight: 700;
   max-width: 220px;
-}
-  min-width: 34px;
-  height: 34px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  font-weight: 700;
 }
 
 .admin-review-action {
