@@ -138,3 +138,44 @@ describe('Trainer and Creator My Account', () => {
     expect(screen.getByRole('button', { name: 'Save Changes' })).toBeTruthy();
   });
 });
+
+
+describe('multi-role profile editing', () => {
+  it.each(['trainer', 'creator'])('edits both role profiles from the %s workspace and keeps hidden data', async (role) => {
+    const auth = authFor(role, { roles: ['Member', 'Trainer', 'Creator'], identityVisibility: { member: true, trainer: true, creator: true } });
+    const fetchMock = vi.fn(async (path, options = {}) => {
+      if (String(path) === '/api/users/3' && options.method === 'PUT') return json({ ...auth.user, ...JSON.parse(options.body) });
+      return json([]);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<MemoryRouter initialEntries={[`/${role}/account`]}><AuthContext.Provider value={auth}><AppRouter /></AuthContext.Provider></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Profile' }));
+    expect(screen.getByLabelText('Trainer headline').value).toBe('Senior Trainer');
+    expect(screen.getByLabelText('Creator headline').value).toBe('Content creator');
+    fireEvent.change(screen.getByLabelText('Expertise tags'), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText('Creator headline'), { target: { value: 'Updated creator' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Creator visibility' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await waitFor(() => expect(auth.refreshUser).toHaveBeenCalled());
+    const call = fetchMock.mock.calls.find(([path, options]) => path === '/api/users/3' && options.method === 'PUT');
+    const body = JSON.parse(call[1].body);
+    expect(body.trainerHeadline).toBe('Senior Trainer');
+    expect(body.creatorHeadline).toBe('Updated creator');
+    expect(body.expertiseTags).toBe('');
+    expect(body.identityVisibility.creator).toBe(false);
+  });
+});
+
+
+it.each(['trainer', 'creator'])('does not submit unowned role fields from the %s account', async (role) => {
+  const auth = authFor(role);
+  const fetchMock = vi.fn(async (path, options = {}) => String(path) === '/api/users/3' && options.method === 'PUT' ? json(auth.user) : json([]));
+  vi.stubGlobal('fetch', fetchMock);
+  render(<MemoryRouter initialEntries={[`/${role}/account`]}><AuthContext.Provider value={auth}><AppRouter /></AuthContext.Provider></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Profile' }));
+  expect(screen.queryByLabelText(role === 'trainer' ? 'Creator headline' : 'Trainer headline')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+  await waitFor(() => expect(auth.refreshUser).toHaveBeenCalled());
+  const body = JSON.parse(fetchMock.mock.calls.find(([path, options]) => path === '/api/users/3' && options.method === 'PUT')[1].body);
+  expect(body).not.toHaveProperty(role === 'trainer' ? 'creatorHeadline' : 'trainerHeadline');
+});
