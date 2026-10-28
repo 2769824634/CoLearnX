@@ -50,6 +50,7 @@ describe('Creator Course workspace', () => {
     expect(screen.getByRole('link', { name: /Open and publish classes/i })).toBeTruthy();
     expect(screen.getAllByRole('link', { name: /Create Course/i }).length).toBeGreaterThan(0);
     expect(screen.getByText('24 credits')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Upload Material' })).toBeNull();
   });
 
   it('walks a new Course through three steps and saves it as a draft', async () => {
@@ -71,7 +72,10 @@ describe('Creator Course workspace', () => {
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Inclusive Design' } });
     fireEvent.change(screen.getByLabelText('Course level'), { target: { value: '1' } });
     fireEvent.change(screen.getByLabelText('Learning path'), { target: { value: '3' } });
-    expect(screen.queryByLabelText('Category')).toBeNull();
+    const category = screen.getByRole('combobox', { name: 'Category (optional)' });
+    expect(category.required).toBe(false);
+    expect(within(category).getAllByRole('option').map((option) => option.textContent)).toEqual(['No category', 'Programming', 'Design', 'Business']);
+    fireEvent.change(category, { target: { value: 'Design' } });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     const upload = screen.getByLabelText('Files to upload when this Course is saved');
@@ -90,8 +94,7 @@ describe('Creator Course workspace', () => {
     expect(await screen.findByRole('heading', { name: 'Inclusive Design' })).toBeTruthy();
     const createRequest = globalThis.fetch.mock.calls.find(([path, options]) => path === '/api/creator/courses' && options?.method === 'POST');
     const payload = JSON.parse(createRequest[1].body);
-    expect(payload).toMatchObject({ code: 'CRT-44', title: 'Inclusive Design', courseLevelId: 1, learningPathId: 3, creditCost: 24, interestIds: [2] });
-    expect(payload).not.toHaveProperty('category');
+    expect(payload).toMatchObject({ code: 'CRT-44', title: 'Inclusive Design', courseLevelId: 1, learningPathId: 3, category: 'Design', creditCost: 24, interestIds: [2] });
     expect(globalThis.fetch.mock.calls.filter(([path, options]) => path === '/api/materials' && options?.method === 'POST')).toHaveLength(1);
   });
 

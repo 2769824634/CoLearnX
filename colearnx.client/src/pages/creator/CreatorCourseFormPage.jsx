@@ -4,6 +4,7 @@ import { creatorCoursesApi, interestsApi, materialsApi } from '../../api';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import CourseMaterialsCard from './CourseMaterialsCard';
 import CourseTrainersCard from './CourseTrainersCard';
+import { categoryChoices } from './courseCategories';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 
 async function loadCourseForm(token, courseId, signal) {
@@ -88,7 +89,7 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
     for (const file of files) {
       await materialsApi.upload({
         title: titleFromFile(file),
-        category: 'General',
+        category: form.category || 'General',
         file,
         courseId,
         token,
@@ -320,6 +321,7 @@ function BasicFields({ form, options, setForm }) {
       <div className="form-group"><label htmlFor="creator-course-level">Course level</label><select id="creator-course-level" required value={form.courseLevelId} onChange={change('courseLevelId')}><option value="">Choose a level</option>{options.courseLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
       <div className="form-group"><label htmlFor="creator-learning-path">Learning path</label><select id="creator-learning-path" required value={form.learningPathId} onChange={change('learningPathId')}><option value="">Choose a path</option>{options.learningPaths.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
     </div>
+    <div className="form-group"><label htmlFor="creator-course-category">Category (optional)</label><select id="creator-course-category" value={form.category || ''} onChange={change('category')}><option value="">No category</option>{categoryChoices(form.category).map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
     <div className="form-group"><label htmlFor="creator-course-outcomes">Learning outcomes</label><textarea id="creator-course-outcomes" value={form.learningOutcomes} onChange={change('learningOutcomes')} placeholder="One outcome per line" /></div>
   </>;
 }
@@ -346,6 +348,7 @@ function toForm(course) {
     description: course.description || '',
     courseLevelId: String(course.courseLevelId || ''),
     learningPathId: String(course.learningPathId || ''),
+    category: course.category || '',
     creditCost: String(course.creditCost || ''),
     learningOutcomes: (course.learningOutcomes || []).join('\n'),
     interestIds: course.interestIds || [],
