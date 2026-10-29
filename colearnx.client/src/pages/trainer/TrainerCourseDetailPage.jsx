@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { courseTrainersApi } from '../../api/courseTrainers';
 import { trainerIntakesApi } from '../../api/trainerIntakes';
@@ -21,6 +22,7 @@ async function loadCourseWorkspace(token, courseId, signal) {
 export default function TrainerCourseDetailPage() {
   const { courseId } = useParams();
   const query = useTrainerQuery(loadCourseWorkspace, courseId);
+  const [learnersOpen, setLearnersOpen] = useState(false);
   return <section className="trainer-page later-page">
     <div className="trainer-detail-nav"><Link className="trainer-back" to="/trainer/courses">← All courses</Link></div>
     {query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <>
@@ -32,7 +34,12 @@ export default function TrainerCourseDetailPage() {
         <div className="trainer-section-heading"><div><p className="trainer-eyebrow">Intake #{intake.id}</p><h3><Link to={`/trainer/courses/intakes/${intake.id}`}>Class #{intake.id}</Link></h3></div><IntakeStatus status={intake.status} /></div>
         {intake.sessions?.length ? <ul className="later-resource-list">{intake.sessions.map((session) => <li key={session.id}><div><strong><Link to={`/trainer/courses/intakes/${intake.id}/sessions/${session.id}`}>{session.label}</Link></strong><small>Session #{session.id}</small></div><Link className="btn btn-ghost" to={`/trainer/courses/intakes/${intake.id}/sessions/${session.id}`}>Open Session</Link></li>)}</ul> : <p className="trainer-help">No Sessions are configured for this Intake.</p>}
       </article>)}</div> : <div className="trainer-empty">No classes have been assigned for this Course.</div>}
-      <TrainerLearnersPage courseId={Number(courseId)} embedded />
+      <section className="later-panel">
+        <div className="trainer-section-heading"><div><p className="trainer-eyebrow">Course roster</p><h2>Learners & assessments</h2></div>
+          <button type="button" className="btn btn-ghost" aria-expanded={learnersOpen} onClick={() => setLearnersOpen((value) => !value)}>{learnersOpen ? 'Hide learner list' : 'Show learner list'}</button>
+        </div>
+        {learnersOpen ? <TrainerLearnersPage courseId={Number(courseId)} embedded /> : <p className="trainer-help">Expand to manage learners, assessments, grades and certificate reviews.</p>}
+      </section>
     </>}
   </section>;
 }

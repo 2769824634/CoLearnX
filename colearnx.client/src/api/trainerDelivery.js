@@ -6,3 +6,10 @@ export const trainerDeliveryApi = {
     { method: 'PATCH', token, body: { meetingLink, version } },
   ),
 };
+
+export const staffDeliveryApi = {
+  updateMeetingLink: (token, intakeId, sessionId, meetingLink, version) => apiRequest(
+    `/api/staff/intakes/${encodeURIComponent(intakeId)}/sessions/${encodeURIComponent(sessionId)}/delivery`,
+    { method: 'PATCH', token, body: { meetingLink, version } },
+  ),
+};

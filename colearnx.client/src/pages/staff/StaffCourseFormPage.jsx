@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { interestsApi, staffCoursesApi } from '../../api';
+import { staffCoursesApi } from '../../api';
 import useStaffAuth from '../../auth/useStaffAuth';
 import { InterestPicker } from '../creator/CreatorCourseFormPage';
+import { staffLaterPhaseApi } from '../../api/trainerLaterPhase';
+import TrainerLearnersPage from '../trainer/TrainerLearnersPage';
 
 const empty = {
   code: '', title: '', description: '', courseLevelId: '', learningPathId: '', courseSubjectId: '',
@@ -14,6 +16,23 @@ function priceCell(form, options) {
   return (options.priceCells || []).find((item) => item.band === subject?.band && String(item.courseLevelId) === String(form.courseLevelId));
 }
 
+async function loadStaffLearnerWorkspace(token, courseId, signal) {
+  const summaries = await staffCoursesApi.listIntakes(token, signal);
+  const selected = summaries.filter((item) => item.courseId === Number(courseId));
+  const [cohorts, certificateRequests] = await Promise.all([
+    Promise.all(selected.map(async (summary) => {
+      const [intake, learners, assessments] = await Promise.all([
+        staffCoursesApi.getIntake(token, summary.id, signal),
+        staffLaterPhaseApi.learners(token, summary.id, signal),
+        staffLaterPhaseApi.assessments(token, summary.id, signal),
+      ]);
+      return { ...intake, learners, assessments };
+    })),
+    staffLaterPhaseApi.certificateRequests(token, '', signal),
+  ]);
+  return { cohorts, certificateRequests };
+}
+
 export default function StaffCourseFormPage() {
   const { courseId } = useParams();
   const { token } = useStaffAuth();
@@ -21,11 +40,12 @@ export default function StaffCourseFormPage() {
   const [form, setForm] = useState(empty);
   const [options, setOptions] = useState({ courseLevels: [], learningPaths: [], interestTree: [] });
   const [error, setError] = useState('');
+  const [learnersOpen, setLearnersOpen] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     Promise.all([
       staffCoursesApi.options(token, controller.signal),
-      interestsApi.tree(token),
+      staffCoursesApi.interests(token, controller.signal),
       courseId ? staffCoursesApi.get(token, courseId, controller.signal) : Promise.resolve(null),
     ]).then(([nextOptions, interestTree, course]) => {
       setOptions({ ...nextOptions, interestTree: Array.isArray(interestTree) ? interestTree : [] });
@@ -78,5 +98,9 @@ export default function StaffCourseFormPage() {
       <button type="submit" className="btn btn-primary">Save platform course</button>
       {courseId && form.status !== 'PendingApproval' ? <button type="button" className="btn btn-ghost" onClick={async () => { try { setForm(await staffCoursesApi.submit(token, courseId)); } catch (err) { setError(err.message); } }}>Submit for approval</button> : null}
     </form>
+    {courseId ? <section className="later-panel">
+      <div className="trainer-section-heading"><div><p className="trainer-eyebrow">Course operations</p><h2>Learners & assessments</h2></div><button type="button" className="btn btn-ghost" aria-expanded={learnersOpen} onClick={() => setLearnersOpen((value) => !value)}>{learnersOpen ? 'Hide learner list' : 'Show learner list'}</button></div>
+      {learnersOpen ? <TrainerLearnersPage courseId={Number(courseId)} embedded token={token} laterPhaseApi={staffLaterPhaseApi} loadWorkspace={loadStaffLearnerWorkspace} reviewRoleLabel="Staff" /> : <p className="trainer-help">Expand to manage learners, assessments, grades and certificate reviews for this platform course.</p>}
+    </section> : null}
   </section>;
 }

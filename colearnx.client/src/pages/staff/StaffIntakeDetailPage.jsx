@@ -4,9 +4,6 @@ import { staffCoursesApi } from '../../api';
 import useStaffAuth from '../../auth/useStaffAuth';
 import { SessionForm } from '../trainer/IntakeForms';
 import { formatDate, statusLabel } from '../trainer/intakeForm';
-import TrainerResourcesPanel from '../trainer/TrainerResourcesPanel';
-import TrainerSessionMaterialsPanel from '../trainer/TrainerSessionMaterialsPanel';
-import { staffLaterPhaseApi } from '../../api/trainerLaterPhase';
 
 export default function StaffIntakeDetailPage() {
   const { courseIntakeId } = useParams();
@@ -40,9 +37,7 @@ export default function StaffIntakeDetailPage() {
     {error ? <div className="callout warn">{error.message}</div> : null}
     <div className="creator-section-heading"><h2>Sessions</h2>{publishable && !editor ? <button className="btn btn-primary" type="button" onClick={() => setEditor(true)}>Add session</button> : null}</div>
     {editor ? <SessionForm intake={intake} onSave={addSession} onCancel={() => setEditor(false)} busy={busy} error={error} onError={setError} /> : null}
-    {(intake.sessions || []).map((session) => <article className="creator-application-row" key={session.id}><div><h2>{session.label}</h2><p>{formatDate(session.startsAt)} → {formatDate(session.endsAt)}</p>{session.meetingLink ? <p>{session.meetingLink}</p> : null}</div></article>)}
-    {['Published', 'InProgress'].includes(intake.status) ? <TrainerResourcesPanel token={token} intake={intake} api={staffLaterPhaseApi} /> : null}
-    {['Published', 'InProgress'].includes(intake.status) ? <TrainerSessionMaterialsPanel token={token} intake={intake} api={staffLaterPhaseApi} /> : null}
+    {(intake.sessions || []).map((session) => <article className="creator-application-row" key={session.id}><div><h2>{session.label}</h2><p>{formatDate(session.startsAt)} → {formatDate(session.endsAt)}</p>{session.meetingLink ? <p>{session.meetingLink}</p> : null}</div>{['Published', 'InProgress'].includes(intake.status) ? <Link className="btn btn-ghost" to={`/staff/intakes/${intake.id}/sessions/${session.id}`}>Open Session</Link> : null}</article>)}
     {publishable ? <div className="creator-section-heading"><div><h2>Publish this class</h2><p>Publishing opens registration to members.</p></div><button className="btn btn-primary" type="button" disabled={busy || !intake.sessions?.length} onClick={publish}>Publish</button></div> : null}
   </section>;
 }

@@ -22,3 +22,18 @@ it('uses the separate staff sign-in flow', async () => {
 
   await waitFor(() => expect(login).toHaveBeenCalledWith('staff@example.com', 'Password123!'));
 });
+
+it('shows a clear login failure when the password is incorrect', async () => {
+  const login = vi.fn().mockRejectedValue(new Error('Invalid email or password.'));
+  useStaffAuth.mockReturnValue({ login, isAuthenticated: false, booting: false });
+  render(<MemoryRouter><StaffLoginPage /></MemoryRouter>);
+
+  fireEvent.change(screen.getByLabelText('Staff email'), { target: { value: 'staff@example.com' } });
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'WrongPassword123!' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Enter staff workspace' }));
+
+  const alert = await screen.findByRole('alert');
+  expect(screen.getByRole('button', { name: 'Enter staff workspace' }).closest('form').classList.contains('staff-login-form')).toBe(true);
+  expect(alert.textContent).toContain('Login failed');
+  expect(alert.textContent).toContain('Invalid email or password.');
+});

@@ -23,7 +23,7 @@ export async function loadTrainerDetail(token, id, signal) {
 }
 
 // Identity-scoped snapshots prevent a late request from another route/token replacing current data.
-export default function useTrainerQuery(loader, queryKey = '') {
+export default function useTrainerQuery(loader, queryKey = '', tokenOverride = null) {
   const { token } = useAuth();
-  return useCachedQuery(token, loader, queryKey);
+  return useCachedQuery(tokenOverride || token, loader, queryKey);
 }

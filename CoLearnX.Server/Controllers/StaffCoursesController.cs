@@ -13,7 +13,8 @@ namespace CoLearnX.Server.Controllers;
 public sealed class StaffCoursesController(
     IStaffCourseService courses,
     ICourseIntakeService intakes,
-    ITrainerDeliveryService delivery) : ControllerBase
+    ITrainerDeliveryService delivery,
+    RecommendationService recommendations) : ControllerBase
 {
     [HttpGet("options")]
     public async Task<ActionResult<CreatorCourseOptionsDto>> Options(CancellationToken ct)
@@ -22,6 +23,10 @@ public sealed class StaffCoursesController(
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<CreatorCourseDto>>> List(CancellationToken ct)
         => Ok(await courses.ListAsync(User.GetStaffAccountId(), ct));
+
+    [HttpGet("interests")]
+    public async Task<ActionResult<IReadOnlyList<InterestDto>>> Interests(CancellationToken ct)
+        => Ok(await recommendations.InterestTreeAsync(ct));
 
     [HttpGet("{courseId:int}")]
     public async Task<ActionResult<CreatorCourseDto>> Get(int courseId, CancellationToken ct)

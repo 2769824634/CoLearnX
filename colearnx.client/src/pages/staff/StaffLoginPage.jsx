@@ -27,11 +27,11 @@ export default function StaffLoginPage() {
   return <div className="auth-screen admin-auth-screen">
     <main className="login-card">
       <section className="login-intro"><Logo /><p className="login-kicker">CoLearnX platform staff</p><h1>Teach as the platform.</h1><p>Manage platform-owned courses with your numbered instructor identity.</p></section>
-      <form className="login-form" onSubmit={submit} autoComplete="off">
+      <form className="login-form staff-login-form" onSubmit={submit} autoComplete="off">
         <p className="login-eyebrow">Independent staff account</p><h2>Staff sign in</h2>
-        <div className="form-group"><label htmlFor="staff-login-email">Staff email</label><input id="staff-login-email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></div>
-        <div className="form-group"><label htmlFor="staff-login-password">Password</label><PasswordInput id="staff-login-password" label={null} required value={password} onChange={(event) => setPassword(event.target.value)} /></div>
-        {error ? <div className="callout warn" role="alert">{error}</div> : null}
+        <div className="form-group"><label htmlFor="staff-login-email">Staff email</label><input id="staff-login-email" type="email" required value={email} onChange={(event) => { setEmail(event.target.value); setError(''); }} /></div>
+        <div className="form-group"><label htmlFor="staff-login-password">Password</label><PasswordInput id="staff-login-password" label={null} required value={password} onChange={(event) => { setPassword(event.target.value); setError(''); }} /></div>
+        {error ? <div className="callout warn" role="alert"><div className="callout-title">Login failed</div>{error}</div> : null}
         <button type="submit" className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Signing in…' : 'Enter staff workspace'}</button>
         <Link className="login-home-link" to="/">Back to home</Link>
       </form>

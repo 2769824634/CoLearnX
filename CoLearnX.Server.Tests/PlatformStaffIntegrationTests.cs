@@ -103,6 +103,13 @@ public sealed class PlatformStaffIntegrationTests(CoLearnXApiFactory factory)
         using var staffClient = await LoginAsStaffAsync("trainer.three@example.com", provisioned.InitialPassword);
         var (levelId, pathId, subjectId) = await PricedCourseInputsAsync();
 
+        var interests = await staffClient.GetAsync("/api/staff/courses/interests");
+        Assert.Equal(HttpStatusCode.OK, interests.StatusCode);
+        using (var interestsBody = JsonDocument.Parse(await interests.Content.ReadAsStringAsync()))
+        {
+            Assert.NotEmpty(interestsBody.RootElement.EnumerateArray());
+        }
+
         var belowRange = await staffClient.PostAsJsonAsync("/api/staff/courses", new
         {
             code = $"LOW-{Guid.NewGuid():N}"[..16],
@@ -300,6 +307,25 @@ public sealed class PlatformStaffIntegrationTests(CoLearnXApiFactory factory)
             new { meetingLink = "https://meet.example.test/updated", version });
         Assert.True(updateDelivery.StatusCode == HttpStatusCode.OK,
             $"Expected OK, got {updateDelivery.StatusCode}: {await updateDelivery.Content.ReadAsStringAsync()}");
+        var reservations = await staffClient.GetAsync($"/api/staff/intakes/{intakeId}/reservations");
+        Assert.Equal(HttpStatusCode.OK, reservations.StatusCode);
+        var learners = await staffClient.GetAsync($"/api/staff/intakes/{intakeId}/learners");
+        Assert.Equal(HttpStatusCode.OK, learners.StatusCode);
+        var createAssessment = await staffClient.PostAsJsonAsync($"/api/staff/intakes/{intakeId}/assessments", new
+        {
+            title = "Platform knowledge check",
+            maxScore = 100,
+            passScore = 60,
+            dueAt = now.AddDays(6),
+        });
+        Assert.Equal(HttpStatusCode.Created, createAssessment.StatusCode);
+        var assessments = await staffClient.GetAsync($"/api/staff/intakes/{intakeId}/assessments");
+        Assert.Equal(HttpStatusCode.OK, assessments.StatusCode);
+        using (var assessmentsBody = JsonDocument.Parse(await assessments.Content.ReadAsStringAsync()))
+        {
+            Assert.Contains(assessmentsBody.RootElement.EnumerateArray(), item =>
+                item.GetProperty("title").GetString() == "Platform knowledge check");
+        }
         using var verificationScope = factory.Services.CreateScope();
         var verificationDb = verificationScope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
         var audit = await verificationDb.AuditLogs.SingleAsync(log =>
@@ -309,7 +335,10 @@ public sealed class PlatformStaffIntegrationTests(CoLearnXApiFactory factory)
         Assert.Null(audit.UserId);
         var staffAuditCount = await verificationDb.AuditLogs.CountAsync(log =>
             log.StaffAccountId == provisioned.StaffId && log.EntityId == intakeId.ToString());
-        Assert.Equal(4, staffAuditCount);
+        Assert.Equal(5, staffAuditCount);
+        var assessmentAudit = await verificationDb.AuditLogs.SingleAsync(log =>
+            log.Action == "AssessmentCreated" && log.EntityId == intakeId.ToString());
+        Assert.Equal(provisioned.StaffId, assessmentAudit.StaffAccountId);
         var deliveryAudit = await verificationDb.AuditLogs.SingleAsync(log =>
             log.Action == "CourseSessionDeliveryUpdated" && log.EntityId == intakeId.ToString());
         Assert.Equal(provisioned.StaffId, deliveryAudit.StaffAccountId);

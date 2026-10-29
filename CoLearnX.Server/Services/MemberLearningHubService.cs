@@ -12,6 +12,7 @@ public interface IMemberLearningHubService
     Task<IReadOnlyList<MemberHubMaterialDto>> MaterialsAsync(int userId, int enrollmentId, CancellationToken ct = default);
     Task<IReadOnlyList<MemberHubSessionMaterialDto>> SessionMaterialsAsync(int userId, int enrollmentId, CancellationToken ct = default);
     Task<IReadOnlyList<MemberHubRecordingDto>> RecordingsAsync(int userId, int enrollmentId, CancellationToken ct = default);
+    Task<IReadOnlyList<MemberAssessmentDto>> AssessmentsAsync(int userId, int enrollmentId, CancellationToken ct = default);
     Task<MaterialFileResult> OpenMaterialAsync(int userId, int enrollmentId, int versionId, CancellationToken ct = default);
     Task<MaterialFileResult> OpenSessionMaterialAsync(int userId, int enrollmentId, int materialId, CancellationToken ct = default);
     Task<MaterialFileResult> OpenRecordingAsync(int userId, int enrollmentId, int recordingId, CancellationToken ct = default);
@@ -56,6 +57,29 @@ public sealed class MemberLearningHubService(CoLearnXDbContext db, IFileStorage 
             item.FilePath is null ? item.RecordingUrl : $"/api/enrollments/{enrollmentId}/recordings/{item.Id}/file",
             item.CreatedAt, item.FilePath is not null,
             item.FilePath is null ? null : RecordingFiles.DownloadName(item.Title, item.FilePath))).ToList();
+    }
+
+    public async Task<IReadOnlyList<MemberAssessmentDto>> AssessmentsAsync(int userId, int enrollmentId,
+        CancellationToken ct = default)
+    {
+        var enrollment = await RequireEnrollmentAsync(userId, enrollmentId, ct);
+        return await (from assessment in db.Assessments.AsNoTracking()
+            join result in db.AssessmentResults.AsNoTracking().Where(item => item.EnrollmentId == enrollmentId)
+                on assessment.Id equals result.AssessmentId into learnerResults
+            from result in learnerResults.DefaultIfEmpty()
+            where assessment.CourseIntakeId == enrollment.CourseSession.CourseIntakeId
+            orderby assessment.DueAt == null, assessment.DueAt, assessment.CreatedAt
+            select new MemberAssessmentDto(
+                assessment.Id,
+                assessment.Title,
+                assessment.MaxScore,
+                assessment.PassScore,
+                assessment.DueAt,
+                result == null ? "Not graded" : result.Score >= assessment.PassScore ? "Passed" : "Not passed",
+                result == null ? null : result.Score,
+                result == null ? null : result.Feedback,
+                result == null ? null : result.GradedAt))
+            .ToListAsync(ct);
     }
 
     public async Task<MaterialFileResult> OpenMaterialAsync(int userId, int enrollmentId, int versionId, CancellationToken ct = default)

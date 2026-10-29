@@ -872,6 +872,10 @@ a {
   padding: 52px 56px;
 }
 
+.staff-login-form {
+  color: var(--charcoal);
+}
+
 .login-eyebrow {
   color: var(--purple);
 }

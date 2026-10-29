@@ -11,8 +11,14 @@ namespace CoLearnX.Server.Controllers;
 [Route("api/staff")]
 [Authorize(Policy = StaffAuthorization.PolicyName)]
 [LaterPhaseApiErrors]
-public sealed class StaffDeliveryResourcesController(ITrainerLaterPhaseService trainer) : ControllerBase
+public sealed class StaffDeliveryResourcesController(
+    ITrainerLaterPhaseService trainer,
+    ICertificateWorkflowService certificates) : ControllerBase
 {
+    [HttpPost("enrollments/{enrollmentId:int}/complete")]
+    public async Task<ActionResult<EnrollmentCompletionDto>> Complete(int enrollmentId, CancellationToken ct)
+        => Ok(await trainer.CompleteAsync(User.GetUserId(), enrollmentId, ct));
+
     [HttpGet("learning-materials")]
     public async Task<ActionResult<IReadOnlyList<MaterialVersionDto>>> AvailableMaterials(
         [FromQuery] int? courseId,
@@ -29,6 +35,12 @@ public sealed class StaffDeliveryResourcesController(ITrainerLaterPhaseService t
         AttachIntakeMaterialRequest request,
         CancellationToken ct)
         => Ok(await trainer.AttachMaterialAsync(User.GetUserId(), intakeId, request, ct));
+
+    [HttpGet("intakes/{courseIntakeId:int}/reservations")]
+    public async Task<ActionResult<IReadOnlyList<TrainerReservationDto>>> Reservations(
+        int courseIntakeId,
+        CancellationToken ct)
+        => Ok(await trainer.ListReservationsAsync(User.GetUserId(), courseIntakeId, ct));
 
     [HttpGet("intakes/{intakeId:int}/learning-materials/{versionId:int}/file")]
     public async Task<IActionResult> DownloadMaterial(int intakeId, int versionId, CancellationToken ct)
@@ -104,4 +116,55 @@ public sealed class StaffDeliveryResourcesController(ITrainerLaterPhaseService t
         var file = await trainer.OpenSessionMaterialAsync(User.GetUserId(), intakeId, sessionId, materialId, ct);
         return File(file.Stream, file.ContentType, file.DownloadName);
     }
+
+    [HttpPut("intakes/{courseIntakeId:int}/sessions/{courseSessionId:int}/attendance")]
+    public async Task<ActionResult<IReadOnlyList<AttendanceItemDto>>> SaveAttendance(
+        int courseIntakeId,
+        int courseSessionId,
+        SaveAttendanceRequest request,
+        CancellationToken ct)
+        => Ok(await trainer.SaveAttendanceAsync(User.GetUserId(), courseIntakeId, courseSessionId, request, ct));
+
+    [HttpGet("intakes/{courseIntakeId:int}/learners")]
+    public async Task<ActionResult<IReadOnlyList<TrainerLearnerDto>>> Learners(
+        int courseIntakeId,
+        CancellationToken ct)
+        => Ok(await trainer.ListLearnersAsync(User.GetUserId(), courseIntakeId, ct));
+
+    [HttpGet("intakes/{courseIntakeId:int}/assessments")]
+    public async Task<ActionResult<IReadOnlyList<AssessmentDto>>> Assessments(
+        int courseIntakeId,
+        CancellationToken ct)
+        => Ok(await trainer.ListAssessmentsAsync(User.GetUserId(), courseIntakeId, ct));
+
+    [HttpPost("intakes/{courseIntakeId:int}/assessments")]
+    public async Task<ActionResult<AssessmentDto>> CreateAssessment(
+        int courseIntakeId,
+        CreateAssessmentRequest request,
+        CancellationToken ct)
+    {
+        var result = await trainer.CreateAssessmentAsync(User.GetUserId(), courseIntakeId, request, ct);
+        return Created($"/api/staff/intakes/{courseIntakeId}/assessments/{result.Id}", result);
+    }
+
+    [HttpPut("assessments/{assessmentId:int}/grades/{enrollmentId:int}")]
+    public async Task<ActionResult<AssessmentResultDto>> Grade(
+        int assessmentId,
+        int enrollmentId,
+        GradeAssessmentRequest request,
+        CancellationToken ct)
+        => Ok(await trainer.GradeAsync(User.GetUserId(), assessmentId, enrollmentId, request, ct));
+
+    [HttpGet("certificate-requests")]
+    public async Task<ActionResult<IReadOnlyList<CertificateRequestDto>>> CertificateRequests(
+        [FromQuery] string? status,
+        CancellationToken ct)
+        => Ok(await certificates.ListForTrainerAsync(User.GetUserId(), status, ct));
+
+    [HttpPost("certificate-requests/{certificateRequestId:int}/review")]
+    public async Task<ActionResult<CertificateRequestDto>> ReviewCertificate(
+        int certificateRequestId,
+        WorkflowReviewRequest request,
+        CancellationToken ct)
+        => Ok(await certificates.TrainerReviewAsync(User.GetUserId(), certificateRequestId, request, ct));
 }

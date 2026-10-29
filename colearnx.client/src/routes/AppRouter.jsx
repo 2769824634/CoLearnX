@@ -25,6 +25,7 @@ import StaffCourseFormPage from '../pages/staff/StaffCourseFormPage';
 import StaffIntakesPage from '../pages/staff/StaffIntakesPage';
 import StaffIntakeCreatePage from '../pages/staff/StaffIntakeCreatePage';
 import StaffIntakeDetailPage from '../pages/staff/StaffIntakeDetailPage';
+import StaffSessionDetailPage from '../pages/staff/StaffSessionDetailPage';
 import TrainerHomePage from '../pages/trainer/TrainerHomePage';
 import TrainerIntakesPage from '../pages/trainer/TrainerIntakesPage';
 import TrainerCourseDetailPage from '../pages/trainer/TrainerCourseDetailPage';
@@ -195,6 +196,7 @@ export default function AppRouter() {
             <Route path="intakes" element={<StaffIntakesPage />} />
             <Route path="intakes/new" element={<StaffIntakeCreatePage />} />
             <Route path="intakes/:courseIntakeId" element={<StaffIntakeDetailPage />} />
+            <Route path="intakes/:courseIntakeId/sessions/:courseSessionId" element={<StaffSessionDetailPage />} />
             <Route index element={<Navigate to="home" replace />} />
             <Route path="*" element={<Navigate to="/staff/home" replace />} />
           </Route>

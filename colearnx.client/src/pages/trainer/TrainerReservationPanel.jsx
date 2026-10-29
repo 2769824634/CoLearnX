@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { trainerLaterPhaseApi } from '../../api/trainerLaterPhase';
 import { formatCount, formatUtcDateTime } from '../businessPresentation';
 import { TrainerError, TrainerLoading } from './TrainerUi';
 import useTrainerQuery from './useTrainerQuery';
 
-const loadReservations = (token, id, signal) => trainerLaterPhaseApi.reservations(token, id, signal);
-
-function ReservationList({ intakeId }) {
-  const query = useTrainerQuery(loadReservations, intakeId);
+function ReservationList({ intakeId, token, api }) {
+  const loadReservations = useCallback(
+    (accessToken, id, signal) => api.reservations(accessToken, id, signal),
+    [api],
+  );
+  const query = useTrainerQuery(loadReservations, intakeId, token);
   if (query.loading) return <TrainerLoading />;
   if (query.error) return <TrainerError error={query.error} onRetry={query.refresh} retryLabel="Retry loading" />;
   if (!query.data.length) return <p className="trainer-help">No reserved places remain in this Intake.</p>;
@@ -22,7 +24,7 @@ function ReservationList({ intakeId }) {
   </table></div>;
 }
 
-export default function TrainerReservationPanel({ intake }) {
+export default function TrainerReservationPanel({ intake, token = null, api = trainerLaterPhaseApi }) {
   const [open, setOpen] = useState(false);
   const reserved = intake.reservedEnrollmentCount;
   const minimum = intake.minEnrollment ?? 10;
@@ -33,6 +35,6 @@ export default function TrainerReservationPanel({ intake }) {
     <p>{intake.confirmedToRunAt ? 'Class confirmed to run' : remaining == null ? 'Refresh the Intake to load the current count.' : remaining > 0 ? `${formatCount(remaining, 'more learner', 'more learners')} needed` : 'Minimum reached; confirmation occurs at the registration deadline.'}</p>
     <p className="trainer-help">Reserved places hold credits. Attendance, assessment and completion become available after confirmation.</p>
     <button type="button" className="btn btn-ghost" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Hide reserved places' : 'View reserved places'}</button>
-    {open ? <ReservationList intakeId={intake.id} /> : null}
+    {open ? <ReservationList intakeId={intake.id} token={token} api={api} /> : null}
   </section>;
 }

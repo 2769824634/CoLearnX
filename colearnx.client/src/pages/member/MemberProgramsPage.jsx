@@ -12,13 +12,14 @@ const tabForEnrollmentStatus = (status) => ({
 }[status] || null);
 
 async function loadHub(token, enrollmentId, signal) {
-  if (!enrollmentId) return { materials: [], sessionMaterials: [], recordings: [] };
-  const [materials, sessionMaterials, recordings] = await Promise.all([
+  if (!enrollmentId) return { materials: [], sessionMaterials: [], recordings: [], assessments: [] };
+  const [materials, sessionMaterials, recordings, assessments] = await Promise.all([
     enrollmentsApi.materials(enrollmentId, token, signal),
     enrollmentsApi.sessionMaterials(enrollmentId, token, signal),
     enrollmentsApi.recordings(enrollmentId, token, signal),
+    enrollmentsApi.assessments(enrollmentId, token, signal),
   ]);
-  return { materials, sessionMaterials, recordings };
+  return { materials, sessionMaterials, recordings, assessments };
 }
 
 function sessionMaterialDownloadName(item) {
@@ -206,6 +207,13 @@ export default function MemberProgramsPage() {
               {query.data.recordings.length ? query.data.recordings.map((item) => item.isUploadedFile
                 ? <button key={item.id} type="button" className="btn btn-ghost btn-block" onClick={() => downloadRecording(item)}>{item.title}</button>
                 : <a key={item.id} className="btn btn-ghost btn-block" href={item.recordingUrl} target="_blank" rel="noopener noreferrer">{item.title}</a>) : <p>No recordings added yet.</p>}
+              <h3>Assessments</h3>
+              {query.data.assessments.length ? <div className="later-resource-list">{query.data.assessments.map((item) => <article key={item.id} className="card card-body">
+                <strong>{item.title}</strong>
+                <p>{item.score == null ? `Not graded · Pass score ${item.passScore}/${item.maxScore}` : `${item.score}/${item.maxScore} · ${item.status}`}</p>
+                {item.dueAt ? <small>Due {formatUtcDateTime(item.dueAt)}</small> : <small>No due date</small>}
+                {item.feedback ? <p>{item.feedback}</p> : null}
+              </article>)}</div> : <p>No assessments created yet.</p>}
               {hub.meetingLink ? <a className="btn btn-primary btn-block" href={hub.meetingLink} target="_blank" rel="noopener noreferrer">Join Live Session</a> : null}
             </> : null}
             {hub ? <><p>For an enrollment issue or refund review, ask Admin through My Disputes.</p><button type="button" className="btn btn-ghost btn-block" onClick={() => navigate(`/member/disputes?enrollmentId=${hub.enrollmentId}`)}>View or submit a dispute</button></> : null}

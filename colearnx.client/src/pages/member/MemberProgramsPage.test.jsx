@@ -52,7 +52,9 @@ it('loads the selected enrollment learning hub and shows its materials and recor
     ? [{ id: 10, courseSessionId: 12, sessionLabel: 'Session 1', title: 'Session handout', format: 'PDF' }]
     : path.endsWith('/materials')
       ? [{ id: 8, title: 'Workshop guide', format: 'PDF' }]
-      : [{ id: 9, title: 'Session replay', recordingUrl: 'https://example.com/replay' }]),
+      : path.endsWith('/recordings')
+        ? [{ id: 9, title: 'Session replay', recordingUrl: 'https://example.com/replay' }]
+        : []),
   { headers: { 'Content-Type': 'application/json' } })));
   const auth = { user: { id: 1, fullName: 'Learner', roles: ['Member'] }, token: 'member-token', logout: vi.fn() };
   const member = { state: { enrolled: [{ enrollmentId: 3, courseCode: 'UX101', courseTitle: 'UX', trainer: 'Teacher', progress: 30, status: 'active' }] }, showToast: vi.fn() };
@@ -64,6 +66,22 @@ it('loads the selected enrollment learning hub and shows its materials and recor
   expect(screen.getByRole('button', { name: 'Refresh resources' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Refresh resources' }));
   expect(globalThis.fetch).toHaveBeenCalledWith('/api/enrollments/3/materials', expect.anything());
+});
+
+it('shows a newly created assessment and its learner-specific result in the Learning Hub', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (path) => new Response(JSON.stringify(path.endsWith('/assessments')
+    ? [{ id: 22, title: 'test', maxScore: 100, passScore: 60, dueAt: '2026-10-31T12:07:00Z', status: 'Passed', score: 72, feedback: 'Clear evidence.' }]
+    : []), { headers: { 'Content-Type': 'application/json' } })));
+  const auth = { user: { id: 1, fullName: 'Learner', roles: ['Member'] }, token: 'member-token', logout: vi.fn() };
+  const member = { state: { enrolled: [{ enrollmentId: 3, courseCode: 'INFT 2051', courseTitle: 'UI/UX Design Fundamentals', trainer: 'Gu', progress: 65, status: 'active' }] }, showToast: vi.fn() };
+
+  render(<MemoryRouter><AuthContext.Provider value={auth}><MemberDataContext.Provider value={member}><MemberProgramsPage /></MemberDataContext.Provider></AuthContext.Provider></MemoryRouter>);
+
+  expect(await screen.findByRole('heading', { name: 'Assessments' })).toBeTruthy();
+  expect(screen.getByText('test')).toBeTruthy();
+  expect(screen.getByText(/72\/100 · Passed/)).toBeTruthy();
+  expect(screen.getByText('Clear evidence.')).toBeTruthy();
+  expect(globalThis.fetch).toHaveBeenCalledWith('/api/enrollments/3/assessments', expect.anything());
 });
 
 it('downloads an uploaded recording with the member bearer token', async () => {

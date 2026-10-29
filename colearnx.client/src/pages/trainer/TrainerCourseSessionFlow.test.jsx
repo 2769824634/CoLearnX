@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../../auth/AuthContext';
 import AppRouter from '../../routes/AppRouter';
@@ -73,8 +73,12 @@ it('puts Intakes, Sessions, learners and assessment work inside a Course', async
   </MemoryRouter>);
 
   expect(await screen.findByRole('heading', { name: 'Accepted course' })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'Learner list' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Show learner list' }));
   expect(screen.getByRole('heading', { name: 'Learner list' })).toBeTruthy();
   expect(await screen.findByRole('button', { name: 'Create assessment' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Hide learner list' }));
+  expect(screen.queryByRole('heading', { name: 'Learner list' })).toBeNull();
   expect(screen.getByRole('link', { name: 'Session one' }).getAttribute('href')).toBe('/trainer/courses/intakes/10/sessions/100');
   expect(screen.queryByText('Course #99')).toBeNull();
 });

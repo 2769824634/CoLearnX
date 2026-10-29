@@ -187,6 +187,17 @@ public record MemberHubSessionMaterialDto(
     string Format,
     DateTime UploadedAt);
 
+public record MemberAssessmentDto(
+    int Id,
+    string Title,
+    int MaxScore,
+    int PassScore,
+    DateTime? DueAt,
+    string Status,
+    int? Score,
+    string? Feedback,
+    DateTime? GradedAt);
+
 public record CreditPackageDto(
     int Id,
     int PayAudCents,
