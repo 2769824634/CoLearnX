@@ -66,6 +66,22 @@ it('loads the selected enrollment learning hub and shows its materials and recor
   expect(globalThis.fetch).toHaveBeenCalledWith('/api/enrollments/3/materials', expect.anything());
 });
 
+it('downloads an uploaded recording with the member bearer token', async () => {
+  const fetch = vi.fn(async (path) => path.endsWith('/recordings')
+    ? new Response(JSON.stringify([{ id: 9, title: 'Uploaded replay', recordingUrl: '/api/enrollments/3/recordings/9/file', isUploadedFile: true }]), { headers: { 'Content-Type': 'application/json' } })
+    : path.endsWith('/recordings/9/file')
+      ? new Response(new Blob(['video']))
+      : new Response('[]', { headers: { 'Content-Type': 'application/json' } }));
+  vi.stubGlobal('fetch', fetch);
+  vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:recording'), revokeObjectURL: vi.fn() });
+  const auth = { user: { id: 1, fullName: 'Learner', roles: ['Member'] }, token: 'member-token', logout: vi.fn() };
+  const member = { state: { enrolled: [{ enrollmentId: 3, courseCode: 'UX101', courseTitle: 'UX', trainer: 'Teacher', progress: 30, status: 'active' }] }, showToast: vi.fn() };
+  render(<MemoryRouter><AuthContext.Provider value={auth}><MemberDataContext.Provider value={member}><MemberProgramsPage /></MemberDataContext.Provider></AuthContext.Provider></MemoryRouter>);
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Uploaded replay' }));
+  await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/enrollments/3/recordings/9/file', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer member-token' }) })));
+});
+
 it('shows uploaded materials grouped by CourseSession in the active Learning Hub', async () => {
   vi.stubGlobal('fetch', vi.fn(async (path) => new Response(JSON.stringify(path.endsWith('/session-materials')
     ? [{ id: 10, courseSessionId: 12, sessionLabel: 'Session 1', title: 'Session handout', format: 'PDF' }]

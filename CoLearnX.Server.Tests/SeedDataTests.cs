@@ -8,6 +8,72 @@ namespace CoLearnX.Server.Tests;
 public class SeedDataTests
 {
     [Fact]
+    public async Task Initialize_seeds_local_staff_demo_only_when_demo_admin_is_enabled()
+    {
+        async Task<bool> SeedAndFindAsync(bool demoEnabled)
+        {
+            var path = Path.Combine(Path.GetTempPath(), $"colearnx-staff-seed-{Guid.NewGuid():N}.db");
+            var options = new DbContextOptionsBuilder<CoLearnXDbContext>().UseSqlite($"Data Source={path}").Options;
+            try
+            {
+                await using var db = new CoLearnXDbContext(options);
+                await SeedData.InitializeAsync(db, seedDemoAdmin: demoEnabled, seedDemoStaff: demoEnabled);
+                var account = await db.StaffAccounts.SingleOrDefaultAsync(item => item.Email == SeedData.StaffEmail);
+                if (account is null) return false;
+                Assert.True(account.IsActive);
+                Assert.Equal("qingkong", account.FullName);
+                Assert.Equal("qingkong", account.DisplayName);
+                Assert.True(BCrypt.Net.BCrypt.Verify(SeedData.DemoPassword, account.PasswordHash));
+                Assert.True(await db.UserRoles.AnyAsync(role => role.UserId == account.UserId && role.Role == AppRole.Trainer && !role.IsVisible));
+                return true;
+            }
+            finally
+            {
+                TryDelete(path); TryDelete(path + "-wal"); TryDelete(path + "-shm");
+            }
+        }
+
+        Assert.True(await SeedAndFindAsync(true));
+        Assert.False(await SeedAndFindAsync(false));
+    }
+
+    [Fact]
+    public async Task Initialize_repairs_the_existing_local_staff_name()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"colearnx-staff-name-{Guid.NewGuid():N}.db");
+        var options = new DbContextOptionsBuilder<CoLearnXDbContext>().UseSqlite($"Data Source={path}").Options;
+        try
+        {
+            await using (var seeded = new CoLearnXDbContext(options))
+            {
+                await SeedData.InitializeAsync(seeded, seedDemoAdmin: true, seedDemoStaff: true);
+                var account = await seeded.StaffAccounts.Include(item => item.User)
+                    .SingleAsync(item => item.Email == SeedData.StaffEmail);
+                account.FullName = "Qing Kong";
+                account.DisplayName = "CoLearnX 讲师 001";
+                account.User.FullName = "Qing Kong";
+                account.User.DisplayName = "CoLearnX 讲师 001";
+                await seeded.SaveChangesAsync();
+            }
+
+            await using (var repaired = new CoLearnXDbContext(options))
+                await SeedData.InitializeAsync(repaired, seedDemoAdmin: true, seedDemoStaff: true);
+
+            await using var db = new CoLearnXDbContext(options);
+            var updated = await db.StaffAccounts.Include(item => item.User)
+                .SingleAsync(item => item.Email == SeedData.StaffEmail);
+            Assert.Equal("qingkong", updated.FullName);
+            Assert.Equal("qingkong", updated.DisplayName);
+            Assert.Equal("qingkong", updated.User.FullName);
+            Assert.Equal("qingkong", updated.User.DisplayName);
+        }
+        finally
+        {
+            TryDelete(path); TryDelete(path + "-wal"); TryDelete(path + "-shm");
+        }
+    }
+
+    [Fact]
     public async Task Initialize_preserves_team_accounts_and_separates_admin_identity()
     {
         var path = Path.Combine(Path.GetTempPath(), $"colearnx-seed-{Guid.NewGuid():N}.db");

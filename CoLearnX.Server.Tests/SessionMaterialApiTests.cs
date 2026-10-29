@@ -71,6 +71,40 @@ public sealed class SessionMaterialApiTests : IClassFixture<CoLearnXApiFactory>
     }
 
     [Fact]
+    public async Task Uploading_a_new_session_material_replaces_the_previous_material()
+    {
+        using var trainer = await ApiClient.AsRoleAsync(_factory, SeedData.TrainerEmail, "Trainer");
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        var session = await db.CourseSessions.Include(item => item.CourseIntake)
+            .FirstAsync(item => item.CourseIntake.TrainerId == db.Users
+                .Where(user => user.Email == SeedData.TrainerEmail).Select(user => user.Id).First());
+        var firstTitle = $"Original handout {Guid.NewGuid():N}";
+        var replacementTitle = $"Replacement handout {Guid.NewGuid():N}";
+
+        using var firstForm = PdfForm(firstTitle, "original"u8.ToArray());
+        using var firstResponse = await trainer.PostAsync(
+            $"/api/trainer/intakes/{session.CourseIntakeId}/sessions/{session.Id}/materials", firstForm);
+        firstResponse.EnsureSuccessStatusCode();
+        var first = await firstResponse.Content.ReadFromJsonAsync<SessionMaterialDto>(ApiJson.Options);
+
+        using var replacementForm = PdfForm(replacementTitle, "replacement"u8.ToArray());
+        using var replacementResponse = await trainer.PostAsync(
+            $"/api/trainer/intakes/{session.CourseIntakeId}/sessions/{session.Id}/materials", replacementForm);
+        replacementResponse.EnsureSuccessStatusCode();
+        var replacement = await replacementResponse.Content.ReadFromJsonAsync<SessionMaterialDto>(ApiJson.Options);
+
+        Assert.NotNull(first);
+        Assert.NotNull(replacement);
+        Assert.NotEqual(first.Id, replacement.Id);
+        Assert.False(await db.SessionMaterials.AnyAsync(item => item.Id == first.Id));
+        Assert.True(await db.SessionMaterials.AnyAsync(item => item.Id == replacement.Id));
+        using var oldDownload = await trainer.GetAsync(
+            $"/api/trainer/intakes/{session.CourseIntakeId}/sessions/{session.Id}/materials/{first.Id}/file");
+        Assert.Equal(HttpStatusCode.NotFound, oldDownload.StatusCode);
+    }
+
+    [Fact]
     public async Task Session_material_access_is_scoped_to_owned_session_and_reserved_enrollments_cannot_read()
     {
         using var trainer = await ApiClient.AsRoleAsync(_factory, SeedData.TrainerEmail, "Trainer");

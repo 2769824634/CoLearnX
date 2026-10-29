@@ -266,7 +266,8 @@ export function InterestPicker({ tree, selectedIds, onToggle, band }) {
     .filter((leaf) => selectedIds.includes(leaf.id));
   const atLimit = selectedIds.length >= MAX_INTERESTS;
   const groups = tree
-    .map((category) => ({ category, leaves: (category.children || []).filter((leaf) => leaf.name.toLowerCase().includes(needle)) }))
+    .map((category) => ({ category, leaves: (category.children || [])
+      .filter((leaf) => allowed(category, leaf) && leaf.name.toLowerCase().includes(needle)) }))
     .filter((group) => group.leaves.length);
   const preferredId = groups.find((group) => group.leaves.some((leaf) => selectedIds.includes(leaf.id)))?.category.id
     ?? groups[0]?.category.id;
@@ -274,7 +275,7 @@ export function InterestPicker({ tree, selectedIds, onToggle, band }) {
 
   return <div className="creator-interests">
     <div className="creator-interest-status">
-      <p aria-live="polite">Selected {selectedIds.length} of {MAX_INTERESTS}{atLimit ? '. Uncheck one interest before choosing another.' : '.'}{band ? ' Interests outside the chosen subject stay unavailable.' : ''}</p>
+      <p aria-live="polite">Selected {selectedIds.length} of {MAX_INTERESTS}{atLimit ? '. Uncheck one interest before choosing another.' : '.'}{band ? ' Only interests for the chosen subject are shown.' : ''}</p>
       <span className="creator-interest-meter" aria-hidden="true">
         {Array.from({ length: MAX_INTERESTS }, (_, index) => <span key={index} className={index < selectedIds.length ? 'filled' : ''} />)}
       </span>
@@ -299,7 +300,7 @@ export function InterestPicker({ tree, selectedIds, onToggle, band }) {
       <div className="creator-interest-options">{active.leaves.map((leaf) => {
         const checked = selectedIds.includes(leaf.id);
         return <label key={leaf.id} className="creator-interest-option">
-          <input type="checkbox" checked={checked} disabled={(!checked && atLimit) || !allowed(active.category, leaf)} onChange={() => onToggle(leaf.id)} />
+          <input type="checkbox" checked={checked} disabled={!checked && atLimit} onChange={() => onToggle(leaf.id)} />
           <span>{leaf.name}</span>
         </label>;
       })}</div>

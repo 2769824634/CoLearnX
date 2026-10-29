@@ -47,7 +47,9 @@ public record CreateSessionRecordingRequest(
     [Required, MaxLength(160)] string Title,
     [Required, MaxLength(1024)] string RecordingUrl);
 
-public record SessionRecordingDto(int Id, int CourseSessionId, string Title, string RecordingUrl, DateTime CreatedAt);
+public record SessionRecordingDto(int Id, int CourseSessionId, string Title, string RecordingUrl, DateTime CreatedAt,
+    bool IsUploadedFile = false,
+    string? DownloadName = null);
 
 public record SessionMaterialDto(
     int Id,

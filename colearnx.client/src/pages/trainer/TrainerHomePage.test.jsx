@@ -91,8 +91,8 @@ it('explains the empty state and keeps quick actions', async () => {
   expect(within(screen.getByRole('region', { name: 'Teaching next' })).getByText('No confirmed delivery yet')).toBeTruthy();
   expect(screen.getAllByRole('link', { name: 'Teaching invitations' }).some((link) => link.getAttribute('href') === '/trainer/invitations')).toBe(true);
   const actions = screen.getByRole('region', { name: 'Quick actions' });
-  expect(within(actions).getByRole('link', { name: /Attendance/ }).getAttribute('href')).toBe('/trainer/attendance');
-  expect(within(actions).getByRole('link', { name: /Learner List/ }).getAttribute('href')).toBe('/trainer/learners');
+  expect(within(actions).getByRole('link', { name: /Attendance/ }).getAttribute('href')).toBe('/trainer/courses');
+  expect(within(actions).getByRole('link', { name: /Learner List/ }).getAttribute('href')).toBe('/trainer/courses');
 });
 
 it('offers a retry when Intakes cannot load', async () => {

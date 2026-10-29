@@ -1,13 +1,15 @@
 import { useAuth } from '../../auth/AuthContext';
 import useCachedQuery from '../../api/useCachedQuery';
+import { courseTrainersApi } from '../../api/courseTrainers';
 import { trainerIntakesApi } from '../../api/trainerIntakes';
 
 export async function loadTrainerOverview(token, key, signal) {
-  const [intakes, catalog] = await Promise.all([
+  const [intakes, catalog, invitations] = await Promise.all([
     trainerIntakesApi.list(token, signal),
     loadCatalog(token, key, signal),
+    courseTrainersApi.myInvitations(token, signal),
   ]);
-  return { intakes, ...catalog };
+  return { intakes, invitations, ...catalog };
 }
 
 async function loadCatalog(token, key, signal) {

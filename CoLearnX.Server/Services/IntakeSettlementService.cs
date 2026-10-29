@@ -199,7 +199,7 @@ public sealed class IntakeSettlementWorker(IServiceScopeFactory scopes, ILogger<
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
-        do
+        while (true)
         {
             try
             {
@@ -215,6 +215,11 @@ public sealed class IntakeSettlementWorker(IServiceScopeFactory scopes, ILogger<
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex) { logger.LogError(ex, "Business email dispatch scan failed"); }
-        } while (await timer.WaitForNextTickAsync(stoppingToken));
+            try
+            {
+                if (!await timer.WaitForNextTickAsync(stoppingToken)) break;
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+        }
     }
 }

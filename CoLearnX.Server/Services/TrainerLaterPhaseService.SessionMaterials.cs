@@ -58,6 +58,9 @@ public sealed partial class TrainerLaterPhaseService
         }
 
         var key = $"session-materials/{trainerUserId}/{sessionId}/{Guid.NewGuid():N}{extension}";
+        var previous = await db.SessionMaterials
+            .Where(item => item.CourseSessionId == sessionId)
+            .ToListAsync(ct);
         try
         {
             await using (var stream = file.OpenReadStream())
@@ -71,9 +74,17 @@ public sealed partial class TrainerLaterPhaseService
                 FilePath = key,
                 Format = MaterialFiles.FormatLabel(extension),
             };
+            db.SessionMaterials.RemoveRange(previous);
             db.SessionMaterials.Add(material);
-            db.AuditLogs.Add(await TrainerAuditAsync(trainerUserId, "SessionMaterialUploaded", nameof(CourseSession), sessionId, cleanTitle, ct));
+            db.AuditLogs.Add(await TrainerAuditAsync(trainerUserId,
+                previous.Count == 0 ? "SessionMaterialUploaded" : "SessionMaterialReplaced",
+                nameof(CourseSession), sessionId, cleanTitle, ct));
             await db.SaveChangesAsync(ct);
+            foreach (var old in previous)
+            {
+                try { await files.DeleteAsync(old.FilePath, ct); }
+                catch { /* The current material is already committed; stale-file cleanup is best effort. */ }
+            }
             return new SessionMaterialDto(material.Id, material.CourseSessionId, session.Label,
                 material.Title, material.Format, material.UploadedAt);
         }

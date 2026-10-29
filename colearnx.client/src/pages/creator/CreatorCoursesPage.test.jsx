@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../../auth/AuthContext';
 import AppRouter from '../../routes/AppRouter';
+import { InterestPicker } from './CreatorCourseFormPage';
 
 const auth = {
   token: 'creator-token',
@@ -27,6 +28,22 @@ afterEach(() => {
 });
 
 describe('Creator Course workspace', () => {
+  it('hides interests that cannot be selected for the chosen subject band', () => {
+    render(<InterestPicker
+      tree={[
+        { id: 1, name: 'Development', slug: 'development', children: [{ id: 11, name: 'Web Development', slug: 'web-development' }] },
+        { id: 2, name: 'Art', slug: 'art', children: [{ id: 21, name: 'Painting', slug: 'painting' }] },
+      ]}
+      selectedIds={[]}
+      onToggle={vi.fn()}
+      band="DigitalTechnology"
+    />);
+
+    expect(screen.getByLabelText('Web Development')).toBeTruthy();
+    expect(screen.queryByText('Painting')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Art/ })).toBeNull();
+  });
+
   it('shows creator-owned courses and an intake review entry point', async () => {
     vi.stubGlobal('fetch', vi.fn(async (path) => {
       const data = path === '/api/creator/courses'
@@ -105,10 +122,10 @@ describe('Creator Course workspace', () => {
 
     const steps = await screen.findByRole('list', { name: 'Course creation steps' });
     fireEvent.click(within(steps).getByRole('button', { name: /Interests & price/ }));
-    expect(screen.getByText('1 of 2 selected')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Development1' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Remove Sketching' }));
     expect(screen.getByText(/Selected 0 of 4/)).toBeTruthy();
-    expect(screen.getByLabelText('Sketching').checked).toBe(false);
+    expect(screen.queryByLabelText('Sketching')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Remove Sketching' })).toBeNull();
 
     fireEvent.change(screen.getByPlaceholderText('Search interests'), { target: { value: 'zzz' } });

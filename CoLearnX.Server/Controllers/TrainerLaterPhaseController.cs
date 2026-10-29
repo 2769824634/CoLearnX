@@ -49,11 +49,30 @@ public sealed class TrainerLaterPhaseController(
         => Ok(await trainer.ListRecordingsAsync(User.GetUserId(), courseIntakeId, courseSessionId, ct));
 
     [HttpPost("intakes/{courseIntakeId:int}/sessions/{courseSessionId:int}/recordings")]
+    [Consumes("application/json")]
     public async Task<ActionResult<SessionRecordingDto>> AddRecording(int courseIntakeId, int courseSessionId,
         [FromBody] CreateSessionRecordingRequest request, CancellationToken ct)
     {
         var result = await trainer.AddRecordingAsync(User.GetUserId(), courseIntakeId, courseSessionId, request, ct);
         return Created($"/api/trainer/intakes/{courseIntakeId}/sessions/{courseSessionId}/recordings/{result.Id}", result);
+    }
+
+    [HttpPost("intakes/{courseIntakeId:int}/sessions/{courseSessionId:int}/recordings")]
+    [RequestSizeLimit(RecordingFiles.MaxRequestBytes)]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<SessionRecordingDto>> UploadRecording(int courseIntakeId, int courseSessionId,
+        [FromForm] string? title, [FromForm] IFormFile? file, CancellationToken ct)
+    {
+        var result = await trainer.UploadRecordingAsync(User.GetUserId(), courseIntakeId, courseSessionId, title, file, ct);
+        return Created($"/api/trainer/intakes/{courseIntakeId}/sessions/{courseSessionId}/recordings/{result.Id}/file", result);
+    }
+
+    [HttpGet("intakes/{courseIntakeId:int}/sessions/{courseSessionId:int}/recordings/{recordingId:int}/file")]
+    public async Task<IActionResult> DownloadRecording(int courseIntakeId, int courseSessionId, int recordingId,
+        CancellationToken ct)
+    {
+        var file = await trainer.OpenRecordingAsync(User.GetUserId(), courseIntakeId, courseSessionId, recordingId, ct);
+        return File(file.Stream, file.ContentType, file.DownloadName);
     }
 
     [HttpGet("intakes/{courseIntakeId:int}/sessions/{courseSessionId:int}/materials")]

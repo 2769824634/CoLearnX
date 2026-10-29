@@ -37,6 +37,7 @@ public sealed class SessionRecording
     public int AddedByTrainerId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string RecordingUrl { get; set; } = string.Empty;
+    public string? FilePath { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public CourseSession CourseSession { get; set; } = null!;

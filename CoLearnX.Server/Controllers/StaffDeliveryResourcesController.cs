@@ -45,6 +45,7 @@ public sealed class StaffDeliveryResourcesController(ITrainerLaterPhaseService t
         => Ok(await trainer.ListRecordingsAsync(User.GetUserId(), intakeId, sessionId, ct));
 
     [HttpPost("intakes/{intakeId:int}/sessions/{sessionId:int}/recordings")]
+    [Consumes("application/json")]
     public async Task<ActionResult<SessionRecordingDto>> AddRecording(
         int intakeId,
         int sessionId,
@@ -53,6 +54,23 @@ public sealed class StaffDeliveryResourcesController(ITrainerLaterPhaseService t
     {
         var result = await trainer.AddRecordingAsync(User.GetUserId(), intakeId, sessionId, request, ct);
         return Created($"/api/staff/intakes/{intakeId}/sessions/{sessionId}/recordings/{result.Id}", result);
+    }
+
+    [HttpPost("intakes/{intakeId:int}/sessions/{sessionId:int}/recordings")]
+    [RequestSizeLimit(RecordingFiles.MaxRequestBytes)]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<SessionRecordingDto>> UploadRecording(int intakeId, int sessionId,
+        [FromForm] string? title, [FromForm] IFormFile? file, CancellationToken ct)
+    {
+        var result = await trainer.UploadRecordingAsync(User.GetUserId(), intakeId, sessionId, title, file, ct);
+        return Created($"/api/staff/intakes/{intakeId}/sessions/{sessionId}/recordings/{result.Id}/file", result);
+    }
+
+    [HttpGet("intakes/{intakeId:int}/sessions/{sessionId:int}/recordings/{recordingId:int}/file")]
+    public async Task<IActionResult> DownloadRecording(int intakeId, int sessionId, int recordingId, CancellationToken ct)
+    {
+        var file = await trainer.OpenRecordingAsync(User.GetUserId(), intakeId, sessionId, recordingId, ct);
+        return File(file.Stream, file.ContentType, file.DownloadName);
     }
 
     [HttpGet("intakes/{intakeId:int}/sessions/{sessionId:int}/materials")]

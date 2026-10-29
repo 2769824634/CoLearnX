@@ -86,10 +86,13 @@ public sealed partial class TrainerLaterPhaseService
         CancellationToken ct = default)
     {
         await RequireOwnedSessionAsync(trainerUserId, intakeId, sessionId, ct);
-        return await db.SessionRecordings.AsNoTracking().Where(item => item.CourseSessionId == sessionId)
+        var recordings = await db.SessionRecordings.AsNoTracking().Where(item => item.CourseSessionId == sessionId)
             .OrderByDescending(item => item.CreatedAt)
-            .Select(item => new SessionRecordingDto(item.Id, item.CourseSessionId, item.Title, item.RecordingUrl, item.CreatedAt))
+            .Select(item => new { item.Id, item.CourseSessionId, item.Title, item.RecordingUrl, item.FilePath, item.CreatedAt })
             .ToListAsync(ct);
+        return recordings.Select(item => new SessionRecordingDto(item.Id, item.CourseSessionId, item.Title,
+            item.FilePath is null ? item.RecordingUrl : string.Empty, item.CreatedAt, item.FilePath is not null,
+            item.FilePath is null ? null : RecordingFiles.DownloadName(item.Title, item.FilePath))).ToList();
     }
 
     public async Task<SessionRecordingDto> AddRecordingAsync(int trainerUserId, int intakeId, int sessionId,
@@ -120,6 +123,73 @@ public sealed partial class TrainerLaterPhaseService
         db.AuditLogs.Add(await TrainerAuditAsync(trainerUserId, "SessionRecordingAdded", nameof(CourseSession), sessionId, title, ct));
         await db.SaveChangesAsync(ct);
         return ToDto(recording);
+    }
+
+    public async Task<SessionRecordingDto> UploadRecordingAsync(int trainerUserId, int intakeId, int sessionId,
+        string? title, IFormFile? file, CancellationToken ct = default)
+    {
+        var session = await RequireOwnedSessionAsync(trainerUserId, intakeId, sessionId, ct);
+        RequireDeliveryStatus(session.CourseIntake);
+        var cleanTitle = title?.Trim();
+        if (string.IsNullOrWhiteSpace(cleanTitle) || cleanTitle.Length > 160)
+            throw new LaterPhaseException("INVALID_RECORDING", "Title is required and may contain at most 160 characters.", field: "title");
+        if (file is null || file.Length <= 0)
+            throw new LaterPhaseException("INVALID_RECORDING", "A video file is required.", field: "file");
+        if (file.Length > RecordingFiles.MaxBytes)
+            throw new LaterPhaseException("INVALID_RECORDING", "Video must be 250 MB or smaller.", field: "file");
+
+        string extension;
+        try
+        {
+            extension = RecordingFiles.RequireSafeExtension(file.FileName);
+            RecordingFiles.RequireVideoContentType(extension, file.ContentType);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new LaterPhaseException("INVALID_RECORDING", ex.Message, field: "file");
+        }
+
+        var key = $"session-recordings/{trainerUserId}/{sessionId}/{Guid.NewGuid():N}{extension}";
+        try
+        {
+            await using (var stream = file.OpenReadStream())
+                await files.SaveAsync(key, stream, RecordingFiles.ContentType(extension), ct);
+            var recording = new SessionRecording
+            {
+                CourseSessionId = sessionId,
+                AddedByTrainerId = trainerUserId,
+                Title = cleanTitle,
+                RecordingUrl = $"upload://{Guid.NewGuid():N}",
+                FilePath = key,
+            };
+            db.SessionRecordings.Add(recording);
+            db.AuditLogs.Add(await TrainerAuditAsync(trainerUserId, "SessionRecordingUploaded",
+                nameof(CourseSession), sessionId, cleanTitle, ct));
+            await db.SaveChangesAsync(ct);
+            return ToDto(recording);
+        }
+        catch
+        {
+            try { await files.DeleteAsync(key, CancellationToken.None); }
+            catch { /* Preserve the original upload or database error. */ }
+            throw;
+        }
+    }
+
+    public async Task<MaterialFileResult> OpenRecordingAsync(int trainerUserId, int intakeId, int sessionId,
+        int recordingId, CancellationToken ct = default)
+    {
+        await RequireOwnedSessionAsync(trainerUserId, intakeId, sessionId, ct);
+        var recording = await db.SessionRecordings.AsNoTracking()
+            .Where(item => item.Id == recordingId && item.CourseSessionId == sessionId && item.FilePath != null)
+            .Select(item => new { item.FilePath, item.Title })
+            .SingleOrDefaultAsync(ct)
+            ?? throw new LaterPhaseException("RECORDING_NOT_FOUND", "The uploaded recording was not found.", 404);
+        var filePath = recording.FilePath!;
+        var stream = await files.OpenAsync(filePath, ct)
+            ?? throw new LaterPhaseException("RECORDING_NOT_FOUND", "The uploaded recording file was not found.", 404);
+        return new MaterialFileResult(stream, RecordingFiles.ContentType(Path.GetExtension(filePath)),
+            RecordingFiles.DownloadName(recording.Title, filePath));
     }
 
     public async Task<IReadOnlyList<AttendanceItemDto>> SaveAttendanceAsync(int trainerUserId, int intakeId, int sessionId,
@@ -175,6 +245,8 @@ public sealed partial class TrainerLaterPhaseService
     }
 
     private static SessionRecordingDto ToDto(SessionRecording item)
-        => new(item.Id, item.CourseSessionId, item.Title, item.RecordingUrl, item.CreatedAt);
+        => new(item.Id, item.CourseSessionId, item.Title, item.FilePath is null ? item.RecordingUrl : string.Empty,
+            item.CreatedAt, item.FilePath is not null,
+            item.FilePath is null ? null : RecordingFiles.DownloadName(item.Title, item.FilePath));
 
 }
