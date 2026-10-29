@@ -7,6 +7,7 @@ import { formatDate, statusLabel } from '../trainer/intakeForm';
 import TrainerResourcesPanel from '../trainer/TrainerResourcesPanel';
 import TrainerSessionMaterialsPanel from '../trainer/TrainerSessionMaterialsPanel';
 import { staffLaterPhaseApi } from '../../api/trainerLaterPhase';
+import TeachingDatesEditor from '../account/TeachingDatesEditor';
 
 export default function StaffIntakeDetailPage() {
   const { courseIntakeId } = useParams();
@@ -38,6 +39,8 @@ export default function StaffIntakeDetailPage() {
   return <section className="creator-page"><Link className="creator-back" to="/staff/intakes">← All classes</Link>
     <div className="page-header"><div><p className="eyebrow">Class #{intake.id}</p><h1>Platform class schedule</h1><p>{formatDate(intake.startsAt)} → {formatDate(intake.endsAt)}</p></div><span className={`creator-status ${intake.status.toLowerCase()}`}>{statusLabel(intake.status)}</span></div>
     {error ? <div className="callout warn">{error.message}</div> : null}
+    <TeachingDatesEditor intake={intake} save={(body) => staffCoursesApi.updateTeachingDates(token, intake.id, body)}
+      reload={() => staffCoursesApi.getIntake(token, intake.id)} onSaved={setIntake} />
     <div className="creator-section-heading"><h2>Sessions</h2>{publishable && !editor ? <button className="btn btn-primary" type="button" onClick={() => setEditor(true)}>Add session</button> : null}</div>
     {editor ? <SessionForm intake={intake} onSave={addSession} onCancel={() => setEditor(false)} busy={busy} error={error} onError={setError} /> : null}
     {(intake.sessions || []).map((session) => <article className="creator-application-row" key={session.id}><div><h2>{session.label}</h2><p>{formatDate(session.startsAt)} → {formatDate(session.endsAt)}</p>{session.meetingLink ? <p>{session.meetingLink}</p> : null}</div></article>)}

@@ -5,6 +5,29 @@ import Modal from './Modal';
 
 afterEach(() => cleanup());
 
+it('places the overlay outside animated or clipped content so it can cover the entire viewport', () => {
+  const { container } = render(<main style={{ transform: 'translateY(0)', overflow: 'hidden' }}>
+    <Modal open title="Full page dialog"><p>Dialog content</p></Modal>
+  </main>);
+  const overlay = screen.getByRole('dialog', { name: 'Full page dialog' }).parentElement;
+  expect(overlay.parentElement).toBe(document.body);
+  expect(container.contains(overlay)).toBe(false);
+});
+
+it('only dismisses the topmost dialog and keeps the lower dialog available', () => {
+  const closeOuter = vi.fn();
+  const closeInner = vi.fn();
+  const { rerender } = render(<Modal open title="Outer" onClose={closeOuter}>
+    <Modal open title="Inner" onClose={closeInner}><input aria-label="Inner field" /></Modal>
+  </Modal>);
+  fireEvent.keyDown(screen.getByLabelText('Inner field'), { key: 'Escape' });
+  expect(closeInner).toHaveBeenCalledOnce();
+  expect(closeOuter).not.toHaveBeenCalled();
+  rerender(<Modal open title="Outer" onClose={closeOuter}><button>Outer action</button></Modal>);
+  fireEvent.click(screen.getByRole('dialog', { name: 'Outer' }).parentElement);
+  expect(closeOuter).toHaveBeenCalledOnce();
+});
+
 it('sets dialog semantics, focuses the first control, traps Tab, and restores focus on close', () => {
   const onClose = vi.fn();
   function Harness() {

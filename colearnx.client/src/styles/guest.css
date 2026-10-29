@@ -1470,12 +1470,12 @@
 
 /* ---------- Auth modal inside guest pages ---------- */
 
-.guest .modal {
+.guest-auth-modal {
   border-radius: 16px;
-  box-shadow: var(--g-shadow-lg);
+  box-shadow: 0 2px 4px rgba(16, 24, 40, 0.04), 0 18px 40px rgba(16, 24, 40, 0.1);
 }
 
-.guest .modal .btn {
+.guest-auth-modal .btn {
   min-height: 40px;
 }
 

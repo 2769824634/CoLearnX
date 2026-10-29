@@ -3,7 +3,7 @@ import Modal from './Modal';
 
 export default function AuthRequiredModal({ open, onClose }) {
   return (
-    <Modal open={open} title="Sign in to continue" onClose={onClose} width={440}>
+    <Modal open={open} title="Sign in to continue" onClose={onClose} width={440} className="guest-auth-modal">
       <p>Create an account or sign in to enrol, save a wishlist, top up credits, or open your member pages.</p>
       <div className="modal-actions">
         <Link className="btn btn-ghost" to="/login" onClick={onClose}>Log in</Link>

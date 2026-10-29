@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import AdminCourseReviewsPage from './AdminCourseReviewsPage';
 import { AdminPendingContext } from './adminPending';
 
-const courseApi = vi.hoisted(() => ({ list: vi.fn(), review: vi.fn() }));
+const courseApi = vi.hoisted(() => ({ list: vi.fn(), review: vi.fn(), schedule: vi.fn(), updateTeachingDates: vi.fn() }));
 const materialApi = vi.hoisted(() => ({ downloadMaterial: vi.fn() }));
 
 vi.mock('../../auth/useAdminAuth', () => ({ default: () => ({ token: 'admin-token', logout: vi.fn() }) }));
@@ -35,6 +35,7 @@ const course = {
 beforeEach(() => {
   courseApi.list.mockResolvedValue([course]);
   courseApi.review.mockResolvedValue({ course, alreadyReviewed: false });
+  courseApi.schedule.mockResolvedValue([{ id: 12, startsAt: '2027-01-10T00:00:00Z', endsAt: '2027-01-13T00:00:00Z', status: 'Published', version: 'schedule-version' }]);
   materialApi.downloadMaterial.mockResolvedValue(undefined);
 });
 
@@ -44,6 +45,17 @@ afterEach(() => {
 });
 
 describe('AdminCourseReviewsPage material and interest summary', () => {
+  it('opens class dates from the course row and saves through the admin schedule API', async () => {
+    courseApi.updateTeachingDates.mockImplementation(async (_token, _course, id, body) => ({ id, status: 'Published', ...body, version: 'next' }));
+    render(<AdminCourseReviewsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Teaching dates', exact: true }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit teaching dates' }));
+    fireEvent.change(screen.getByLabelText('Last teaching date'), { target: { value: '2027-01-15' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save dates' }));
+    await screen.findByText('Teaching dates saved.');
+    expect(courseApi.updateTeachingDates).toHaveBeenCalledWith('admin-token', 7, 12, expect.objectContaining({ version: 'schedule-version' }));
+  });
+
   it('shows interest names, material status counts and business versions before review', async () => {
     render(<AdminCourseReviewsPage />);
     fireEvent.click(await screen.findByRole('button', { name: 'Review' }));

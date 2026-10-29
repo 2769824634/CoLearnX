@@ -35,13 +35,15 @@ export default function MemberAccountPage() {
             </div>
           </div>
           <div>
-            <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-              <div style={{ flex: 1 }}>
+            <div className="member-account-heading">
+              <div className="member-account-heading-copy">
                 <h3 style={{ fontSize: 15, marginBottom: 4 }}>Account details</h3>
                 <p style={{ fontSize: 12, color: 'var(--slate)', margin: 0 }}>Update profile details from Edit Profile.</p>
               </div>
-              <button type="button" className="btn btn-primary" onClick={() => setEditOpen(true)}>Edit Profile</button>
-              <button type="button" className="btn btn-ghost" onClick={() => navigate('/member/onboarding')}>Edit interests</button>
+              <div className="member-account-actions">
+                <button type="button" className="btn btn-primary" onClick={() => setEditOpen(true)}>Edit Profile</button>
+                <button type="button" className="btn btn-ghost" onClick={() => navigate('/member/onboarding')}>Edit interests</button>
+              </div>
             </div>
             <div className="card" style={{ marginBottom: 12 }}>
               <div className="card-header">Personal info</div>

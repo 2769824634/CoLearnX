@@ -1,4 +1,7 @@
-import { useEffect, useId, useRef } from 'react';
+import { createContext, useContext, useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
+
+const ModalDepthContext = createContext(0);
 
 const FOCUSABLE = [
   'a[href]',
@@ -16,11 +19,13 @@ function focusableElements(panel) {
 }
 
 function isTopmost(panel) {
-  const dialogs = Array.from(document.querySelectorAll('.modal[role="dialog"]'));
+  const dialogs = Array.from(document.querySelectorAll('.modal[role="dialog"]'))
+    .sort((a, b) => Number(a.dataset.modalDepth) - Number(b.dataset.modalDepth));
   return dialogs[dialogs.length - 1] === panel;
 }
 
-export default function Modal({ open, title, onClose, children, width }) {
+export default function Modal({ open, title, onClose, children, width, className = '' }) {
+  const depth = useContext(ModalDepthContext) + 1;
   const isOpen = Boolean(open);
   const dialogRef = useRef(null);
   const previousFocusRef = useRef(null);
@@ -39,7 +44,7 @@ export default function Modal({ open, title, onClose, children, width }) {
       || controls.find((element) => !element.classList.contains('modal-close'))
       || controls[0]
       || panel;
-    preferred?.focus();
+    if (isTopmost(panel)) preferred?.focus();
 
     function onKeyDown(event) {
       if (!isTopmost(panel)) return;
@@ -79,16 +84,19 @@ export default function Modal({ open, title, onClose, children, width }) {
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
+    <ModalDepthContext.Provider value={depth}>
     <div
       className="modal-overlay"
+      style={{ '--modal-depth': depth }}
       onClick={(event) => {
         if (event.target === event.currentTarget && isTopmost(dialogRef.current)) onCloseRef.current?.();
       }}
     >
       <div
         ref={dialogRef}
-        className="modal"
+        className={`modal${className ? ` ${className}` : ''}`}
+        data-modal-depth={depth}
         style={width ? { width } : undefined}
         role="dialog"
         aria-modal="true"
@@ -106,5 +114,7 @@ export default function Modal({ open, title, onClose, children, width }) {
         <div className="modal-body">{children}</div>
       </div>
     </div>
+    </ModalDepthContext.Provider>,
+    document.body,
   );
 }

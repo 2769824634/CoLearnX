@@ -1,5 +1,4 @@
 import { useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { usersApi } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import Modal from '../../components/Modal';
@@ -100,7 +99,7 @@ export function ProfileEditor({ onClose }) {
     }
   }
 
-  return createPortal(
+  return (
       <Modal open title="Edit Profile" onClose={() => !saving && onClose(false)} width={640}>
         {draft ? (
           <>
@@ -168,8 +167,7 @@ export function ProfileEditor({ onClose }) {
             </div>
           </>
         ) : null}
-      </Modal>,
-      document.body,
+      </Modal>
   );
 }
 

@@ -11,6 +11,9 @@ namespace CoLearnX.Server.Services;
 // B2 must supply the authenticated User ID, never an AdminAccount ID or a body-supplied owner.
 public interface ICourseIntakeService
 {
+    Task<IReadOnlyList<CourseIntakeDetailDto>> ListSchedulesForAdminAsync(int adminAccountId, int courseId, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> UpdateTeachingDatesForAdminAsync(int adminAccountId, int courseId, int intakeId, UpdateTeachingDatesRequest request, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> UpdateTeachingDatesForStaffAsync(int staffAccountId, int intakeId, UpdateTeachingDatesRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<CourseIntakeSummaryDto>> ListOwnedAsync(int trainerUserId, CancellationToken ct = default);
     Task<CourseIntakeDetailDto> GetOwnedAsync(int trainerUserId, int courseIntakeId, CancellationToken ct = default);
     Task<IReadOnlyList<CourseIntakeSummaryDto>> ListForCreatorAsync(int creatorUserId, int? courseId, CancellationToken ct = default);
@@ -29,7 +32,7 @@ public interface ICourseIntakeService
     Task<CourseIntakeDetailDto> PublishAsync(int creatorUserId, int courseIntakeId, Guid version, CancellationToken ct = default);
 }
 
-public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealtime? realtime = null) : ICourseIntakeService
+public sealed partial class CourseIntakeService(CoLearnXDbContext db, INotificationRealtime? realtime = null) : ICourseIntakeService
 {
     public async Task<CourseIntakeDetailDto> PostponeAsync(int creatorUserId, int intakeId,
         CreateCourseIntakeRequest request, CancellationToken ct = default)

@@ -2343,7 +2343,7 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1500;
+  z-index: calc(1500 + var(--modal-depth, 0));
   padding: 20px;
   animation: shell-fade 0.2s ease both;
 }
@@ -2669,6 +2669,28 @@ a {
 /* Member achievements and inbox share the existing card and color tokens. */
 .member-account-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; }
 .member-account-grid > *, .grid-2-1 > * { min-width: 0; }
+.member-account-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.member-account-heading-copy { flex: 1 1 220px; }
+.member-account-heading-copy h3 { margin-top: 0; }
+.member-account-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.member-account-actions .btn {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
 .member-course-overview p { line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .member-session-option { white-space: normal; overflow-wrap: anywhere; }
 .certificate-assessments { padding-left: 20px; }

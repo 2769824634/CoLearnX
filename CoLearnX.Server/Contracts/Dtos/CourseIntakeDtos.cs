@@ -22,6 +22,9 @@ public record UpdateCourseSessionRequest([property: JsonRequired] string Label, 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record SubmitCourseIntakeRequest([property: JsonRequired] Guid Version);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public record UpdateTeachingDatesRequest([property: JsonRequired] DateTime StartsAt,
+    [property: JsonRequired] DateTime EndsAt, [property: JsonRequired] Guid Version);
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record UpdateSessionDeliveryRequest([property: JsonRequired] string? MeetingLink,
     [property: JsonRequired] Guid Version);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]

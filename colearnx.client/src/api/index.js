@@ -73,6 +73,7 @@ export const staffCoursesApi = {
   submit: (token, id) => apiRequest(`/api/staff/courses/${encodeURIComponent(id)}/submit`, { method: 'POST', token }),
   listIntakes: (token, signal) => apiRequest('/api/staff/intakes', { token, signal }),
   getIntake: (token, id, signal) => apiRequest(`/api/staff/intakes/${encodeURIComponent(id)}`, { token, signal }),
+  updateTeachingDates: (token, id, body) => apiRequest(`/api/staff/intakes/${encodeURIComponent(id)}/teaching-dates`, { method: 'PATCH', token, body }),
   createIntake: (token, courseId, body) => apiRequest(`/api/staff/courses/${encodeURIComponent(courseId)}/intakes`, { method: 'POST', token, body }),
   createSession: (token, intakeId, body) => apiRequest(`/api/staff/intakes/${encodeURIComponent(intakeId)}/sessions`, { method: 'POST', token, body }),
   publishIntake: (token, intakeId, version) => apiRequest(`/api/staff/intakes/${encodeURIComponent(intakeId)}/publish`, { method: 'POST', token, body: { version } }),
@@ -113,6 +114,8 @@ export const adminRoleRequestsApi = {
 };
 
 export const adminCourseReviewsApi = {
+  schedule: (token, courseId, signal) => apiRequest(`/api/admin/courses/${encodeURIComponent(courseId)}/schedule`, { token, signal }),
+  updateTeachingDates: (token, courseId, intakeId, body) => apiRequest(`/api/admin/courses/${encodeURIComponent(courseId)}/schedule/${encodeURIComponent(intakeId)}`, { method: 'PATCH', token, body }),
   list: (token, status, signal) => {
     const query = status ? `?status=${encodeURIComponent(status)}` : '';
     return apiRequest(`/api/admin/courses${query}`, { token, signal });

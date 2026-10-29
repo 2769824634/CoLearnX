@@ -5,6 +5,7 @@ import { adminLaterPhaseApi } from '../../api/adminLaterPhase';
 import Modal from '../../components/Modal';
 import { formatCount, formatUtcDateTime } from '../businessPresentation';
 import { useAdminPending } from './adminPending';
+import AdminCourseSchedule from './AdminCourseSchedule';
 
 const FILTERS = [
   { value: 'PendingApproval', label: 'Pending approval' },
@@ -38,6 +39,7 @@ export default function AdminCourseReviewsPage() {
   const [reviewNotice, setReviewNotice] = useState('');
   const pending = useAdminPending();
   const [selected, setSelected] = useState(null);
+  const [scheduleCourse, setScheduleCourse] = useState(null);
   const [decision, setDecision] = useState('Approve');
   const [reason, setReason] = useState('');
   const [reviewError, setReviewError] = useState('');
@@ -241,6 +243,9 @@ export default function AdminCourseReviewsPage() {
                       </span>
                     </td>
                     <td className="admin-review-action">
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setScheduleCourse(course)}>
+                        Teaching dates
+                      </button>
                       {course.status === 'PendingApproval' ? (
                         <button
                           type="button"
@@ -263,6 +268,10 @@ export default function AdminCourseReviewsPage() {
         ) : null}
       </section>
 
+      <Modal open={Boolean(scheduleCourse)} title="Course teaching dates" onClose={() => setScheduleCourse(null)} width={720}>
+        {scheduleCourse ? <><p><strong>{scheduleCourse.code} · {scheduleCourse.title}</strong></p>
+          <AdminCourseSchedule key={scheduleCourse.id} token={token} courseId={scheduleCourse.id} /></> : null}
+      </Modal>
       <Modal open={Boolean(selected)} title="Review course" onClose={closeReview} width={600}>
         {selected ? (
           <form onSubmit={submitReview}>
