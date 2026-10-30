@@ -2349,6 +2349,8 @@ a {
   justify-content: center;
   z-index: 1500;
   padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   animation: shell-fade 0.2s ease both;
 }
 
@@ -2356,6 +2358,7 @@ a {
   width: 640px;
   max-width: 100%;
   max-height: 90vh;
+  max-height: min(90dvh, calc(100dvh - 40px));
   overflow: auto;
   background: var(--white);
   border-radius: 12px;
@@ -2671,6 +2674,10 @@ a {
 }
 
 /* Member achievements and inbox share the existing card and color tokens. */
+.member-account-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.member-account-heading-copy { flex: 1 1 240px; min-width: 0; }
+.account-profile-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.btn.account-profile-button { flex: 0 0 auto; align-self: center; width: auto; min-height: 34px; padding: 7px 12px; font-size: 13px; line-height: 1.2; white-space: nowrap; }
 .member-account-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; }
 .member-account-grid > *, .grid-2-1 > * { min-width: 0; }
 .member-course-overview p { line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }

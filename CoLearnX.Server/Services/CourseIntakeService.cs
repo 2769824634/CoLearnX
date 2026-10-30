@@ -19,6 +19,10 @@ public interface ICourseIntakeService
     Task<CourseIntakeDetailDto> CreateForStaffAsync(int staffAccountId, int courseId, CreateCourseIntakeRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<CourseIntakeSummaryDto>> ListForStaffAsync(int staffAccountId, CancellationToken ct = default);
     Task<CourseIntakeDetailDto> GetForStaffAsync(int staffAccountId, int courseIntakeId, CancellationToken ct = default);
+    Task<IReadOnlyList<AdminIntakeDatesDto>> ListForAdminAsync(int adminAccountId, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> GetForAdminAsync(int adminAccountId, int courseIntakeId, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> UpdateTeachingDatesForAdminAsync(int adminAccountId, int courseIntakeId, UpdateIntakeTeachingDatesRequest request, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> UpdateTeachingDatesForStaffAsync(int staffAccountId, int courseIntakeId, UpdateIntakeTeachingDatesRequest request, CancellationToken ct = default);
     Task<CourseIntakeDetailDto> AddSessionForStaffAsync(int staffAccountId, int courseIntakeId, CreateCourseSessionRequest request, CancellationToken ct = default);
     Task<CourseIntakeDetailDto> PublishForStaffAsync(int staffAccountId, int courseIntakeId, Guid version, CancellationToken ct = default);
     Task<CourseIntakeDetailDto> PostponeAsync(int creatorUserId, int intakeId, CreateCourseIntakeRequest request, CancellationToken ct = default);
@@ -31,6 +35,65 @@ public interface ICourseIntakeService
 
 public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealtime? realtime = null) : ICourseIntakeService
 {
+    public async Task<IReadOnlyList<AdminIntakeDatesDto>> ListForAdminAsync(int adminAccountId, CancellationToken ct = default)
+    {
+        await RequireAdminAccountAsync(adminAccountId, ct);
+        return await db.CourseIntakes.AsNoTracking().OrderByDescending(i => i.Id)
+            .Select(i => new AdminIntakeDatesDto(i.Id, i.CourseId, i.Course.Code, i.Course.Title,
+                i.Trainer.FullName, i.StartsAt, i.EndsAt, i.Status.ToString())).ToListAsync(ct);
+    }
+
+    public async Task<CourseIntakeDetailDto> GetForAdminAsync(int adminAccountId, int courseIntakeId, CancellationToken ct = default)
+        => ToDto(await LoadForAdminAsync(adminAccountId, courseIntakeId, ct));
+
+    public async Task<CourseIntakeDetailDto> UpdateTeachingDatesForAdminAsync(int adminAccountId, int courseIntakeId,
+        UpdateIntakeTeachingDatesRequest request, CancellationToken ct = default)
+    {
+        var intake = await LoadForAdminAsync(adminAccountId, courseIntakeId, ct);
+        return await SaveTeachingDatesAsync(intake, request, adminAccountId, null, ct);
+    }
+
+    public async Task<CourseIntakeDetailDto> UpdateTeachingDatesForStaffAsync(int staffAccountId, int courseIntakeId,
+        UpdateIntakeTeachingDatesRequest request, CancellationToken ct = default)
+    {
+        var intake = await LoadForStaffAsync(staffAccountId, courseIntakeId, ct);
+        return await SaveTeachingDatesAsync(intake, request, null, staffAccountId, ct);
+    }
+
+    private async Task<CourseIntakeDetailDto> SaveTeachingDatesAsync(CourseIntake intake,
+        UpdateIntakeTeachingDatesRequest request, int? adminAccountId, int? staffAccountId, CancellationToken ct)
+    {
+        CourseIntakeValidation.Version(intake, request.Version);
+        if (intake.Status is CourseIntakeStatus.Completed or CourseIntakeStatus.Cancelled or CourseIntakeStatus.PendingApproval)
+            throw new CourseIntakeException("INTAKE_NOT_EDITABLE", "Teaching dates cannot be changed for a completed, cancelled or pending class.", 409);
+        CourseIntakeValidation.Utc(request.StartsAt, "startsAt");
+        CourseIntakeValidation.Utc(request.EndsAt, "endsAt");
+        if (request.StartsAt >= request.EndsAt)
+            throw new CourseIntakeException("INVALID_INTAKE_DATES", "Teaching must end after it starts.", field: "endsAt");
+        if (request.StartsAt < intake.RegistrationClosesAt)
+            throw new CourseIntakeException("INVALID_INTAKE_DATES", "Teaching must start on or after registration closes.", field: "startsAt");
+        if (intake.Sessions.Any(s => s.StartsAt < request.StartsAt || s.EndsAt > request.EndsAt))
+            throw new CourseIntakeException("SESSION_OUTSIDE_INTAKE", "The teaching dates must include every existing session.", field: "endsAt");
+        if (intake.StartsAt == request.StartsAt && intake.EndsAt == request.EndsAt) return ToDto(intake);
+
+        var reason = $"Teaching dates: {DateTime.SpecifyKind(intake.StartsAt, DateTimeKind.Utc):O} / {DateTime.SpecifyKind(intake.EndsAt, DateTimeKind.Utc):O}"
+            + $" -> {request.StartsAt:O} / {request.EndsAt:O}";
+        // This operation adjusts the delivery window, including for enrolled/running classes.
+        // It never moves sessions, changes registration or performs a completion transition.
+        intake.StartsAt = request.StartsAt;
+        intake.EndsAt = request.EndsAt;
+        intake.Version = Guid.NewGuid();
+        db.AuditLogs.Add(new AuditLog { AdminAccountId = adminAccountId, StaffAccountId = staffAccountId,
+            Action = "CourseIntakeTeachingDatesUpdated", EntityType = nameof(CourseIntake),
+            EntityId = intake.Id.ToString(), Result = intake.Status.ToString(), Reason = reason });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new CourseIntakeException("INTAKE_VERSION_CONFLICT", "The Intake changed. Refresh and retry.", 409);
+        }
+        return ToDto(intake);
+    }
+
     public async Task<CourseIntakeDetailDto> PostponeAsync(int creatorUserId, int intakeId,
         CreateCourseIntakeRequest request, CancellationToken ct = default)
     {
@@ -412,6 +475,21 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         => await db.StaffAccounts.AsNoTracking()
             .SingleOrDefaultAsync(item => item.Id == staffAccountId && item.IsActive, ct)
             ?? throw new CourseIntakeException("STAFF_REQUIRED", "An active staff account is required.", 403);
+
+    private async Task RequireAdminAccountAsync(int adminAccountId, CancellationToken ct)
+    {
+        if (!await db.AdminAccounts.AnyAsync(a => a.Id == adminAccountId && a.IsActive, ct))
+            throw new CourseIntakeException("ADMIN_REQUIRED", "An active administrator account is required.", 403);
+    }
+
+    private async Task<CourseIntake> LoadForAdminAsync(int adminAccountId, int id, CancellationToken ct)
+    {
+        await RequireAdminAccountAsync(adminAccountId, ct);
+        return await db.CourseIntakes.Include(i => i.Sessions).ThenInclude(s => s.Enrollments)
+            .Include(i => i.Applications).Include(i => i.ReplacementIntake).AsSplitQuery()
+            .SingleOrDefaultAsync(i => i.Id == id, ct)
+            ?? throw new CourseIntakeException("INTAKE_NOT_FOUND", "Intake was not found.", 404);
+    }
 
     private async Task<CourseIntake> LoadForStaffAsync(int staffAccountId, int id, CancellationToken ct)
     {

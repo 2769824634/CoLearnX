@@ -1,4 +1,8 @@
 import { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
+
+let openModalCount = 0;
+let previousBodyOverflow = '';
 
 const FOCUSABLE = [
   'a[href]',
@@ -32,6 +36,11 @@ export default function Modal({ open, title, onClose, children, width }) {
 
   useEffect(() => {
     if (!isOpen) return undefined;
+    if (openModalCount === 0) {
+      previousBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+    }
+    openModalCount += 1;
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const panel = dialogRef.current;
     const controls = focusableElements(panel);
@@ -72,6 +81,8 @@ export default function Modal({ open, title, onClose, children, width }) {
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
+      openModalCount -= 1;
+      if (openModalCount === 0) document.body.style.overflow = previousBodyOverflow;
       const previous = previousFocusRef.current;
       if (previous && document.contains(previous)) previous.focus();
     };
@@ -79,7 +90,7 @@ export default function Modal({ open, title, onClose, children, width }) {
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
       className="modal-overlay"
       onClick={(event) => {
@@ -105,6 +116,7 @@ export default function Modal({ open, title, onClose, children, width }) {
         </div>
         <div className="modal-body">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -10,8 +10,24 @@ namespace CoLearnX.Server.Controllers;
 [ApiController]
 [Route("api/admin/courses")]
 [Authorize(Policy = AdminAuthorization.PolicyName)]
-public class AdminCoursesController(IAdminCourseReviewService courses) : ControllerBase
+public class AdminCoursesController(IAdminCourseReviewService courses, ICourseIntakeService intakes) : ControllerBase
 {
+    [HttpGet("intakes")]
+    [TrainerApiErrors]
+    public async Task<ActionResult<IReadOnlyList<AdminIntakeDatesDto>>> ListIntakes(CancellationToken ct)
+        => Ok(await intakes.ListForAdminAsync(User.GetAdminAccountId(), ct));
+
+    [HttpGet("intakes/{courseIntakeId:int}")]
+    [TrainerApiErrors]
+    public async Task<ActionResult<CourseIntakeDetailDto>> GetIntake(int courseIntakeId, CancellationToken ct)
+        => Ok(await intakes.GetForAdminAsync(User.GetAdminAccountId(), courseIntakeId, ct));
+
+    [HttpPatch("intakes/{courseIntakeId:int}/teaching-dates")]
+    [TrainerApiErrors]
+    public async Task<ActionResult<CourseIntakeDetailDto>> UpdateTeachingDates(int courseIntakeId,
+        UpdateIntakeTeachingDatesRequest request, CancellationToken ct)
+        => Ok(await intakes.UpdateTeachingDatesForAdminAsync(User.GetAdminAccountId(), courseIntakeId, request, ct));
+
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<AdminCourseDto>>> List(
         [FromQuery] CourseStatus? status,

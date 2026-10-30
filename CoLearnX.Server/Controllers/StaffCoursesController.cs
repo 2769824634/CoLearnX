@@ -73,6 +73,12 @@ public sealed class StaffCoursesController(
         CancellationToken ct)
         => Ok(await intakes.AddSessionForStaffAsync(User.GetStaffAccountId(), courseIntakeId, request, ct));
 
+    [HttpPatch("/api/staff/intakes/{courseIntakeId:int}/teaching-dates")]
+    [TrainerApiErrors]
+    public async Task<ActionResult<CourseIntakeDetailDto>> UpdateTeachingDates(int courseIntakeId,
+        UpdateIntakeTeachingDatesRequest request, CancellationToken ct)
+        => Ok(await intakes.UpdateTeachingDatesForStaffAsync(User.GetStaffAccountId(), courseIntakeId, request, ct));
+
     [HttpPost("/api/staff/intakes/{courseIntakeId:int}/publish")]
     public async Task<ActionResult<CourseIntakeDetailDto>> PublishIntake(
         int courseIntakeId,

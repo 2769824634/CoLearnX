@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { staffCoursesApi } from '../../api';
 import useStaffAuth from '../../auth/useStaffAuth';
@@ -10,6 +10,7 @@ vi.mock('../../api', () => ({
     getIntake: vi.fn(),
     createSession: vi.fn(),
     publishIntake: vi.fn(),
+    updateTeachingDates: vi.fn(),
   },
 }));
 vi.mock('../../auth/useStaffAuth');
@@ -18,6 +19,23 @@ vi.mock('../../api/trainerLaterPhase', () => ({ staffLaterPhaseApi: {} }));
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+});
+
+it('saves teaching dates on a running class using its current version', async () => {
+  useStaffAuth.mockReturnValue({ token: 'staff-token' });
+  const intake = { id: 9, courseId: 4, status: 'InProgress', version: 'version-one',
+    registrationClosesAt: '2026-11-01T00:00:00Z', startsAt: '2026-11-10T00:00:00Z',
+    endsAt: '2026-11-12T00:00:00Z', sessions: [] };
+  staffCoursesApi.getIntake.mockResolvedValue(intake);
+  staffCoursesApi.updateTeachingDates.mockResolvedValue({ ...intake, endsAt: '2026-11-15T16:00:00Z', version: 'version-two' });
+  render(<MemoryRouter><StaffIntakeDetailPage /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit teaching dates' }));
+  fireEvent.change(screen.getByLabelText('Last teaching date'), { target: { value: '2026-11-15' } });
+  fireEvent.submit(screen.getByRole('button', { name: 'Save dates' }).closest('form'));
+  await waitFor(() => expect(staffCoursesApi.updateTeachingDates).toHaveBeenCalledWith('staff-token', 9,
+    expect.objectContaining({ version: 'version-one', startsAt: new Date(intake.startsAt).toISOString() })));
+  expect(await screen.findByRole('status')).toHaveProperty('textContent', 'Teaching dates saved.');
+  expect(screen.queryByRole('dialog')).toBeNull();
 });
 
 it('opens each Session in its own staff delivery workspace', async () => {

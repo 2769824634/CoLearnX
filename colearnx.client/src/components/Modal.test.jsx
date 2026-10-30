@@ -5,6 +5,23 @@ import Modal from './Modal';
 
 afterEach(() => cleanup());
 
+it('escapes a clipped page container and restores scrolling after the last dialog closes', () => {
+  document.body.style.overflow = 'auto';
+  const first = render(<div style={{ transform: 'translateY(0)', overflow: 'hidden' }}>
+    <Modal open title="First" onClose={vi.fn()}><button>First action</button></Modal>
+  </div>);
+  const overlay = screen.getByRole('dialog', { name: 'First' }).parentElement;
+  expect(overlay.parentElement).toBe(document.body);
+  expect(document.body.style.overflow).toBe('hidden');
+
+  const second = render(<Modal open title="Second" onClose={vi.fn()}><button>Second action</button></Modal>);
+  first.unmount();
+  expect(document.body.style.overflow).toBe('hidden');
+  second.unmount();
+  expect(document.body.style.overflow).toBe('auto');
+  document.body.style.overflow = '';
+});
+
 it('sets dialog semantics, focuses the first control, traps Tab, and restores focus on close', () => {
   const onClose = vi.fn();
   function Harness() {

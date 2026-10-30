@@ -34,6 +34,7 @@ const NAV = {
     { to: '/admin/approvals', label: 'Approvals', pending: 'approvals' },
     { to: '/admin/users', label: 'Users' },
     { to: '/admin/staff', label: 'Staff' },
+    { to: '/admin/class-dates', label: 'Class dates' },
     { to: '/admin/ledger', label: 'Credit Ledger' },
     { to: '/admin/disputes', label: 'Disputes', pending: 'disputes' },
     { to: '/admin/pricing', label: 'Pricing' },

@@ -28,7 +28,7 @@ export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summ
             <h1>Profile / My Account</h1>
             <p>Profile updates are available from Edit Profile</p>
           </div>
-          <button type="button" className="btn btn-primary" onClick={() => setEditOpen(true)}>Edit Profile</button>
+          <button type="button" className="btn btn-primary account-profile-button" onClick={() => setEditOpen(true)}>Edit Profile</button>
         </div>
         <div className="grid-2-1 account-page-grid">
           <div style={{ textAlign: 'center' }}>

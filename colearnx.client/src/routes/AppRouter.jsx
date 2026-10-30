@@ -18,6 +18,7 @@ import AdminCreditLedgerPage from '../pages/admin/AdminCreditLedgerPage';
 import AdminDisputesPage from '../pages/admin/AdminDisputesPage';
 import AdminPricingPage from '../pages/admin/AdminPricingPage';
 import AdminStaffPage from '../pages/admin/AdminStaffPage';
+import AdminIntakeDatesPage from '../pages/admin/AdminIntakeDatesPage';
 import StaffLoginPage from '../pages/staff/StaffLoginPage';
 import StaffHomePage from '../pages/staff/StaffHomePage';
 import StaffCoursesPage from '../pages/staff/StaffCoursesPage';
@@ -177,6 +178,7 @@ export default function AppRouter() {
             <Route path="approvals" element={<AdminApprovalsPage />} />
             <Route path="users" element={<AdminUsersPage />} />
             <Route path="staff" element={<AdminStaffPage />} />
+            <Route path="class-dates" element={<AdminIntakeDatesPage />} />
             <Route path="ledger" element={<AdminCreditLedgerPage />} />
             <Route path="disputes" element={<AdminDisputesPage />} />
             <Route path="pricing" element={<AdminPricingPage />} />

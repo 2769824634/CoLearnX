@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CoLearnX.Server.Controllers;
 
-[AttributeUsage(AttributeTargets.Class)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public sealed class TrainerApiErrorsAttribute : ActionFilterAttribute, IExceptionFilter
 {
     // Run before ApiController's automatic ModelState response (-2000).
