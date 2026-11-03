@@ -89,6 +89,7 @@ public static class SeedData
             await RecommendationSeed.EnsureCourseTagsAsync(db);
             await RecommendationSeed.EnsureDemoProfileAndRatingsAsync(db);
             await CourseTrainerSchema.BackfillAsync(db);
+            await AlignFoundationCertificatesAsync(db);
             return;
         }
 
@@ -785,6 +786,30 @@ public static class SeedData
     {
         var paths = await db.LearningPaths.AsNoTracking().ToDictionaryAsync(item => item.Name, item => item.Id);
         return (paths["Professional Skills"], paths["Technology"], paths["Design"]);
+    }
+
+    static async Task AlignFoundationCertificatesAsync(CoLearnXDbContext db)
+    {
+        var templates = await db.CertificateTemplates.AsNoTracking().ToListAsync();
+        var intermediate = templates.SingleOrDefault(item => item.StageNumber == 2);
+        var advanced = templates.SingleOrDefault(item => item.StageNumber == 3);
+        if (intermediate is null || advanced is null) return;
+        var stuck = await db.UserCertificates.Include(item => item.CertificateTemplate)
+            .Where(item => item.CourseId != null && item.CertificateTemplate.StageNumber == 1)
+            .ToListAsync();
+        if (stuck.Count == 0) return;
+        var courseIds = stuck.Select(item => item.CourseId!.Value).Distinct().ToArray();
+        var levels = await db.Courses.AsNoTracking().Where(item => courseIds.Contains(item.Id))
+            .Select(item => new { item.Id, item.Level, LevelName = item.CourseLevel == null ? null : item.CourseLevel.Name })
+            .ToDictionaryAsync(item => item.Id);
+        foreach (var certificate in stuck)
+        {
+            if (!levels.TryGetValue(certificate.CourseId!.Value, out var course)) continue;
+            var stage = CoLearnX.Server.Services.CertificateStages.ForLevel(string.IsNullOrWhiteSpace(course.LevelName) ? course.Level : course.LevelName);
+            if (stage == 2) certificate.CertificateTemplateId = intermediate.Id;
+            else if (stage == 3) certificate.CertificateTemplateId = advanced.Id;
+        }
+        await db.SaveChangesAsync();
     }
 
     static async Task EnsureSqliteCourseCoreSchemaAsync(CoLearnXDbContext db)

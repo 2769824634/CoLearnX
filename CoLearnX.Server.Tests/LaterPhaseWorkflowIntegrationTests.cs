@@ -114,6 +114,47 @@ public sealed class LaterPhaseWorkflowIntegrationTests
         Assert.Equal(3, await factory.ReadAsync(db => db.AuditLogs.CountAsync(n => n.EntityType == "CertificateRequest" && n.EntityId == id.ToString())));
     }
 
+    [Fact]
+    public async Task IssuedCertificateUsesTheCourseLevelAndServesAPdf()
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        await factory.MakeCertificateEligibleAsync();
+        await factory.ReadAsync(async db =>
+        {
+            (await db.Courses.SingleAsync(course => course.Id == 200)).Level = "Intermediate";
+            return await db.SaveChangesAsync();
+        });
+        using var member = factory.UserClient(202, AppRole.Member);
+        using var trainer = factory.UserClient(200, AppRole.Trainer);
+        using var admin = factory.AdminClient();
+        using var submitted = await member.PostAsJsonAsync("/api/certificates/requests", new { enrollmentId = 200 });
+        var id = (await Body(submitted)).GetProperty("id").GetInt32();
+        using var trainerReview = await trainer.PostAsJsonAsync($"/api/trainer/certificate-requests/{id}/review", new { decision = "Approve", reason = "Verified" });
+        using var adminReview = await admin.PostAsJsonAsync($"/api/admin/certificate-requests/{id}/review", new { decision = "Approve", reason = "Verified" });
+        Assert.Equal(HttpStatusCode.OK, adminReview.StatusCode);
+        var stage = await factory.ReadAsync(db => db.UserCertificates.Include(item => item.CertificateTemplate)
+            .Where(item => item.UserId == 202).Select(item => item.CertificateTemplate.StageNumber).SingleAsync());
+        var code = await factory.ReadAsync(db => db.UserCertificates.Where(item => item.UserId == 202).Select(item => item.VerificationCode).SingleAsync());
+        Assert.Equal(2, stage);
+        var certificateId = await factory.ReadAsync(db => db.UserCertificates.Where(item => item.UserId == 202).Select(item => item.Id).SingleAsync());
+        using var owned = await member.GetAsync($"/api/certificates/{certificateId}/file");
+        Assert.Equal(HttpStatusCode.OK, owned.StatusCode);
+        Assert.Equal("application/pdf", owned.Content.Headers.ContentType?.MediaType);
+        Assert.StartsWith("%PDF", System.Text.Encoding.ASCII.GetString(await owned.Content.ReadAsByteArrayAsync())[..4]);
+        using var stranger = factory.AnonymousClient();
+        using var publicLookup = await stranger.GetAsync($"/api/certificates/verify/{code}");
+        Assert.Equal(HttpStatusCode.NotFound, publicLookup.StatusCode);
+        using var publicFile = await stranger.GetAsync($"/api/certificates/{certificateId}/file");
+        Assert.Equal(HttpStatusCode.Unauthorized, publicFile.StatusCode);
+        using var otherMember = factory.UserClient(204, AppRole.Member);
+        using var hidden = await otherMember.GetAsync($"/api/certificates/{certificateId}/file");
+        Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
+        using var mine = await member.GetAsync("/api/certificates/my");
+        Assert.Equal(HttpStatusCode.OK, mine.StatusCode);
+        Assert.Contains("Intermediate", await mine.Content.ReadAsStringAsync());
+    }
+
     [Theory]
     [InlineData(3, 60, false)]
     [InlineData(4, 59, false)]
@@ -659,6 +700,9 @@ public sealed class LaterPhaseWorkflowIntegrationTests
                 });
             });
         }
+
+        public HttpClient AnonymousClient()
+            => CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
 
         public HttpClient UserClient(int id, AppRole activeRole)
         {

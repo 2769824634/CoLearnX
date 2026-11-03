@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import { useMemberNotifications } from '../../components/memberNotificationsState';
 import { certificatesApi } from '../../api';
+import { downloadFile } from '../../api/client';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { utcDate } from '../../utils/utcDates';
 import { userFacingError } from '../businessPresentation';
@@ -42,6 +43,7 @@ export default function MemberBadgesPage() {
           <span className="pill">Stage {certificate.stageNumber} · {certificate.stageName}</span><h3>{certificate.title}</h3>
           {certificate.courseTitle ? <p>{certificate.courseCode} · {certificate.courseTitle}</p> : <p>Stage certificate</p>}
           <p>Issued <DateLabel value={certificate.awardedAt} /></p><p>Verification number</p><code>{certificate.verificationCode}</code>
+          <button type="button" className="btn btn-ghost" onClick={() => downloadFile(`/api/certificates/${certificate.id}/file`, `${certificate.courseCode || 'certificate'}.pdf`, query.token)}>Download PDF</button>
         </article>)}</div>}
       </section>
       <section className="certificate-section" aria-labelledby="apply-heading"><h2 id="apply-heading">Request a certificate</h2><p>Eligibility is checked by the server using completion, attendance and assessment results.</p>
