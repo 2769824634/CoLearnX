@@ -55,10 +55,12 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             .OrderBy(subject => subject.SortOrder)
             .Select(subject => new CourseSubjectOptionDto(subject.Id, subject.Name, subject.Subject.ToString()))
             .ToListAsync(ct);
-        var cells = await db.PricePools.AsNoTracking()
+        var cells = (await db.PricePools.AsNoTracking()
             .Where(row => row.Subject != null && row.MinTotalCredits != null && row.MaxTotalCredits != null && row.MinTotalCredits <= row.MaxTotalCredits)
-            .Select(row => new PriceCellDto(row.Subject!.Value.ToString(), row.CourseLevelId, row.MinTotalCredits!.Value, row.MaxTotalCredits!.Value))
-            .ToListAsync(ct);
+            .Select(row => new { Subject = row.Subject!.Value, row.CourseLevelId, Min = row.MinTotalCredits!.Value, Max = row.MaxTotalCredits!.Value, row.MinHours, row.MaxHours })
+            .ToListAsync(ct))
+            .Select(row => CoursePriceFence.ToPriceCell(row.Subject.ToString(), row.CourseLevelId, row.Min, row.Max, row.MinHours, row.MaxHours))
+            .ToList();
         return new CreatorCourseOptionsDto(levels, paths, subjects, cells);
     }
 

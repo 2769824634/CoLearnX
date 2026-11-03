@@ -44,7 +44,8 @@ public sealed class PricingAdminApiTests
         Assert.Contains(pool, row => row.Subject == "Business and Management" && row.LevelName == "Advanced" && row.MinTotalCredits == 350 && row.MaxTotalCredits == 900);
         Assert.Contains(pool, row => row.Subject == "Humanities, Health and Creative" && row.LevelName == "Beginner" && row.MinTotalCredits == 20 && row.MaxTotalCredits == 120);
         Assert.All(pool, row => Assert.Equal(100, row.ContentSharePercent + row.DeliverySharePercent + row.PlatformSharePercent));
-        Assert.All(pool, row => Assert.Null(row.MinHours));
+        Assert.Contains(pool, row => row.LevelName == "Beginner" && row.MinHours == 4 && row.MaxHours == 16);
+        Assert.Contains(pool, row => row.LevelName == "Advanced" && row.MinHours == 20 && row.MaxHours == 80);
     }
 
     private static readonly (HttpMethod Method, string Path)[] Endpoints =

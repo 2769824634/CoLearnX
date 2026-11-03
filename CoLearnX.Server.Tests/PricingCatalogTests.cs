@@ -26,10 +26,8 @@ public sealed class PricingCatalogTests
             var row = cells.Single(item => item.Subject == subject && item.CourseLevel.Name == level);
             Assert.Equal(min, row.MinTotalCredits);
             Assert.Equal(max, row.MaxTotalCredits);
-            Assert.Null(row.MinHourlyCredits);
-            Assert.Null(row.MaxHourlyCredits);
-            Assert.Null(row.MinHours);
-            Assert.Null(row.MaxHours);
+            Assert.Equal(level switch { "Intermediate" => 12, "Advanced" => 20, _ => 4 }, row.MinHours);
+            Assert.Equal(level switch { "Intermediate" => 40, "Advanced" => 80, _ => 16 }, row.MaxHours);
             Assert.Equal((25, 25, 50), (row.ContentSharePercent, row.DeliverySharePercent, row.PlatformSharePercent));
         }
 

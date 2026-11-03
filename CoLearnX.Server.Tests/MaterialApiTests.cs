@@ -416,7 +416,7 @@ public class MaterialApiTests : IClassFixture<CoLearnXApiFactory>
             learningPathId = 1,
             category = "Design",
             courseSubjectId = 1,
-            durationHours = 2,
+            durationHours = 8,
             creditCost = 40,
             learningOutcomes = new[] { "Attach materials to this course" },
         });

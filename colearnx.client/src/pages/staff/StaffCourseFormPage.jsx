@@ -11,6 +11,16 @@ const empty = {
   durationHours: '', category: '', creditCost: '', priceExceptionReason: '', learningOutcomes: [], interestIds: [],
 };
 
+function priceHint(cell, hours) {
+  if (!cell) return 'Choose a level and subject before setting the price.';
+  const hourCount = Number(hours);
+  const hoursKnown = Number.isInteger(hourCount) && cell.minHours > 0 && hourCount >= cell.minHours && hourCount <= cell.maxHours;
+  const floor = hoursKnown ? Math.max(cell.minCredits, cell.minHourlyCredits * hourCount) : cell.minCredits;
+  const hourBand = cell.minHours > 0 ? `${cell.minHours}–${cell.maxHours} hours. ` : '';
+  const hourly = hoursKnown ? ` At ${hourCount} hours that is at least ${floor} credits (${cell.minHourlyCredits}–${cell.maxHourlyCredits} per hour).` : '';
+  return `${hourBand}Enter a whole number from ${floor} to ${cell.maxCredits} credits.${hourly} A higher price up to ${cell.maxCredits * 2} needs a reason.`;
+}
+
 function priceCell(form, options) {
   const subject = (options.courseSubjects || []).find((item) => String(item.id) === String(form.courseSubjectId));
   return (options.priceCells || []).find((item) => item.band === subject?.band && String(item.courseLevelId) === String(form.courseLevelId));
@@ -90,9 +100,9 @@ export default function StaffCourseFormPage() {
       <div className="form-group"><label htmlFor="platform-level">Level</label><select id="platform-level" required value={form.courseLevelId} onChange={(e) => setForm({ ...form, courseLevelId: e.target.value })}><option value="">Select level</option>{options.courseLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
       <div className="form-group"><label htmlFor="platform-subject">Subject</label><select id="platform-subject" required value={form.courseSubjectId} onChange={(e) => setForm({ ...form, courseSubjectId: e.target.value })}><option value="">Select subject</option>{(options.courseSubjects || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
       <div className="form-group"><label htmlFor="platform-path">Learning path</label><select id="platform-path" required value={form.learningPathId} onChange={(e) => setForm({ ...form, learningPathId: e.target.value })}><option value="">Select path</option>{options.learningPaths.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-      <div className="form-group"><label htmlFor="platform-hours">Duration (hours)</label><input id="platform-hours" type="number" min="1" step="1" required value={form.durationHours} onChange={(e) => setForm({ ...form, durationHours: e.target.value })} /></div>
+      <div className="form-group"><label htmlFor="platform-hours">Duration (hours)</label><input id="platform-hours" type="number" min={priceCell(form, options)?.minHours || 1} max={priceCell(form, options)?.maxHours || undefined} step="1" required value={form.durationHours} onChange={(e) => setForm({ ...form, durationHours: e.target.value })} /></div>
       <div className="form-group"><label htmlFor="platform-category">Category</label><input id="platform-category" value={form.category || ''} onChange={(e) => setForm({ ...form, category: e.target.value })} /></div>
-      <div className="form-group"><label htmlFor="platform-credit">Credit cost</label><input id="platform-credit" type="number" min={priceCell(form, options)?.minCredits} max={priceCell(form, options) ? priceCell(form, options).maxCredits * 2 : undefined} step="1" required value={form.creditCost} onChange={(e) => setForm({ ...form, creditCost: e.target.value })} aria-describedby="platform-credit-hint" /><small id="platform-credit-hint">{priceCell(form, options) ? `Enter a whole number from ${priceCell(form, options).minCredits} to ${priceCell(form, options).maxCredits} credits. A higher price up to ${priceCell(form, options).maxCredits * 2} needs a reason.` : 'Choose a level and subject before setting the price.'}</small></div>
+      <div className="form-group"><label htmlFor="platform-credit">Credit cost</label><input id="platform-credit" type="number" min={priceCell(form, options)?.minCredits} max={priceCell(form, options) ? priceCell(form, options).maxCredits * 2 : undefined} step="1" required value={form.creditCost} onChange={(e) => setForm({ ...form, creditCost: e.target.value })} aria-describedby="platform-credit-hint" /><small id="platform-credit-hint">{priceHint(priceCell(form, options), form.durationHours)}</small></div>
       {priceCell(form, options) && Number(form.creditCost) > priceCell(form, options).maxCredits ? <div className="form-group"><label htmlFor="platform-price-reason">Reason for a higher price</label><textarea id="platform-price-reason" required maxLength={500} value={form.priceExceptionReason} onChange={(e) => setForm({ ...form, priceExceptionReason: e.target.value })} /></div> : null}
       <InterestPicker tree={options.interestTree} selectedIds={form.interestIds || []} onToggle={(id) => setForm((current) => ({ ...current, interestIds: current.interestIds.includes(id) ? current.interestIds.filter((item) => item !== id) : current.interestIds.length < 4 ? [...current.interestIds, id] : current.interestIds }))} />
       <button type="submit" className="btn btn-primary">Save platform course</button>

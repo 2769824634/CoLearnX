@@ -27,10 +27,12 @@ public sealed class StaffCourseService(CoLearnXDbContext db) : IStaffCourseServi
             .Select(item => new CourseOptionDto(item.Id, item.Name)).ToListAsync(ct);
         var subjects = await db.CourseSubjects.AsNoTracking().OrderBy(item => item.SortOrder)
             .Select(item => new CourseSubjectOptionDto(item.Id, item.Name, item.Subject.ToString())).ToListAsync(ct);
-        var cells = await db.PricePools.AsNoTracking()
+        var cells = (await db.PricePools.AsNoTracking()
             .Where(row => row.Subject != null && row.MinTotalCredits != null && row.MaxTotalCredits != null && row.MinTotalCredits <= row.MaxTotalCredits)
-            .Select(row => new PriceCellDto(row.Subject!.Value.ToString(), row.CourseLevelId, row.MinTotalCredits!.Value, row.MaxTotalCredits!.Value))
-            .ToListAsync(ct);
+            .Select(row => new { Subject = row.Subject!.Value, row.CourseLevelId, Min = row.MinTotalCredits!.Value, Max = row.MaxTotalCredits!.Value, row.MinHours, row.MaxHours })
+            .ToListAsync(ct))
+            .Select(row => CoursePriceFence.ToPriceCell(row.Subject.ToString(), row.CourseLevelId, row.Min, row.Max, row.MinHours, row.MaxHours))
+            .ToList();
         return new CreatorCourseOptionsDto(levels, paths, subjects, cells);
     }
 

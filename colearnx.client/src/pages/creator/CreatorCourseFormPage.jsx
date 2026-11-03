@@ -346,7 +346,7 @@ function BasicFields({ form, options, setForm }) {
       <div className="form-group"><label htmlFor="creator-course-level">Course level</label><select id="creator-course-level" required value={form.courseLevelId} onChange={change('courseLevelId')}><option value="">Choose a level</option>{options.courseLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
       <div className="form-group"><label htmlFor="creator-course-subject">Subject</label><select id="creator-course-subject" required value={form.courseSubjectId} onChange={change('courseSubjectId')}><option value="">Choose a subject</option>{(options.courseSubjects || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
       <div className="form-group"><label htmlFor="creator-learning-path">Learning path</label><select id="creator-learning-path" required value={form.learningPathId} onChange={change('learningPathId')}><option value="">Choose a path</option>{options.learningPaths.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-      <div className="form-group"><label htmlFor="creator-course-hours">Duration (hours)</label><input id="creator-course-hours" type="number" min="1" step="1" required value={form.durationHours} onChange={change('durationHours')} /></div>
+      <div className="form-group"><label htmlFor="creator-course-hours">Duration (hours)</label><input id="creator-course-hours" type="number" min={priceCell(form, options)?.minHours || 1} max={priceCell(form, options)?.maxHours || undefined} step="1" required value={form.durationHours} onChange={change('durationHours')} /></div>
     </div>
     <div className="form-group"><label htmlFor="creator-course-outcomes">Learning outcomes</label><textarea id="creator-course-outcomes" value={form.learningOutcomes} onChange={change('learningOutcomes')} placeholder="One outcome per line" /></div>
   </>;
@@ -355,6 +355,16 @@ function BasicFields({ form, options, setForm }) {
 function priceCell(form, options) {
   const subject = (options.courseSubjects || []).find((item) => String(item.id) === String(form.courseSubjectId));
   return (options.priceCells || []).find((item) => item.band === subject?.band && String(item.courseLevelId) === String(form.courseLevelId));
+}
+
+function priceHint(cell, hours) {
+  if (!cell) return 'Choose a level and subject before setting the price.';
+  const hourCount = Number(hours);
+  const hoursKnown = Number.isInteger(hourCount) && cell.minHours > 0 && hourCount >= cell.minHours && hourCount <= cell.maxHours;
+  const floor = hoursKnown ? Math.max(cell.minCredits, cell.minHourlyCredits * hourCount) : cell.minCredits;
+  const hourBand = cell.minHours > 0 ? `${cell.minHours}–${cell.maxHours} hours. ` : '';
+  const hourly = hoursKnown ? ` At ${hourCount} hours that is at least ${floor} credits (${cell.minHourlyCredits}–${cell.maxHourlyCredits} per hour).` : '';
+  return `${hourBand}Enter a whole number from ${floor} to ${cell.maxCredits} credits.${hourly} A higher price up to ${cell.maxCredits * 2} needs a reason.`;
 }
 
 function InterestPriceFields({ form, options, setForm }) {
@@ -370,7 +380,7 @@ function InterestPriceFields({ form, options, setForm }) {
       <InterestPicker tree={options.interestTree || []} selectedIds={form.interestIds} onToggle={toggleInterest} band={subject?.band} />
     </div>
     <div className="form-group creator-price-field"><label htmlFor="creator-course-cost">Credit cost</label><input id="creator-course-cost" type="number" min={cell ? cell.minCredits : undefined} max={cell ? cell.maxCredits * 2 : undefined} step="1" required value={form.creditCost} onChange={change('creditCost')} aria-describedby="creator-course-cost-hint" />
-      <small id="creator-course-cost-hint">{cell ? `Enter a whole number from ${cell.minCredits} to ${cell.maxCredits} credits. A higher price up to ${cell.maxCredits * 2} needs a reason.` : 'Choose a level and subject before setting the price.'}</small>
+      <small id="creator-course-cost-hint">{priceHint(cell, form.durationHours)}</small>
     </div>
     {aboveRange ? <div className="form-group"><label htmlFor="creator-price-reason">Reason for a higher price</label><textarea id="creator-price-reason" required maxLength={500} value={form.priceExceptionReason} onChange={change('priceExceptionReason')} /></div> : null}
   </>;

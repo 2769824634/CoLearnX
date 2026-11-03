@@ -61,31 +61,42 @@ public static class PricingSeed
         }
 
         var levels = await db.CourseLevels.ToDictionaryAsync(level => level.Name, level => level.Id, ct);
-        var existing = (await db.PricePools
-                .Where(row => row.Subject != null)
-                .Select(row => new { row.Subject, row.CourseLevelId })
-                .ToListAsync(ct))
-            .Select(row => (row.Subject!.Value, row.CourseLevelId))
-            .ToHashSet();
+        var rows = await db.PricePools.Where(row => row.Subject != null).ToListAsync(ct);
 
         foreach (var cell in Cells)
         {
             var levelId = levels[cell.Level];
-            if (!existing.Add((cell.Subject, levelId))) continue;
-            db.PricePools.Add(new PricePool
+            var (minHours, maxHours) = HoursFor(cell.Level);
+            var row = rows.SingleOrDefault(item => item.Subject == cell.Subject && item.CourseLevelId == levelId);
+            if (row is null)
             {
-                SaleMode = SaleMode.CoursePack,
-                CourseType = CourseType.Theory,
-                CourseLevelId = levelId,
-                Subject = cell.Subject,
-                MinTotalCredits = cell.Min,
-                MaxTotalCredits = cell.Max,
-                ContentSharePercent = 25,
-                DeliverySharePercent = 25,
-                PlatformSharePercent = 50,
-            });
+                db.PricePools.Add(new PricePool
+                {
+                    SaleMode = SaleMode.CoursePack,
+                    CourseType = CourseType.Theory,
+                    CourseLevelId = levelId,
+                    Subject = cell.Subject,
+                    MinTotalCredits = cell.Min,
+                    MaxTotalCredits = cell.Max,
+                    MinHours = minHours,
+                    MaxHours = maxHours,
+                    ContentSharePercent = 25,
+                    DeliverySharePercent = 25,
+                    PlatformSharePercent = 50,
+                });
+                continue;
+            }
+            row.MinHours = minHours;
+            row.MaxHours = maxHours;
         }
 
         await db.SaveChangesAsync(ct);
     }
+
+    private static (int Min, int Max) HoursFor(string level) => level switch
+    {
+        "Intermediate" => (12, 40),
+        "Advanced" => (20, 80),
+        _ => (4, 16),
+    };
 }

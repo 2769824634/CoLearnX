@@ -59,7 +59,8 @@ public record CourseOptionDto(int Id, string Name);
 
 public record CourseSubjectOptionDto(int Id, string Name, string Band);
 
-public record PriceCellDto(string Band, int CourseLevelId, int MinCredits, int MaxCredits);
+public record PriceCellDto(string Band, int CourseLevelId, int MinCredits, int MaxCredits,
+    int MinHours = 0, int MaxHours = 0, int MinHourlyCredits = 0, int MaxHourlyCredits = 0);
 
 public record CreatorCourseOptionsDto(
     IReadOnlyList<CourseOptionDto> CourseLevels,
