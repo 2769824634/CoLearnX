@@ -6,6 +6,8 @@ import StaffAuthProvider from './auth/StaffAuthProvider';
 import AppRouter from './routes/AppRouter';
 import { SITE_TITLE } from './siteTitle';
 import './styles/member.css';
+import './styles/base-v10.css';
+import './styles/shell-v10.css';
 
 function SiteTitle() {
   useEffect(() => {
