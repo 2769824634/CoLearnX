@@ -543,8 +543,17 @@ public class CertificatesController(ICertificateService certificates, ICertifica
         => Ok(await workflow.ListEligibilityAsync(User.GetUserId(), ct));
 
     [HttpGet("my")]
+    [Authorize(Roles = "Member")]
     public async Task<ActionResult<IReadOnlyList<CertificateDto>>> My(CancellationToken ct)
         => Ok(await certificates.GetMyAsync(User.GetUserId(), ct));
+
+    [HttpGet("{certificateId:int}/file")]
+    [Authorize(Roles = "Member")]
+    public async Task<IActionResult> File(int certificateId, CancellationToken ct)
+    {
+        var file = await certificates.OpenForMemberAsync(User.GetUserId(), certificateId, ct);
+        return file is null ? NotFound(new ApiError("CERTIFICATE_NOT_FOUND", "Certificate was not found.")) : File(file.Bytes, "application/pdf", file.FileName);
+    }
 
     [HttpPost("requests")]
     [Authorize(Roles = "Member")]

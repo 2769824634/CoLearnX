@@ -1,0 +1,74 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 671 >>
+stream
+0.75 0.63 0.35 RG
+2.2 w
+28 28 786 539 re S
+0.15 0.18 0.28 RG
+0.8 w
+40 40 762 515 re S
+BT
+/F1 12 Tf
+0.15 0.18 0.28 rg
+70 500 Td
+(CoLearnX) Tj
+/F2 30 Tf
+0 -52 Td
+(Certificate of Completion) Tj
+/F1 13 Tf
+0 -42 Td
+(This certifies that) Tj
+/F2 24 Tf
+0.45 0.32 0.12 rg
+0 -36 Td
+([Learner name]) Tj
+/F1 13 Tf
+0.15 0.18 0.28 rg
+0 -34 Td
+(has completed) Tj
+/F2 18 Tf
+0 -30 Td
+([Course code]  [Course title]) Tj
+/F1 13 Tf
+0 -40 Td
+(Stage  [Foundation / Intermediate / Advanced]) Tj
+0 -22 Td
+(Issued  [date]) Tj
+0 -22 Td
+(Verification  [code]) Tj
+/F1 9 Tf
+0 -70 Td
+(Platform template. Filled when an administrator issues the certificate.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000010 00000 n 
+0000000062 00000 n 
+0000000122 00000 n 
+0000000261 00000 n 
+0000000989 00000 n 
+0000001062 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+1136
+%%EOF

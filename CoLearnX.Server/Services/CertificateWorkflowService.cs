@@ -148,7 +148,13 @@ public sealed class CertificateWorkflowService(CoLearnXDbContext db) : ICertific
         item.AdminReviewReason = reason;
         if (approve)
         {
-            var template = await db.CertificateTemplates.OrderBy(candidate => candidate.StageNumber).FirstOrDefaultAsync(ct)
+            var levelName = item.Enrollment.Course.CourseLevelId is int levelId
+                ? await db.CourseLevels.Where(level => level.Id == levelId).Select(level => level.Name).SingleOrDefaultAsync(ct)
+                : null;
+            if (string.IsNullOrWhiteSpace(levelName)) levelName = item.Enrollment.Course.Level;
+            var stage = CertificateStages.ForLevel(levelName);
+            var template = await db.CertificateTemplates.SingleOrDefaultAsync(candidate => candidate.StageNumber == stage, ct)
+                ?? await db.CertificateTemplates.OrderBy(candidate => candidate.StageNumber).FirstOrDefaultAsync(ct)
                 ?? throw new LaterPhaseException("CERTIFICATE_TEMPLATE_NOT_FOUND", "No certificate template is configured.", 409);
             var certificate = new UserCertificate
             {
