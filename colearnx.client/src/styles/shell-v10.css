@@ -1,0 +1,308 @@
+/* UI v10 · step 2: app frame (top bar, sidebar, account menu).
+   Loaded after base-v10.css. Appearance only: same markup, same links, same behaviour. */
+
+:root {
+  --sidebar-bg: #fbfaff;
+  --nav-text: #4a4a5a;
+  --nav-icon: #7a7f9a;
+}
+
+/* ---------- page header ---------- */
+.page-title::before {
+  display: none;
+}
+
+/* ---------- top bar ---------- */
+.member-wallet {
+  display: grid;
+  grid-template-columns: 30px auto;
+  column-gap: 10px;
+  row-gap: 0;
+  align-items: center;
+  padding: 5px 16px 5px 5px;
+  border-color: #e4dcff;
+  border-radius: 999px;
+  background: #f4f0ff;
+  font-size: 12px;
+}
+
+.member-wallet::before {
+  content: '';
+  grid-row: 1 / 3;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--purple) url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23fff%27 stroke-width=%271.8%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Crect x=%273%27 y=%276%27 width=%2718%27 height=%2714%27 rx=%273%27/%3E%3Cpath d=%27M3 10h18%27/%3E%3Cpath d=%27M16 15h2%27/%3E%3C/svg%3E") no-repeat center / 16px;
+}
+
+.member-wallet span,
+.member-wallet small {
+  grid-column: 2;
+}
+
+.member-wallet strong {
+  font-family: var(--font-display);
+  font-size: 15px;
+}
+
+.member-wallet:hover {
+  border-color: var(--purple);
+}
+
+.notif-badge {
+  border: 1px solid var(--border-strong);
+  background: var(--white);
+  color: var(--charcoal);
+}
+
+.notif-badge:hover {
+  box-shadow: none;
+  border-color: var(--purple);
+  color: var(--purple);
+}
+
+.user-chip-name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.user-chip .role {
+  font-size: 13px;
+}
+
+.workspace-switcher-menu {
+  border-radius: 10px;
+  box-shadow: 0 12px 32px -12px rgba(30, 20, 70, 0.28);
+  animation: none;
+}
+
+.workspace-switcher-title {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+
+.workspace-switcher-caret {
+  transition: none;
+}
+
+.account-menu-panel {
+  border-radius: 10px;
+  box-shadow: 0 12px 32px -12px rgba(30, 20, 70, 0.28);
+}
+
+.account-menu-panel a,
+.account-menu-panel button {
+  font-size: 14px;
+}
+
+.account-menu-panel a:hover,
+.account-menu-panel a:focus-visible {
+  background: var(--purple-tint);
+  color: var(--purple);
+}
+
+.account-menu-panel button {
+  margin-top: 4px;
+  color: var(--danger-text);
+}
+
+.account-menu-panel button:hover,
+.account-menu-panel button:focus-visible {
+  background: var(--danger-soft);
+}
+
+/* Admin keeps a thin red line at the very top so it never looks like the member site. */
+.admin-shell .topbar {
+  box-shadow: inset 0 3px 0 var(--danger);
+}
+
+/* ---------- sidebar ---------- */
+.sidebar {
+  gap: 4px;
+  background: var(--sidebar-bg);
+}
+
+.nav-item {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--nav-text);
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+/* the 01 / 02 numbers become small line icons (picked by link address, see below) */
+.nav-item::before {
+  content: '';
+  flex: none;
+  width: 19px;
+  min-width: 0;
+  height: 19px;
+  background: var(--nav-icon);
+  -webkit-mask: no-repeat center / contain;
+  mask: no-repeat center / contain;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+  transition: none;
+}
+
+.nav-item::after {
+  display: none;
+}
+
+.nav-item:hover {
+  background: #f1edff;
+  color: var(--charcoal);
+  box-shadow: none;
+}
+
+.nav-item.active {
+  background: var(--white);
+  color: var(--charcoal);
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(51, 51, 51, 0.06), 0 6px 16px -10px rgba(114, 65, 255, 0.45);
+}
+
+.nav-item.active::before {
+  background: var(--purple);
+}
+
+@media (min-width: 901px) {
+  /* logo area and sidebar read as one column */
+  .topbar {
+    border-bottom: 0;
+    background: linear-gradient(90deg, var(--sidebar-bg) 239px, var(--border) 239px 240px, var(--white) 240px);
+  }
+
+  .topbar::after {
+    content: '';
+    position: absolute;
+    left: 240px;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .topbar-brand {
+    padding-left: 26px;
+  }
+
+  .sidebar {
+    padding: 10px 14px 20px;
+  }
+}
+
+@media (max-width: 900px) {
+  .nav-item {
+    min-height: 38px;
+    font-size: 14px;
+  }
+
+  .nav-item.active {
+    box-shadow: none;
+    background: var(--purple-soft);
+    color: var(--purple);
+  }
+}
+
+/* ---------- sidebar icons ---------- */
+.sidebar .nav-item[href="/"]::before,
+.sidebar .nav-item[href="/trainer/home"]::before,
+.sidebar .nav-item[href="/creator/home"]::before,
+.sidebar .nav-item[href="/admin/home"]::before,
+.sidebar .nav-item[href="/staff/home"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10.5 12 3l9 7.5'/%3E%3Cpath d='M5 9.5V21h14V9.5'/%3E%3Cpath d='M10 21v-6h4v6'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10.5 12 3l9 7.5'/%3E%3Cpath d='M5 9.5V21h14V9.5'/%3E%3Cpath d='M10 21v-6h4v6'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/member/courses"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z'/%3E%3Cpath d='M20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z'/%3E%3Cpath d='M20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/member/programs"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 10 12 5 2 10l10 5 10-5z'/%3E%3Cpath d='M6 12v5c3 2 9 2 12 0v-5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 10 12 5 2 10l10 5 10-5z'/%3E%3Cpath d='M6 12v5c3 2 9 2 12 0v-5'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/member/payment"]::before,
+.sidebar .nav-item[href="/admin/ledger"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='18' height='14' rx='3'/%3E%3Cpath d='M3 10h18'/%3E%3Cpath d='M16 15h2'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='18' height='14' rx='3'/%3E%3Cpath d='M3 10h18'/%3E%3Cpath d='M16 15h2'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/member/badges"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='9' r='6'/%3E%3Cpath d='m8.5 14-1.5 8 5-3 5 3-1.5-8'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='9' r='6'/%3E%3Cpath d='m8.5 14-1.5 8 5-3 5 3-1.5-8'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/member/account"]::before,
+.sidebar .nav-item[href="/trainer/account"]::before,
+.sidebar .nav-item[href="/creator/account"]::before,
+.sidebar .nav-item[href="/admin/account"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 21a8 8 0 0 1 16 0'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 21a8 8 0 0 1 16 0'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/trainer/courses"]::before,
+.sidebar .nav-item[href="/creator/courses"]::before,
+.sidebar .nav-item[href="/staff/courses"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='3' width='16' height='18' rx='2'/%3E%3Cpath d='M8 7h8M8 11h8M8 15h5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='3' width='16' height='18' rx='2'/%3E%3Cpath d='M8 7h8M8 11h8M8 15h5'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/trainer/invitations"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='m3 7 9 6 9-6'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='m3 7 9 6 9-6'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/creator/courses/new"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/creator/approvals"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='4' width='14' height='17' rx='2'/%3E%3Cpath d='M9 4V3h6v1'/%3E%3Cpath d='m9 13 2 2 4-4'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='4' width='14' height='17' rx='2'/%3E%3Cpath d='M9 4V3h6v1'/%3E%3Cpath d='m9 13 2 2 4-4'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/creator/intakes"]::before,
+.sidebar .nav-item[href="/admin/class-dates"]::before,
+.sidebar .nav-item[href="/staff/intakes"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='17' rx='3'/%3E%3Cpath d='M3 9h18M8 2v4M16 2v4'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='17' rx='3'/%3E%3Cpath d='M3 9h18M8 2v4M16 2v4'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/creator/usage"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20V10M10 20V4M16 20v-7M21 20H3'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20V10M10 20V4M16 20v-7M21 20H3'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/admin/approvals"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 13h5l1.5 3h5L16 13h5'/%3E%3Cpath d='M5 5h14l2 8v6H3v-6z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 13h5l1.5 3h5L16 13h5'/%3E%3Cpath d='M5 5h14l2 8v6H3v-6z'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/admin/users"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='8' r='4'/%3E%3Cpath d='M2 21a7 7 0 0 1 14 0'/%3E%3Cpath d='M16 4a4 4 0 0 1 0 8'/%3E%3Cpath d='M22 21a7 7 0 0 0-4-6.3'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='8' r='4'/%3E%3Cpath d='M2 21a7 7 0 0 1 14 0'/%3E%3Cpath d='M16 4a4 4 0 0 1 0 8'/%3E%3Cpath d='M22 21a7 7 0 0 0-4-6.3'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/admin/staff"]::before,
+.sidebar .nav-item[href="/admin/pricing"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='7' width='18' height='13' rx='2'/%3E%3Cpath d='M9 7V4h6v3'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='7' width='18' height='13' rx='2'/%3E%3Cpath d='M9 7V4h6v3'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/admin/disputes"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 21V4h11l-2 4 2 4H5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 21V4h11l-2 4 2 4H5'/%3E%3C/svg%3E");
+}
+
+.sidebar .nav-item[href="/admin/audit"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'/%3E%3C/svg%3E");
+}
