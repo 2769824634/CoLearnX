@@ -1,0 +1,304 @@
+/* UI v10 · step 1: shared building blocks (buttons, labels, forms, cards, notices, tabs, tables, dialogs).
+   Loaded right after member.css. Only appearance changes here: no layout, markup or behaviour. */
+
+:root {
+  --purple-dark: #5b2ee6;
+  --purple-tint: #f7f4ff;
+  --teal-text: #0b8f78;
+  --muted: #8a93a6;
+  --border-strong: #d9dee5;
+  --warn-soft: #fff4e5;
+  --warn-text: #b45309;
+  --danger-soft: #feeceb;
+  --danger-text: #b42318;
+  --info: #418ad7;
+  --info-soft: #eaf2ff;
+  --info-text: #2f6fb6;
+  --radius-lg: 10px;
+  --font-display: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+body {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- headings ---------- */
+.page-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- buttons ---------- */
+.btn {
+  min-height: 38px;
+  padding: 8px 15px;
+  border-radius: 8px;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.btn:not(:disabled):active {
+  transform: none;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+}
+
+.btn-primary:not(:disabled):hover {
+  background: var(--purple-dark);
+  box-shadow: none;
+}
+
+.btn-teal {
+  background: var(--teal-text);
+  color: #fff;
+}
+
+.btn-teal:not(:disabled):hover {
+  background: color-mix(in srgb, var(--teal-text) 88%, #000);
+  box-shadow: none;
+}
+
+.btn-ghost {
+  border-color: var(--border-strong);
+}
+
+.btn-ghost:not(:disabled):hover {
+  border-color: var(--purple);
+  background: var(--white);
+  color: var(--purple);
+}
+
+.btn-ghost.teal:not(:disabled):hover {
+  border-color: var(--teal-text);
+  background: var(--teal-soft);
+  color: var(--teal-text);
+}
+
+.btn-sm {
+  min-height: 32px;
+  padding: 5px 11px;
+}
+
+.btn-danger {
+  border-color: #f4c7c3;
+  background: var(--white);
+  color: var(--danger-text);
+}
+
+.btn-danger:not(:disabled):hover {
+  filter: none;
+  background: var(--danger-soft);
+}
+
+/* ---------- labels (pills) ---------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 2px 9px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid #bfefe4;
+  background: var(--teal-soft);
+  color: var(--teal-text);
+}
+
+.pill.success {
+  border-color: #bfefe4;
+  background: var(--teal-soft);
+  color: var(--teal-text);
+}
+
+.pill.purple {
+  border-color: #e0d6ff;
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.pill.neutral,
+.pill.muted {
+  opacity: 1;
+  border-color: var(--border);
+  background: var(--chrome);
+  color: var(--slate);
+}
+
+.pill.warn {
+  border-color: #fbddb0;
+  background: var(--warn-soft);
+  color: var(--warn-text);
+}
+
+.pill.danger {
+  border-color: #f8ccc8;
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.pill.info {
+  border-color: #cfe0f7;
+  background: var(--info-soft);
+  color: var(--info-text);
+}
+
+/* ---------- forms ---------- */
+.form-group label {
+  font-size: 13px;
+  color: var(--charcoal);
+}
+
+.form-group input:not([type="radio"]):not([type="checkbox"]),
+.form-group select,
+.form-group textarea {
+  min-height: 40px;
+  border-color: var(--border-strong);
+  box-shadow: none;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.form-group :is(input, select, textarea):not(:disabled, :focus):hover {
+  border-color: color-mix(in srgb, var(--slate) 45%, var(--border-strong));
+}
+
+:where(.content) select {
+  border-color: var(--border-strong);
+}
+
+.form-group :is(input, select, textarea)::placeholder {
+  color: var(--muted);
+}
+
+/* ---------- cards ---------- */
+.card {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.card-header {
+  padding: 15px 20px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.card-body {
+  padding: 18px 20px;
+}
+
+.stat-box {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.stat-box .label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.stat-box .value {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+/* ---------- notices (callouts) ---------- */
+.callout {
+  border-width: 1px;
+  border-left-width: 1px;
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+}
+
+.callout.info {
+  border-color: #e0d6ff;
+  background: var(--purple-tint);
+}
+
+.callout.teal,
+.callout.success {
+  border-color: #bfefe4;
+  background: var(--teal-soft);
+  color: #075e50;
+}
+
+.callout.warn {
+  border-color: #fbddb0;
+  background: var(--warn-soft);
+  color: #7a4a06;
+}
+
+.callout.danger {
+  border-color: #f8ccc8;
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.callout-title {
+  font-weight: 700;
+}
+
+/* ---------- tabs ---------- */
+.tab {
+  min-height: 42px;
+  font-weight: 600;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.tab:hover {
+  border-bottom-color: transparent;
+}
+
+/* ---------- tables ---------- */
+.data-table {
+  font-size: 13.5px;
+}
+
+.data-table th {
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.data-table td {
+  vertical-align: middle;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.data-table tbody tr:hover {
+  background: var(--purple-tint);
+}
+
+/* ---------- dialogs ---------- */
+.modal-overlay {
+  backdrop-filter: none;
+  animation: none;
+}
+
+.modal {
+  border-radius: 14px;
+  border: 0;
+  box-shadow: 0 18px 50px -18px rgba(30, 20, 70, 0.35);
+  animation: none;
+}
+
+.modal-header {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.modal-body {
+  padding: 20px 22px 22px;
+}
