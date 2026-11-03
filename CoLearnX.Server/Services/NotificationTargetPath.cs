@@ -9,7 +9,7 @@ public static class NotificationTargetPath
         "N-01" => MemberProgramsPath("reserved", enrollmentId),
         "N-class-confirmed" or "N-class-reminder" => MemberProgramsPath("active", enrollmentId),
         "N-class-cancelled" or "N-postpone-offer" or "N-postponement-offered" => MemberProgramsPath("history", enrollmentId),
-        "N-hold-released" or "N-withdraw-70" or "N-topup" => "/member/payment",
+        "N-hold-released" or "N-withdraw-70" or "N-topup" or "N-share-recorded" or "N-share-reversed" => "/member/payment",
         "N-session-full" or "N-session-reopened" or "N-min-reached" or "N-under-enrolled" or "N-intake-confirmed" or "N-intake-cancelled"
             => intakeId > 0 ? $"/trainer/courses/intakes/{intakeId}" : "/trainer/courses",
         "N-intake-confirmed-creator" or "N-intake-cancelled-creator"

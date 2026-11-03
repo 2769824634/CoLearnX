@@ -6,6 +6,7 @@ import AdminDataState from './AdminDataState';
 import useAdminQuery from './useAdminQuery';
 import { loadAdminUsers } from './adminUserLookup';
 import { formatCount, formatUtcDateTime } from '../businessPresentation';
+import { shareTotals } from './shareTotals';
 
 async function loadLedger(token, key, signal) {
   return adminLaterPhaseApi.ledger(token, key ? JSON.parse(key) : {}, signal);
@@ -27,6 +28,8 @@ export default function AdminCreditLedgerPage() {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const query = useAdminQuery(loadLedger, JSON.stringify(applied));
+  const shares = useAdminQuery(loadLedger, JSON.stringify({ type: 'Royalty' }));
+  const destinations = shareTotals(shares.data || []);
   const userQuery = useAdminQuery(loadAdminUsers, appliedUserSearch);
   const selectedUser = userQuery.data?.find((user) => user.id === Number(adjustment.userId));
   const delta = Number(adjustment.delta);
@@ -36,6 +39,7 @@ export default function AdminCreditLedgerPage() {
 
   function checkCurrentRecords() {
     query.refresh();
+    shares.refresh();
     userQuery.refresh();
     setMutationError(null);
   }
@@ -57,6 +61,7 @@ export default function AdminCreditLedgerPage() {
       setOperationKey(crypto.randomUUID());
       setNotice(`${result.delta > 0 ? '+' : result.delta < 0 ? '−' : ''}${formatCount(Math.abs(result.delta), 'credit')} applied. New balance: ${formatCount(result.balanceAfter, 'credit')}.`);
       query.refresh();
+      shares.refresh();
       userQuery.refresh();
     } catch (error) {
       setMutationError(error);
@@ -66,7 +71,12 @@ export default function AdminCreditLedgerPage() {
   }
 
   return <div className="admin-overview later-page">
-    <header className="admin-review-header"><div><p className="admin-form-eyebrow">Finance controls</p><h1>Credit ledger</h1><p>Trace every balance change and apply reasoned, audited corrections.</p></div><button className="btn btn-ghost" type="button" onClick={query.refresh} disabled={query.loading}>Refresh</button></header>
+    <header className="admin-review-header"><div><p className="admin-form-eyebrow">Finance controls</p><h1>Credit ledger</h1><p>Trace every balance change and apply reasoned, audited corrections.</p></div><button className="btn btn-ghost" type="button" onClick={() => { query.refresh(); shares.refresh(); }} disabled={query.loading}>Refresh</button></header>
+    <section className="later-panel" aria-label="Share destinations">
+      <div className="admin-section-heading"><div><h2>Credit destinations</h2><p>Confirmed tuition split into content, delivery and platform. Refunds reduce these amounts. Staff delivery stays on the platform account because salary is paid outside credits.</p></div></div>
+      <AdminDataState loading={shares.loading} error={shares.error} onRetry={shares.refresh} />
+      {shares.data ? <div className="later-table-wrap"><table className="later-table"><thead><tr><th>Account</th><th>Content</th><th>Delivery</th><th>Retained for salary</th><th>Platform</th><th>Net</th></tr></thead><tbody>{destinations.map((row) => <tr key={row.userId}><td><strong>{row.name}</strong><small>{row.email}</small></td><td>{formatCount(row.content, 'credit')}</td><td>{formatCount(row.delivery, 'credit')}</td><td>{formatCount(row.retained, 'credit')}</td><td>{formatCount(row.platform, 'credit')}</td><td>{formatCount(row.net, 'credit')}</td></tr>)}</tbody></table>{destinations.length ? null : <div className="admin-review-state">No confirmed tuition has been shared yet.</div>}</div> : null}
+    </section>
     <form className="admin-audit-filters" onSubmit={(event) => { event.preventDefault(); setApplied(filters); }}><label>Search<input value={filters.search} placeholder="Name, email or description" onChange={(event) => setFilters({ ...filters, search: event.target.value })} /></label><label>Transaction type<select value={filters.type} onChange={(event) => setFilters({ ...filters, type: event.target.value })}><option value="">All types</option><option>TopUp</option><option>Enrolment</option><option>Hold</option><option>Capture</option><option>Release</option><option>Forfeit</option><option>Refund</option><option>Royalty</option><option>AdminAdjustment</option></select></label><button className="btn btn-primary">Apply filters</button></form>
     <AdminDataState loading={query.loading} error={query.error} onRetry={query.refresh} />
     <AdminDataState error={mutationError} operation="Credit adjustment" onRetry={checkCurrentRecords} />

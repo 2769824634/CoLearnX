@@ -44,6 +44,7 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
                     && (e.Status == EnrollmentStatus.Reserved || e.Status == EnrollmentStatus.Active))
                 .ToListAsync(ct);
             var credits = new EnrollmentCreditTransitions(db);
+            var shares = new TuitionShareService(db);
             foreach (var enrollment in enrollments)
             {
                 var reserved = enrollment.Status == EnrollmentStatus.Reserved;
@@ -51,7 +52,10 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
                 if (reserved)
                     credits.Release(enrollment.User, enrollment, description, inconsistentHoldIsDataError: true);
                 else
+                {
                     credits.Refund(enrollment.User, enrollment, enrollment.CreditsSpent, description);
+                    await shares.ClawBackAsync(enrollment, enrollment.CreditsSpent, ct);
+                }
                 db.Notifications.Add(new Notification { UserId = enrollment.UserId, IntakeId = intake.Id, EnrollmentId = enrollment.Id, EmailPending = true,
                     Code = reserved ? "N-hold-released" : "N-class-cancelled",
                     Title = "Class cancelled", Body = $"{BusinessText.Credits(enrollment.CreditsSpent)} {(enrollment.CreditsSpent == 1 ? "was" : "were")} returned for {enrollment.Course.Code}." });
@@ -181,6 +185,8 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
                             + $"You can wait up to 7 days (until {now.AddDays(7):u}) for a postponed class. "
                             + "If one is published, open My Programs to choose a session and reserve again using your available credits. A replacement is not guaranteed; your credits remain available until you reserve again." });
             }
+            if (confirmed)
+                await new TuitionShareService(db).DistributeAsync(intake.CourseId, intake.TrainerId, intake.Id, reservations, ct);
             var course = await db.Courses.AsNoTracking().SingleAsync(c => c.Id == intake.CourseId, ct);
             var code = confirmed ? "N-intake-confirmed" : "N-intake-cancelled";
             var title = confirmed ? "Class confirmed" : "Class cancelled";

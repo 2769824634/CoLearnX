@@ -257,6 +257,7 @@ public sealed class AdminFinanceService(CoLearnXDbContext db, ILogger<AdminFinan
                                 $"Refund for dispute #{dispute.Id}: {reason}",
                                 relatedDisputeId: dispute.Id, adminAccountId: adminAccountId,
                                 idempotencyKey: request.IdempotencyKey);
+                            await new TuitionShareService(db).ClawBackAsync(dispute.Enrollment, credits, ct);
                         }
                         catch (CourseException error) when (error.Code == "ENROLLMENT_SEAT_CONFLICT")
                         {
@@ -267,6 +268,7 @@ public sealed class AdminFinanceService(CoLearnXDbContext db, ILogger<AdminFinan
                     else
                     {
                         dispute.Enrollment.User.CreditBalance += credits;
+                        await new TuitionShareService(db).ClawBackAsync(dispute.Enrollment, credits, ct);
                         db.CreditTransactions.Add(new CreditTransaction
                         {
                             UserId = dispute.RaisedByUserId,

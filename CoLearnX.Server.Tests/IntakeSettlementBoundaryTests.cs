@@ -49,14 +49,17 @@ public class IntakeSettlementBoundaryTests
         Assert.All(sessions, s => Assert.Equal(confirmed ? enrollments.Count(e => e.CourseSessionId == s.Id) : 0, s.SeatsTaken));
         var ledger = await db.CreditTransactions.Where(t => t.RelatedEnrollmentId != null
             && scenario.EnrollmentIds.Contains(t.RelatedEnrollmentId.Value)).ToListAsync();
-        Assert.Equal(count, ledger.Count);
-        Assert.All(enrollments, e => Assert.Single(ledger, t => t.RelatedEnrollmentId == e.Id));
-        Assert.All(ledger, t =>
+        var movements = ledger.Where(t => t.Type is CreditTransactionType.Capture or CreditTransactionType.Release).ToList();
+        Assert.Equal(count, movements.Count);
+        Assert.All(enrollments, e => Assert.Single(movements, t => t.RelatedEnrollmentId == e.Id));
+        Assert.All(movements, t =>
         {
             Assert.Equal(confirmed ? CreditTransactionType.Capture : CreditTransactionType.Release, t.Type);
             Assert.Equal(confirmed ? 0 : Cost, t.Delta);
             Assert.Equal(0, t.HeldAfter);
         });
+        var royalties = ledger.Where(t => t.Type == CreditTransactionType.Royalty).ToList();
+        Assert.Equal(confirmed ? count * Cost : 0, royalties.Sum(t => t.Delta));
     }
 
     [Theory]
@@ -115,12 +118,12 @@ public class IntakeSettlementBoundaryTests
             s => Assert.Equal(0, s.SeatsTaken));
         var ledger = await db.CreditTransactions.Where(t => t.RelatedEnrollmentId != null
             && scenario.EnrollmentIds.Contains(t.RelatedEnrollmentId.Value)).ToListAsync();
-        Assert.Equal(20, ledger.Count);
         foreach (var enrollmentId in scenario.EnrollmentIds)
         {
             Assert.Single(ledger, t => t.RelatedEnrollmentId == enrollmentId && t.Type == CreditTransactionType.Capture);
             var refund = Assert.Single(ledger, t => t.RelatedEnrollmentId == enrollmentId && t.Type == CreditTransactionType.Refund);
             Assert.Equal(Cost, refund.Delta);
+            Assert.Equal(0, ledger.Where(t => t.RelatedEnrollmentId == enrollmentId && t.Type == CreditTransactionType.Royalty).Sum(t => t.Delta));
         }
     }
 
