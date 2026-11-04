@@ -61,7 +61,7 @@ export default function AdminLoginPage() {
   return (
     <div className="auth-screen admin-auth-screen admin-console-screen">
       <header className="admin-console-bar">
-        <Logo tone="dark" />
+        <Logo />
         <Link className="admin-return-link" to="/login">Return to user sign-in</Link>
       </header>
       <main className="admin-console-layout" aria-labelledby="admin-login-title">

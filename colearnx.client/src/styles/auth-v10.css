@@ -1,0 +1,120 @@
+/* UI v10 · part 2: every sign-in page follows the member login page.
+   Staff, register and password pages take its background and card.
+   Admin takes the same card, with red marking it as the restricted entrance.
+   Appearance only: same fields, same text, same behaviour.
+   Selectors start with "html" so they win over admin.css, which loads later. */
+
+:root {
+  --login-glow:
+    radial-gradient(60% 50% at 12% 8%, color-mix(in srgb, var(--purple) 12%, transparent), transparent 70%),
+    radial-gradient(50% 45% at 92% 96%, color-mix(in srgb, var(--teal) 14%, transparent), transparent 70%),
+    var(--page-bg);
+  --login-grid:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  --login-card-shadow:
+    0 1px 2px color-mix(in srgb, var(--charcoal) 6%, transparent),
+    0 30px 80px -24px color-mix(in srgb, var(--purple) 28%, transparent);
+}
+
+/* ---------- shared page background (same as member login) ---------- */
+html .auth-screen,
+html .auth-screen.admin-auth-screen {
+  position: relative;
+  overflow: hidden;
+  padding: 32px 16px;
+  color: var(--charcoal);
+  background: var(--login-glow);
+}
+
+html .auth-screen::before,
+html .admin-auth-screen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: var(--login-grid);
+  background-size: 36px 36px;
+  mask-image: radial-gradient(70% 70% at 50% 50%, #000, transparent 80%);
+}
+
+/* ---------- register, forgot / reset password, email check: same card finish ---------- */
+html .auth-card {
+  position: relative;
+  z-index: 1;
+  width: 460px;
+  border-radius: 16px;
+  box-shadow: var(--login-card-shadow);
+}
+
+html .auth-header {
+  border-bottom: 0;
+  padding-bottom: 4px;
+}
+
+html .auth-body h2 {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- admin: same layout as before, recoloured to the member login look; red marks it ---------- */
+html .auth-screen.admin-console-screen {
+  padding: 0 clamp(20px, 5vw, 72px) 40px;
+  background:
+    radial-gradient(55% 60% at 0% 100%, color-mix(in srgb, var(--danger) 12%, transparent), transparent 70%),
+    radial-gradient(50% 55% at 100% 0%, color-mix(in srgb, var(--purple) 12%, transparent), transparent 70%),
+    var(--page-bg);
+}
+
+html .admin-console-bar {
+  border-bottom-color: var(--border);
+}
+
+html .admin-return-link {
+  border-color: var(--border-strong);
+  background: var(--white);
+  color: var(--charcoal);
+}
+
+html .admin-return-link:hover {
+  border-color: var(--danger);
+  background: var(--white);
+  color: var(--danger-text);
+}
+
+html .admin-return-link:focus-visible {
+  outline-color: var(--danger);
+}
+
+html .admin-auth-kicker {
+  color: var(--danger-text);
+}
+
+html .admin-auth-copy {
+  color: var(--slate);
+}
+
+html .admin-console-scope {
+  border-top-color: color-mix(in srgb, var(--danger) 22%, var(--border));
+}
+
+html .admin-console-scope li {
+  border-bottom-color: var(--border);
+}
+
+html .admin-console-scope span {
+  color: var(--danger-text);
+}
+
+html .admin-console-scope em {
+  color: var(--slate);
+}
+
+html .admin-console-form {
+  border: 1px solid var(--border);
+  box-shadow:
+    inset 0 4px 0 var(--danger),
+    0 1px 2px color-mix(in srgb, var(--charcoal) 6%, transparent),
+    0 30px 80px -24px color-mix(in srgb, var(--danger) 26%, transparent);
+}
