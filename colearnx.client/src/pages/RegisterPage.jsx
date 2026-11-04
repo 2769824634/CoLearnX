@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
+import PasswordInput from '../components/PasswordInput';
 import { authApi } from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { useNoCredentialAutofill } from '../auth/noCredentialAutofill';
@@ -102,8 +103,7 @@ export default function RegisterPage() {
             <input id="register-email" type="email" spellCheck={false} value={email} onChange={(e) => { setEmail(e.target.value); setError(''); }} required maxLength={254} {...emailAutofill} />
           </div>
           <div className="form-group">
-            <label htmlFor="register-password">Password</label>
-            <input id="register-password" type="password" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} required minLength={10} maxLength={72} {...passwordAutofill} />
+            <PasswordInput id="register-password" label="Password" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} required minLength={10} maxLength={72} {...passwordAutofill} />
           </div>
           <ul className="password-checks">
             {PASSWORD_RULES.map((item) => (
@@ -111,8 +111,7 @@ export default function RegisterPage() {
             ))}
           </ul>
           <div className="form-group">
-            <label htmlFor="register-confirm">Confirm password</label>
-            <input id="register-confirm" type="password" value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(''); }} required minLength={10} maxLength={72} {...confirmAutofill} />
+            <PasswordInput id="register-confirm" label="Confirm password" value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(''); }} required minLength={10} maxLength={72} {...confirmAutofill} />
           </div>
           {error ? (
             <div className="callout warn" style={{ marginBottom: 12 }}>

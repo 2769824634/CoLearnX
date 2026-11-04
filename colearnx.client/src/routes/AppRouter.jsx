@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-dom';
 import { RequireAuth } from '../auth/RequireAuth';
 import RequireAdmin from '../auth/RequireAdmin';
 import RequireStaff from '../auth/RequireStaff';
@@ -14,13 +14,13 @@ import AdminApprovalsPage from '../pages/admin/AdminApprovalsPage';
 import AdminAuditLogsPage from '../pages/admin/AdminAuditLogsPage';
 import AdminAccountPage from '../pages/admin/AdminAccountPage';
 import AdminUsersPage from '../pages/admin/AdminUsersPage';
-import AdminCreditLedgerPage from '../pages/admin/AdminCreditLedgerPage';
 import AdminDisputesPage from '../pages/admin/AdminDisputesPage';
 import AdminPricingPage from '../pages/admin/AdminPricingPage';
 import AdminStaffPage from '../pages/admin/AdminStaffPage';
 import AdminIntakeDatesPage from '../pages/admin/AdminIntakeDatesPage';
 import StaffLoginPage from '../pages/staff/StaffLoginPage';
 import StaffHomePage from '../pages/staff/StaffHomePage';
+import StaffAccountPage from '../pages/staff/StaffAccountPage';
 import StaffCoursesPage from '../pages/staff/StaffCoursesPage';
 import StaffCourseFormPage from '../pages/staff/StaffCourseFormPage';
 import StaffIntakesPage from '../pages/staff/StaffIntakesPage';
@@ -64,6 +64,13 @@ import ForgotPasswordPage from '../pages/ForgotPasswordPage';
 import ResetPasswordPage from '../pages/ResetPasswordPage';
 import EmailVerificationPage from '../pages/EmailVerificationPage';
 import { MemberNotificationsProvider } from '../components/MemberNotificationsProvider';
+
+function LegacyLedgerRedirect() {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  if (!params.has('userId')) params.set('view', 'ledger');
+  return <Navigate to={`/admin/users?${params}`} replace />;
+}
 
 function MemberToastHost() {
   const navigate = useNavigate();
@@ -179,7 +186,7 @@ export default function AppRouter() {
             <Route path="users" element={<AdminUsersPage />} />
             <Route path="staff" element={<AdminStaffPage />} />
             <Route path="class-dates" element={<AdminIntakeDatesPage />} />
-            <Route path="ledger" element={<AdminCreditLedgerPage />} />
+            <Route path="ledger" element={<LegacyLedgerRedirect />} />
             <Route path="disputes" element={<AdminDisputesPage />} />
             <Route path="pricing" element={<AdminPricingPage />} />
             <Route path="audit" element={<AdminAuditLogsPage />} />
@@ -192,6 +199,7 @@ export default function AppRouter() {
         <Route element={<RequireStaff />}>
           <Route path="/staff" element={<StaffRoleShell />}>
             <Route path="home" element={<StaffHomePage />} />
+            <Route path="account" element={<StaffAccountPage />} />
             <Route path="courses" element={<StaffCoursesPage />} />
             <Route path="courses/new" element={<StaffCourseFormPage />} />
             <Route path="courses/:courseId" element={<StaffCourseFormPage />} />

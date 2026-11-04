@@ -35,7 +35,6 @@ const NAV = {
     { to: '/admin/users', label: 'Users' },
     { to: '/admin/staff', label: 'Staff' },
     { to: '/admin/class-dates', label: 'Class dates' },
-    { to: '/admin/ledger', label: 'Credit Ledger' },
     { to: '/admin/disputes', label: 'Disputes', pending: 'disputes' },
     { to: '/admin/pricing', label: 'Pricing' },
     { to: '/admin/audit', label: 'Audit Log' },
@@ -45,6 +44,7 @@ const NAV = {
     { to: '/staff/home', label: 'Homepage' },
     { to: '/staff/courses', label: 'Platform courses' },
     { to: '/staff/intakes', label: 'Classes' },
+    { to: '/staff/account', label: 'My Account' },
   ],
 };
 

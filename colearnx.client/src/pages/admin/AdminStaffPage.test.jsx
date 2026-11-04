@@ -7,6 +7,9 @@ import AdminStaffPage from './AdminStaffPage';
 vi.mock('../../api', () => ({
   adminStaffApi: {
     list: vi.fn(),
+    detail: vi.fn(),
+    document: vi.fn(),
+    resetPassword: vi.fn(),
     provision: vi.fn(),
     setActive: vi.fn(),
   },
@@ -53,4 +56,17 @@ it('lists staff and shows the one-time initial password after provisioning', asy
   await waitFor(() => expect(adminStaffApi.provision).toHaveBeenCalled());
   expect(await screen.findByText('Stf!Initial123')).toBeTruthy();
   expect(screen.getByText('CoLearnX 讲师 002')).toBeTruthy();
+});
+
+it('opens employee details from the row without toggling account access', async () => {
+  useAdminAuth.mockReturnValue({ token: 'admin-details' });
+  const account = { id: 15, staffNumber: 15, fullName: 'Details Staff', displayName: 'Employee 015', email: 'details@example.com', phone: '12345', isActive: true };
+  adminStaffApi.list.mockResolvedValue([account]);
+  adminStaffApi.detail.mockResolvedValue({ account, hasDocument: true, courses: [], intakes: [] });
+  render(<AdminStaffPage />);
+  fireEvent.click((await screen.findByText('Details Staff')).closest('tr'));
+  expect(await screen.findByRole('dialog', { name: 'Employee details' })).toBeTruthy();
+  expect(await screen.findByText('12345')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Download staff document' })).toBeTruthy();
+  expect(adminStaffApi.setActive).not.toHaveBeenCalled();
 });

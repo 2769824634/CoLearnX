@@ -147,6 +147,8 @@ public sealed class PlatformStaffIntegrationTests(CoLearnXApiFactory factory)
         var courseId = body.RootElement.GetProperty("id").GetInt32();
         var course = await verificationDb.Courses.Include(item => item.Creator).SingleAsync(item => item.Id == courseId);
         var account = await verificationDb.StaffAccounts.SingleAsync(item => item.Id == provisioned.StaffId);
+        using var employeeDetail = JsonDocument.Parse(await admin.GetStringAsync($"/api/admin/staff/{provisioned.StaffId}"));
+        Assert.Contains(employeeDetail.RootElement.GetProperty("courses").EnumerateArray(), c => c.GetProperty("id").GetInt32() == courseId);
         Assert.Equal(account.UserId, course.TrainerId);
         Assert.Equal("CoLearnX", course.Creator.FullName);
         Assert.True(course.IsPlatformOwned);
@@ -343,6 +345,66 @@ public sealed class PlatformStaffIntegrationTests(CoLearnXApiFactory factory)
             log.Action == "CourseSessionDeliveryUpdated" && log.EntityId == intakeId.ToString());
         Assert.Equal(provisioned.StaffId, deliveryAudit.StaffAccountId);
         Assert.Null(deliveryAudit.UserId);
+    }
+
+    [Fact]
+    public async Task Staff_details_document_and_password_reset_respect_account_boundaries()
+    {
+        using var admin = await ApiClient.AsOperationsAdminAsync(factory);
+        var email = $"details-{Guid.NewGuid():N}@example.com";
+        var account = await ProvisionAsync(admin, email, "Details Employee");
+        using var employee = await LoginAsStaffAsync(email, account.InitialPassword);
+        var detail = await admin.GetAsync($"/api/admin/staff/{account.StaffId}");
+        Assert.Equal(HttpStatusCode.OK, detail.StatusCode);
+        var json = await detail.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("passwordHash", json);
+        Assert.DoesNotContain(account.InitialPassword, json);
+        using var body = JsonDocument.Parse(json);
+        Assert.Equal("Details Employee", body.RootElement.GetProperty("account").GetProperty("fullName").GetString());
+        Assert.True(body.RootElement.GetProperty("hasDocument").GetBoolean());
+        Assert.Equal(HttpStatusCode.OK, (await employee.GetAsync("/api/staff/auth/profile")).StatusCode);
+        Assert.Equal("staff-document", await admin.GetStringAsync($"/api/admin/staff/{account.StaffId}/document"));
+        Assert.Equal("staff-document", await employee.GetStringAsync("/api/staff/auth/document"));
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/admin/staff/2147483647")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/admin/staff/2147483647/document")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await employee.PostAsync($"/api/admin/staff/{account.StaffId}/reset-password", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await employee.GetAsync("/api/admin/users/1")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await employee.GetAsync($"/api/admin/staff/{account.StaffId}")).StatusCode);
+        using var anonymous = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync($"/api/admin/staff/{account.StaffId}/document")).StatusCode);
+        var reset = await admin.PostAsync($"/api/admin/staff/{account.StaffId}/reset-password", null);
+        Assert.Equal(HttpStatusCode.OK, reset.StatusCode);
+        using var resetBody = JsonDocument.Parse(await reset.Content.ReadAsStringAsync());
+        var password = resetBody.RootElement.GetProperty("initialPassword").GetString()!;
+        Assert.NotEqual(account.InitialPassword, password);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await employee.GetAsync("/api/staff/auth/me")).StatusCode);
+        using var fresh = await LoginAsStaffAsync(email, password);
+        Assert.Equal(HttpStatusCode.OK, (await fresh.GetAsync("/api/staff/auth/profile")).StatusCode);
+    }
+
+    [Fact]
+    public async Task User_detail_excludes_secrets_and_ledger_filters_exact_user_id()
+    {
+        using var admin = await ApiClient.AsOperationsAdminAsync(factory);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        var user = await db.Users.FirstAsync(u => !u.Email.EndsWith("@staff.colearnx") && u.Email != CoLearnX.Server.Domain.PlatformIdentity.Email);
+        var detail = await admin.GetAsync($"/api/admin/users/{user.Id}");
+        Assert.Equal(HttpStatusCode.OK, detail.StatusCode);
+        var json = await detail.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("passwordHash", json);
+        Assert.DoesNotContain("sessionStamp", json);
+        using var body = JsonDocument.Parse(json);
+        Assert.Equal(user.Email, body.RootElement.GetProperty("email").GetString());
+        var ledger = await admin.GetAsync("/api/admin/credits/ledger?userId=2147483647");
+        ledger.EnsureSuccessStatusCode();
+        using var entries = JsonDocument.Parse(await ledger.Content.ReadAsStringAsync());
+        Assert.Empty(entries.RootElement.EnumerateArray());
+        using var ownLedger = JsonDocument.Parse(await admin.GetStringAsync($"/api/admin/credits/ledger?userId={user.Id}"));
+        Assert.All(ownLedger.RootElement.EnumerateArray(), entry => Assert.Equal(user.Id, entry.GetProperty("userId").GetInt32()));
+        using var anonymous = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync($"/api/admin/users/{user.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/admin/users/2147483647")).StatusCode);
     }
 
     private async Task<(int LevelId, int PathId, int SubjectId)> PricedCourseInputsAsync()

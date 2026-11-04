@@ -47,9 +47,14 @@ export const staffAuthApi = {
     method: 'POST', token: '', body: { email, password },
   }),
   me: (token) => apiRequest('/api/staff/auth/me', { token }),
+  profile: (token, signal) => apiRequest('/api/staff/auth/profile', { token, signal }),
+  document: (token, name) => downloadFile('/api/staff/auth/document', name, token),
 };
 
 export const adminStaffApi = {
+  detail: (token, id, signal) => apiRequest(`/api/admin/staff/${id}`, { token, signal }),
+  document: (token, id, name) => downloadFile(`/api/admin/staff/${id}/document`, name, token),
+  resetPassword: (token, id) => apiRequest(`/api/admin/staff/${id}/reset-password`, { method: 'POST', token }),
   list: (token, signal) => apiRequest('/api/admin/staff', { token, signal }),
   provision: (token, { email, fullName, phone, document }) => {
     const body = new FormData();

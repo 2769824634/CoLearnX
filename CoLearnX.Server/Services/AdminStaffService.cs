@@ -10,6 +10,9 @@ namespace CoLearnX.Server.Services;
 
 public interface IAdminStaffService
 {
+    Task<StaffDetailDto?> DetailAsync(int id, CancellationToken ct = default);
+    Task<(Stream Stream, string ContentType, string Name)?> OpenDocumentAsync(int id, CancellationToken ct = default);
+    Task<StaffPasswordResetDto?> ResetPasswordAsync(int adminId, int id, CancellationToken ct = default);
     Task<IReadOnlyList<StaffAccountDto>> ListAsync(CancellationToken ct = default);
     Task<StaffProvisioningResultDto> ProvisionAsync(
         int adminAccountId,
@@ -147,6 +150,43 @@ public sealed class AdminStaffService(CoLearnXDbContext db, IRoleRequestFileStor
         });
         await db.SaveChangesAsync(ct);
         return Map(account);
+    }
+
+    public async Task<StaffDetailDto?> DetailAsync(int id, CancellationToken ct = default)
+    {
+        var account = await db.StaffAccounts.AsNoTracking().SingleOrDefaultAsync(a => a.Id == id, ct);
+        if (account is null) return null;
+        var courses = await db.Courses.AsNoTracking().Where(c => c.TrainerId == account.UserId)
+            .OrderBy(c => c.Title).Select(c => new StaffCourseSummaryDto(c.Id, c.Code, c.Title, c.Status.ToString())).ToListAsync(ct);
+        var intakes = await db.CourseIntakes.AsNoTracking().Where(i => i.TrainerId == account.UserId)
+            .OrderByDescending(i => i.StartsAt)
+            .Select(i => new StaffIntakeSummaryDto(i.Id, i.CourseId, i.Course.Title, i.Status.ToString(), i.StartsAt, i.EndsAt)).ToListAsync(ct);
+        return new StaffDetailDto(Map(account), !string.IsNullOrEmpty(account.DocumentPath),
+            string.IsNullOrEmpty(account.DocumentPath) ? null : Path.GetFileName(account.DocumentPath), courses, intakes);
+    }
+
+    public async Task<(Stream Stream, string ContentType, string Name)?> OpenDocumentAsync(int id, CancellationToken ct = default)
+    {
+        var account = await db.StaffAccounts.AsNoTracking().SingleOrDefaultAsync(a => a.Id == id, ct);
+        if (account is null || string.IsNullOrEmpty(account.DocumentPath)) return null;
+        var stream = await files.OpenAsync(account.DocumentPath, ct);
+        if (stream is null) return null;
+        return (stream, RoleRequestFiles.ContentType(Path.GetExtension(account.DocumentPath)), Path.GetFileName(account.DocumentPath));
+    }
+
+    public async Task<StaffPasswordResetDto?> ResetPasswordAsync(int adminId, int id, CancellationToken ct = default)
+    {
+        var account = await db.StaffAccounts.Include(a => a.User).SingleOrDefaultAsync(a => a.Id == id, ct);
+        if (account is null) return null;
+        var password = CreateInitialPassword();
+        account.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
+        account.SessionStamp = Guid.NewGuid();
+        account.User.SessionStamp = Guid.NewGuid();
+        account.UpdatedAt = DateTime.UtcNow;
+        db.AuditLogs.Add(new AuditLog { AdminAccountId = adminId, Action = "StaffPasswordReset",
+            EntityType = nameof(StaffAccount), EntityId = id.ToString(), Result = "Succeeded" });
+        await db.SaveChangesAsync(ct);
+        return new StaffPasswordResetDto(password);
     }
 
     private static StaffAccountDto Map(StaffAccount account) => new(

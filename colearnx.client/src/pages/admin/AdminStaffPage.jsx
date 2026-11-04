@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { adminStaffApi } from '../../api';
 import useAdminAuth from '../../auth/useAdminAuth';
+import Modal from '../../components/Modal';
+import StaffDetails from '../../components/StaffDetails';
 
 export default function AdminStaffPage() {
   const { token } = useAdminAuth();
   const [staff, setStaff] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState({ email: '', fullName: '', phone: '', document: null });
   const [initialPassword, setInitialPassword] = useState('');
   const [error, setError] = useState('');
@@ -19,6 +22,7 @@ export default function AdminStaffPage() {
 
   async function provision(event) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setBusy(true);
     setError('');
     setInitialPassword('');
@@ -27,7 +31,7 @@ export default function AdminStaffPage() {
       setStaff((items) => [...items, result.staff].sort((a, b) => a.staffNumber - b.staffNumber));
       setInitialPassword(result.initialPassword);
       setForm({ email: '', fullName: '', phone: '', document: null });
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (err) {
       setError(err.message || 'Could not provision staff.');
     } finally {
@@ -56,7 +60,8 @@ export default function AdminStaffPage() {
       <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? 'Provisioning…' : 'Provision staff account'}</button>
     </form>
     <div className="table-wrap"><table><thead><tr><th>Number</th><th>Public name</th><th>Employee</th><th>Email</th><th>Status</th><th>Action</th></tr></thead>
-      <tbody>{staff.map((account) => <tr key={account.id}><td>{String(account.staffNumber).padStart(3, '0')}</td><td>{account.displayName}</td><td>{account.fullName}</td><td>{account.email}</td><td>{account.isActive ? 'Active' : 'Inactive'}</td><td><button type="button" className="btn btn-ghost btn-sm" onClick={() => toggle(account)}>{account.isActive ? 'Deactivate' : 'Activate'}</button></td></tr>)}</tbody>
+      <tbody>{staff.map((account) => <tr key={account.id} className="account-click-row" onClick={() => setSelectedId(account.id)}><td>{String(account.staffNumber).padStart(3, '0')}</td><td>{account.displayName}</td><td><button className="account-name-button" type="button" onClick={(event) => { event.stopPropagation(); setSelectedId(account.id); }}>{account.fullName}</button></td><td>{account.email}</td><td>{account.isActive ? 'Active' : 'Inactive'}</td><td><button type="button" className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); toggle(account); }}>{account.isActive ? 'Deactivate' : 'Activate'}</button></td></tr>)}</tbody>
     </table></div>
+    <Modal open={selectedId !== null} title="Employee details" onClose={() => setSelectedId(null)} width={1000}>{selectedId !== null ? <StaffDetails key={selectedId} token={token} staffId={selectedId} /> : null}</Modal>
   </section>;
 }

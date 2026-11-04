@@ -139,3 +139,9 @@ public record StaffAuthResponse(
     string AccessToken,
     DateTime ExpiresAt,
     StaffAccountDto Staff);
+
+public record StaffCourseSummaryDto(int Id, string Code, string Title, string Status);
+public record StaffIntakeSummaryDto(int Id, int CourseId, string CourseTitle, string Status, DateTime StartsAt, DateTime EndsAt);
+public record StaffDetailDto(StaffAccountDto Account, bool HasDocument, string? DocumentName,
+    IReadOnlyList<StaffCourseSummaryDto> Courses, IReadOnlyList<StaffIntakeSummaryDto> Intakes);
+public record StaffPasswordResetDto(string InitialPassword);

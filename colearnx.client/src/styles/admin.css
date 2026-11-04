@@ -816,10 +816,21 @@
   font-size: 12px;
 }
 
-.admin-reject-button {
+.btn.admin-reject-button {
   border-color: var(--danger);
   color: var(--white);
   background: var(--danger);
+}
+
+.btn.admin-reject-button:not(:disabled):hover {
+  border-color: var(--danger-text);
+  background: var(--danger-text);
+  color: var(--white);
+}
+
+.btn.admin-reject-button:focus-visible {
+  outline: 3px solid var(--danger);
+  outline-offset: 3px;
 }
 
 .sr-only {

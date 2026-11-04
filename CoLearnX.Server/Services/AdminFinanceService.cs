@@ -9,7 +9,7 @@ namespace CoLearnX.Server.Services;
 
 public interface IAdminFinanceService
 {
-    Task<IReadOnlyList<AdminCreditLedgerItemDto>> GetLedgerAsync(string? search, string? type, CancellationToken ct = default);
+    Task<IReadOnlyList<AdminCreditLedgerItemDto>> GetLedgerAsync(string? search, string? type, CancellationToken ct = default, int? userId = null);
     Task<AdminCreditMutationDto> AdjustAsync(int adminAccountId, AdminCreditAdjustmentRequest request, CancellationToken ct = default);
     Task<DisputeDto> CreateDisputeAsync(int userId, CreateDisputeRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<DisputeDto>> ListMyDisputesAsync(int userId, CancellationToken ct = default);
@@ -20,9 +20,10 @@ public interface IAdminFinanceService
 public sealed class AdminFinanceService(CoLearnXDbContext db, ILogger<AdminFinanceService>? logger = null) : IAdminFinanceService
 {
     public async Task<IReadOnlyList<AdminCreditLedgerItemDto>> GetLedgerAsync(string? search, string? type,
-        CancellationToken ct = default)
+        CancellationToken ct = default, int? userId = null)
     {
         var query = db.CreditTransactions.AsNoTracking().AsQueryable();
+        if (userId.HasValue) query = query.Where(item => item.UserId == userId.Value);
         if (!string.IsNullOrWhiteSpace(type))
         {
             if (!Enum.TryParse<CreditTransactionType>(type, true, out var parsed))

@@ -144,3 +144,25 @@ describe('Account registration', () => {
     expect(screen.queryByText('learner@example.test')).toBeNull();
   });
 });
+
+it('lets registrants reveal and hide both password fields without submitting or changing their values', () => {
+  render(<MemoryRouter initialEntries={['/register']}><AuthContext.Provider value={auth}><AppRouter /></AuthContext.Provider></MemoryRouter>);
+  const password = screen.getByLabelText('Password');
+  const confirm = screen.getByLabelText('Confirm password');
+  fireEvent.change(password, { target: { value: 'StrongPass123!' } });
+  fireEvent.change(confirm, { target: { value: 'StrongPass123!' } });
+  expect(password.type).toBe('password');
+  expect(confirm.type).toBe('password');
+  fireEvent.click(screen.getByRole('button', { name: 'Show password', exact: true }));
+  expect(password.type).toBe('text');
+  expect(confirm.type).toBe('password');
+  fireEvent.click(screen.getByRole('button', { name: 'Show confirmation' }));
+  expect(confirm.type).toBe('text');
+  fireEvent.click(screen.getByRole('button', { name: 'Hide password', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Hide confirmation' }));
+  expect(password.type).toBe('password');
+  expect(confirm.type).toBe('password');
+  expect(password.value).toBe('StrongPass123!');
+  expect(confirm.value).toBe('StrongPass123!');
+  expect(auth.register).not.toHaveBeenCalled();
+});

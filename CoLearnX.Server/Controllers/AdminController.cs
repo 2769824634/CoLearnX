@@ -34,6 +34,22 @@ public class AdminController(IAdminFinanceService finance) : ControllerBase
             user.CreditBalance, user.HeldCredits, user.IsActive, user.Roles.Select(role => role.Role.ToString()).ToList())).ToList());
     }
 
+    [HttpGet("users/{id:int}")]
+    public async Task<IActionResult> UserDetail(int id, [FromServices] CoLearnXDbContext db, CancellationToken ct)
+    {
+        var user = await db.Users.AsNoTracking().Include(u => u.Roles).Include(u => u.Preference)
+            .Include(u => u.TrainerProfile).Include(u => u.CreatorProfile)
+            .SingleOrDefaultAsync(u => u.Id == id && u.Email != PlatformIdentity.Email
+                && !EF.Functions.Like(u.Email, "%@staff.colearnx"), ct);
+        if (user is null) return NotFound(new ApiError("USER_NOT_FOUND", "User was not found."));
+        return Ok(new { user.Id, user.Email, user.FullName, user.DisplayName, user.Phone, user.Bio,
+            user.Country, user.Occupation, user.CreatedAt, user.EmailVerifiedAt, user.IsActive,
+            user.CreditBalance, user.HeldCredits, Roles = user.Roles.Select(r => r.Role.ToString()).ToList(),
+            LearningGoals = user.Preference?.LearningGoals, Specialisations = user.TrainerProfile?.Specialisations,
+            TrainerHeadline = user.TrainerProfile?.Headline, ExpertiseTags = user.CreatorProfile?.ExpertiseTags,
+            CreatorHeadline = user.CreatorProfile?.Headline });
+    }
+
     [HttpGet("pending-counts")]
     public async Task<ActionResult<AdminPendingCountsDto>> PendingCounts([FromServices] CoLearnXDbContext db, CancellationToken ct)
         => Ok(new AdminPendingCountsDto(
@@ -45,6 +61,6 @@ public class AdminController(IAdminFinanceService finance) : ControllerBase
 
     [HttpGet("credits/ledger")]
     public async Task<ActionResult<IReadOnlyList<AdminCreditLedgerItemDto>>> Ledger(
-        [FromQuery] string? search, [FromQuery] string? type, CancellationToken ct)
-        => Ok(await finance.GetLedgerAsync(search, type, ct));
+        [FromQuery] string? search, [FromQuery] string? type, CancellationToken ct, [FromQuery] int? userId = null)
+        => Ok(await finance.GetLedgerAsync(search, type, ct, userId));
 }

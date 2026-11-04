@@ -26,6 +26,23 @@ public sealed class StaffAuthController(IStaffAuthService auth) : ControllerBase
         }
     }
 
+    [HttpGet("profile")]
+    [Authorize(Policy = StaffAuthorization.PolicyName)]
+    public async Task<ActionResult<StaffDetailDto>> Profile([FromServices] IAdminStaffService staff, CancellationToken ct)
+    {
+        var detail = await staff.DetailAsync(User.GetStaffAccountId(), ct);
+        return detail is null ? NotFound(new ApiError("STAFF_NOT_FOUND", "Staff account not found.")) : Ok(detail);
+    }
+
+    [HttpGet("document")]
+    [Authorize(Policy = StaffAuthorization.PolicyName)]
+    public async Task<IActionResult> Document([FromServices] IAdminStaffService staff, CancellationToken ct)
+    {
+        var file = await staff.OpenDocumentAsync(User.GetStaffAccountId(), ct);
+        return file is null ? NotFound(new ApiError("NOT_FOUND", "Staff document not found."))
+            : File(file.Value.Stream, file.Value.ContentType, file.Value.Name);
+    }
+
     [HttpGet("me")]
     [Authorize(Policy = StaffAuthorization.PolicyName)]
     public async Task<ActionResult<StaffAccountDto>> Me(CancellationToken ct)
