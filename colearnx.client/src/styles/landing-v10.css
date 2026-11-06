@@ -1,0 +1,248 @@
+/* UI v10 · part 3: public landing page (and the shared guest course cards).
+   Loaded right after guest.css. Same sections, same links, same behaviour:
+   only appearance changes. No entrance or hover motion. */
+
+/* ---------- No motion ---------- */
+.guest .g-load,
+.guest .g-card {
+  animation: none;
+}
+
+.guest .g-reveal {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+.guest .g-card:hover,
+.guest .g-btn:active {
+  transform: none;
+}
+
+/* ---------- Headings use the shared display font ---------- */
+.guest .g-hero-title,
+.guest .g-tagline,
+.guest .g-h2,
+.guest .g-steps strong,
+.guest .g-teach-card h3,
+.guest .g-cta-band h2,
+.guest .g-stats dd,
+.guest .g-art span {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.guest .g-h2 {
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Hero: soft tinted band behind the first screen ---------- */
+.guest .g-hero {
+  position: relative;
+  isolation: isolate;
+  padding-bottom: 8px;
+}
+
+.guest .g-hero::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -68px;
+  bottom: -160px;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #f4f0ff 0%, #faf8ff 55%, #ffffff 100%);
+}
+
+.guest .g-badge {
+  border: 1px solid #e2d9ff;
+  background: #fff;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.guest .g-hero-title {
+  letter-spacing: -0.035em;
+}
+
+.guest .g-hero-panel {
+  overflow: hidden;
+  padding: 0;
+  border-color: #e4defa;
+  border-top: 3px solid var(--g-purple);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 12px 32px rgba(114, 65, 255, 0.08);
+}
+
+.guest .g-hero-panel-head {
+  padding: 16px 20px 14px;
+  font-size: 15px;
+}
+
+.guest .g-hero-panel-list {
+  gap: 0;
+  margin: 0;
+}
+
+.guest .g-hero-panel-list li {
+  padding: 14px 20px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--g-line);
+}
+
+.guest .g-hero-panel-list li:last-child {
+  border-bottom: 0;
+}
+
+.guest .g-hero-panel-foot {
+  padding: 12px 20px;
+  background: var(--g-teal-soft);
+  border-top: 1px solid #c9f0e6;
+  color: #0b6f5d;
+  font-weight: 600;
+}
+
+/* ---------- Stats: four separate cards with an icon tile ---------- */
+.guest .g-stats {
+  gap: 12px;
+  border: 0;
+  background: none;
+}
+
+.guest .g-stats > div {
+  position: relative;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: center;
+  min-height: 80px;
+  padding: 16px 20px 16px 78px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--g-radius);
+  background: #fff;
+  box-shadow: var(--g-shadow-sm);
+}
+
+.guest .g-stats > div + div {
+  border-left: 1px solid var(--g-line);
+}
+
+.guest .g-stats dt {
+  font-weight: 500;
+}
+
+.guest .g-stats dd {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.g-stat-icon {
+  position: absolute;
+  top: 50%;
+  left: 20px;
+  transform: translateY(-50%);
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--g-purple-soft);
+  color: var(--g-purple);
+}
+
+.g-stat-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.g-stat-icon.is-teal { background: var(--g-teal-soft); color: #0b8f77; }
+.g-stat-icon.is-blue { background: #eaf2ff; color: #2f6fb6; }
+.g-stat-icon.is-amber { background: #fff4e5; color: #b45309; }
+
+/* ---------- Subjects ---------- */
+.guest .g-subjects li {
+  background: #fff;
+}
+
+/* ---------- Steps: number in a square tile, like the app's icon tiles ---------- */
+.guest .g-step-num {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--g-purple);
+  color: #fff;
+  font-family: var(--font-display);
+}
+
+.guest .g-steps li:nth-child(2) .g-step-num { background: #418ad7; }
+.guest .g-steps li:nth-child(3) .g-step-num { background: #0b8f77; }
+
+.guest .g-steps li:hover {
+  box-shadow: none;
+}
+
+/* ---------- Course cards: flat colour header, larger course code ---------- */
+.guest .g-art {
+  background: var(--art-base);
+}
+
+.guest .g-art::after {
+  display: none;
+}
+
+.guest .g-card .g-art span {
+  font-size: 22px;
+  letter-spacing: 0;
+}
+
+.guest .g-card {
+  box-shadow: var(--g-shadow-sm);
+}
+
+.guest .g-card:hover {
+  border-color: #d5c8ff;
+}
+
+/* small course tiles in the hero panel keep their plain square */
+.guest .g-art-small::after {
+  display: block;
+}
+
+/* ---------- Teach: white cards with a coloured top edge ---------- */
+.guest .g-teach-card {
+  border-top: 3px solid var(--g-purple);
+  background: #fff;
+  box-shadow: var(--g-shadow-sm);
+}
+
+.guest .g-teach-card + .g-teach-card,
+.guest .g-teach-grid > :nth-child(2) {
+  border-top-color: var(--g-teal);
+}
+
+.guest .g-teach-card:hover {
+  box-shadow: var(--g-shadow-sm);
+}
+
+/* ---------- Call-to-action band: one flat brand colour ---------- */
+.guest .g-cta-band {
+  background: var(--g-purple);
+}
+
+@media (max-width: 720px) {
+  .guest .g-stats > div + div {
+    border-top: 1px solid var(--g-line);
+  }
+
+  .guest .g-stats > div {
+    min-height: 68px;
+    padding: 12px 12px 12px 60px;
+  }
+
+  .g-stat-icon {
+    left: 12px;
+    width: 36px;
+    height: 36px;
+  }
+}

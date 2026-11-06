@@ -5,6 +5,23 @@ import GuestCourseCard, { Arrow, CourseArt, GuestCardSkeleton } from './GuestCou
 import Reveal from './Reveal';
 import { GUEST_LEVELS, GUEST_STEPS, GUEST_SUBJECTS } from './guestContent';
 
+const STAT_ICON_PATHS = {
+  book: 'M4 5.5A1.5 1.5 0 0 1 5.5 4H10v12H5.5A1.5 1.5 0 0 0 4 17.5zM16 5.5A1.5 1.5 0 0 0 14.5 4H10v12h4.5a1.5 1.5 0 0 1 1.5 1.5z',
+  user: 'M10 10a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5zM3.75 16.5c.6-2.9 3.1-4.5 6.25-4.5s5.65 1.6 6.25 4.5',
+  pen: 'M12.5 4.5l3 3L7 16H4v-3zM11 6l3 3',
+  layers: 'M10 3.5l6.5 3.5L10 10.5 3.5 7zM3.5 10.5L10 14l6.5-3.5M3.5 14L10 17.5l6.5-3.5',
+};
+
+function StatIcon({ name, tone }) {
+  return (
+    <span className={`g-stat-icon${tone ? ` is-${tone}` : ''}`} aria-hidden="true">
+      <svg viewBox="0 0 20 20" focusable="false">
+        <path d={STAT_ICON_PATHS[name]} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+}
+
 function HeroPanel({ courses, loading }) {
   const preview = courses.slice(0, 3);
   return (
@@ -78,10 +95,10 @@ export default function GuestHome({ courses, loading, error, onWishlist }) {
       </section>
 
       <dl className="g-stats g-load" style={{ '--i': 4 }}>
-        <div><dt>Programs open</dt><dd>{loading ? '—' : stats.programs}</dd></div>
-        <div><dt>Trainers teaching</dt><dd>{loading ? '—' : stats.trainers}</dd></div>
-        <div><dt>Course creators</dt><dd>{loading ? '—' : stats.creators}</dd></div>
-        <div><dt>Learning stages</dt><dd>{GUEST_LEVELS.length}</dd></div>
+        <div><dt><StatIcon name="book" />Programs open</dt><dd>{loading ? '—' : stats.programs}</dd></div>
+        <div><dt><StatIcon name="user" tone="blue" />Trainers teaching</dt><dd>{loading ? '—' : stats.trainers}</dd></div>
+        <div><dt><StatIcon name="pen" tone="teal" />Course creators</dt><dd>{loading ? '—' : stats.creators}</dd></div>
+        <div><dt><StatIcon name="layers" tone="amber" />Learning stages</dt><dd>{GUEST_LEVELS.length}</dd></div>
       </dl>
 
       <section className="g-section g-subjects" aria-label="Subjects on CoLearnX">
