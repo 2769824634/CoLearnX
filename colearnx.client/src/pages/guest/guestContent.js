@@ -35,13 +35,27 @@ function hash(text) {
   return value >>> 0;
 }
 
-export function courseArt(seed) {
-  const value = hash(seed);
-  const [base, ink] = PALETTES[value % PALETTES.length];
+// Learning paths get a fixed colour and icon, so a cover says what kind of course it is.
+const PATH_ART = {
+  Technology: { base: '#2f6fd6', icon: 'code' },
+  Design: { base: '#0f8f78', icon: 'pen' },
+  'Professional Skills': { base: '#6a3df0', icon: 'briefcase' },
+};
+
+export function courseArt(seed, path) {
+  const known = PATH_ART[path];
+  const [, ink] = PALETTES[hash(seed) % PALETTES.length];
   return {
     className: 'g-art',
-    style: { '--art-base': base, '--art-ink': ink },
+    style: { '--art-base': known?.base || ink },
+    icon: known?.icon || 'book',
   };
+}
+
+// "INFT 2002" -> ["INFT", "2002"]; codes without a letter prefix stay whole.
+export function splitCourseCode(code) {
+  const match = /^([A-Za-z]+)[\s-]*(\S.*)$/.exec(String(code || '').trim());
+  return match ? [match[1].toUpperCase(), match[2]] : ['', String(code || '')];
 }
 
 export function peopleLine(course) {

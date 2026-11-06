@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import '../styles/guest.css';
+import '../styles/landing-v10.css';
 import Logo from './Logo';
 import { SITE_TITLE } from '../siteTitle';
 
