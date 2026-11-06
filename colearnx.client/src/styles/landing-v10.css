@@ -27,7 +27,7 @@
 .guest .g-teach-card h3,
 .guest .g-cta-band h2,
 .guest .g-stats dd,
-.guest .g-art span {
+.guest .g-art-code {
   font-family: var(--font-display);
   font-weight: 700;
 }
@@ -182,18 +182,90 @@
   box-shadow: none;
 }
 
-/* ---------- Course cards: flat colour header, larger course code ---------- */
+/* ---------- Course covers: learning-path colour, faint grid, code + path icon ---------- */
 .guest .g-art {
-  background: var(--art-base);
+  position: relative;
+  display: block;
+  color: #fff;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(135deg, var(--art-base) 0%, color-mix(in srgb, var(--art-base) 72%, #000) 100%);
 }
 
 .guest .g-art::after {
   display: none;
 }
 
-.guest .g-card .g-art span {
+.guest .g-art-path {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  padding: 3px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.guest .g-art .g-art-code {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  display: grid;
+  justify-items: start;
+  line-height: 1.1;
+  text-align: left;
+}
+
+.guest .g-art-code small {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+}
+
+.guest .g-art-code b {
   font-size: 22px;
-  letter-spacing: 0;
+  font-weight: 700;
+}
+
+.guest .g-art-icon {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.guest .g-art-large .g-art-code b {
+  font-size: 30px;
+}
+
+.guest .g-art-large .g-art-icon {
+  width: 44px;
+  height: 44px;
+  padding: 9px;
+}
+
+/* small tiles in the hero panel: just the coloured square and icon */
+.guest .g-art-small {
+  display: grid;
+  place-items: center;
+}
+
+.guest .g-art-small .g-art-icon {
+  position: static;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: none;
 }
 
 .guest .g-card {
@@ -202,11 +274,6 @@
 
 .guest .g-card:hover {
   border-color: #d5c8ff;
-}
-
-/* small course tiles in the hero panel keep their plain square */
-.guest .g-art-small::after {
-  display: block;
 }
 
 /* ---------- Teach: white cards with a coloured top edge ---------- */

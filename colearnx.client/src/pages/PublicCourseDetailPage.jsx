@@ -90,7 +90,7 @@ export default function PublicCourseDetailPage() {
             </p>
           </div>
           <div className="g-detail-art g-load" style={{ '--i': 2 }}>
-            <CourseArt code={course.code} large />
+            <CourseArt code={course.code} path={course.learningPath} large />
           </div>
         </header>
 

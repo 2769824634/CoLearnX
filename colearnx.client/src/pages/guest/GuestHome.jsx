@@ -43,7 +43,7 @@ function HeroPanel({ courses, loading }) {
         <ul className="g-hero-panel-list">
           {preview.map((course) => (
             <li key={course.id}>
-              <CourseArt code={course.code} small />
+              <CourseArt code={course.code} path={course.learningPath} small />
               <span>
                 <strong>{course.title}</strong>
                 <small>{course.level || 'All levels'} · {course.credits ?? '—'} credits</small>
