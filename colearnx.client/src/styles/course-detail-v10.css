@@ -1,0 +1,454 @@
+/* UI v10 · part 5: member course detail page.
+   Cover + course info on the left, a sticky "reserve" card on the right,
+   classes shown as selectable cards. Same data, buttons and rules as before. */
+
+.cx-detail {
+  display: grid;
+  gap: 14px;
+}
+
+.cx-crumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--slate);
+  font-size: 13px;
+}
+
+.cx-crumb a {
+  color: var(--purple);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cx-crumb a:hover {
+  text-decoration: underline;
+}
+
+.cx-detail-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 22px;
+  align-items: start;
+}
+
+.cx-detail-main {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.cx-muted {
+  color: var(--slate);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ---------- cover + about ---------- */
+.cx-detail-hero {
+  overflow: hidden;
+}
+
+.cx-detail .g-art {
+  height: 150px;
+  aspect-ratio: auto;
+  border-radius: 0;
+}
+
+.cx-detail-hero-body {
+  display: grid;
+  gap: 12px;
+  padding: 20px 22px 22px;
+}
+
+.cx-detail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cx-detail-h {
+  margin: 0;
+  color: var(--charcoal);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.cx-detail-text {
+  max-width: 70ch;
+  margin: 0;
+  color: var(--slate);
+  line-height: 1.65;
+}
+
+.cx-team {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 26px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+
+.cx-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+}
+
+.cx-person > span:last-child {
+  display: grid;
+}
+
+.cx-person small {
+  color: var(--slate);
+  font-size: 12px;
+}
+
+.cx-person b {
+  color: var(--charcoal);
+  font-weight: 700;
+}
+
+.cx-person-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--purple-soft);
+  color: var(--purple);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cx-person-avatar.is-trainer {
+  background: var(--teal-soft);
+  color: var(--teal-text);
+}
+
+.cx-person-avatar.is-empty {
+  background: var(--chrome);
+  color: var(--muted);
+}
+
+/* ---------- key facts strip ---------- */
+.cx-kv {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: var(--shadow-card);
+}
+
+.cx-kv > div {
+  padding: 12px 16px;
+  border-right: 1px solid var(--border);
+}
+
+.cx-kv > div:last-child {
+  border-right: 0;
+}
+
+.cx-kv dt {
+  color: var(--slate);
+  font-size: 12px;
+}
+
+.cx-kv dd {
+  margin: 2px 0 0;
+  color: var(--charcoal);
+  font-weight: 700;
+}
+
+.cx-kv .cx-kv-fee {
+  color: var(--purple);
+}
+
+/* ---------- classes ---------- */
+.cx-detail-section {
+  display: grid;
+  gap: 12px;
+}
+
+.cx-sec-h {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.cx-empty-class {
+  padding: 18px 20px;
+}
+
+.cx-empty-class p {
+  margin: 0;
+  color: var(--slate);
+}
+
+.cx-class {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 210px;
+  gap: 14px;
+  align-items: start;
+  width: 100%;
+  padding: 16px 18px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  color: var(--charcoal);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.cx-class:hover {
+  border-color: var(--border-strong);
+}
+
+.cx-class.selected {
+  border-color: var(--purple);
+  box-shadow: 0 0 0 3px var(--purple-soft);
+}
+
+.cx-class.is-closed:not(.selected) {
+  background: var(--chrome);
+}
+
+.cx-class:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+}
+
+.cx-class-radio {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--white);
+}
+
+.cx-class.selected .cx-class-radio {
+  border: 5px solid var(--purple);
+}
+
+.cx-class-main,
+.cx-class-side {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.cx-class-side {
+  justify-items: end;
+  text-align: right;
+}
+
+.cx-class-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.cx-class-title strong {
+  font-size: 15px;
+}
+
+.cx-class-status {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--chrome);
+  color: var(--slate);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.cx-class-status.is-open {
+  background: var(--teal-soft);
+  color: var(--teal-text);
+}
+
+.cx-class-when {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cx-class-note {
+  color: var(--slate);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.cx-class-seats {
+  color: var(--purple);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cx-outcomes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 8px 24px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.cx-outcomes li::marker {
+  color: var(--purple);
+}
+
+/* ---------- reserve card ---------- */
+.cx-detail-aside {
+  position: sticky;
+  top: 16px;
+}
+
+.cx-buy {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+}
+
+.cx-buy-price {
+  margin: 0;
+  color: var(--slate);
+  font-size: 13px;
+}
+
+.cx-buy-price strong {
+  margin-right: 4px;
+  color: var(--purple);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.cx-buy-price span {
+  display: block;
+  font-size: 12px;
+}
+
+.cx-buy-class {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid #e0d6ff;
+  border-radius: var(--radius-lg);
+  background: var(--purple-tint);
+  font-size: 13px;
+}
+
+.cx-buy-class small {
+  color: var(--purple);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cx-buy-lines > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 13.5px;
+}
+
+.cx-buy-lines span {
+  color: var(--slate);
+}
+
+.cx-buy-lines .is-teal {
+  color: var(--teal-text);
+}
+
+.cx-buy-lines .is-danger {
+  color: var(--danger-text);
+}
+
+.cx-buy-cta {
+  min-height: 44px;
+  font-size: 15px;
+}
+
+.cx-buy-enrolled {
+  justify-self: start;
+}
+
+.cx-buy-wish.is-saved {
+  border-color: #f3c4d4;
+  background: #fdeef4;
+  color: #c2255c;
+}
+
+.cx-buy-note {
+  margin: 0;
+  color: var(--slate);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+@media (max-width: 1080px) {
+  .cx-detail-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* one column: put the reserve card straight after the classes */
+  .cx-detail-split,
+  .cx-detail-main {
+    display: contents;
+  }
+
+  .cx-detail {
+    gap: 20px;
+  }
+
+  .cx-detail-main > * {
+    order: 1;
+  }
+
+  .cx-detail-aside {
+    position: static;
+    order: 2;
+  }
+
+  .cx-detail-main > .card:not(.cx-detail-hero) {
+    order: 3;
+  }
+}
+
+@media (max-width: 720px) {
+  .cx-kv {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cx-kv > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .cx-kv > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .cx-class {
+    grid-template-columns: 20px minmax(0, 1fr);
+  }
+
+  .cx-class-side {
+    grid-column: 2;
+    justify-items: start;
+    text-align: left;
+  }
+}

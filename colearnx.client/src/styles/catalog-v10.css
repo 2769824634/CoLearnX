@@ -1,6 +1,6 @@
 /* UI v10 · part 4: course cards and the member course list.
    Course covers (learning-path colour, faint grid, code + path icon) are shared by
-   the public pages (.guest) and the member catalog (.cx-catalog).
+   the public pages (.guest), the member catalog (.cx-catalog) and course detail (.cx-detail).
    Same filters, tabs and buttons as before: only appearance changes. */
 
 /* ---------- Member catalog: cover box (the public pages get this from guest.css) ---------- */
@@ -15,7 +15,7 @@
 }
 
 /* ---------- Course covers: learning-path colour, faint grid, code + path icon ---------- */
-:is(.guest, .cx-catalog) .g-art {
+:is(.guest, .cx-catalog, .cx-detail) .g-art {
   position: relative;
   display: block;
   color: #fff;
@@ -25,11 +25,11 @@
     linear-gradient(135deg, var(--art-base) 0%, color-mix(in srgb, var(--art-base) 72%, #000) 100%);
 }
 
-:is(.guest, .cx-catalog) .g-art::after {
+:is(.guest, .cx-catalog, .cx-detail) .g-art::after {
   display: none;
 }
 
-:is(.guest, .cx-catalog) .g-art-path {
+:is(.guest, .cx-catalog, .cx-detail) .g-art-path {
   position: absolute;
   top: 14px;
   left: 16px;
@@ -43,7 +43,7 @@
   line-height: 1.4;
 }
 
-:is(.guest, .cx-catalog) .g-art .g-art-code {
+:is(.guest, .cx-catalog, .cx-detail) .g-art .g-art-code {
   position: absolute;
   left: 16px;
   bottom: 14px;
@@ -53,19 +53,19 @@
   text-align: left;
 }
 
-:is(.guest, .cx-catalog) .g-art-code small {
+:is(.guest, .cx-catalog, .cx-detail) .g-art-code small {
   font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.08em;
   opacity: 0.85;
 }
 
-:is(.guest, .cx-catalog) .g-art-code b {
+:is(.guest, .cx-catalog, .cx-detail) .g-art-code b {
   font-size: 22px;
   font-weight: 700;
 }
 
-:is(.guest, .cx-catalog) .g-art-icon {
+:is(.guest, .cx-catalog, .cx-detail) .g-art-icon {
   position: absolute;
   right: 14px;
   bottom: 14px;
@@ -76,23 +76,23 @@
   background: rgba(255, 255, 255, 0.16);
 }
 
-:is(.guest, .cx-catalog) .g-art-large .g-art-code b {
+:is(.guest, .cx-catalog, .cx-detail) .g-art-large .g-art-code b {
   font-size: 30px;
 }
 
-:is(.guest, .cx-catalog) .g-art-large .g-art-icon {
+:is(.guest, .cx-catalog, .cx-detail) .g-art-large .g-art-icon {
   width: 44px;
   height: 44px;
   padding: 9px;
 }
 
 /* small tiles in the hero panel: just the coloured square and icon */
-:is(.guest, .cx-catalog) .g-art-small {
+:is(.guest, .cx-catalog, .cx-detail) .g-art-small {
   display: grid;
   place-items: center;
 }
 
-:is(.guest, .cx-catalog) .g-art-small .g-art-icon {
+:is(.guest, .cx-catalog, .cx-detail) .g-art-small .g-art-icon {
   position: static;
   width: 20px;
   height: 20px;

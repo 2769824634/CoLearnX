@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
 import { enrollmentsApi } from '../../api';
 import { useMemberSlices } from './memberDataState';
 import { formatCount, formatUtcDate, formatUtcRange, userFacingError } from '../businessPresentation';
 import { sessionAvailability } from './sessionAvailability';
+import { CourseArt } from '../guest/GuestCourseCard';
+
+function initials(name) {
+  return (name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+}
 
 // Course detail + enrol.
 export default function MemberCourseDetailPage() {
@@ -77,6 +82,7 @@ export default function MemberCourseDetailPage() {
   const completedEnrollment = (state.enrolled || []).find((item) => item.id === course.id && item.status === 'completed');
   const noPublishedSession = 'This course has no published session yet. A Trainer must open an Intake and the Creator must confirm it.';
   const availability = sessionAvailability(session, now);
+  const openCount = sessions.filter((item) => sessionAvailability(item, now).canReserve).length;
 
   function tryEnrol() {
     if (course.alreadyEnrolled) {
@@ -126,84 +132,129 @@ export default function MemberCourseDetailPage() {
       <MemberShell
         title={`${course.code} — ${course.title}`}
       >
-        <div className="grid-2-1">
-          <div>
-            <section className="card member-course-overview" style={{ marginBottom: 16 }}>
-              <div className="card-header">About this course</div><div className="card-body">
-                <p>{course.description || 'A course description has not been provided yet.'}</p>
-                <div className="btn-row"><span className="pill neutral">{course.level || 'Level not specified'}</span><span className="pill neutral">{course.learningPath || 'Learning path not specified'}</span></div>
-              </div>
-            </section>
-            <div className="card" style={{ marginBottom: 12 }}>
-              <div className="card-header">Learning Outcomes</div>
-              <div className="card-body" style={{ fontSize: 13, lineHeight: 1.8 }}>
-                {!(course.outcomes || []).length ? <p>Learning outcomes have not been provided yet.</p> : null}
-                {(course.outcomes || []).map((o) => (
-                  <div key={o}>• {o}</div>
-                ))}
-              </div>
-            </div>
-            <div className="card">
-              <div className="card-header">Training Sessions</div>
-              <div className="card-body">
-                {sessions.length === 0 ? (
-                  <p className="page-sub" style={{ margin: 0 }}>{noPublishedSession}</p>
-                ) : sessions.map((s, i) => (
-                  <button
-                    type="button"
-                    key={s.id}
-                    className={`session-option member-session-option${i === sessionIdx ? ' selected' : ''}`}
-                    aria-pressed={i === sessionIdx}
-                    onClick={() => setSessionIdx(i)}
-                  >
-                    <strong>{s.label}</strong> · {s.startsAt && s.endsAt ? formatUtcRange(s.startsAt, s.endsAt) : 'Schedule unavailable'}
-                    <span className="seats">{(s.capacity ?? 0) > 0 ? `${formatCount(s.seats, 'seat')} left` : 'Online'}</span>
-                    <span className="member-session-status">{sessionAvailability(s, now).label}</span>
-                    <span className="member-session-summary">{formatCount(s.intakeEnrollmentCount ?? 0, 'learner')} reserved or enrolled · Minimum {s.minEnrollment ?? 10}</span>
-                    <span className="member-session-summary">Delivery: {s.physical && s.online ? 'Physical and online (shared place; choosing a mode is not available yet)' : s.physical ? 'Physical' : 'Online'}</span>
-                    {s.registrationClosesAt ? <span className="member-session-summary">Registration closes {formatUtcDate(s.registrationClosesAt)}</span> : null}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div>
-            <div className="card" style={{ marginBottom: 12 }}>
-              <div className="card-header">Course team</div>
-              <div className="card-body">
-                <p>Creator</p><strong>{course.creatorName || 'Creator not specified'}</strong>
-                <p>Trainer</p>{course.trainerNames?.length ? course.trainerNames.map((name) => <div key={name}>{name}</div>) : <p>A Trainer is assigned when a class opens.</p>}
-              </div>
-            </div>
-            <div className="card" style={{ marginBottom: 12 }}>
-              <div className="card-header">Course Fee</div>
-              <div className="card-body">
-                <strong style={{ color: 'var(--purple)', fontSize: 18 }}>{formatCount(course.credits, 'credit')}</strong>
-                <p className="page-sub">Certificate applications require 100% completion, at least 80% attendance and all assessments passed, followed by Trainer and Admin approval.</p>
-              </div>
-            </div>
-            <div className="card" style={{ marginBottom: 12 }}><div className="card-header">Course topics and rating</div>
-              <div className="card-body">
-                <div>{course.interests?.map((tag) => <span className="pill neutral" key={tag.id} style={{ marginRight: 6 }}>{tag.name}</span>)}</div>
-                <p>{course.ratingCount ? `${Number(course.averageStars).toFixed(1)} ★ from ${course.ratingCount} rating(s)` : 'New · No ratings yet'}</p>
-                {completedEnrollment ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRatingOpen(true)}>Rate this course</button> : null}
-              </div>
-            </div>
-            <button type="button" className="btn btn-ghost btn-block" onClick={() => toggleWish(course.id)}>
-              {state.wishlist.includes(course.id) ? '♥ Saved to Wishlist' : '+ Add to Wishlist'}
-            </button>
-          </div>
-        </div>
+        <div className="cx-detail">
+          <nav className="cx-crumb" aria-label="Breadcrumb">
+            <Link to="/member/courses">Program Catalog</Link>
+            <span aria-hidden="true">›</span>
+            <span>{course.code}</span>
+          </nav>
+          <div className="cx-detail-split">
+            <div className="cx-detail-main">
+              <section className="card cx-detail-hero">
+                <CourseArt code={course.code} path={course.learningPath} large />
+                <div className="cx-detail-hero-body">
+                  <div className="cx-detail-chips">
+                    <span className="cx-chip">{course.level || 'Level not specified'}</span>
+                    {course.interests?.map((tag) => <span className="pill neutral" key={tag.id}>{tag.name}</span>)}
+                  </div>
+                  <h2 className="cx-detail-h">About this course</h2>
+                  <p className="cx-detail-text">{course.description || 'A course description has not been provided yet.'}</p>
+                  <div className="cx-team" aria-label="Course team">
+                    <span className="cx-person">
+                      <span className="cx-person-avatar" aria-hidden="true">{initials(course.creatorName)}</span>
+                      <span><small>Creator</small><b>{course.creatorName || 'Creator not specified'}</b></span>
+                    </span>
+                    {course.trainerNames?.length ? course.trainerNames.map((name) => (
+                      <span className="cx-person" key={name}>
+                        <span className="cx-person-avatar is-trainer" aria-hidden="true">{initials(name)}</span>
+                        <span><small>Trainer</small><b>{name}</b></span>
+                      </span>
+                    )) : (
+                      <span className="cx-person">
+                        <span className="cx-person-avatar is-empty" aria-hidden="true">?</span>
+                        <span><small>Trainer</small><span className="cx-muted">A Trainer is assigned when a class opens.</span></span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </section>
 
-        <div className="enrol-bar">
-          <span className="credits">{formatCount(course.credits, 'credit')}</span>
-          <span style={{ fontSize: 13, color: 'var(--slate)' }}>{course.code}</span>
-          <span style={{ flex: 1 }} />
-          {course.alreadyEnrolled ? (
-            <span className="pill success">Already Enrolled</span>
-          ) : (
-            <button type="button" className="btn btn-primary" onClick={tryEnrol} disabled={!availability.canReserve}>{availability.canReserve ? 'Reserve place' : availability.label}</button>
-          )}
+              <dl className="cx-kv">
+                <div><dt>Course fee</dt><dd className="cx-kv-fee">{formatCount(course.credits, 'credit')}</dd></div>
+                <div><dt>Classes listed</dt><dd>{sessions.length || 'None yet'}</dd></div>
+                <div><dt>Open for booking</dt><dd>{openCount || 'None'}</dd></div>
+                <div><dt>Rating</dt><dd>{course.ratingCount ? `${Number(course.averageStars).toFixed(1)} ★ from ${course.ratingCount} rating(s)` : 'New · No ratings yet'}</dd></div>
+              </dl>
+
+              <section className="cx-detail-section" aria-labelledby="cx-classes">
+                <div className="cx-sec-h">
+                  <h2 className="cx-detail-h" id="cx-classes">Training Sessions</h2>
+                  <span className="cx-muted">Choose a class to reserve. You reserve the whole class.</span>
+                </div>
+                {sessions.length === 0 ? (
+                  <div className="card cx-empty-class"><p>{noPublishedSession}</p></div>
+                ) : sessions.map((s, i) => {
+                  const sAvailability = sessionAvailability(s, now);
+                  return (
+                    <button
+                      type="button"
+                      key={s.id}
+                      className={`cx-class${i === sessionIdx ? ' selected' : ''}${sAvailability.canReserve ? '' : ' is-closed'}`}
+                      aria-pressed={i === sessionIdx}
+                      onClick={() => setSessionIdx(i)}
+                    >
+                      <span className="cx-class-radio" aria-hidden="true" />
+                      <span className="cx-class-main">
+                        <span className="cx-class-title"><strong>{s.label}</strong><span className={`cx-class-status${sAvailability.canReserve ? ' is-open' : ''}`}>{sAvailability.label}</span></span>
+                        <span className="cx-class-when">{s.startsAt && s.endsAt ? formatUtcRange(s.startsAt, s.endsAt) : 'Schedule unavailable'}</span>
+                        <span className="cx-class-note">Delivery: {s.physical && s.online ? 'Physical and online (shared place; choosing a mode is not available yet)' : s.physical ? 'Physical' : 'Online'}</span>
+                        {s.registrationClosesAt ? <span className="cx-class-note">Registration closes {formatUtcDate(s.registrationClosesAt)}</span> : null}
+                      </span>
+                      <span className="cx-class-side">
+                        <span className="cx-class-seats">{(s.capacity ?? 0) > 0 ? `${formatCount(s.seats, 'seat')} left` : 'Online'}</span>
+                        <span className="cx-class-note">{formatCount(s.intakeEnrollmentCount ?? 0, 'learner')} reserved or enrolled · Minimum {s.minEnrollment ?? 10}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </section>
+
+              <section className="card">
+                <div className="card-header">Learning Outcomes</div>
+                <div className="card-body">
+                  {(course.outcomes || []).length ? (
+                    <ul className="cx-outcomes">
+                      {course.outcomes.map((o) => <li key={o}>{o}</li>)}
+                    </ul>
+                  ) : <p className="cx-muted">Learning outcomes have not been provided yet.</p>}
+                </div>
+              </section>
+
+              <section className="card">
+                <div className="card-header">Certificate requirements</div>
+                <div className="card-body cx-muted">Certificate applications require 100% completion, at least 80% attendance and all assessments passed, followed by Trainer and Admin approval.</div>
+              </section>
+            </div>
+
+            <aside className="cx-detail-aside" aria-label="Reserve a place">
+              <section className="card cx-buy">
+                <p className="cx-buy-price"><strong>{course.credits}</strong> credits <span>held until the class is confirmed</span></p>
+                {session ? (
+                  <div className="cx-buy-class">
+                    <small>Selected class</small>
+                    <b>{session.label}</b>
+                    <span>{session.startsAt && session.endsAt ? formatUtcRange(session.startsAt, session.endsAt) : 'Schedule unavailable'}</span>
+                  </div>
+                ) : null}
+                {course.alreadyEnrolled ? null : (
+                  <div className="cx-buy-lines">
+                    <div><span>Available now</span><b className="is-teal">{state.credits}</b></div>
+                    <div><span>After this hold</span><b className={afterBalance < 0 ? 'is-danger' : ''}>{afterBalance}</b></div>
+                  </div>
+                )}
+                {course.alreadyEnrolled ? (
+                  <span className="pill success cx-buy-enrolled">Already Enrolled</span>
+                ) : (
+                  <button type="button" className="btn btn-primary btn-block cx-buy-cta" onClick={tryEnrol} disabled={!availability.canReserve}>{availability.canReserve ? 'Reserve place' : availability.label}</button>
+                )}
+                <button type="button" className={`btn btn-ghost btn-block cx-buy-wish${state.wishlist.includes(course.id) ? ' is-saved' : ''}`} onClick={() => toggleWish(course.id)}>
+                  {state.wishlist.includes(course.id) ? '♥ Saved to Wishlist' : '+ Add to Wishlist'}
+                </button>
+                {completedEnrollment ? <button type="button" className="btn btn-ghost btn-block" onClick={() => setRatingOpen(true)}>Rate this course</button> : null}
+                <p className="cx-buy-note">Credits are held until the class is confirmed at registration close. If it does not run, or you cancel before confirmation, they return to your available balance.</p>
+              </section>
+            </aside>
+          </div>
         </div>
       </MemberShell>
 
