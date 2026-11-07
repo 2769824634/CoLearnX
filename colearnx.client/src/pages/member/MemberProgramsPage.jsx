@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
 import { useMemberSlices } from './memberDataState';
+import { CourseArt } from '../guest/GuestCourseCard';
 import { enrollmentsApi } from '../../api';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { formatCount, formatUtcDate, formatUtcDateTime, userFacingError } from '../businessPresentation';
@@ -141,25 +142,25 @@ export default function MemberProgramsPage() {
     >
       {state.loading ? <p role="status">Loading your programs…</p> : state.loadError ? <div role="alert" className="callout warn">{state.loadError} <button type="button" className="btn btn-ghost" onClick={reload}>Retry</button></div> : null}
       {!state.loading && !state.loadError ? <>
-      <div className="tabs">
-        <button type="button" className={`tab${tab === 'reserved' ? ' active' : ''}`} onClick={() => setTab('reserved')}>
+      <div className="cx-tabs cx-programs-tabs">
+        <button type="button" className={`cx-tab${tab === 'reserved' ? ' active' : ''}`} onClick={() => setTab('reserved')}>
           Reserved ({state.enrolled.filter((e) => e.status === 'reserved').length})
         </button>
-        <button type="button" className={`tab${tab === 'active' ? ' active' : ''}`} onClick={() => setTab('active')}>
+        <button type="button" className={`cx-tab${tab === 'active' ? ' active' : ''}`} onClick={() => setTab('active')}>
           Active ({state.enrolled.filter((e) => e.status === 'active').length})
         </button>
-        <button type="button" className={`tab${tab === 'completed' ? ' active' : ''}`} onClick={() => setTab('completed')}>
+        <button type="button" className={`cx-tab${tab === 'completed' ? ' active' : ''}`} onClick={() => setTab('completed')}>
           Completed ({state.enrolled.filter((e) => e.status === 'completed').length})
         </button>
-        <button type="button" className={`tab${tab === 'history' ? ' active' : ''}`} onClick={() => setTab('history')}>History</button>
+        <button type="button" className={`cx-tab${tab === 'history' ? ' active' : ''}`} onClick={() => setTab('history')}>History</button>
+        <button type="button" className="btn btn-ghost btn-sm cx-programs-disputes" onClick={() => navigate('/member/disputes')}>My Disputes</button>
       </div>
-      <button type="button" className="btn btn-ghost" onClick={() => navigate('/member/disputes')} style={{ marginBottom: 16 }}>My Disputes</button>
 
       {selectionNotice ? <div className="callout" role="status">{selectionNotice}</div> : null}
       {selectionMissing ? <div className="callout warn" role="status">The requested program is not in your current records. Select a program below to continue.</div> : null}
 
-      <div className="grid-2-1">
-        <div>
+      <div className="cx-programs-split">
+        <div className="cx-programs-list">
           {list.length === 0 ? (
             <div className="callout">
               No {tab} programs yet.{' '}
@@ -167,23 +168,22 @@ export default function MemberProgramsPage() {
             </div>
           ) : (
             list.map((e) => (
-              <button type="button" className="card" key={e.enrollmentId || e.id} onClick={() => selectEnrollment(e)} aria-pressed={hub?.enrollmentId === e.enrollmentId} style={{ marginBottom: 8, width: '100%', textAlign: 'left', borderColor: hub?.enrollmentId === e.enrollmentId ? 'var(--purple)' : undefined }}>
-                <div className="card-body">
+              <button type="button" className={`card cx-prog${hub?.enrollmentId === e.enrollmentId ? ' selected' : ''}`} key={e.enrollmentId || e.id} onClick={() => selectEnrollment(e)} aria-pressed={hub?.enrollmentId === e.enrollmentId}>
+                <span className="cx-prog-thumb"><CourseArt code={e.courseCode} path={e.learningPath} small /></span>
+                <span className="cx-prog-body">
                   <strong>{e.courseCode} — {e.courseTitle}</strong>
-                  <div style={{ fontSize: 12, color: 'var(--slate)' }}>Trainer: {e.trainer}</div>
-                  {e.status === 'reserved' ? <div style={{ marginTop: 6 }}>On hold: {formatCount(e.heldCredits, 'credit')} · Registration closes {formatUtcDate(e.registrationClosesAt)}</div> : null}
-                  <div style={{ marginTop: 8 }}>
-                    <strong style={{ color: 'var(--purple)' }}>{e.progress}%</strong>
-                    <div className="progress-bar" style={{ width: 120, marginTop: 4 }}>
-                      <div className="fill" style={{ width: `${e.progress}%` }} />
-                    </div>
-                  </div>
-                </div>
+                  <span className="cx-prog-meta">Trainer: {e.trainer}</span>
+                  {e.status === 'reserved' ? <span className="cx-prog-meta">On hold: {formatCount(e.heldCredits, 'credit')} · Registration closes {formatUtcDate(e.registrationClosesAt)}</span> : null}
+                  <span className="cx-prog-progress">
+                    <span className="progress-bar"><span className="fill" style={{ width: `${e.progress}%` }} /></span>
+                    <b>{e.progress}%</b>
+                  </span>
+                </span>
               </button>
             ))
           )}
         </div>
-        <div className="card">
+        <div className="card cx-hub">
           <div className="card-header">{hub ? `${hub.courseCode} — Learning Hub` : 'Learning Hub'}</div>
           <div className="card-body">
             {tab === 'reserved' && hub ? <div className="callout"><strong>Place reserved</strong><p>{formatCount(hub.heldCredits, 'credit')} {hub.heldCredits === 1 ? 'is' : 'are'} on hold until this class is confirmed. You can cancel before confirmation for a full release.</p><button type="button" className="btn btn-ghost" onClick={() => setPendingAction({ enrollmentId: hub.enrollmentId, action: 'cancel' })}>Cancel reservation</button></div> : null}

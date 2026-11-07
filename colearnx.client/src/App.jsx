@@ -11,6 +11,7 @@ import './styles/shell-v10.css';
 import './styles/auth-v10.css';
 import './styles/catalog-v10.css';
 import './styles/course-detail-v10.css';
+import './styles/member-v10.css';
 
 function SiteTitle() {
   useEffect(() => {
