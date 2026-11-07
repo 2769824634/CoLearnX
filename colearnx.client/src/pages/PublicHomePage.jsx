@@ -12,22 +12,31 @@ import MemberOnboardingModal from './member/MemberOnboardingModal';
 import { needsMemberOnboarding } from './member/needsMemberOnboarding';
 import { usePublicCourses } from './publicCourses';
 import GuestHome from './guest/GuestHome';
+import { CourseArt } from './guest/GuestCourseCard';
 
+// Same card as the member catalog: learning-path cover, level, credits, people.
 function CoursePreview({ course, onOpen }) {
+  const open = () => onOpen(course.id);
   return (
-    <div className="course-card">
-      <div className="thumb">{course.code}</div>
-      <h4>{course.title}</h4>
-      <div className="meta">{course.trainerNames?.length ? `Trainer: ${course.trainerNames.join(', ')}` : 'Trainer assigned when a class opens'}</div>
-      {course.creatorName ? <div className="meta">Creator: {course.creatorName}</div> : null}
-      <span className="pill">{course.credits} Credits</span>{' '}
-      <span className="pill neutral">{course.level}</span>
-      <div className="actions" style={{ marginTop: 10 }}>
-        <button type="button" className="btn btn-primary btn-sm" onClick={() => onOpen(course.id)}>
-          View Details
-        </button>
+    <article className="cx-card">
+      <button type="button" className="cx-card-art" tabIndex={-1} aria-hidden="true" onClick={open}>
+        <CourseArt code={course.code} path={course.learningPath} />
+      </button>
+      <div className="cx-card-body">
+        <div className="cx-card-meta">
+          <span className="cx-chip">{course.level}</span>
+          <span className="cx-card-credits"><strong>{course.credits}</strong> Credits</span>
+        </div>
+        <h4 className="cx-card-title">{course.title}</h4>
+        <p className="cx-card-people">{course.trainerNames?.length ? <>Trainer <b>{course.trainerNames.join(', ')}</b></> : 'Trainer assigned when a class opens'}</p>
+        {course.creatorName ? <p className="cx-card-people">Creator <b>{course.creatorName}</b></p> : null}
+        <div className="cx-card-actions">
+          <button type="button" className="btn btn-primary btn-sm" onClick={open}>
+            View Details
+          </button>
+        </div>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -49,27 +58,27 @@ export default function PublicHomePage({ onboardingMode = 'auto' }) {
     return (
       <MemberNotificationsProvider>
         <MemberShell onSearch={(query) => navigate(`/member/courses?q=${encodeURIComponent(query)}`)}>
-          <div className="public-home-hero">
+          <div className="cx-catalog cx-member-home">
+          <div className="public-home-hero cx-home-hero">
             <h1>{SITE_TITLE}</h1>
             <p>Your Path to What's neXt.</p>
+            <Link className="btn btn-primary" to="/member/courses">Browse all courses</Link>
           </div>
-          {platformCourses.length ? <>
-            <div className="section-heading"><h2 className="section-title">CoLearnX courses</h2><Link to="/member/platform">View all platform courses</Link></div>
-            <div className="grid-4">{platformCourses.map((course) => <CoursePreview key={course.id} course={course} onOpen={(id) => navigate(`/member/courses/${id}`)} />)}</div>
-          </> : null}
-          <h2 className="section-title">Training programs</h2>
-          {loading ? <p role="status">Loading programs…</p> : null}
-          {error ? <p className="callout warn" role="alert">{error}</p> : null}
-          <div className="grid-4">
-            {otherCourses.map((course) => (
-              <CoursePreview key={course.id} course={course} onOpen={(id) => navigate(`/member/courses/${id}`)} />
-            ))}
+          {platformCourses.length ? <section className="cx-home-section">
+            <div className="section-heading cx-home-heading"><h2 className="section-title">CoLearnX courses</h2><Link to="/member/platform">View all platform courses</Link></div>
+            <div className="cx-grid">{platformCourses.map((course) => <CoursePreview key={course.id} course={course} onOpen={(id) => navigate(`/member/courses/${id}`)} />)}</div>
+          </section> : null}
+          <section className="cx-home-section">
+            <div className="section-heading cx-home-heading"><h2 className="section-title">Training programs</h2>{courses.length ? <Link to="/member/courses">Show all courses</Link> : null}</div>
+            {loading ? <p role="status">Loading programs…</p> : null}
+            {error ? <p className="callout warn" role="alert">{error}</p> : null}
+            <div className="cx-grid">
+              {otherCourses.map((course) => (
+                <CoursePreview key={course.id} course={course} onOpen={(id) => navigate(`/member/courses/${id}`)} />
+              ))}
+            </div>
+          </section>
           </div>
-          {courses.length ? (
-            <p className="public-home-more">
-              <Link to="/member/courses">Browse all courses</Link>
-            </p>
-          ) : null}
           {showOnboarding ? <MemberOnboardingModal dismissible={onboardingMode === 'edit'} /> : null}
         </MemberShell>
       </MemberNotificationsProvider>

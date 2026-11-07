@@ -14,6 +14,9 @@ async function loadCertificates(token, _key, signal) {
   return { certificates, eligibility, requests };
 }
 const states = { Submitted: 'Awaiting Trainer review', TrainerApproved: 'Awaiting Admin approval', TrainerRejected: 'Rejected by Trainer', AdminRejected: 'Rejected by Admin', Issued: 'Certificate issued' };
+function AwardIcon() {
+  return <svg className="certificate-award" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="9" r="6" fill="none" stroke="currentColor" strokeWidth="1.7" /><path d="M8.5 13.8 7 21l5-2.6 5 2.6-1.5-7.2" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg>;
+}
 function DateLabel({ value }) { return value ? <time dateTime={value}>{utcDate(value).toLocaleString()}</time> : null; }
 
 export default function MemberBadgesPage() {
@@ -37,15 +40,15 @@ export default function MemberBadgesPage() {
   return <MemberShell title="Badges & Certificates" subtitle="Your achievements and certificate applications, in one place.">
     <div className="certificate-intro"><p>Stages shown here come from your issued certificates. Separate badge awards are not currently configured.</p><button className="btn btn-ghost" onClick={query.refresh} disabled={query.loading || busy}>Refresh</button></div>
     {query.loading ? <p role="status">Loading certificates…</p> : query.error ? <div className="callout warn"><p role="alert">{userFacingError(query.error, 'Could not load certificates. Please retry.')}</p><button className="btn btn-primary" onClick={query.refresh}>Retry</button></div> : <>
-      <section aria-labelledby="issued-heading"><h2 id="issued-heading">Issued certificates</h2>
-        {!query.data.certificates.length ? <div className="card card-body"><p>No certificates yet. Complete a program and meet its attendance and assessment requirements to apply.</p><Link to="/member/programs">View my programs</Link></div> : <div className="certificate-grid">{query.data.certificates.map((certificate) => <article key={certificate.id} className="card certificate-card">
-          <span className="pill">Stage {certificate.stageNumber} · {certificate.stageName}</span><h3>{certificate.title}</h3>
+      <section className="certificate-section" aria-labelledby="issued-heading"><h2 id="issued-heading">Issued certificates</h2>
+        {!query.data.certificates.length ? <div className="card card-body"><p>No certificates yet. Complete a program and meet its attendance and assessment requirements to apply.</p><Link to="/member/programs">View my programs</Link></div> : <div className="certificate-grid">{query.data.certificates.map((certificate) => <article key={certificate.id} className="card certificate-card is-issued">
+          <AwardIcon /><span className="pill purple">Stage {certificate.stageNumber} · {certificate.stageName}</span><h3>{certificate.title}</h3>
           {certificate.courseTitle ? <p>{certificate.courseCode} · {certificate.courseTitle}</p> : <p>Stage certificate</p>}
-          <p>Issued <DateLabel value={certificate.awardedAt} /></p><p>Verification number</p><code>{certificate.verificationCode}</code>
+          <p>Issued <DateLabel value={certificate.awardedAt} /></p><p className="certificate-verify-label">Verification number</p><code>{certificate.verificationCode}</code>
         </article>)}</div>}
       </section>
       <section className="certificate-section" aria-labelledby="apply-heading"><h2 id="apply-heading">Request a certificate</h2><p>Eligibility is checked by the server using completion, attendance and assessment results.</p>
-        {!query.data.eligibility.length ? <p>No enrolled programs available. <Link to="/member/courses">Explore courses</Link></p> : <div className="certificate-grid">{query.data.eligibility.map((item) => <article key={item.enrollmentId} className="card certificate-card">
+        {!query.data.eligibility.length ? <p>No enrolled programs available. <Link to="/member/courses">Explore courses</Link></p> : <div className="certificate-grid">{query.data.eligibility.map((item) => <article key={item.enrollmentId} className={`card certificate-card${item.isEligible && !item.existingRequestId ? ' is-ready' : ''}`}>
           <h3>{item.courseTitle}</h3><p>{item.courseCode} · Enrollment #{item.enrollmentId}</p>
           <p>{item.progressPercent != null ? `Progress ${item.progressPercent}% · Required 100%` : 'Progress unavailable · Required 100%'}</p>
           {item.attendanceRate != null ? <p>Attendance {item.attendanceRate}% · Assessments passed {item.passedAssessmentCount}/{item.assessmentCount}</p> : null}
@@ -58,7 +61,7 @@ export default function MemberBadgesPage() {
       </section>
       <section className="certificate-section" aria-labelledby="progress-heading"><h2 id="progress-heading">Application progress</h2>
         {!query.data.requests.length ? <p>No certificate applications yet.</p> : <div className="certificate-grid">{query.data.requests.map((request) => <article className="card certificate-card" key={request.id}>
-          <div className="certificate-heading"><h3>{request.courseTitle || `Enrollment #${request.enrollmentId}`}</h3><span className="pill">{states[request.status] || request.status}</span></div>
+          <div className="certificate-heading"><h3>{request.courseTitle || `Enrollment #${request.enrollmentId}`}</h3><span className={`pill ${request.status === 'Issued' ? 'success' : request.status.endsWith('Rejected') ? 'danger' : 'purple'}`}>{states[request.status] || request.status}</span></div>
           <p>Submitted <DateLabel value={request.submittedAt} /></p>
           {request.trainerReviewedAt ? <p>Trainer review <DateLabel value={request.trainerReviewedAt} /></p> : null}
           {request.trainerReviewReason ? <p>{request.trainerReviewReason}</p> : null}

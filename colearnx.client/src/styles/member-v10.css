@@ -1,0 +1,317 @@
+/* UI v10 · part 6: signed-in member home, My Programs and Badges & Certificates.
+   Same course covers as the catalog, calmer cards and clearer status chips.
+   Same data, links and buttons as before: only appearance changes. */
+
+/* ---------- Home (signed-in member) ---------- */
+.cx-member-home .cx-home-hero {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  margin-bottom: 28px;
+  padding: 30px 32px;
+  border: 1px solid #e0d6ff;
+  border-radius: 14px;
+  background:
+    linear-gradient(rgba(114, 65, 255, 0.05) 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(90deg, rgba(114, 65, 255, 0.05) 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(120deg, var(--purple-tint), color-mix(in srgb, var(--teal-soft) 70%, var(--white)));
+  text-align: left;
+}
+
+.cx-member-home .cx-home-hero h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+}
+
+.cx-member-home .cx-home-hero p {
+  margin: 0 0 12px;
+}
+
+.cx-home-section {
+  margin-bottom: 32px;
+}
+
+.cx-home-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 14px;
+}
+
+.cx-home-heading .section-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+}
+
+.cx-home-heading a {
+  color: var(--purple);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cx-home-heading a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- My Programs ---------- */
+.cx-programs-tabs .cx-programs-disputes {
+  margin-left: auto;
+}
+
+.cx-programs-split {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.cx-programs-split > * {
+  min-width: 0;
+}
+
+.cx-programs-list {
+  display: grid;
+  gap: 10px;
+}
+
+.cx-prog {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  width: 100%;
+  padding: 14px;
+  color: var(--charcoal);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.cx-prog:hover {
+  border-color: var(--border-strong);
+}
+
+.cx-prog.selected {
+  border-color: var(--purple);
+  box-shadow: 0 0 0 3px var(--purple-soft);
+}
+
+.cx-prog:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+}
+
+.cx-prog-thumb {
+  display: block;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.cx-prog-thumb .g-art {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  padding: 0;
+  border-radius: 0;
+}
+
+.cx-prog-thumb .g-art-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.cx-prog-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cx-prog-body strong {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.cx-prog-meta {
+  color: var(--slate);
+  font-size: 12px;
+}
+
+.cx-prog-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.cx-prog-progress .progress-bar {
+  flex: 1;
+  max-width: 200px;
+  height: 6px;
+  margin: 0;
+}
+
+.cx-prog-progress .fill {
+  display: block;
+}
+
+.cx-prog-progress b {
+  color: var(--purple);
+  font-size: 12.5px;
+}
+
+/* Learning Hub */
+.cx-hub .card-body {
+  display: grid;
+  gap: 10px;
+  justify-items: stretch;
+}
+
+.cx-hub .card-body > * {
+  margin: 0;
+}
+
+.cx-hub h3 {
+  margin-top: 10px !important;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--charcoal);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cx-hub h4 {
+  margin: 4px 0 6px;
+  color: var(--slate);
+  font-size: 12px;
+}
+
+.cx-hub p {
+  color: var(--slate);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.cx-hub .btn-block.btn-ghost {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.cx-hub .card-body > .btn:not(.btn-block) {
+  justify-self: start;
+}
+
+/* ---------- Badges & Certificates ---------- */
+.certificate-intro + .certificate-section {
+  margin-top: 0;
+}
+
+.certificate-section > h2 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+.certificate-section > p {
+  margin: 0 0 14px;
+  color: var(--slate);
+  font-size: 13.5px;
+}
+
+.certificate-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 20px 22px;
+}
+
+.certificate-card h3 {
+  margin: 8px 0 6px;
+  font-size: 16px;
+}
+
+.certificate-card p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.certificate-card > .btn {
+  margin-top: auto;
+}
+
+.certificate-card > .btn:not(:first-child) {
+  margin-top: 14px;
+}
+
+.certificate-card.is-issued {
+  border-top: 4px solid var(--purple);
+}
+
+.certificate-card.is-ready {
+  border-color: #bfefe4;
+}
+
+.certificate-award {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 10px;
+  padding: 9px;
+  border-radius: 12px;
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.certificate-verify-label {
+  margin-top: 10px !important;
+  font-size: 12px !important;
+}
+
+.certificate-card code {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--purple-tint);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.certificate-heading {
+  width: 100%;
+}
+
+.certificate-heading h3 {
+  margin: 0;
+}
+
+.certificate-assessments {
+  width: 100%;
+  margin: 10px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.certificate-assessments li {
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--chrome);
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .cx-programs-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cx-member-home .cx-home-hero {
+    padding: 22px 20px;
+  }
+}
