@@ -48,8 +48,8 @@ export default function AdminStaffPage() {
     }
   }
 
-  return <section className="admin-page">
-    <div className="page-header"><div><p className="eyebrow">Platform operations</p><h1>Staff management</h1><p>Provision independent staff sign-ins and maintain their access.</p></div></div>
+  return <section className="admin-review-page later-page">
+    <header className="admin-review-header"><div><p className="admin-form-eyebrow">Platform operations</p><h1>Staff management</h1><p>Provision independent staff sign-ins and maintain their access.</p></div></header>
     {error ? <div className="callout warn" role="alert">{error}</div> : null}
     {initialPassword ? <div className="callout success" role="status"><strong>Initial password — copy it now:</strong> <code>{initialPassword}</code></div> : null}
     <form className="card admin-staff-form" onSubmit={provision}>
@@ -59,8 +59,8 @@ export default function AdminStaffPage() {
       <div className="form-group"><label htmlFor="staff-document">Staff document</label><input id="staff-document" type="file" accept=".pdf,.png,.jpg,.jpeg" required onChange={(event) => setForm({ ...form, document: event.target.files?.[0] || null })} /></div>
       <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? 'Provisioning…' : 'Provision staff account'}</button>
     </form>
-    <div className="table-wrap"><table><thead><tr><th>Number</th><th>Public name</th><th>Employee</th><th>Email</th><th>Status</th><th>Action</th></tr></thead>
-      <tbody>{staff.map((account) => <tr key={account.id} className="account-click-row" onClick={() => setSelectedId(account.id)}><td>{String(account.staffNumber).padStart(3, '0')}</td><td>{account.displayName}</td><td><button className="account-name-button" type="button" onClick={(event) => { event.stopPropagation(); setSelectedId(account.id); }}>{account.fullName}</button></td><td>{account.email}</td><td>{account.isActive ? 'Active' : 'Inactive'}</td><td><button type="button" className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); toggle(account); }}>{account.isActive ? 'Deactivate' : 'Activate'}</button></td></tr>)}</tbody>
+    <div className="later-table-wrap"><table className="later-table"><thead><tr><th>Number</th><th>Public name</th><th>Employee</th><th>Email</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody>{staff.map((account) => <tr key={account.id} className="account-click-row" onClick={() => setSelectedId(account.id)}><td>{String(account.staffNumber).padStart(3, '0')}</td><td>{account.displayName}</td><td><button className="account-name-button" type="button" onClick={(event) => { event.stopPropagation(); setSelectedId(account.id); }}>{account.fullName}</button></td><td>{account.email}</td><td><span className={`pill ${account.isActive ? 'success' : 'neutral'}`}>{account.isActive ? 'Active' : 'Inactive'}</span></td><td><button type="button" className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); toggle(account); }}>{account.isActive ? 'Deactivate' : 'Activate'}</button></td></tr>)}</tbody>
     </table></div>
     <Modal open={selectedId !== null} title="Employee details" onClose={() => setSelectedId(null)} width={1000}>{selectedId !== null ? <StaffDetails key={selectedId} token={token} staffId={selectedId} /> : null}</Modal>
   </section>;
