@@ -374,7 +374,7 @@ export default function AdminCourseReviewsPage() {
               </button>
               <button
                 type="submit"
-                className={decision === 'Reject' ? 'btn admin-reject-button' : 'btn btn-teal'}
+                className={decision === 'Reject' ? 'btn admin-reject-button' : 'btn btn-primary'}
                 disabled={reviewing}
               >
                 {reviewing ? 'Saving…' : decision === 'Approve' ? 'Publish course' : 'Reject course'}
