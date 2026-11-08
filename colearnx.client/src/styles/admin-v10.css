@@ -1,0 +1,405 @@
+/* UI v10 · part 8: Admin workspace.
+   Same data, filters and actions as before: only appearance changes.
+   Everything is scoped to the Admin shell (plus the detail dialogs it opens, which
+   render outside the shell) because Trainer, Creator and Staff share some of these
+   class names and get their turn later. */
+
+/* ---------- Page headings ---------- */
+:is(.admin-shell, .modal .account-details) .admin-review-header {
+  align-items: center;
+  gap: 20px;
+  padding: 4px 0 22px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-review-header .admin-form-eyebrow {
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-review-header :is(h1, h2) {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-review-header h1 {
+  font-size: 30px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-review-header h2 {
+  font-size: 22px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-review-header p:last-child {
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-review-count strong {
+  font-family: var(--font-display);
+  font-size: 26px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-review-count span {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ---------- Home ---------- */
+:is(.admin-shell, .modal .account-details) .admin-overview-queues {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-queue-card {
+  padding: 18px;
+  border-radius: 12px;
+  background: var(--white);
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-queue-card:hover {
+  border-color: var(--purple);
+  background: var(--white);
+  box-shadow: 0 0 0 3px var(--purple-soft);
+}
+
+:is(.admin-shell, .modal .account-details) .admin-queue-number {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-queue-total {
+  margin: 12px 0 2px;
+  font-family: var(--font-display);
+  font-size: 34px;
+  letter-spacing: 0;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-queue-card h2 {
+  margin-top: 4px;
+  font-size: 15px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-queue-card p {
+  margin: 6px 0 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-queue-link {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-activity-panel {
+  border-radius: 12px;
+  background: var(--white);
+}
+
+:is(.admin-shell, .modal .account-details) .admin-section-heading h2 {
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-activity-list li {
+  align-items: center;
+  padding: 13px 22px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-activity-list li:hover {
+  background: var(--purple-tint);
+}
+
+/* ---------- Approvals: queue switch ---------- */
+/* A deep indigo band keeps the Admin desk distinct from the other workspaces. */
+:is(.admin-shell, .modal .account-details) .admin-approval-switch {
+  border: 1px solid #2a2154;
+  border-radius: 12px;
+  background: #3a2f6b;
+  color: #fff;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-approval-switch-label {
+  background: #1e1740;
+  color: #fff;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-approval-switch-label span {
+  color: #fff;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-approval-switch-label small,
+:is(.admin-shell, .modal .account-details) .admin-approval-switch button > span,
+:is(.admin-shell, .modal .account-details) .admin-approval-switch button small {
+  color: #b9b1dc;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-approval-switch button {
+  color: #efecfa;
+  background: #2a2154;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-approval-switch button:hover,
+:is(.admin-shell, .modal .account-details) .admin-approval-switch button:focus-visible {
+  background: #372b6b;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-approval-switch button.active {
+  color: #fff;
+  background: var(--purple);
+}
+
+:is(.admin-shell, .modal .account-details) .admin-approval-switch button.active > span,
+:is(.admin-shell, .modal .account-details) .admin-approval-switch button.active small {
+  color: #e7deff;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-approval-switch button .admin-approval-count {
+  background: var(--warn);
+  color: #1e1740;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-approval-switch button.active .admin-approval-count {
+  background: #fff;
+  color: var(--purple);
+}
+
+/* ---------- Tables ---------- */
+:is(.admin-shell, .modal .account-details) :is(.later-table-wrap, .admin-review-workspace) {
+  border-radius: 12px;
+}
+
+:is(.admin-shell, .modal .account-details) :is(.later-table, .admin-review-table) {
+  font-size: 13.5px;
+}
+
+:is(.admin-shell, .modal .account-details) :is(.later-table, .admin-review-table) th {
+  padding: 10px 14px;
+  background: var(--chrome);
+  color: var(--slate);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+:is(.admin-shell, .modal .account-details) :is(.later-table, .admin-review-table) td {
+  padding: 12px 14px;
+  vertical-align: middle;
+}
+
+:is(.admin-shell, .modal .account-details) .later-table tbody tr:hover,
+:is(.admin-shell, .modal .account-details) .admin-review-table tbody tr:hover {
+  background: var(--purple-tint);
+}
+
+:is(.admin-shell, .modal .account-details) .later-table td strong {
+  display: block;
+  font-weight: 600;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-users-table :is(th, td):is(:nth-child(3), :nth-child(4)) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-role-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-status {
+  min-width: 0;
+  min-height: 24px;
+  padding: 2px 9px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+:is(.admin-shell, .modal .account-details) .later-positive {
+  color: var(--teal-text);
+}
+
+:is(.admin-shell, .modal .account-details) .later-negative {
+  color: var(--danger-text);
+}
+
+:is(.admin-shell, .modal .account-details) .admin-ledger-table td:is(:nth-child(5), :nth-child(6)) {
+  white-space: nowrap;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-review-workspace > p {
+  margin: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  color: var(--slate);
+  font-size: 13px;
+}
+
+/* ---------- Toolbars and filters ---------- */
+:is(.admin-shell, .modal .account-details) .later-actions {
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-adjustment-form .later-actions {
+  justify-content: space-between;
+  margin: 0;
+}
+
+:is(.admin-shell, .modal .account-details) .later-actions .btn[aria-pressed='true'] {
+  border-color: var(--purple);
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+:is(.admin-shell, .modal .account-details) .admin-audit-filters {
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-review-workspace .admin-audit-filters {
+  border-radius: 0;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-audit-filters label {
+  font-size: 12.5px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-audit-filters :is(input, select),
+:is(.admin-shell, .modal .account-details) .admin-status-filter select {
+  min-height: 40px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background-color: var(--white);
+  color: var(--charcoal);
+  font-size: 13.5px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-audit-filters .btn {
+  min-height: 40px;
+}
+
+/* ---------- Disputes ---------- */
+:is(.admin-shell, .modal .account-details) .later-case-list,
+:is(.admin-shell, .modal .account-details) .later-panel {
+  border-radius: 12px;
+}
+
+:is(.admin-shell, .modal .account-details) .later-case-detail h2 {
+  margin: 10px 0 2px;
+  font-family: var(--font-display);
+  font-size: 19px;
+}
+
+:is(.admin-shell, .modal .account-details) .later-case-detail > p {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+:is(.admin-shell, .modal .account-details) .later-case-detail dl {
+  margin: 0 0 16px;
+}
+
+:is(.admin-shell, .modal .account-details) .later-case-detail dt {
+  font-size: 12.5px;
+}
+
+:is(.admin-shell, .modal .account-details) .later-case-detail dd {
+  font-size: 13.5px;
+}
+
+/* ---------- Approval cards (materials, certificates) ---------- */
+:is(.admin-shell, .modal .account-details) .later-review-card {
+  border-radius: 12px;
+}
+
+:is(.admin-shell, .modal .account-details) .later-review-card-main h2 {
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+
+:is(.admin-shell, .modal .account-details) .later-review-card-action textarea {
+  border-color: var(--border-strong);
+  border-radius: 8px;
+}
+
+:is(.admin-shell, .modal .account-details) .later-review-card-main dl {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+:is(.admin-shell, .modal .account-details) .later-review-card-main dl > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 10px;
+}
+
+:is(.admin-shell, .modal .account-details) .later-review-card-main dt {
+  color: var(--slate);
+  font-size: 12.5px;
+}
+
+:is(.admin-shell, .modal .account-details) .later-review-card-main dd {
+  margin: 0;
+}
+
+/* ---------- Staff ---------- */
+:is(.admin-shell, .modal .account-details) .admin-staff-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+  margin-bottom: 18px;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-staff-form .form-group {
+  margin: 0;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-staff-form > .btn {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+:is(.admin-shell, .modal .account-details) .btn.admin-danger-ghost {
+  border-color: #f8ccc8;
+  color: var(--danger-text);
+}
+
+:is(.admin-shell, .modal .account-details) .btn.admin-danger-ghost:hover {
+  background: var(--danger-soft);
+}
+
+/* ---------- My Account ---------- */
+:is(.admin-shell, .modal .account-details) .admin-account-details {
+  border-radius: 12px;
+  background: var(--white);
+}
+
+:is(.admin-shell, .modal .account-details) .admin-account-details > div {
+  grid-template-columns: 140px minmax(0, 1fr);
+  padding: 14px 20px;
+}
+
+@media (max-width: 760px) {
+  :is(.admin-shell, .modal .account-details) .admin-staff-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :is(.admin-shell, .modal .account-details) .admin-review-header h1 {
+    font-size: 26px;
+  }
+}
