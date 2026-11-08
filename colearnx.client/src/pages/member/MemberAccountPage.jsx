@@ -18,27 +18,29 @@ export default function MemberAccountPage() {
       <MemberShell
         title="Profile / My Account"
       >
-        <div className="grid-2-1 member-account-grid">
-          <div style={{ textAlign: 'center' }}>
-            <AvatarEditor role="member" />
-            <div style={{ fontWeight: 600 }}>{state.user.fullName}</div>
-            <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 4 }}>Display name · {state.user.displayName}</div>
-            <div style={{ fontSize: 11, color: 'var(--slate)', marginTop: 4 }}>Shown in greetings and workspace navigation.</div>
-            <div className="card" style={{ marginTop: 16, textAlign: 'left' }}>
+        <div className="grid-2-1 member-account-grid cx-account">
+          <div className="cx-account-side">
+            <div className="card cx-account-profile">
               <div className="card-body">
-                <div style={{ fontSize: 12, color: 'var(--slate)' }}>Credit Balance</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--purple)' }}>{state.credits}</div>
-                <button type="button" className="btn btn-ghost btn-sm teal" style={{ marginTop: 8, width: '100%' }} onClick={() => navigate('/member/payment')}>
-                  View Credit Ledger →
-                </button>
+                <AvatarEditor role="member" />
+                <div className="cx-account-name">{state.user.fullName}</div>
+                <div className="cx-account-display">Display name · {state.user.displayName}</div>
+                <div className="cx-account-hint">Shown in greetings and workspace navigation.</div>
               </div>
+            </div>
+            <div className="cx-account-credits">
+              <span className="cx-wallet-balance-label">Credit Balance</span>
+              <strong>{state.credits}</strong>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate('/member/payment')}>
+                View Credit Ledger →
+              </button>
             </div>
           </div>
           <div>
             <div className="member-account-heading">
               <div className="member-account-heading-copy">
-                <h3 style={{ fontSize: 15, marginBottom: 4 }}>Account details</h3>
-                <p style={{ fontSize: 12, color: 'var(--slate)', margin: 0 }}>Update profile details from Edit Profile.</p>
+                <h3>Account details</h3>
+                <p>Update profile details from Edit Profile.</p>
               </div>
               <div className="account-profile-actions">
                 <button type="button" className="btn btn-primary account-profile-button" onClick={() => setEditOpen(true)}>Edit Profile</button>
@@ -48,18 +50,18 @@ export default function MemberAccountPage() {
             <div className="card" style={{ marginBottom: 12 }}>
               <div className="card-header">Personal info</div>
               <div className="card-body">
-                <div className="grid-2">
+                <div className="cx-account-fields">
                   <div className="masked-field"><div className="label">Full Name</div><div className="value">{state.user.fullName}</div></div>
                   <div className="masked-field"><div className="label">Display name</div><div className="value">{state.user.displayName}</div></div>
                   <div className="masked-field"><div className="label">Email</div><div className="value">{user?.email || '—'}</div></div>
                   <div className="masked-field"><div className="label">Phone</div><div className="value">{user?.phone || '—'}</div></div>
+                  <ProfileDetails user={user} />
                 </div>
-                <ProfileDetails user={user} />
               </div>
             </div>
             <div className="card">
               <div className="card-header">Identity visibility</div>
-              <div className="card-body">
+              <div className="card-body cx-account-rows">
                 <IdentityVisibility user={user} />
               </div>
             </div>

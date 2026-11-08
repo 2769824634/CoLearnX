@@ -1,0 +1,305 @@
+/* UI v10 · part 7: Credit Wallet and My Account.
+   Same data, tabs and buttons as before: only appearance changes.
+   The PayPal button itself is rendered by PayPal and is not styled here. */
+
+/* ---------- Wallet: balance ---------- */
+.cx-wallet-balance {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 460px;
+  margin-bottom: 24px;
+  padding: 20px 22px;
+  border: 1px solid #e0d6ff;
+  border-radius: 12px;
+  background: var(--purple-soft);
+}
+
+.cx-wallet-balance-label {
+  color: var(--slate);
+  font-size: 13px;
+}
+
+.cx-wallet-balance-amount {
+  color: var(--purple);
+  font-family: var(--font-display);
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.cx-wallet-balance-sub {
+  color: var(--teal-text);
+  font-size: 13.5px;
+}
+
+/* ---------- Wallet: packages ---------- */
+.cx-wallet-heading {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+.cx-wallet-packs {
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.cx-wallet-packs .pack-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 22px 12px 18px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  color: var(--charcoal);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.cx-wallet-packs .pack-card:hover {
+  border-color: #cdbbff;
+}
+
+.cx-wallet-packs .pack-card:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+}
+
+.cx-wallet-packs .pack-card.best {
+  border-color: var(--border);
+  background: var(--purple-soft);
+}
+
+.cx-wallet-packs .pack-card .pill {
+  margin-bottom: 8px;
+  background: var(--white);
+}
+
+.cx-wallet-packs .pack-card.selected {
+  border: 2px solid var(--purple);
+  box-shadow: 0 0 0 3px var(--purple-soft);
+}
+
+.cx-pack-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--purple);
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cx-wallet-packs .pack-card .amount {
+  font-family: var(--font-display);
+  line-height: 1.1;
+}
+
+.cx-pack-unit {
+  color: var(--slate);
+  font-size: 13px;
+}
+
+.cx-pack-price {
+  margin-top: 10px;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.cx-pack-note {
+  margin-top: 4px;
+  color: var(--slate);
+  font-size: 12.5px;
+}
+
+/* ---------- Wallet: pay + ledger ---------- */
+.cx-wallet-pay {
+  max-width: 480px;
+}
+
+.cx-wallet-selected {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.cx-wallet-ledger {
+  overflow-x: auto;
+}
+
+.cx-wallet-ledger .data-table :is(th, td).num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cx-wallet-ledger .data-table td:first-child {
+  white-space: nowrap;
+}
+
+.cx-ledger-delta {
+  color: var(--danger-text);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cx-ledger-delta.in {
+  color: var(--teal-text);
+}
+
+.cx-wallet-success {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: var(--teal-soft);
+  color: var(--teal-text);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+/* ---------- My Account ---------- */
+.cx-account {
+  grid-template-columns: 260px minmax(0, 1fr);
+  align-items: start;
+  margin-top: 12px;
+}
+
+.cx-account-side {
+  display: grid;
+  gap: 12px;
+}
+
+.cx-account-profile .card-body {
+  padding: 22px 18px;
+  text-align: center;
+}
+
+.cx-account-name {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.cx-account-display {
+  margin-top: 4px;
+  color: var(--slate);
+  font-size: 13px;
+}
+
+.cx-account-hint {
+  margin-top: 4px;
+  color: var(--slate);
+  font-size: 12px;
+}
+
+.cx-account-credits {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid #e0d6ff;
+  border-radius: 12px;
+  background: var(--purple-soft);
+}
+
+.cx-account-credits strong {
+  color: var(--purple);
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+.cx-account-credits .btn {
+  width: 100%;
+  margin-top: 8px;
+  background: var(--white);
+}
+
+.cx-account .member-account-heading h3 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+.cx-account .member-account-heading p {
+  margin: 0;
+  color: var(--slate);
+  font-size: 13px;
+}
+
+/* All profile fields in one tidy two-column grid. */
+.cx-account-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 24px;
+}
+
+.cx-account-fields .masked-field {
+  min-width: 0;
+  margin: 0 !important; /* ProfileDetails sets an inline top margin for its stacked use elsewhere. */
+}
+
+.cx-account-fields .masked-field .label {
+  margin-bottom: 3px;
+  font-size: 12px;
+}
+
+.cx-account-fields .masked-field .value {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+/* Rows in Identity visibility and Workspace applications. */
+.cx-account-rows > div,
+.cx-account #account-applications .card-body > div {
+  align-items: center !important; /* The rows are shared components with inline layout. */
+  margin: 0 !important;
+  padding: 11px 0;
+  border-top: 1px solid var(--border);
+}
+
+.cx-account-rows > div:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.cx-account-rows > div:last-child,
+.cx-account #account-applications .card-body > div:last-child {
+  padding-bottom: 0;
+}
+
+.cx-account #account-applications .card-body > p {
+  margin-bottom: 12px;
+  font-size: 13px !important;
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .cx-account {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .cx-wallet-balance {
+    max-width: none;
+  }
+
+  .cx-account-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
