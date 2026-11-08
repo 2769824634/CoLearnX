@@ -313,7 +313,7 @@ export default function AdminRoleRequestsPage() {
               </button>
               <button
                 type="submit"
-                className={decision === 'Reject' ? 'btn admin-reject-button' : 'btn btn-primary'}
+                className={decision === 'Reject' ? 'btn admin-reject-button' : 'btn btn-teal'}
                 disabled={reviewing || downloadBusy}
               >
                 {reviewing ? 'Saving…' : `${decision} request`}

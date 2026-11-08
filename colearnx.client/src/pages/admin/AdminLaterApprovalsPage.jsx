@@ -90,7 +90,7 @@ export default function AdminLaterApprovalsPage({ type }) {
     {query.data?.length ? <div className="later-review-list">{query.data.map((item) => {
       const id = item.id || item.versionId;
       return <article className="later-review-card" key={id}>
-        <div className="later-review-card-main"><span className="admin-status">{item.status}</span><h2>{type === 'materials' ? item.title : item.learnerName}</h2>
+        <div className="later-review-card-main"><span className="admin-status pending">{item.status}</span><h2>{type === 'materials' ? item.title : item.learnerName}</h2>
           <p>{type === 'materials' ? `${item.creatorName || 'Creator unavailable'} · ${item.format || 'Format unavailable'} · version ${item.versionNumber}` : `${item.courseCode} · ${item.courseTitle}`}</p>
           {type === 'materials' ? <>
             <MaterialMetadata item={item} />
@@ -99,7 +99,7 @@ export default function AdminLaterApprovalsPage({ type }) {
             {download?.id === item.versionId && download.error ? <p role="alert">{download.error}</p> : null}
           </> : <><small>Trainer note: {item.trainerReviewReason || 'Approved without a note'}</small><p>Submitted (UTC): {formatUtcDateTime(item.submittedAt)}</p>{item.trainerReviewedAt ? <p>Trainer reviewed (UTC): {formatUtcDateTime(item.trainerReviewedAt)}</p> : null}</>}
         </div>
-        <div className="later-review-card-action"><label htmlFor={`review-note-${type}-${id}`}>Review note / required rejection reason</label><textarea id={`review-note-${type}-${id}`} maxLength="512" disabled={Boolean(busyId) || downloadBusy} value={notes[id] || ''} onChange={(event) => setNotes({ ...notes, [id]: event.target.value })} /><div className="trainer-actions"><button className="btn btn-primary" type="button" disabled={Boolean(busyId) || downloadBusy} onClick={() => review(item, 'Approve')}>{busyId === id ? 'Saving…' : 'Approve'}</button><button className="btn btn-danger" type="button" disabled={Boolean(busyId) || downloadBusy || !notes[id]?.trim()} onClick={() => review(item, 'Reject')}>Reject</button></div></div>
+        <div className="later-review-card-action"><label htmlFor={`review-note-${type}-${id}`}>Review note / required rejection reason</label><textarea id={`review-note-${type}-${id}`} maxLength="512" disabled={Boolean(busyId) || downloadBusy} value={notes[id] || ''} onChange={(event) => setNotes({ ...notes, [id]: event.target.value })} /><div className="trainer-actions"><button className="btn btn-teal" type="button" disabled={Boolean(busyId) || downloadBusy} onClick={() => review(item, 'Approve')}>{busyId === id ? 'Saving…' : 'Approve'}</button><button className="btn btn-danger" type="button" disabled={Boolean(busyId) || downloadBusy || !notes[id]?.trim()} onClick={() => review(item, 'Reject')}>Reject</button></div></div>
       </article>;
     })}</div> : !query.loading && !query.error ? <div className="admin-review-state"><strong>No pending {type === 'materials' ? 'material versions' : 'certificate requests'}</strong><span>The queue is currently clear.</span></div> : null}
   </section>;

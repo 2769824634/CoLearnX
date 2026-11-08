@@ -158,6 +158,11 @@
   color: #e7deff;
 }
 
+:is(.admin-shell, .modal .account-details) .admin-approval-switch button .admin-approval-count {
+  background: var(--warn);
+  color: #1e1740;
+}
+
 :is(.admin-shell, .modal .account-details) .admin-approval-switch button.active .admin-approval-count {
   background: #fff;
   color: var(--purple);
@@ -367,6 +372,15 @@
 :is(.admin-shell, .modal .account-details) .admin-staff-form > .btn {
   grid-column: 1 / -1;
   justify-self: start;
+}
+
+:is(.admin-shell, .modal .account-details) .btn.admin-danger-ghost {
+  border-color: #f8ccc8;
+  color: var(--danger-text);
+}
+
+:is(.admin-shell, .modal .account-details) .btn.admin-danger-ghost:hover {
+  background: var(--danger-soft);
 }
 
 /* ---------- My Account ---------- */

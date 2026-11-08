@@ -51,3 +51,23 @@ export function friendlyFieldLabel(field) {
   const leaf = String(field).split('.').pop().replace(/\[\d+\]/g, '').toLowerCase();
   return fieldLabels[leaf] || 'Form field';
 }
+
+const LEDGER_PILL = {
+  TopUp: 'success',
+  Enrolment: 'purple',
+  Refund: 'info',
+  Royalty: 'success',
+  AdminAdjustment: 'neutral',
+  Hold: 'warn',
+  Capture: 'neutral',
+  Release: 'info',
+  Forfeit: 'warn',
+};
+
+export const ledgerPillClass = (type) => `pill ${LEDGER_PILL[type] || 'neutral'}`;
+
+// "AdminAdjustment" -> "Admin adjustment", "TopUp" -> "Top up".
+export function ledgerTypeLabel(type) {
+  const words = String(type ?? '').replace(/([a-z])([A-Z])/g, '$1 $2');
+  return words.charAt(0) + words.slice(1).toLowerCase();
+}
