@@ -7,6 +7,8 @@ import { loadAdminUsers } from './adminUserLookup';
 import AdminDataState from './AdminDataState';
 import useAdminQuery from './useAdminQuery';
 
+const ROLE_PILL = { Member: 'warn', Trainer: 'info', Creator: 'success' };
+
 export default function AdminUsersPage() {
   const [params, setParams] = useSearchParams();
   const selectedId = /^[1-9]\d*$/.test(params.get('userId') || '') ? Number(params.get('userId')) : null;
@@ -25,7 +27,7 @@ export default function AdminUsersPage() {
     </form>
     <AdminDataState loading={query.loading} error={query.error} onRetry={query.refresh} />
     {query.data ? <><p>Showing up to 100 matching accounts. Refine the search to find a specific user.</p><div className="later-table-wrap"><table className="later-table admin-users-table"><thead><tr><th>User</th><th>Roles</th><th>Available credits</th><th>On hold</th><th>Status</th><th>Action</th></tr></thead><tbody>
-      {query.data.map((user) => <tr key={user.id} className="account-click-row" onClick={() => selectUser(user.id)}><td><button type="button" className="account-name-button" onClick={(event) => { event.stopPropagation(); selectUser(user.id); }}>{user.fullName}</button><small>{user.email} · #{user.id}</small></td><td>{user.roles.length ? <span className="admin-role-pills">{user.roles.map((role) => <span key={role} className="pill neutral">{role}</span>)}</span> : 'No roles'}</td><td>{user.creditBalance}</td><td>{user.heldCredits}</td><td><span className={`pill ${user.isActive ? 'success' : 'neutral'}`}>{user.isActive ? 'Active' : 'Inactive'}</span></td><td><button type="button" className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); selectUser(user.id); }}>View details</button></td></tr>)}
+      {query.data.map((user) => <tr key={user.id} className="account-click-row" onClick={() => selectUser(user.id)}><td><button type="button" className="account-name-button" onClick={(event) => { event.stopPropagation(); selectUser(user.id); }}>{user.fullName}</button><small>{user.email} · #{user.id}</small></td><td>{user.roles.length ? <span className="admin-role-pills">{user.roles.map((role) => <span key={role} className={`pill ${ROLE_PILL[role] || 'neutral'}`}>{role}</span>)}</span> : 'No roles'}</td><td>{user.creditBalance}</td><td>{user.heldCredits}</td><td><span className={`pill ${user.isActive ? 'success' : 'neutral'}`}>{user.isActive ? 'Active' : 'Inactive'}</span></td><td><button type="button" className="btn btn-ghost btn-sm" onClick={(event) => { event.stopPropagation(); selectUser(user.id); }}>View details</button></td></tr>)}
     </tbody></table>{!query.data.length ? <div className="admin-review-state">No users match your search.</div> : null}</div></> : null}
     </>}
     <Modal open={selectedId !== null} title="User details" onClose={() => selectUser(null)} width={1200}>{selectedId !== null ? <AdminUserDetail key={selectedId} userId={selectedId} onBalanceChange={query.refresh} /> : null}</Modal>

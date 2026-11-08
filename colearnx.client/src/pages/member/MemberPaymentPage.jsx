@@ -4,25 +4,7 @@ import Modal from '../../components/Modal';
 import PayPalPackageButtons from '../../components/PayPalPackageButtons';
 import { creditsApi } from '../../api';
 import { useMemberSlices } from './memberDataState';
-import { formatCount } from '../businessPresentation';
-
-const LEDGER_PILL = {
-  TopUp: 'success',
-  Enrolment: 'purple',
-  Refund: 'info',
-  Royalty: 'success',
-  AdminAdjustment: 'neutral',
-  Hold: 'warn',
-  Capture: 'neutral',
-  Release: 'info',
-  Forfeit: 'warn',
-};
-
-// "AdminAdjustment" -> "Admin adjustment", "TopUp" -> "Top up".
-function ledgerTypeLabel(type) {
-  const words = String(type ?? '').replace(/([a-z])([A-Z])/g, '$1 $2');
-  return words.charAt(0) + words.slice(1).toLowerCase();
-}
+import { formatCount, ledgerPillClass, ledgerTypeLabel } from '../businessPresentation';
 
 // Fixed credit packages + PayPal.
 export default function MemberPaymentPage() {
@@ -167,7 +149,7 @@ export default function MemberPaymentPage() {
                 {state.ledger.map((l, i) => (
                   <tr key={`${l.date}-${i}`}>
                     <td>{l.date}</td>
-                    <td><span className={`pill ${LEDGER_PILL[l.type] || 'neutral'}`}>{ledgerTypeLabel(l.type)}</span></td>
+                    <td><span className={ledgerPillClass(l.type)}>{ledgerTypeLabel(l.type)}</span></td>
                     <td>{l.desc}</td>
                     <td className={`num cx-ledger-delta${l.delta > 0 ? ' in' : ''}`}>
                       {l.delta > 0 ? '+' : ''}
