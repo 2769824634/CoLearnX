@@ -2,19 +2,35 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../../auth/AuthContext';
-import { certificatesApi } from '../../api';
+import { certificatesApi, medalsApi } from '../../api';
 import MemberBadgesPage from './MemberBadgesPage';
 
-vi.mock('../../api', () => ({ certificatesApi: { my: vi.fn(), eligibility: vi.fn(), requests: vi.fn(), request: vi.fn() } }));
-beforeEach(() => { certificatesApi.my.mockResolvedValue([]); certificatesApi.eligibility.mockResolvedValue([]); certificatesApi.requests.mockResolvedValue([]); });
+vi.mock('../../api', () => ({
+  certificatesApi: { my: vi.fn(), eligibility: vi.fn(), requests: vi.fn(), request: vi.fn() },
+  medalsApi: { my: vi.fn() },
+}));
+const medals = [
+  { area: 'DigitalTechnology', name: 'Digital Technology', material: 'Locked', requirement: 'Finish any course in this area to earn Brass.', progress: '0/1 courses.' },
+  { area: 'BusinessManagement', name: 'Business and Management', material: 'Silver', requirement: 'Finish an Advanced course in this area to reach Gold.', progress: '3/5 courses. Still need an Advanced course.' },
+  { area: 'HumanitiesHealthCreative', name: 'Humanities, Health and Creative', material: 'Diamond', requirement: 'Highest level. You finished a Beginner, an Intermediate, and an Advanced course in this area.', progress: '5 courses across Beginner, Intermediate, and Advanced.' },
+];
+beforeEach(() => { certificatesApi.my.mockResolvedValue([]); certificatesApi.eligibility.mockResolvedValue([]); certificatesApi.requests.mockResolvedValue([]); medalsApi.my.mockResolvedValue(medals); });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 function mount() { render(<MemoryRouter><AuthContext.Provider value={{ token: 'member', user: { fullName: 'Learner', roles: ['Member'] } }}><MemberBadgesPage /></AuthContext.Provider></MemoryRouter>); }
 
-it('shows issued certificates and server-provided eligibility reasons without inventing badges', async () => {
+it('shows issued certificates, subject medals, and server-provided eligibility reasons', async () => {
   certificatesApi.my.mockResolvedValue([{ id: 1, title: 'UX certificate', stageName: 'Foundation', stageNumber: 1, courseCode: 'UX101', courseTitle: 'UX', awardedAt: '2026-09-18T12:00:00Z', verificationCode: 'VERIFY-123' }]);
   certificatesApi.eligibility.mockResolvedValue([{ enrollmentId: 3, courseTitle: 'UX', isEligible: false, reasons: ['Attendance must be at least 80%.'] }]);
   mount();
   expect(await screen.findByText('VERIFY-123')).toBeTruthy();
+  expect(screen.getByText(/Five or more courses, including an Advanced course, earn gold/)).toBeTruthy();
+  expect(screen.getByText('Not earned')).toBeTruthy();
+  expect(screen.getByText('Silver')).toBeTruthy();
+  expect(screen.getByText('Diamond')).toBeTruthy();
+  expect(screen.getByText('0/1 courses.')).toBeTruthy();
+  expect(screen.getByRole('img', { name: 'Digital Technology locked medal' })).toBeTruthy();
+  expect(screen.getByRole('img', { name: 'Business and Management silver medal' })).toBeTruthy();
+  expect(screen.getByRole('img', { name: 'Humanities, Health and Creative diamond medal' })).toBeTruthy();
   expect(screen.getByText('Attendance must be at least 80%.')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Request certificate' }).disabled).toBe(true);
 });

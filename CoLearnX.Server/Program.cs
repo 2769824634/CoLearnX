@@ -95,6 +95,7 @@ builder.Services.AddScoped<RecommendationService>();
 builder.Services.AddScoped<IMemberLearningHubService, MemberLearningHubService>();
 builder.Services.AddScoped<ICreditService, CreditService>();
 builder.Services.AddScoped<ICertificateService, CertificateService>();
+builder.Services.AddScoped<IMedalService, MedalService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<IMaterialService, MaterialService>();
 builder.Services.AddScoped<IMaterialVersionService, MaterialVersionService>();

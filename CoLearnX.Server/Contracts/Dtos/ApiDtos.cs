@@ -229,6 +229,8 @@ public record CertificateDto(
     string? CourseCode = null,
     string? CourseTitle = null);
 
+public record MedalDto(string Area, string Name, string Material, string Requirement, string Progress);
+
 public record MaterialDto(
     int Id,
     string Title,

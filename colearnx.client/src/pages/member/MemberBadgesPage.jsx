@@ -2,17 +2,20 @@ import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import { useMemberNotifications } from '../../components/memberNotificationsState';
-import { certificatesApi } from '../../api';
+import { certificatesApi, medalsApi } from '../../api';
+import MedalMark from './MedalMark';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { utcDate } from '../../utils/utcDates';
 import { userFacingError } from '../businessPresentation';
 
 async function loadCertificates(token, _key, signal) {
-  const [certificates, eligibility, requests] = await Promise.all([
-    certificatesApi.my(token, signal), certificatesApi.eligibility(token, signal), certificatesApi.requests(token, signal),
+  const [certificates, eligibility, requests, medals] = await Promise.all([
+    certificatesApi.my(token, signal), certificatesApi.eligibility(token, signal), certificatesApi.requests(token, signal), medalsApi.my(token, signal),
   ]);
-  return { certificates, eligibility, requests };
+  return { certificates, eligibility, requests, medals };
 }
+const materials = { Locked: 'Not earned', Brass: 'Brass', Silver: 'Silver', Gold: 'Gold', Diamond: 'Diamond' };
+const medalPill = { Locked: 'neutral', Brass: 'warn', Silver: 'info', Gold: 'warn', Diamond: 'purple' };
 const states = { Submitted: 'Awaiting Trainer review', TrainerApproved: 'Awaiting Admin approval', TrainerRejected: 'Rejected by Trainer', AdminRejected: 'Rejected by Admin', Issued: 'Certificate issued' };
 function AwardIcon() {
   return <svg className="certificate-award" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="9" r="6" fill="none" stroke="currentColor" strokeWidth="1.7" /><path d="M8.5 13.8 7 21l5-2.6 5 2.6-1.5-7.2" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg>;
@@ -38,8 +41,18 @@ export default function MemberBadgesPage() {
     finally { inFlight.current = false; }
   }
   return <MemberShell title="Badges & Certificates" subtitle="Your achievements and certificate applications, in one place.">
-    <div className="certificate-intro"><p>Stages shown here come from your issued certificates. Separate badge awards are not currently configured.</p><button className="btn btn-ghost" onClick={query.refresh} disabled={query.loading || busy}>Refresh</button></div>
+    <div className="certificate-intro"><p>Stages shown here come from your issued certificates. Each subject area also has one medal, from brass to diamond.</p><button className="btn btn-ghost" onClick={query.refresh} disabled={query.loading || busy}>Refresh</button></div>
     {query.loading ? <p role="status">Loading certificates…</p> : query.error ? <div className="callout warn"><p role="alert">{userFacingError(query.error, 'Could not load certificates. Please retry.')}</p><button className="btn btn-primary" onClick={query.refresh}>Retry</button></div> : <>
+      <section className="certificate-section" aria-labelledby="medals-heading"><h2 id="medals-heading">Medals</h2>
+        <p>Any finished course earns brass. Three or more courses at Intermediate or Advanced earn silver. Five or more courses, including an Advanced course, earn gold. Five or more courses across Beginner, Intermediate, and Advanced earn diamond.</p>
+        {!query.data.medals?.length ? <div className="card card-body"><p>No subject medals are available.</p></div> : <div className="certificate-grid">{query.data.medals.map((medal) => <article className={`card certificate-card${medal.material && medal.material !== 'Locked' ? ' is-issued' : ''}`} key={medal.area}>
+          <MedalMark area={medal.area} material={medal.material} title={medal.name} />
+          <span className={`pill ${medalPill[medal.material] || 'neutral'}`}>{materials[medal.material] || medal.material}</span>
+          <h3>{medal.name}</h3>
+          {medal.progress ? <p>{medal.progress}</p> : null}
+          <p>{medal.requirement}</p>
+        </article>)}</div>}
+      </section>
       <section className="certificate-section" aria-labelledby="issued-heading"><h2 id="issued-heading">Issued certificates</h2>
         {!query.data.certificates.length ? <div className="card card-body"><p>No certificates yet. Complete a program and meet its attendance and assessment requirements to apply.</p><Link to="/member/programs">View my programs</Link></div> : <div className="certificate-grid">{query.data.certificates.map((certificate) => <article key={certificate.id} className="card certificate-card is-issued">
           <AwardIcon /><span className="pill purple">Stage {certificate.stageNumber} · {certificate.stageName}</span><h3>{certificate.title}</h3>

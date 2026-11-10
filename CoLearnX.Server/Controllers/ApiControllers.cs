@@ -556,3 +556,13 @@ public class CertificatesController(ICertificateService certificates, ICertifica
         return Created($"/api/certificates/requests/{result.Id}", result);
     }
 }
+
+[ApiController]
+[Route("api/medals")]
+[Authorize(Roles = "Member")]
+public class MedalsController(IMedalService medals) : ControllerBase
+{
+    [HttpGet("my")]
+    public async Task<ActionResult<IReadOnlyList<MedalDto>>> My(CancellationToken ct)
+        => Ok(await medals.ListForMemberAsync(User.GetUserId(), ct));
+}

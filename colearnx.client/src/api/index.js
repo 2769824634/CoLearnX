@@ -219,6 +219,10 @@ export const creditsApi = {
     }),
 };
 
+export const medalsApi = {
+  my: (token, signal) => apiRequest('/api/medals/my', { token, signal }),
+};
+
 export const certificatesApi = {
   my: (token, signal) => apiRequest('/api/certificates/my', { token, signal }),
   eligibility: (token, signal) => apiRequest('/api/certificates/eligibility', { token, signal }),
