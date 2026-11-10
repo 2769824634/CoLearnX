@@ -39,15 +39,19 @@ export function TrainerField({ name, label, error, children, ...inputProps }) {
   </div>;
 }
 
+export function RowArrow() {
+  return <svg className="trainer-row-arrow" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 6 6 6-6 6" /></svg>;
+}
+
 export function IntakeRows({ intakes, courses, empty = 'No Intakes yet. Create one from a published course to get started.' }) {
   const courseMap = new Map(courses.map((course) => [course.id, course]));
   if (!intakes.length) return <div className="trainer-empty">{empty}</div>;
   return <div className="trainer-intake-list">{intakes.map((intake) => {
     const course = courseMap.get(intake.courseId);
-    return <article className="trainer-intake-row" key={intake.id}>
+    return <article className="trainer-intake-row trainer-row-link" key={intake.id}>
       <div className="trainer-date-tile" aria-hidden="true"><strong>{utcDate(intake.startsAt).getUTCDate()}</strong><span>{utcDate(intake.startsAt).toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' })}</span></div>
       <div className="trainer-intake-title"><small>{course?.code || `Course #${intake.courseId}`} · Intake #{intake.id}</small><h3><Link to={intakeLink(intake.id)}>{course?.title || `Course #${intake.courseId}`}</Link></h3><p>{formatDate(intake.startsAt)} → {formatDate(intake.endsAt)}</p></div>
-      <IntakeStatus status={intake.status} /><Link className="trainer-open" to={intakeLink(intake.id)} aria-label={`Open Intake ${intake.id}`}>Open →</Link>
+      <IntakeStatus status={intake.status} /><RowArrow />
     </article>;
   })}</div>;
 }
