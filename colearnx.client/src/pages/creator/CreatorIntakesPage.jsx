@@ -3,6 +3,7 @@ import { creatorCoursesApi } from '../../api';
 import { creatorIntakesApi } from '../../api/creatorIntakes';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { formatDate, statusLabel } from '../trainer/intakeForm';
+import { RowArrow } from '../trainer/TrainerUi';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 
 async function loadIntakes(token, key, signal) {
@@ -26,15 +27,15 @@ export default function CreatorIntakesPage() {
         : intakes.length === 0 ? <div className="creator-empty"><strong>No classes yet</strong><p>Open a class after a Trainer accepts the course.</p></div>
           : <div className="creator-application-list">{intakes.map((intake) => {
             const course = courses.get(intake.courseId);
-            return <article className="creator-application-row" key={intake.id}>
+            return <article className="creator-application-row creator-row-link" key={intake.id}>
               <div className="creator-application-index">#{intake.id}</div>
               <div>
                 <p className="creator-eyebrow">{course?.code || `Course #${intake.courseId}`}</p>
-                <h2>{course?.title || `Course #${intake.courseId}`}</h2>
+                <h2><Link to={`/creator/intakes/${intake.id}`}>{course?.title || `Course #${intake.courseId}`}</Link></h2>
                 <p>{formatDate(intake.startsAt)} → {formatDate(intake.endsAt)}</p>
               </div>
               <span className={`creator-status ${(intake.status || '').toLowerCase()}`}>{statusLabel(intake.status)}</span>
-              <Link to={`/creator/intakes/${intake.id}`}>Open →</Link>
+              <RowArrow />
             </article>;
           })}</div>}
   </section>;

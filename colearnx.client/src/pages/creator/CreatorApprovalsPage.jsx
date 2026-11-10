@@ -16,7 +16,7 @@ function CourseGroup({ title, empty, courses }) {
   const headingId = `creator-approvals-${title.replace(/\W+/g, '-').toLowerCase()}`;
   return <section aria-labelledby={headingId}>
     <div className="creator-section-heading"><h2 id={headingId}>{title}</h2><span className="creator-group-count">{courses.length}</span></div>
-    {!courses.length ? <p className="creator-group-empty">{empty}</p> : <div className="creator-application-list">{courses.map((course) => <article className="creator-application-row" key={course.id}>
+    {!courses.length ? <p className="creator-group-empty">{empty}</p> : <div className="creator-application-list">{courses.map((course) => <article className="creator-application-row creator-row-link" key={course.id}>
       <div className="creator-application-index">{course.code}</div>
       <div>
         <p className="creator-eyebrow">{course.learningPathName} · {course.courseLevelName}</p><h2>{course.title}</h2>

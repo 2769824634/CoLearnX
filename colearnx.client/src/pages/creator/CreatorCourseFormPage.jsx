@@ -179,7 +179,7 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
     <CreatorError error={error} />
     {course?.reviewReason ? <div className="creator-error"><strong>Admin feedback</strong><p>{course.reviewReason}</p></div> : null}
     {!editable ? <>
-      <div className="creator-empty"><strong>Course editing is locked</strong><p>{course?.status === 'Published'
+      <div className="creator-empty creator-locked"><strong>Course editing is locked</strong><p>{course?.status === 'Published'
         ? 'Published definitions are read-only. Contact your course administrator to discuss changes.'
         : 'This submitted Course is locked while Admin reviews it. If rejected, you can update it and submit again.'} Its definition remains available below.</p></div>
       <div className="card creator-course-definition">
