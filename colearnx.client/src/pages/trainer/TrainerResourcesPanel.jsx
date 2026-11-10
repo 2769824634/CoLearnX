@@ -7,7 +7,7 @@ function downloadName(item) {
   return `${item.title}.${ext}`;
 }
 
-export default function TrainerResourcesPanel({ token, intake, api = trainerLaterPhaseApi }) {
+export default function TrainerResourcesPanel({ token, intake, api = trainerLaterPhaseApi, showRecordings = true }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [materialVersionId, setMaterialVersionId] = useState('');
@@ -23,11 +23,11 @@ export default function TrainerResourcesPanel({ token, intake, api = trainerLate
   const load = useCallback((signal) => Promise.all([
     api.availableMaterials(token, signal, intake.courseId),
     api.intakeMaterials(token, intake.id, signal),
-    Promise.all(sessions.map(async (session) => ({
+    showRecordings ? Promise.all(sessions.map(async (session) => ({
       sessionId: session.id,
       items: await api.recordings(token, intake.id, session.id, signal),
-    }))),
-  ]).then(([available, attached, recordings]) => ({ available, attached, recordings })), [api, token, intake.id, intake.courseId, sessions]);
+    }))) : [],
+  ]).then(([available, attached, recordings]) => ({ available, attached, recordings })), [api, token, intake.id, intake.courseId, sessions, showRecordings]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -85,9 +85,9 @@ export default function TrainerResourcesPanel({ token, intake, api = trainerLate
   const attachedIds = new Set(data?.attached.map((item) => item.materialVersionId) || []);
   const selectableMaterials = data?.available.filter((item) => item.courseId === intake.courseId && !attachedIds.has(item.versionId)) || [];
   return <section className="later-panel trainer-resource-panel">
-    <div className="trainer-section-heading"><div><p className="trainer-eyebrow">Delivery resources</p><h2>Materials & recordings</h2></div></div>
+    <div className="trainer-section-heading"><div><p className="trainer-eyebrow">Delivery resources</p><h2>{showRecordings ? 'Materials & recordings' : 'Course materials'}</h2></div></div>
     <TrainerError error={error} />
-    {!data && !error ? <div className="trainer-empty">Loading delivery resources…</div> : data ? <div className="later-two-column">
+    {!data && !error ? <div className="trainer-empty">Loading delivery resources…</div> : data ? <div className={showRecordings ? 'later-two-column' : undefined}>
       <div><h3>Approved learning materials</h3>{data.attached.length ? <ul className="later-resource-list">{data.attached.map((item) => <li key={item.materialVersionId}><div><strong>{item.title}</strong><small>{item.format} · approved version{item.versionNumber ? ` v${item.versionNumber}` : ''} · record #{item.materialVersionId}</small></div><button type="button" className="btn btn-ghost" disabled={busy || downloadBusy} onClick={() => openMaterial(item)}>{downloadBusy && download.id === item.materialVersionId ? 'Opening…' : 'Open'}</button></li>)}</ul> : <p className="trainer-help">No material version is attached yet.</p>}
         {download?.message ? <p className="trainer-help" role="status">{download.message}</p> : null}
         {preview?.url ? (String(preview.format).replace(/^\./, '').toUpperCase() === 'PDF'
@@ -96,9 +96,9 @@ export default function TrainerResourcesPanel({ token, intake, api = trainerLate
         <form className="later-inline-form" onSubmit={(event) => { event.preventDefault(); mutate(() => api.attachMaterial(token, intake.id, Number(materialVersionId)), () => setMaterialVersionId('')); }}><label htmlFor="attach-material">Attach approved version</label><select id="attach-material" required value={materialVersionId} onChange={(event) => setMaterialVersionId(event.target.value)}><option value="">Select…</option>{selectableMaterials.map((item) => <option key={item.versionId} value={item.versionId}>{item.title} · v{item.versionNumber}</option>)}</select><button className="btn btn-ghost" disabled={busy || downloadBusy || !selectableMaterials.length}>Attach</button></form>
         {!selectableMaterials.length ? <p className="trainer-help">No more approved versions are available to attach.</p> : null}
       </div>
-      <div><h3>Session recordings</h3>{data.recordings.flatMap((group) => group.items).length ? <ul className="later-resource-list">{data.recordings.flatMap((group) => group.items).map((item) => <li key={item.id}><div><strong>{item.title}</strong><small>Session #{item.courseSessionId}</small></div><a href={item.recordingUrl} target="_blank" rel="noreferrer">Watch</a></li>)}</ul> : <p className="trainer-help">No recording link has been added.</p>}
+      {showRecordings ? <div><h3>Session recordings</h3>{data.recordings.flatMap((group) => group.items).length ? <ul className="later-resource-list">{data.recordings.flatMap((group) => group.items).map((item) => <li key={item.id}><div><strong>{item.title}</strong><small>Session #{item.courseSessionId}</small></div><a href={item.recordingUrl} target="_blank" rel="noreferrer">Watch</a></li>)}</ul> : <p className="trainer-help">No recording link has been added.</p>}
         <form className="later-stack-form" onSubmit={(event) => { event.preventDefault(); mutate(() => api.addRecording(token, intake.id, Number(sessionId), recording), () => setRecording({ title: '', recordingUrl: '' })); }}><div className="form-group"><label htmlFor="recording-session">Session</label><select id="recording-session" required value={sessionId} onChange={(event) => setSessionId(event.target.value)}>{intake.sessions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div><div className="form-group"><label htmlFor="recording-title">Recording title</label><input id="recording-title" required maxLength="160" value={recording.title} onChange={(event) => setRecording({ ...recording, title: event.target.value })} /></div><div className="form-group"><label htmlFor="recording-url">HTTPS recording URL</label><input id="recording-url" type="url" required maxLength="1024" value={recording.recordingUrl} onChange={(event) => setRecording({ ...recording, recordingUrl: event.target.value })} /></div><button className="btn btn-ghost" disabled={busy || downloadBusy || !intake.sessions.length}>Add recording</button></form>
-      </div>
+      </div> : null}
     </div> : null}
   </section>;
 }

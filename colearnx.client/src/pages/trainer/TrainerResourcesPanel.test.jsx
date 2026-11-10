@@ -91,3 +91,14 @@ it('keeps recordings in the delivery resource panel while Session materials use 
   expect(screen.getByRole('link', { name: 'Watch' }).getAttribute('href')).toBe('https://example.com/replay');
   expect(screen.queryByRole('heading', { name: 'Session materials' })).toBeNull();
 });
+
+it('offers only course materials on the class page when recordings are hidden', async () => {
+  mockLists({ attached: [], available: [{ versionId: 12, courseId: 7, title: 'Week 1 slides', versionNumber: 1 }] });
+  trainerLaterPhaseApi.attachMaterial.mockResolvedValue({});
+  render(<TrainerResourcesPanel token="trainer-token" showRecordings={false} intake={{ id: 7, courseId: 7, sessions: [{ id: 9, label: 'Session 9' }] }} />);
+  fireEvent.change(await screen.findByLabelText('Attach approved version'), { target: { value: '12' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
+  await waitFor(() => expect(trainerLaterPhaseApi.attachMaterial).toHaveBeenCalledWith('trainer-token', 7, 12));
+  expect(screen.queryByText('Session recordings')).toBeNull();
+  expect(trainerLaterPhaseApi.recordings).not.toHaveBeenCalled();
+});

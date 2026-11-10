@@ -51,6 +51,13 @@ export function loadOnce(key, factory) {
   return promise;
 }
 
+// Page queries saved before a change no longer describe the server; the next visit loads them again.
+export function invalidateQueries() {
+  for (const key of store.keys()) {
+    if (key.startsWith('query:')) store.delete(key);
+  }
+}
+
 export function clearReadCache() {
   store.clear();
 }

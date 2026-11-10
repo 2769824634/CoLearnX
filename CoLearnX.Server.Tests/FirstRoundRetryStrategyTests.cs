@@ -54,6 +54,47 @@ public sealed class FirstRoundRetryStrategyTests
     }
 
     [Fact]
+    public async Task StaffIntakeCreate_RetriesAfterCommittedAckLoss_WithoutDuplicate()
+    {
+        await using var harness = await TestDatabase.CreateAsync();
+        await SeedIntakeAsync(harness.Db);
+        var admin = new AdminAccount { Email = "retry-admin@colearnx.test", PasswordHash = "hash" };
+        harness.Db.AdminAccounts.Add(admin);
+        await harness.Db.SaveChangesAsync();
+        var staff = new StaffAccount
+        {
+            Email = "retry-staff@colearnx.test", PasswordHash = "hash", FullName = "Retry Staff",
+            DisplayName = "Retry Staff", StaffNumber = 1, DocumentPath = "staff/doc.pdf", UserId = 1,
+            CreatedByAdminAccountId = admin.Id, SessionStamp = Guid.NewGuid(),
+        };
+        harness.Db.StaffAccounts.Add(staff);
+        (await harness.Db.Courses.SingleAsync(item => item.Id == 1)).IsPlatformOwned = true;
+        await harness.Db.SaveChangesAsync();
+
+        using (harness.Activate())
+        {
+            harness.Probe.LoseNextCommitAck();
+            var result = await new CourseIntakeService(harness.Db).CreateForStaffAsync(
+                staff.Id,
+                1,
+                new CreateCourseIntakeRequest(
+                    IntakeStart.AddDays(-20),
+                    IntakeStart.AddDays(-10),
+                    IntakeStart,
+                    IntakeStart.AddDays(2),
+                    TrainerId: 1,
+                    MinEnrollment: 2));
+
+            Assert.Equal("Draft", result.Status);
+        }
+
+        Assert.Equal(1, await harness.Db.CourseIntakes.CountAsync());
+        Assert.Equal(1, await harness.Db.AuditLogs.CountAsync(item => item.Action == "CourseIntakeCreated"));
+        Assert.Equal(1, harness.Probe.RetryCount);
+        harness.Probe.AssertExplicitTransactionsRanInsideStrategy();
+    }
+
+    [Fact]
     public async Task MaterialVersionCreate_RetriesByStableFilePath_WithoutDuplicate()
     {
         await using var harness = await TestDatabase.CreateAsync();

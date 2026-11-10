@@ -3,6 +3,7 @@ import { formatDate, safeMeetingLink } from './intakeForm';
 import useTrainerQuery, { loadTrainerDetail } from './useTrainerQuery';
 import { IntakeStatus, TrainerError, TrainerHeader, TrainerLoading } from './TrainerUi';
 import TrainerReservationPanel from './TrainerReservationPanel';
+import TrainerResourcesPanel from './TrainerResourcesPanel';
 import { formatCount, formatUtcDate } from '../businessPresentation';
 
 function SessionCard({ intakeId, session }) {
@@ -36,6 +37,9 @@ function IntakeWorkspace({ query }) {
     <TrainerReservationPanel key={intake.id} intake={intake} />
     <div className="trainer-section-heading"><div><p className="trainer-eyebrow">Teaching plan</p><h2>Sessions <span className="trainer-count">{sessions.length}</span></h2></div></div>
     {sessions.length ? <div className="trainer-sessions">{sessions.map((session) => <SessionCard key={session.id} intakeId={intake.id} session={session} />)}</div> : <div className="trainer-empty"><strong>No sessions yet</strong><p>The course Creator adds sessions before this class is published.</p></div>}
+    {intake.status === 'Published' || intake.status === 'InProgress'
+      ? <TrainerResourcesPanel key={`materials:${intake.id}`} token={query.token} intake={intake} showRecordings={false} />
+      : null}
     <p className="trainer-detail-footer">Intake #{intake.id} · Course #{intake.courseId}</p>
   </>;
 }

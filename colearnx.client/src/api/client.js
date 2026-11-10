@@ -1,3 +1,5 @@
+import { invalidateQueries } from './readCache.js';
+
 const TOKEN_KEY = 'colearnx.token';
 const ADMIN_TOKEN_KEY = 'colearnx.admin.token';
 const STAFF_TOKEN_KEY = 'colearnx.staff.token';
@@ -99,6 +101,8 @@ export async function apiRequest(path, { method = 'GET', body, token, signal, as
     body: body === undefined ? undefined : asForm ? body : JSON.stringify(body),
     signal,
   });
+
+  if (res.ok && method !== 'GET') invalidateQueries();
 
   if (res.status === 204) return null;
 

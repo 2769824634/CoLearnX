@@ -135,7 +135,8 @@ public record CertificateRequestDto(
     string? AdminReviewReason,
     int? CertificateId,
     DateTime? TrainerReviewedAt = null,
-    DateTime? AdminReviewedAt = null);
+    DateTime? AdminReviewedAt = null,
+    int CourseId = 0);
 
 public record CertificateEligibilityDto(
     int EnrollmentId,
