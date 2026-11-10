@@ -81,9 +81,9 @@ export default function StaffCourseFormPage() {
       navigate(`/staff/courses/${saved.id}`, { replace: true });
     } catch (err) { setError(err.message || 'Could not save course.'); }
   }
-  return <section className="creator-page"><div className="page-header"><div><p className="eyebrow">Platform course</p><h1>{courseId ? 'Edit course' : 'Create course'}</h1></div></div>
+  return <section className="creator-page"><div className="creator-header"><div><p className="creator-eyebrow">Platform course</p><h1>{courseId ? 'Edit course' : 'Create course'}</h1></div></div>
     {error ? <div className="callout warn">{error}</div> : null}
-    <form className="card" onSubmit={save}>
+    <form className="card staff-course-form" onSubmit={save}>
       <div className="form-group"><label htmlFor="platform-code">Course code</label><input id="platform-code" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
       <div className="form-group"><label htmlFor="platform-title">Title</label><input id="platform-title" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
       <div className="form-group"><label htmlFor="platform-description">Description</label><textarea id="platform-description" value={form.description || ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
@@ -95,8 +95,8 @@ export default function StaffCourseFormPage() {
       <div className="form-group"><label htmlFor="platform-credit">Credit cost</label><input id="platform-credit" type="number" min={priceCell(form, options)?.minCredits} max={priceCell(form, options) ? priceCell(form, options).maxCredits * 2 : undefined} step="1" required value={form.creditCost} onChange={(e) => setForm({ ...form, creditCost: e.target.value })} aria-describedby="platform-credit-hint" /><small id="platform-credit-hint">{priceCell(form, options) ? `Enter a whole number from ${priceCell(form, options).minCredits} to ${priceCell(form, options).maxCredits} credits. A higher price up to ${priceCell(form, options).maxCredits * 2} needs a reason.` : 'Choose a level and subject before setting the price.'}</small></div>
       {priceCell(form, options) && Number(form.creditCost) > priceCell(form, options).maxCredits ? <div className="form-group"><label htmlFor="platform-price-reason">Reason for a higher price</label><textarea id="platform-price-reason" required maxLength={500} value={form.priceExceptionReason} onChange={(e) => setForm({ ...form, priceExceptionReason: e.target.value })} /></div> : null}
       <InterestPicker tree={options.interestTree} selectedIds={form.interestIds || []} onToggle={(id) => setForm((current) => ({ ...current, interestIds: current.interestIds.includes(id) ? current.interestIds.filter((item) => item !== id) : current.interestIds.length < 4 ? [...current.interestIds, id] : current.interestIds }))} />
-      <button type="submit" className="btn btn-primary">Save platform course</button>
-      {courseId && form.status !== 'PendingApproval' ? <button type="button" className="btn btn-ghost" onClick={async () => { try { setForm(await staffCoursesApi.submit(token, courseId)); } catch (err) { setError(err.message); } }}>Submit for approval</button> : null}
+      <div className="staff-form-actions"><button type="submit" className="btn btn-primary">Save platform course</button>
+      {courseId && form.status !== 'PendingApproval' ? <button type="button" className="btn btn-ghost" onClick={async () => { try { setForm(await staffCoursesApi.submit(token, courseId)); } catch (err) { setError(err.message); } }}>Submit for approval</button> : null}</div>
     </form>
     {courseId ? <section className="later-panel">
       <div className="trainer-section-heading"><div><p className="trainer-eyebrow">Course operations</p><h2>Learners & assessments</h2></div><button type="button" className="btn btn-ghost" aria-expanded={learnersOpen} onClick={() => setLearnersOpen((value) => !value)}>{learnersOpen ? 'Hide learner list' : 'Show learner list'}</button></div>

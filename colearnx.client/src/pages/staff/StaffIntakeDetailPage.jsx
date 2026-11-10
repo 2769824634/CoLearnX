@@ -38,7 +38,7 @@ export default function StaffIntakeDetailPage() {
   const publishable = ['Draft', 'Rejected'].includes(intake.status);
   const teachingDates = initialSchedule(intake);
   return <section className="creator-page"><Link className="creator-back" to="/staff/intakes">← All classes</Link>
-    <div className="page-header"><div><p className="eyebrow">Class #{intake.id}</p><h1>Platform class schedule</h1><p>{formatDate(intake.startsAt)} → {formatDate(intake.endsAt)}</p></div><span className={`creator-status ${intake.status.toLowerCase()}`}>{statusLabel(intake.status)}</span></div>
+    <div className="creator-header"><div><p className="creator-eyebrow">Class #{intake.id}</p><h1>Platform class schedule</h1><p>{formatDate(intake.startsAt)} → {formatDate(intake.endsAt)}</p></div><span className={`creator-status ${intake.status.toLowerCase()}`}>{statusLabel(intake.status)}</span></div>
     {error ? <div className="callout warn">{error.message}</div> : null}
     {message ? <p role="status">{message}</p> : null}
     <div className="creator-section-heading"><div><h2>Teaching dates</h2><p>{teachingDates.deliveryStartDate} → {teachingDates.deliveryEndDate} · {localTimezone}</p></div>
@@ -50,7 +50,7 @@ export default function StaffIntakeDetailPage() {
       onClose={(saved) => { setDatesOpen(false); if (saved) setMessage('Teaching dates saved.'); }} /> : null}
     <div className="creator-section-heading"><h2>Sessions</h2>{publishable && !editor ? <button className="btn btn-primary" type="button" onClick={() => setEditor(true)}>Add session</button> : null}</div>
     {editor ? <SessionForm intake={intake} onSave={addSession} onCancel={() => setEditor(false)} busy={busy} error={error} onError={setError} /> : null}
-    {(intake.sessions || []).map((session) => <article className="creator-application-row" key={session.id}><div><h2>{session.label}</h2><p>{formatDate(session.startsAt)} → {formatDate(session.endsAt)}</p>{session.meetingLink ? <p>{session.meetingLink}</p> : null}</div>{['Published', 'InProgress'].includes(intake.status) ? <Link className="btn btn-ghost" to={`/staff/intakes/${intake.id}/sessions/${session.id}`}>Open Session</Link> : null}</article>)}
+    {intake.sessions?.length ? <div className="creator-application-list creator-session-rows">{intake.sessions.map((session) => <article className="creator-application-row" key={session.id}><div><h2>{session.label}</h2><p>{formatDate(session.startsAt)} → {formatDate(session.endsAt)}</p>{session.meetingLink ? <p>{session.meetingLink}</p> : null}</div>{['Published', 'InProgress'].includes(intake.status) ? <Link className="btn btn-ghost" to={`/staff/intakes/${intake.id}/sessions/${session.id}`}>Open Session</Link> : null}</article>)}</div> : null}
     {publishable ? <div className="creator-section-heading"><div><h2>Publish this class</h2><p>Publishing opens registration to members.</p></div><button className="btn btn-primary" type="button" disabled={busy || !intake.sessions?.length} onClick={publish}>Publish</button></div> : null}
   </section>;
 }
