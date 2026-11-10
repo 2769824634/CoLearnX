@@ -38,7 +38,7 @@ export default function StaffIntakeDetailPage() {
   const publishable = ['Draft', 'Rejected'].includes(intake.status);
   const teachingDates = initialSchedule(intake);
   return <section className="creator-page"><Link className="creator-back" to="/staff/intakes">← All classes</Link>
-    <div className="creator-header"><div><p className="creator-eyebrow">Class #{intake.id}</p><h1>Platform class schedule</h1><p>{formatDate(intake.startsAt)} → {formatDate(intake.endsAt)}</p></div><span className={`creator-status ${intake.status.toLowerCase()}`}>{statusLabel(intake.status)}</span></div>
+    <div className="creator-header"><div><p className="creator-eyebrow">{intake.trainerName || 'Platform trainer'}</p><h1>Platform class schedule</h1><p>{formatDate(intake.startsAt)} → {formatDate(intake.endsAt)}</p></div><span className={`creator-status ${intake.status.toLowerCase()}`}>{statusLabel(intake.status)}</span></div>
     {error ? <div className="callout warn">{error.message}</div> : null}
     {message ? <p role="status">{message}</p> : null}
     <div className="creator-section-heading"><div><h2>Teaching dates</h2><p>{teachingDates.deliveryStartDate} → {teachingDates.deliveryEndDate} · {localTimezone}</p></div>

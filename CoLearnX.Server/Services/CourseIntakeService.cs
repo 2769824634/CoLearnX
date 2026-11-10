@@ -456,7 +456,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
     {
         await RequireTrainerAsync(userId, ct);
         return await db.CourseIntakes.Include(i => i.Sessions).ThenInclude(session => session.Enrollments)
-            .Include(i => i.Applications).Include(i => i.ReplacementIntake).AsSplitQuery()
+            .Include(i => i.Applications).Include(i => i.ReplacementIntake).Include(i => i.Trainer).AsSplitQuery()
             .SingleOrDefaultAsync(i => i.Id == id && i.TrainerId == userId, ct)
             ?? throw new CourseIntakeException("INTAKE_NOT_FOUND", "Owned Intake was not found.", 404);
     }
@@ -486,7 +486,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
     {
         await RequireAdminAccountAsync(adminAccountId, ct);
         return await db.CourseIntakes.Include(i => i.Sessions).ThenInclude(s => s.Enrollments)
-            .Include(i => i.Applications).Include(i => i.ReplacementIntake).AsSplitQuery()
+            .Include(i => i.Applications).Include(i => i.ReplacementIntake).Include(i => i.Trainer).AsSplitQuery()
             .SingleOrDefaultAsync(i => i.Id == id, ct)
             ?? throw new CourseIntakeException("INTAKE_NOT_FOUND", "Intake was not found.", 404);
     }
@@ -624,7 +624,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
                 .Select(ToChangeDto).FirstOrDefault(), i.MinEnrollment, i.ConfirmedToRunAt, i.CancelledAt,
             i.CancellationReason, i.ReplacementForIntakeId, i.ReplacementIntake?.Id,
             i.CancellationReason == "MinimumEnrollmentNotMet" ? i.CancelledAt?.AddDays(7) : null,
-            reserved, active, remaining);
+            reserved, active, remaining, i.Trainer?.FullName);
     }
 
     private static CourseIntakeChangeDto ToChangeDto(CourseIntakeApplication application)

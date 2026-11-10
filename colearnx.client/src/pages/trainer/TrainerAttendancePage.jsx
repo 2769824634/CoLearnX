@@ -63,13 +63,13 @@ export default function TrainerAttendancePage() {
     {query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <>
       <div className="trainer-toolbar later-toolbar">
         <div className="form-group"><label htmlFor="attendance-intake">Intake</label><select id="attendance-intake" value={intake?.id || ''} onChange={(event) => { setIntakeChoice(event.target.value); setSessionChoice(''); setDraft({}); }}>
-          {query.data.map((item) => <option key={item.id} value={item.id}>{item.courseCode || `Course #${item.courseId}`} — {item.courseTitle || 'Course'} · Intake #{item.id} · {item.status}</option>)}
+          {query.data.map((item) => <option key={item.id} value={item.id}>{item.courseCode || 'Course'} — {item.courseTitle || 'Course'} · {item.startsAt ? formatUtcRange(item.startsAt, item.endsAt) : item.status}</option>)}
         </select></div>
         <div className="form-group"><label htmlFor="attendance-session">Session</label><select id="attendance-session" value={session?.id || ''} onChange={(event) => { setSessionChoice(event.target.value); setDraft({}); }}>
           {(intake?.sessions || []).map((item) => <option key={item.id} value={item.id}>{item.label} · {formatUtcRange(item.startsAt, item.endsAt)}</option>)}
         </select></div>
       </div>
-      {intake && session ? <p>{intake.courseCode || `Course #${intake.courseId}`} — {intake.courseTitle || 'Course'} · Intake #{intake.id} · {session.label} · {formatUtcRange(session.startsAt, session.endsAt)}</p> : null}
+      {intake && session ? <p>{intake.courseCode || 'Course'} — {intake.courseTitle || 'Course'} · {session.label} · {formatUtcRange(session.startsAt, session.endsAt)}</p> : null}
       {notice ? <p className="trainer-notice" role="status">{notice}</p> : null}
       <TrainerError error={mutationError} />
       {!query.data.length ? <div className="trainer-empty">No owned Intakes are available.</div> : !session ? <div className="trainer-empty">This Intake has no Sessions.</div> : !learners.length ? <div className="trainer-empty">No active or completed learners are enrolled in this Intake.</div> : <>

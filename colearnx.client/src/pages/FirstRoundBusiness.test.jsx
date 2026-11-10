@@ -148,7 +148,7 @@ it('sends only one reservation while confirmation is in flight', async () => {
 
 it('identifies the attendance course and full session schedule', async () => {
   mount(<TrainerAttendancePage />, {}, '/', async (url) => json(url === '/api/trainer/intakes' ? [{ id: 7 }] : url === '/api/courses' ? [{ id: 1, code: 'UX101', title: 'Inclusive UX' }] : url.endsWith('/learners') ? [] : { id: 7, courseId: 1, status: 'Published', sessions: [{ id: 9, label: 'Night class', startsAt: '2099-02-01T17:30:00Z', endsAt: '2099-02-02T02:30:00Z' }] }));
-  expect(await screen.findByRole('option', { name: /UX101 — Inclusive UX · Intake #7/ })).toBeTruthy();
+  expect(await screen.findByRole('option', { name: /UX101 — Inclusive UX/ })).toBeTruthy();
   expect(screen.getByRole('option', { name: /Night class · 01 Feb 2099, 17:30 UTC → 02 Feb 2099, 02:30 UTC/ })).toBeTruthy();
 });
 

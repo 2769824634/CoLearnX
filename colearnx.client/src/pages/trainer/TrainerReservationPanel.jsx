@@ -18,7 +18,7 @@ function ReservationList({ intakeId, token, api }) {
     <thead><tr><th>Learner</th><th>Reservation</th><th>Session</th><th>Credits</th><th>Reserved at (UTC)</th></tr></thead>
     <tbody>{query.data.map((item) => <tr key={item.enrollmentId}>
       <td>{item.learnerName}</td><td>ENR-{item.enrollmentId}</td>
-      <td>{item.sessionLabel} · Session #{item.courseSessionId}</td>
+      <td>{item.sessionLabel}</td>
       <td>{formatCount(item.creditsHeld, 'credit')} on hold</td><td>{formatUtcDateTime(item.reservedAt)}</td>
     </tr>)}</tbody>
   </table></div>;

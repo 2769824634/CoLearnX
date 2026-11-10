@@ -159,7 +159,7 @@ describe('Creator Course workspace', () => {
     fireEvent.click(within(steps).getByRole('button', { name: /Interests & price/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Submit for approval' }));
 
-    expect(await screen.findByText('PendingApproval')).toBeTruthy();
+    expect(await screen.findByText('Pending approval')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
     expect(screen.queryByRole('list', { name: 'Course creation steps' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Upload materials' })).toBeTruthy();

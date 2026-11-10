@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { adminStaffApi, staffAuthApi } from '../api';
 import { formatUtcDateTime } from '../pages/businessPresentation';
+import { statusLabel } from '../pages/trainer/intakeForm';
 
 export default function StaffDetails({ token, staffId }) {
   const [detail, setDetail] = useState(null);
@@ -46,7 +47,7 @@ export default function StaffDetails({ token, staffId }) {
         {password ? <div className="callout success" role="status"><strong>New password — copy it before closing:</strong> <code>{password}</code><button className="btn btn-ghost" type="button" onClick={() => setPassword('')}>Hide password</button></div> : null}
       </section>
       <section className="later-panel"><h2>Assigned courses</h2>{detail.courses.length ? <ul>{detail.courses.map(course => <li key={course.id}><strong>{course.code} · {course.title}</strong> — {course.status}</li>)}</ul> : <p>No assigned courses.</p>}</section>
-      <section className="later-panel"><h2>Teaching classes</h2>{detail.intakes.length ? <div className="later-table-wrap"><table className="later-table"><thead><tr><th>Class</th><th>Status</th><th>Starts (UTC)</th><th>Ends (UTC)</th></tr></thead><tbody>{detail.intakes.map(intake => <tr key={intake.id}><td>{intake.courseTitle} · #{intake.id}</td><td>{intake.status}</td><td>{formatUtcDateTime(intake.startsAt)}</td><td>{formatUtcDateTime(intake.endsAt)}</td></tr>)}</tbody></table></div> : <p>No teaching classes.</p>}</section>
+      <section className="later-panel"><h2>Teaching classes</h2>{detail.intakes.length ? <div className="later-table-wrap"><table className="later-table"><thead><tr><th>Class</th><th>Status</th><th>Starts (UTC)</th><th>Ends (UTC)</th></tr></thead><tbody>{detail.intakes.map(intake => <tr key={intake.id}><td>{intake.courseTitle}</td><td>{statusLabel(intake.status)}</td><td>{formatUtcDateTime(intake.startsAt)}</td><td>{formatUtcDateTime(intake.endsAt)}</td></tr>)}</tbody></table></div> : <p>No teaching classes.</p>}</section>
     </> : null}
   </div>;
 }

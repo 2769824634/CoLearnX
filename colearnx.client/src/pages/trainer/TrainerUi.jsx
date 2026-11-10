@@ -50,7 +50,7 @@ export function IntakeRows({ intakes, courses, empty = 'No Intakes yet. Create o
     const course = courseMap.get(intake.courseId);
     return <article className="trainer-intake-row trainer-row-link" key={intake.id}>
       <div className="trainer-date-tile" aria-hidden="true"><strong>{utcDate(intake.startsAt).getUTCDate()}</strong><span>{utcDate(intake.startsAt).toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' })}</span></div>
-      <div className="trainer-intake-title"><small>{course?.code || `Course #${intake.courseId}`} · Intake #{intake.id}</small><h3><Link to={intakeLink(intake.id)}>{course?.title || `Course #${intake.courseId}`}</Link></h3><p>{formatDate(intake.startsAt)} → {formatDate(intake.endsAt)}</p></div>
+      <div className="trainer-intake-title"><small>{course?.code || course?.title || 'Course'}</small><h3><Link to={intakeLink(intake.id)}>{course?.title || course?.code || 'Course'}</Link></h3><p>{[intake.trainerName, `${formatDate(intake.startsAt)} → ${formatDate(intake.endsAt)}`].filter(Boolean).join(' · ')}</p></div>
       <IntakeStatus status={intake.status} /><RowArrow />
     </article>;
   })}</div>;

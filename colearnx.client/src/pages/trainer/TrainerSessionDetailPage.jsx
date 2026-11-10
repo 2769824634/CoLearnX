@@ -91,7 +91,7 @@ function SessionWorkspace({ query, api, deliveryApi }) {
     } catch (failure) { setError(failure); }
     finally { setBusy(false); }
   }
-  return <><TrainerHeader eyebrow={`${course?.code || `Course #${intake.courseId}`} / Intake #${intake.id}`} title={session.label}>All delivery work for this Session is managed here.</TrainerHeader>
+  return <><TrainerHeader eyebrow={`${course?.code || course?.title || 'Course'} · ${intake.trainerName || 'Trainer'}`} title={session.label}>All delivery work for this Session is managed here.</TrainerHeader>
     <p>{formatDate(session.startsAt)} → {formatDate(session.endsAt)}</p>
     <section className="later-panel"><div className="trainer-section-heading"><div><p className="trainer-eyebrow">Live delivery</p><h2>Meeting link</h2></div><button className="btn btn-ghost" type="button" onClick={() => setEditing(true)}>Update meeting link</button></div>
       {link ? <a href={link} target="_blank" rel="noopener noreferrer">{link}</a> : <p className="trainer-help">No online meeting link.</p>}
@@ -112,5 +112,5 @@ export default function TrainerSessionDetailPage({
 }) {
   const { courseIntakeId, courseSessionId } = useParams();
   const query = useTrainerQuery(loadWorkspace, `${courseIntakeId}:${courseSessionId}`, token);
-  return <section className="trainer-page later-page"><div className="trainer-detail-nav"><Link className="trainer-back" to={backPath || `/trainer/courses/intakes/${courseIntakeId}`}>← Intake #{courseIntakeId}</Link></div>{query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <SessionWorkspace query={query} api={laterPhaseApi} deliveryApi={deliveryApi} />}</section>;
+  return <section className="trainer-page later-page"><div className="trainer-detail-nav"><Link className="trainer-back" to={backPath || `/trainer/courses/intakes/${courseIntakeId}`}>← Back to class</Link></div>{query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <SessionWorkspace query={query} api={laterPhaseApi} deliveryApi={deliveryApi} />}</section>;
 }

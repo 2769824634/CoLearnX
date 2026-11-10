@@ -40,7 +40,7 @@ function PostponementPicker({ enrollment, busy, onReserve }) {
         {options.map((option) => <option key={option.courseSessionId} value={option.courseSessionId}>{option.label} - {formatUtcDateTime(option.startsAt)}{option.seatsLeft === 0 ? ' (Full)' : ''}</option>)}
       </select>
     </div>
-    <p>Intake #{selected.intakeId} · {formatUtcDateTime(selected.startsAt)} to {formatUtcDateTime(selected.endsAt)}</p>
+    <p>{selected.label} · {formatUtcDateTime(selected.startsAt)} to {formatUtcDateTime(selected.endsAt)}</p>
     <p>Registration closes {formatUtcDate(selected.registrationClosesAt)}. {selected.seatsLeft == null ? 'Online places available.' : `${formatCount(selected.seatsLeft, 'place')} left.`}</p>
     <p>A new reservation holds {formatCount(selected.creditsRequired, 'credit')} from your available balance.</p>
     <button type="button" className="btn btn-primary" disabled={busy || selected.seatsLeft === 0} onClick={() => onReserve({ enrollmentId: enrollment.enrollmentId, action: 'postpone', ...selected })}>Reserve replacement place</button>
@@ -225,7 +225,7 @@ export default function MemberProgramsPage() {
       <Modal open={Boolean(pendingAction)} title={pendingAction?.action === 'postpone' ? 'Reserve replacement place?' : pendingAction?.action === 'cancel' ? 'Cancel reservation?' : 'Withdraw from class?'} onClose={() => { if (!busy) setPendingAction(null); }}>
         <p>{pendingAction?.action === 'cancel'
           ? 'Your held credits will return to your available balance.'
-          : pendingAction?.action === 'postpone' ? `${formatCount(pendingAction.creditsRequired, 'credit')} will be placed on hold again for ${pendingAction.label}. This reserves a new place in Intake #${pendingAction.intakeId}.`
+          : pendingAction?.action === 'postpone' ? `${formatCount(pendingAction.creditsRequired, 'credit')} will be placed on hold again for ${pendingAction.label}. This reserves a new place in ${pendingAction.label}.`
             : `${formatCount(pendingAction?.refundCredits, 'credit')} will be refunded (70%). Your confirmed place will be cancelled. Eligibility uses UTC calendar dates and is checked again when you confirm.`}</p>
         <div className="modal-actions"><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setPendingAction(null)}>Keep place</button><button type="button" className="btn btn-primary" disabled={busy} onClick={confirmChange}>{busy ? 'Processing…' : 'Confirm'}</button></div>
       </Modal>

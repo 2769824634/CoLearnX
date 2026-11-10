@@ -43,7 +43,7 @@ export default function AdminIntakeDatesPage() {
       <th>Class / Course</th><th>Trainer</th><th>Teaching dates</th><th>Status</th><th>Action</th>
     </tr></thead><tbody>{query.data.map((item) => {
       const dates = initialSchedule(item);
-      return <tr key={item.id}><td><strong>Class #{item.id} · {item.courseTitle}</strong><small>{item.courseCode}</small></td>
+      return <tr key={item.id}><td><strong>{item.courseCode} · {item.courseTitle}</strong></td>
         <td>{item.trainerName}</td><td>{dates.deliveryStartDate} → {dates.deliveryEndDate}</td><td><span className={`pill ${STATUS_PILL[item.status] || 'neutral'}`}>{statusLabel(item.status)}</span></td>
         <td>{canEditTeachingDates(item.status) ? <button className="btn btn-ghost btn-sm" type="button" disabled={opening} onClick={() => openDates(item.id)}>Edit teaching dates</button> : '—'}</td></tr>;
     })}</tbody></table>{!query.data.length ? <div className="admin-review-state">No classes are available yet.</div> : null}</div> : null}

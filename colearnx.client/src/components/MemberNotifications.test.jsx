@@ -30,6 +30,7 @@ it.each(['//example.com', '/trainer/courses/intakes/0', '/trainer/courses/intake
 vi.mock('../api', () => ({ notificationsApi: { my: vi.fn(), read: vi.fn(), readAll: vi.fn() } }));
 vi.mock('./notificationRealtime', () => ({ connectNotificationRealtime: vi.fn(() => ({ stop() {} })) }));
 beforeEach(() => {
+  localStorage.removeItem('colearnx.notice-shown');
   notificationsApi.read.mockResolvedValue(null);
   notificationsApi.readAll.mockResolvedValue(null);
   connectNotificationRealtime.mockImplementation(() => ({ stop() {} }));
@@ -78,6 +79,16 @@ it('pops up an unread approval decision and marks it read when acknowledged', as
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(notificationsApi.read).toHaveBeenCalledWith(31, 'member');
   expect(await screen.findByRole('button', { name: 'Notifications, 0 unread' })).toBeTruthy();
+});
+
+it('shows the same important notice only once', async () => {
+  notificationsApi.my.mockResolvedValue({ unreadCount: 1, items: [published] });
+  mount();
+  expect(await screen.findByRole('dialog', { name: 'Course published' })).toBeTruthy();
+  cleanup();
+  mount();
+  expect(await screen.findByRole('button', { name: 'Notifications, 1 unread' })).toBeTruthy();
+  expect(screen.queryByRole('dialog', { name: 'Course published' })).toBeNull();
 });
 
 it('does not pop up routine or already-read notifications', async () => {

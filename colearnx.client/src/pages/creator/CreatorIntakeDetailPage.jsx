@@ -21,7 +21,7 @@ const structuralStatuses = new Set(['Draft', 'Rejected', 'Published', 'InProgres
 function SessionCard({ session, editable, onEdit, onDelete }) {
   return <article className="creator-application-row">
     <div>
-      <p className="creator-eyebrow">Session #{session.id}</p>
+      <p className="creator-eyebrow">{formatDate(session.startsAt)} → {formatDate(session.endsAt)}</p>
       <h2>{session.label}</h2>
       <p>{formatDate(session.startsAt)} → {formatDate(session.endsAt)}</p>
       {session.meetingLink ? <p>{session.meetingLink}</p> : null}
@@ -81,13 +81,13 @@ function IntakeWorkspace({ query }) {
   }
 
   return <>
-    <CreatorHeader eyebrow={`${course?.code || `Course #${intake.courseId}`} / Class #${intake.id}`} title={course?.title || `Course #${intake.courseId}`} action={<span className={`creator-status ${intake.status.toLowerCase()}`}>{statusLabel(intake.status)}</span>}>
-      Assigned Trainer #{intake.trainerId}. Times are shown in UTC.
+    <CreatorHeader eyebrow={`${course?.code || course?.title || 'Course'} · ${formatDate(intake.startsAt)}`} title={course?.title || course?.code || 'Course'} action={<span className={`creator-status ${intake.status.toLowerCase()}`}>{statusLabel(intake.status)}</span>}>
+      Trainer {intake.trainerName || 'assigned'}. Times are shown in UTC.
     </CreatorHeader>
     {notice ? <div className="trainer-notice" role="status">{notice}</div> : null}
     <CreatorError error={error} />
     {intake.cancelledAt ? <p>Cancelled {formatDate(intake.cancelledAt)}{intake.cancellationReason === 'MinimumEnrollmentNotMet' ? ' because the class did not reach the minimum.' : '.'}</p> : null}
-    {intake.replacementIntakeId ? <p>Postponed to <Link to={`/creator/intakes/${intake.replacementIntakeId}`}>class #{intake.replacementIntakeId}</Link>.</p> : null}
+    {intake.replacementIntakeId ? <p>Postponed to <Link to={`/creator/intakes/${intake.replacementIntakeId}`}>the replacement class</Link>.</p> : null}
     {canPostpone ? <section>
       <h2>Postpone this class</h2>
       {editor?.type === 'postpone'
