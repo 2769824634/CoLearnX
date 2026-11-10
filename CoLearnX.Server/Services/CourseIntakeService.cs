@@ -206,41 +206,54 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         CreateCourseIntakeRequest request,
         CancellationToken ct = default)
     {
-        var staff = await RequireStaffAccountAsync(staffAccountId, ct);
-        var course = await db.Courses.AsNoTracking()
-            .SingleOrDefaultAsync(item => item.Id == courseId && item.IsPlatformOwned
-                && item.TrainerId == staff.UserId, ct)
-            ?? throw new CourseIntakeException("COURSE_NOT_FOUND", "Course was not found.", 404);
-        if (course.Status != CourseStatus.Published)
-            throw new CourseIntakeException("COURSE_NOT_PUBLISHED", "The Course must be published.", 409);
-        await RequireAcceptedTrainerAsync(courseId, staff.UserId, ct);
-        ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt,
-            request.EndsAt, request.DaysBeforeTeaching);
-        ValidateMinEnrollment(request.MinEnrollment);
-        var intake = new CourseIntake
+        var creationVersion = Guid.NewGuid();
+        return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
-            CourseId = courseId,
-            TrainerId = staff.UserId,
-            RegistrationOpensAt = request.RegistrationOpensAt,
-            RegistrationClosesAt = request.RegistrationClosesAt,
-            StartsAt = request.StartsAt,
-            EndsAt = request.EndsAt,
-            MinEnrollment = request.MinEnrollment,
-        };
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        db.CourseIntakes.Add(intake);
-        await db.SaveChangesAsync(ct);
-        db.AuditLogs.Add(new AuditLog
-        {
-            StaffAccountId = staffAccountId,
-            Action = "CourseIntakeCreated",
-            EntityType = nameof(CourseIntake),
-            EntityId = intake.Id.ToString(),
-            Result = intake.Status.ToString(),
+            db.ChangeTracker.Clear();
+            var staff = await RequireStaffAccountAsync(staffAccountId, ct);
+            var existing = await db.CourseIntakes
+                .Include(item => item.Sessions).ThenInclude(session => session.Enrollments)
+                .Include(item => item.Applications)
+                .SingleOrDefaultAsync(item => item.CourseId == courseId && item.Version == creationVersion, ct);
+            if (existing is not null)
+                return ToDto(existing);
+
+            var course = await db.Courses.AsNoTracking()
+                .SingleOrDefaultAsync(item => item.Id == courseId && item.IsPlatformOwned
+                    && item.TrainerId == staff.UserId, ct)
+                ?? throw new CourseIntakeException("COURSE_NOT_FOUND", "Course was not found.", 404);
+            if (course.Status != CourseStatus.Published)
+                throw new CourseIntakeException("COURSE_NOT_PUBLISHED", "The Course must be published.", 409);
+            await RequireAcceptedTrainerAsync(courseId, staff.UserId, ct);
+            ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt,
+                request.EndsAt, request.DaysBeforeTeaching);
+            ValidateMinEnrollment(request.MinEnrollment);
+            var intake = new CourseIntake
+            {
+                CourseId = courseId,
+                TrainerId = staff.UserId,
+                RegistrationOpensAt = request.RegistrationOpensAt,
+                RegistrationClosesAt = request.RegistrationClosesAt,
+                StartsAt = request.StartsAt,
+                EndsAt = request.EndsAt,
+                MinEnrollment = request.MinEnrollment,
+                Version = creationVersion,
+            };
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
+            db.CourseIntakes.Add(intake);
+            await db.SaveChangesAsync(ct);
+            db.AuditLogs.Add(new AuditLog
+            {
+                StaffAccountId = staffAccountId,
+                Action = "CourseIntakeCreated",
+                EntityType = nameof(CourseIntake),
+                EntityId = intake.Id.ToString(),
+                Result = intake.Status.ToString(),
+            });
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            return ToDto(intake);
         });
-        await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
-        return ToDto(intake);
     }
 
     public async Task<IReadOnlyList<CourseIntakeSummaryDto>> ListForStaffAsync(

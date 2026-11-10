@@ -19,7 +19,7 @@ export default function CreatorIntakesPage() {
   const courses = new Map((query.data?.courses || []).map((course) => [course.id, course]));
   const intakes = query.data?.intakes || [];
   return <section className="creator-page">
-    <CreatorHeader eyebrow="Classes" title="Classes you open" action={<Link className="btn btn-primary" to="/creator/intakes/new">Open a class</Link>}>
+    <CreatorHeader eyebrow="Classes" title="Classes you open" action={<div className="trainer-actions"><button type="button" className="btn btn-ghost" onClick={query.refresh} disabled={query.loading}>Refresh</button><Link className="btn btn-primary" to="/creator/intakes/new">Open a class</Link></div>}>
       Create a class on a published course, assign a Trainer who has accepted it, then publish the schedule.
     </CreatorHeader>
     {query.loading ? <div className="creator-empty" role="status">Loading classes…</div>

@@ -12,7 +12,7 @@ export default function CreatorCoursesPage() {
   const courses = query.data || [];
 
   return <section className="creator-page">
-    <CreatorHeader eyebrow="Course management" title="Course workspace" action={<Link className="btn btn-primary" to="/creator/courses/new">Create Course</Link>}>
+    <CreatorHeader eyebrow="Course management" title="Course workspace" action={<div className="trainer-actions"><button type="button" className="btn btn-ghost" onClick={query.refresh} disabled={query.loading}>Refresh</button><Link className="btn btn-primary" to="/creator/courses/new">Create Course</Link></div>}>
       Create Course drafts, submit them for Admin approval, and manage the Courses you own.
     </CreatorHeader>
     <Link className="creator-review-card" to="/creator/intakes">

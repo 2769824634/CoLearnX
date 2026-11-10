@@ -224,7 +224,8 @@ public sealed class CertificateWorkflowService(CoLearnXDbContext db) : ICertific
             item.AdminReviewReason,
             item.UserCertificateId,
             item.TrainerReviewedAt,
-            item.AdminReviewedAt);
+            item.AdminReviewedAt,
+            item.Enrollment.CourseId);
 
     private async Task<CertificateEligibilityDto> EvaluateEligibilityAsync(Enrollment enrollment, CancellationToken ct)
     {
@@ -241,8 +242,8 @@ public sealed class CertificateWorkflowService(CoLearnXDbContext db) : ICertific
         var assessmentIds = assessments.Select(item => item.Id).ToArray();
         var results = await db.AssessmentResults.Where(item => item.EnrollmentId == enrollment.Id && assessmentIds.Contains(item.AssessmentId)).ToListAsync(ct);
         var passed = assessments.Count(assessment => results.Any(result => result.AssessmentId == assessment.Id && result.Score >= assessment.PassScore));
-        if (assessments.Count == 0) reasons.Add("At least one assessment is required.");
-        else if (passed != assessments.Count) reasons.Add("All assessments must be graded and passed.");
+        // Same rule as completion: an Intake without assessments has nothing left to pass.
+        if (passed != assessments.Count) reasons.Add("All assessments must be graded and passed.");
         var existing = await db.CertificateRequests.AsNoTracking().SingleOrDefaultAsync(item => item.EnrollmentId == enrollment.Id, ct);
         if (existing is not null)
             reasons.Add(existing.Status == CertificateRequestStatus.Issued

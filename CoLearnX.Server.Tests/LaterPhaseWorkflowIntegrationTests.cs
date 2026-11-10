@@ -30,12 +30,47 @@ public sealed class LaterPhaseWorkflowIntegrationTests
         var eligibility = Assert.Single((await Body(response)).EnumerateArray());
         Assert.Equal(200, eligibility.GetProperty("enrollmentId").GetInt32());
         Assert.False(eligibility.GetProperty("isEligible").GetBoolean());
-        Assert.Equal(2, eligibility.GetProperty("reasons").GetArrayLength());
+        // An Intake without assessments only reports the attendance gap; completion has no assessment minimum either.
+        Assert.Equal(1, eligibility.GetProperty("reasons").GetArrayLength());
         using var denied = await other.PostAsJsonAsync("/api/certificates/requests", new { enrollmentId = 200 });
         Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
         using var ownRequests = await member.GetAsync("/api/certificates/requests/my");
         Assert.Equal(HttpStatusCode.OK, ownRequests.StatusCode);
         Assert.Empty((await Body(ownRequests)).EnumerateArray());
+    }
+
+    [Fact]
+    public async Task CompletedLearnerInIntakeWithoutAssessments_CanRequestCertificate()
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        await factory.ReadAsync(async db =>
+        {
+            db.AttendanceRecords.Add(new AttendanceRecord { UserId = 202, CourseSessionId = 200, Status = AttendanceStatus.Present });
+            return await db.SaveChangesAsync();
+        });
+        using var member = factory.UserClient(202, AppRole.Member);
+        using var response = await member.GetAsync("/api/certificates/eligibility");
+        var eligibility = Assert.Single((await Body(response)).EnumerateArray());
+        Assert.True(eligibility.GetProperty("isEligible").GetBoolean());
+        using var submit = await member.PostAsJsonAsync("/api/certificates/requests", new { enrollmentId = 200 });
+        Assert.Equal(HttpStatusCode.Created, submit.StatusCode);
+    }
+
+    [Fact]
+    public async Task TrainerCertificateRequests_IncludeCourseIdForCourseFiltering()
+    {
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        await factory.MakeCertificateEligibleAsync();
+        using var member = factory.UserClient(202, AppRole.Member);
+        using var trainer = factory.UserClient(200, AppRole.Trainer);
+        using var submit = await member.PostAsJsonAsync("/api/certificates/requests", new { enrollmentId = 200 });
+        Assert.Equal(HttpStatusCode.Created, submit.StatusCode);
+        using var list = await trainer.GetAsync("/api/trainer/certificate-requests");
+        Assert.Equal(HttpStatusCode.OK, list.StatusCode);
+        var item = Assert.Single((await Body(list)).EnumerateArray());
+        Assert.Equal(200, item.GetProperty("courseId").GetInt32());
     }
 
     [Theory]
