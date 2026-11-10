@@ -13,8 +13,8 @@ export default function StaffCoursesPage() {
       .catch((err) => { if (err.name !== 'AbortError') setError(err.message); });
     return () => controller.abort();
   }, [token]);
-  return <section className="creator-page"><div className="page-header"><div><p className="eyebrow">CoLearnX catalogue</p><h1>Platform courses</h1><p>Every course here is owned and displayed by CoLearnX.</p></div><Link className="btn btn-primary" to="/staff/courses/new">Create platform course</Link></div>
+  return <section className="creator-page"><div className="creator-header"><div><p className="creator-eyebrow">CoLearnX catalogue</p><h1>Platform courses</h1><p>Every course here is owned and displayed by CoLearnX.</p></div><Link className="btn btn-primary" to="/staff/courses/new">Create platform course</Link></div>
     {error ? <div className="callout warn">{error}</div> : null}
-    <div className="creator-application-list">{courses.map((course) => <Link key={course.id} className="creator-application-row" to={`/staff/courses/${course.id}`}><div className="creator-application-index">{course.code}</div><div><h2>{course.title}</h2><p>{course.courseLevelName} · {course.learningPathName}</p></div><span className={`creator-status ${course.status.toLowerCase()}`}>{course.status}</span></Link>)}</div>
+    <div className="creator-application-list">{courses.map((course) => <Link key={course.id} className="creator-application-row creator-course-row" to={`/staff/courses/${course.id}`}><div className="creator-application-index">{course.code}</div><div><h2>{course.title}</h2><p>{course.courseLevelName} · {course.learningPathName}</p></div><span className={`creator-status ${course.status.toLowerCase()}`}>{course.status}</span></Link>)}</div>
   </section>;
 }

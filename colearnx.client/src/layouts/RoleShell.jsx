@@ -15,6 +15,7 @@ import '../styles/later-phase.css';
 import '../styles/admin-v10.css';
 import '../styles/trainer-v10.css';
 import '../styles/creator-v10.css';
+import '../styles/staff-v10.css';
 
 const NAV = {
   trainer: [
@@ -72,7 +73,7 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
 
   return (
     <ShellChrome
-      shellClassName={`shell${role === 'admin' ? ' admin-shell' : ''}${role === 'trainer' ? ' trainer-shell' : ''}${role === 'creator' ? ' creator-shell' : ''}`}
+      shellClassName={`shell${role === 'admin' ? ' admin-shell' : ''}${role === 'trainer' ? ' trainer-shell' : ''}${role === 'creator' ? ' creator-shell' : ''}${role === 'staff' ? ' staff-shell' : ''}`}
       role={role}
       identityName={identityName}
       avatarUrl={avatarUrl}
