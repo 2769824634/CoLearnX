@@ -22,7 +22,7 @@ it('shows the reservation progress and loads an authorised read-only list on dem
   expect(await screen.findByText('QA Member')).toBeTruthy();
   expect(screen.getByText('ENR-11')).toBeTruthy();
   expect(screen.getByText('1 credit on hold')).toBeTruthy();
-  expect(screen.getByText('Online Session · Session #10')).toBeTruthy();
+  expect(screen.getByText('Online Session')).toBeTruthy();
   expect(trainerLaterPhaseApi.reservations).toHaveBeenCalledWith('trainer-token', 8, expect.any(AbortSignal));
   expect(screen.queryByRole('button', { name: /Grade|Mark complete/ })).toBeNull();
 });

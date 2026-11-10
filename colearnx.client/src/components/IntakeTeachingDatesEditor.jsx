@@ -34,7 +34,7 @@ export default function IntakeTeachingDatesEditor({ intake, onSave, onClose, onR
     if (error?.code !== 'INTAKE_VERSION_CONFLICT') setError(null);
   }
 
-  return <Modal open title={`Edit teaching dates · Class #${intake.id}`} onClose={() => !busy && onClose(false)} width={560}>
+  return <Modal open title="Edit teaching dates" onClose={() => !busy && onClose(false)} width={560}>
     <form onSubmit={submit}>
       <p>Choose the first and last teaching dates in {localTimezone}. The last date includes the whole day.</p>
       <p>Existing sessions must fit within these dates.</p>

@@ -55,8 +55,8 @@ function TeachingNext({ intake, courses }) {
     </div>
     <div className="trainer-next-body">
       <p className="trainer-eyebrow" id="trainer-next-title">Teaching next</p>
-      <small>{course?.code || `Course #${intake.courseId}`} · Intake #{intake.id}</small>
-      <h2>{course?.title || `Course #${intake.courseId}`}</h2>
+      <small>{course?.code || course?.title || 'Course'}</small>
+      <h2>{course?.title || course?.code || 'Course'}</h2>
       <p>{formatDate(intake.startsAt)} → {formatDate(intake.endsAt)}</p>
       <div className="trainer-next-actions">
         <IntakeStatus status={intake.status} />

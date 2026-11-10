@@ -39,6 +39,6 @@ public record CourseIntakeDetailDto(int Id, int CourseId, int TrainerId, DateTim
     int MinEnrollment = 10, DateTime? ConfirmedToRunAt = null, DateTime? CancelledAt = null,
     string? CancellationReason = null, int? ReplacementForIntakeId = null, int? ReplacementIntakeId = null,
     DateTime? PostponementAvailableUntil = null, int ReservedEnrollmentCount = 0,
-    int ActiveEnrollmentCount = 0, int RemainingToMinimum = 0);
+    int ActiveEnrollmentCount = 0, int RemainingToMinimum = 0, string? TrainerName = null);
 public record TrainerReservationDto(int EnrollmentId, int CourseSessionId, string SessionLabel,
     string LearnerName, int CreditsHeld, DateTime ReservedAt);

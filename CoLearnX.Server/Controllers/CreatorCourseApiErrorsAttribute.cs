@@ -34,6 +34,14 @@ public sealed class CreatorCourseApiErrorsAttribute : ActionFilterAttribute, IEx
             };
             context.ExceptionHandled = true;
         }
+        else if (context.Exception is CourseIntakeException intakeError)
+        {
+            context.Result = new ObjectResult(new ApiError(intakeError.Code, intakeError.Message, intakeError.FieldErrors))
+            {
+                StatusCode = intakeError.StatusCode,
+            };
+            context.ExceptionHandled = true;
+        }
         else if (context.Exception is DbUpdateException dbUpdate && dbUpdate.IsUniqueConstraintViolation())
         {
             context.Result = new ConflictObjectResult(new ApiError(

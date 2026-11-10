@@ -47,7 +47,7 @@ export default function CreatorUsagePage() {
           {visible.length === 0 ? <div className="creator-empty"><strong>{hasFilters ? 'No usage records match your filters.' : 'No usage records found'}</strong><p>{hasFilters ? 'Try a wider date range, another course or clear your filters.' : 'Usage appears after a Trainer attaches an approved material to an Intake.'}</p></div>
             : <div className="creator-application-list">{visible.map((item) => <article className="creator-application-row" key={item.id}>
               <div className="creator-application-index">{item.courseCode}</div>
-              <div><p className="creator-eyebrow">{item.courseTitle}</p><h2>{item.materialTitle}</h2><p>Trainer: {item.trainerName}</p><p>{item.intakeId ? `Intake #${item.intakeId}` : 'Intake unavailable'}{item.sessionId ? ` · Session #${item.sessionId}` : ''}</p>{item.intakeStartsAt ? <p>{formatUtcRange(item.intakeStartsAt, item.intakeEndsAt)}</p> : null}</div>
+              <div><p className="creator-eyebrow">{item.courseTitle}</p><h2>{item.materialTitle}</h2><p>Trainer: {item.trainerName}</p>{item.intakeStartsAt ? <p>{formatUtcRange(item.intakeStartsAt, item.intakeEndsAt)}</p> : null}</div>
               <time dateTime={item.usedAt}>Recorded {formatUtcDateTime(item.usedAt)}</time>
             </article>)}</div>}
         </>}

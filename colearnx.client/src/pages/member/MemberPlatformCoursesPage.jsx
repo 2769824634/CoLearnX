@@ -36,7 +36,7 @@ export default function MemberPlatformCoursesPage() {
         <div className="cx-grid">
           {courses.map((course) => {
             const open = () => navigate(`/member/courses/${course.id}`);
-            const trainers = course.trainerNames?.length ? course.trainerNames.join(', ') : course.trainerName;
+            const trainers = course.trainerNames?.join(', ');
             return (
               <article className="cx-card" key={course.id}>
                 <button type="button" className="cx-card-art" tabIndex={-1} aria-hidden="true" onClick={open}>

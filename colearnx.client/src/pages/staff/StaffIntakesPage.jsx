@@ -25,8 +25,8 @@ export default function StaffIntakesPage() {
     <div className="creator-application-list">{data.intakes.map((intake) => {
       const course = courses.get(intake.courseId);
       return <article className="creator-application-row creator-row-link" key={intake.id}>
-        <div className="creator-application-index">#{intake.id}</div>
-        <div><p className="creator-eyebrow">{course?.code || `Course #${intake.courseId}`}</p><h2><Link to={`/staff/intakes/${intake.id}`}>{course?.title || `Course #${intake.courseId}`}</Link></h2><p>{formatDate(intake.startsAt)} → {formatDate(intake.endsAt)}</p></div>
+        <div className="creator-application-index">{formatDate(intake.startsAt).slice(0, 11)}</div>
+        <div><p className="creator-eyebrow">{course?.code || 'Course'}</p><h2><Link to={`/staff/intakes/${intake.id}`}>{course?.title || course?.code || 'Course'}</Link></h2><p>{[intake.trainerName, `${formatDate(intake.startsAt)} → ${formatDate(intake.endsAt)}`].filter(Boolean).join(' · ')}</p></div>
         <span className={`creator-status ${(intake.status || '').toLowerCase()}`}>{statusLabel(intake.status)}</span>
         <RowArrow />
       </article>;
