@@ -612,8 +612,8 @@ public static class SeedData
 
     private static async Task EnsureCourseReviewFixturesAsync(CoLearnXDbContext db)
     {
-        // Temporary D3 fixture until Developer C supplies Course creation/submission.
-        if (await db.Courses.AnyAsync(course => course.Code == "INFT 4025"))
+        // The live catalog is rebuilt for the demonstration. Do not put the old pending course back.
+        if (await db.Courses.AnyAsync(course => course.Code == "BEG 110" || course.Code == "DPD 110" || course.Code == "INFT 4025"))
             return;
 
         var creator = await db.Users.SingleOrDefaultAsync(
@@ -643,6 +643,9 @@ public static class SeedData
 
     private static async Task EnsureLaterPhaseFixturesAsync(CoLearnXDbContext db)
     {
+        if (await db.Courses.AnyAsync(course => course.Code == "BEG 110" || course.Code == "DPD 110"))
+            return;
+
         var creator = await db.Users.SingleOrDefaultAsync(user => user.Email == CreatorEmail);
         var member = await db.Users.SingleOrDefaultAsync(user => user.Email == MemberEmail);
         var trainer = await db.Users.SingleOrDefaultAsync(user => user.Email == TrainerEmail);

@@ -70,6 +70,6 @@ it('invites a learner without active programs to browse the catalog', () => {
 it('gives each recommended course a cover and keeps its detail link', async () => {
   mount({ enrolled });
   const card = (await screen.findByRole('heading', { name: 'Visual Storytelling' })).closest('article');
-  expect(card.querySelector('.course-cover')).toBeTruthy();
+  expect(card.querySelector('.g-art')).toBeTruthy();
   expect(within(card).getByRole('button', { name: 'View Details' })).toBeTruthy();
 });

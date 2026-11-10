@@ -56,6 +56,10 @@ it('lists staff and shows the one-time initial password after provisioning', asy
   await waitFor(() => expect(adminStaffApi.provision).toHaveBeenCalled());
   expect(await screen.findByText('Stf!Initial123')).toBeTruthy();
   expect(screen.getByText('CoLearnX 讲师 002')).toBeTruthy();
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.getByLabelText('Email').value).toBe('');
+  expect(screen.getByLabelText('Full name').value).toBe('');
+  expect(screen.getByLabelText('Staff document').value).toBe('');
 });
 
 it('opens employee details from the row without toggling account access', async () => {

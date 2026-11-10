@@ -61,66 +61,78 @@ public sealed class AdminStaffService(CoLearnXDbContext db, IRoleRequestFileStor
         await using var documentStream = document.OpenReadStream();
         await files.SaveAsync(documentPath, documentStream, RoleRequestFiles.ContentType(extension), ct);
 
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        // Azure SQL enables retry-on-failure; user transactions must run inside that strategy.
         try
         {
-            var now = DateTime.UtcNow;
-            var hiddenUser = new User
+            return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
             {
-                Email = $"staff-{staffNumber}@staff.colearnx",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(CreateInitialPassword()),
-                FullName = displayName,
-                DisplayName = displayName,
-                CreditBalance = 0,
-                HeldCredits = 0,
-                IsActive = true,
-                EmailVerifiedAt = now,
-                SessionStamp = Guid.NewGuid(),
-            };
-            db.Users.Add(hiddenUser);
-            await db.SaveChangesAsync(ct);
+                db.ChangeTracker.Clear();
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                try
+                {
+                    var now = DateTime.UtcNow;
+                    var hiddenUser = new User
+                    {
+                        Email = $"staff-{staffNumber}@staff.colearnx",
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword(CreateInitialPassword()),
+                        FullName = displayName,
+                        DisplayName = displayName,
+                        CreditBalance = 0,
+                        HeldCredits = 0,
+                        IsActive = true,
+                        EmailVerifiedAt = now,
+                        SessionStamp = Guid.NewGuid(),
+                    };
+                    db.Users.Add(hiddenUser);
+                    await db.SaveChangesAsync(ct);
 
-            db.UserRoles.Add(new UserRole
-            {
-                UserId = hiddenUser.Id,
-                Role = AppRole.Trainer,
-                IsVisible = false,
+                    db.UserRoles.Add(new UserRole
+                    {
+                        UserId = hiddenUser.Id,
+                        Role = AppRole.Trainer,
+                        IsVisible = false,
+                    });
+                    db.TrainerProfiles.Add(new TrainerProfile { UserId = hiddenUser.Id });
+
+                    var account = new StaffAccount
+                    {
+                        Email = email,
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword(initialPassword),
+                        FullName = request.FullName.Trim(),
+                        DisplayName = displayName,
+                        Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
+                        StaffNumber = staffNumber,
+                        DocumentPath = documentPath,
+                        UserId = hiddenUser.Id,
+                        CreatedByAdminAccountId = adminAccountId,
+                        SessionStamp = Guid.NewGuid(),
+                        CreatedAt = now,
+                        UpdatedAt = now,
+                    };
+                    db.StaffAccounts.Add(account);
+                    await db.SaveChangesAsync(ct);
+
+                    db.AuditLogs.Add(new AuditLog
+                    {
+                        AdminAccountId = adminAccountId,
+                        Action = "StaffAccountProvisioned",
+                        EntityType = nameof(StaffAccount),
+                        EntityId = account.Id.ToString(),
+                        Result = "Succeeded",
+                    });
+                    await db.SaveChangesAsync(ct);
+                    await transaction.CommitAsync(ct);
+                    return new StaffProvisioningResultDto(Map(account), initialPassword);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync(ct);
+                    throw;
+                }
             });
-            db.TrainerProfiles.Add(new TrainerProfile { UserId = hiddenUser.Id });
-
-            var account = new StaffAccount
-            {
-                Email = email,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(initialPassword),
-                FullName = request.FullName.Trim(),
-                DisplayName = displayName,
-                Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
-                StaffNumber = staffNumber,
-                DocumentPath = documentPath,
-                UserId = hiddenUser.Id,
-                CreatedByAdminAccountId = adminAccountId,
-                SessionStamp = Guid.NewGuid(),
-                CreatedAt = now,
-                UpdatedAt = now,
-            };
-            db.StaffAccounts.Add(account);
-            await db.SaveChangesAsync(ct);
-
-            db.AuditLogs.Add(new AuditLog
-            {
-                AdminAccountId = adminAccountId,
-                Action = "StaffAccountProvisioned",
-                EntityType = nameof(StaffAccount),
-                EntityId = account.Id.ToString(),
-                Result = "Succeeded",
-            });
-            await db.SaveChangesAsync(ct);
-            await transaction.CommitAsync(ct);
-            return new StaffProvisioningResultDto(Map(account), initialPassword);
         }
         catch
         {
-            await transaction.RollbackAsync(ct);
             await files.DeleteAsync(documentPath, ct);
             throw;
         }

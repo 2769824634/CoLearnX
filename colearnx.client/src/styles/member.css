@@ -1687,8 +1687,15 @@ a {
 
 .member-up-next-cover {
   min-height: 100%;
+  overflow: hidden;
   border-radius: 0;
-  padding: 20px;
+  padding: 0;
+}
+
+.member-up-next-cover .g-art {
+  height: 100%;
+  min-height: 180px;
+  border-radius: 0;
 }
 
 .member-up-next-cover .course-cover-code {
