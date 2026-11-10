@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import useTrainerQuery, { loadTrainerOverview } from './useTrainerQuery';
-import { TrainerError, TrainerHeader, TrainerLoading } from './TrainerUi';
+import { RowArrow, TrainerError, TrainerHeader, TrainerLoading } from './TrainerUi';
 
 export default function TrainerIntakesPage() {
   const query = useTrainerQuery(loadTrainerOverview);
@@ -34,9 +34,9 @@ export default function TrainerIntakesPage() {
     {query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <>
       <TrainerError error={query.data.catalogError} onRetry={query.refresh} retryLabel="Reload course names" />
       <p className="trainer-result-count">{courses.length} {courses.length === 1 ? 'Course' : 'Courses'}</p>
-      {courses.length ? <div className="trainer-intake-list">{courses.map((course) => <article className="trainer-intake-row" key={course.courseId}>
+      {courses.length ? <div className="trainer-intake-list">{courses.map((course) => <article className="trainer-intake-row trainer-row-link" key={course.courseId}>
         <div className="trainer-intake-title"><small>{course.courseCode} · from {course.creatorName}</small><h3><Link to={`/trainer/courses/${course.courseId}`}>{course.courseTitle}</Link></h3><p>{course.intakes.length} {course.intakes.length === 1 ? 'class' : 'classes'}</p></div>
-        <Link className="trainer-open" to={`/trainer/courses/${course.courseId}`} aria-label={`Open ${course.courseTitle}`}>Open →</Link>
+        <RowArrow />
       </article>)}</div> : <div className="trainer-empty">{status || term ? 'No courses match these filters.' : 'No accepted teaching courses yet. Accept a teaching invitation to add a Course.'}</div>}
     </>}
   </section>;
