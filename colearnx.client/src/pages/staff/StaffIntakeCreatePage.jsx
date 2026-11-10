@@ -28,7 +28,7 @@ export default function StaffIntakeCreatePage() {
     finally { setBusy(false); }
   }
   const trainers = staff ? [{ trainerId: staff.userId, fullName: staff.displayName }] : [];
-  return <section className="creator-page"><Link className="creator-back" to="/staff/intakes">← All classes</Link><div className="page-header"><div><p className="eyebrow">Platform classes</p><h1>Open a class</h1></div></div>
+  return <section className="creator-page"><Link className="creator-back" to="/staff/intakes">← All classes</Link><div className="creator-header"><div><p className="creator-eyebrow">Platform classes</p><h1>Open a class</h1></div></div>
     {courses.length ? <ScheduleForm courses={courses} trainers={trainers} onSave={create} onCancel={() => navigate('/staff/intakes')} busy={busy} error={error} onError={setError} /> : <div className="creator-empty"><strong>No published platform courses</strong><p>A course must be approved and published before you can open a class.</p></div>}
   </section>;
 }
