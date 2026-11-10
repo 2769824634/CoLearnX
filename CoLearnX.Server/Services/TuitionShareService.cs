@@ -11,7 +11,6 @@ internal sealed class TuitionShareService(CoLearnXDbContext db)
 {
     public const string Content = "Content share";
     public const string Delivery = "Delivery share";
-    public const string DeliveryRetained = "Delivery share retained";
     public const string Platform = "Platform share";
     private const int DefaultContentPercent = 25;
     private const int DefaultDeliveryPercent = 25;
@@ -41,7 +40,7 @@ internal sealed class TuitionShareService(CoLearnXDbContext db)
             : trainerId == creator.Id
                 ? creator
                 : await db.Users.SingleAsync(item => item.Id == trainerId, ct);
-        var totals = new Dictionary<int, (User User, int Content, int Delivery, int Retained, int Platform)>();
+        var totals = new Dictionary<int, (User User, int Content, int Delivery, int Platform)>();
 
         foreach (var enrollment in pending)
         {
@@ -54,15 +53,13 @@ internal sealed class TuitionShareService(CoLearnXDbContext db)
                 delivery = 0;
                 platformAmount = enrollment.CreditsSpent;
             }
-            var retained = 0;
             if (trainerIsStaff)
             {
-                retained = delivery;
+                platformAmount += delivery;
                 delivery = 0;
             }
             Add(totals, creator, enrollment, course.Code, Content, content);
             Add(totals, trainer, enrollment, course.Code, Delivery, delivery);
-            Add(totals, platform, enrollment, course.Code, DeliveryRetained, retained);
             Add(totals, platform, enrollment, course.Code, Platform, platformAmount);
         }
 
@@ -149,7 +146,7 @@ internal sealed class TuitionShareService(CoLearnXDbContext db)
         }
     }
 
-    private void Add(Dictionary<int, (User User, int Content, int Delivery, int Retained, int Platform)> totals,
+    private void Add(Dictionary<int, (User User, int Content, int Delivery, int Platform)> totals,
         User user, Enrollment enrollment, string code, string role, int amount)
     {
         if (amount == 0) return;
@@ -168,7 +165,6 @@ internal sealed class TuitionShareService(CoLearnXDbContext db)
         share.User = user;
         share.Content += role == Content ? amount : 0;
         share.Delivery += role == Delivery ? amount : 0;
-        share.Retained += role == DeliveryRetained ? amount : 0;
         share.Platform += role == Platform ? amount : 0;
         totals[user.Id] = share;
     }
@@ -191,7 +187,6 @@ internal sealed class TuitionShareService(CoLearnXDbContext db)
         var text = description.StartsWith("Reversal of ", StringComparison.Ordinal)
             ? description["Reversal of ".Length..]
             : description;
-        if (text.StartsWith(DeliveryRetained, StringComparison.Ordinal)) return DeliveryRetained;
         if (text.StartsWith(Content, StringComparison.Ordinal)) return Content;
         if (text.StartsWith(Delivery, StringComparison.Ordinal)) return Delivery;
         if (text.StartsWith(Platform, StringComparison.Ordinal)) return Platform;

@@ -32,7 +32,7 @@ public class TuitionShareTests
     }
 
     [Fact]
-    public async Task StaffTrainerDeliveryStaysWithThePlatform()
+    public async Task StaffTrainerReceivesNoDeliveryShare()
     {
         using var factory = new CoLearnXApiFactory();
         var scenario = await SeedAsync(factory, cost: 20, learners: 2, contentPercent: 25, deliveryPercent: 25, staffTrainer: true);
@@ -43,8 +43,10 @@ public class TuitionShareTests
         Assert.Equal(scenario.CreatorBalance + 10, await BalanceAsync(db, scenario.CreatorId));
         Assert.Equal(scenario.TrainerBalance, await BalanceAsync(db, scenario.TrainerId));
         Assert.Equal(scenario.PlatformBalance + 30, await BalanceAsync(db, scenario.PlatformId));
-        Assert.Contains(await db.CreditTransactions.Where(item => item.UserId == scenario.PlatformId).ToListAsync(),
-            item => item.Description.StartsWith("Delivery share retained"));
+        var royalties = await db.CreditTransactions.Where(item => item.Type == CreditTransactionType.Royalty).ToListAsync();
+        Assert.DoesNotContain(royalties, item => item.UserId == scenario.TrainerId);
+        Assert.DoesNotContain(royalties, item => item.Description.Contains("retained", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(royalties, item => item.UserId == scenario.PlatformId && item.Description.StartsWith("Platform share"));
         Assert.Equal(0, await db.Notifications.CountAsync(item => item.UserId == scenario.PlatformId && item.Code == "N-share-recorded"));
         Assert.Equal(0, await db.Notifications.CountAsync(item => item.UserId == scenario.TrainerId && item.Code == "N-share-recorded"));
     }
