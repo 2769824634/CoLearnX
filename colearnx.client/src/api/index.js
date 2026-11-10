@@ -136,11 +136,6 @@ export const adminCourseReviewsApi = {
 };
 
 export const adminPricingApi = {
-  tiers: (token, signal) => apiRequest('/api/admin/pricing/tiers', { token, signal }),
-  domains: (token, signal) => apiRequest('/api/admin/pricing/domains', { token, signal }),
-  createDomain: (token, body) => apiRequest('/api/admin/pricing/domains', { method: 'POST', token, body }),
-  updateDomain: (token, id, body) => apiRequest(`/api/admin/pricing/domains/${id}`, { method: 'PUT', token, body }),
-  deactivateDomain: (token, id) => apiRequest(`/api/admin/pricing/domains/${id}/deactivate`, { method: 'POST', token }),
   pool: (token, signal) => apiRequest('/api/admin/pricing/pool', { token, signal }),
 };
 
