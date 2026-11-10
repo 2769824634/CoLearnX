@@ -343,6 +343,22 @@ public class CourseIntakeCoreTests
     }
 
     [Fact]
+    public async Task CreatorOrTrainer_CannotEnrolInOwnClass()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var d = await f.Service.CreateAsync(1, 1, DraftRequest);
+        d = await f.Service.AddSessionAsync(1, d.Id, SessionRequest(d.Version));
+        var intake = await f.Db.CourseIntakes.SingleAsync();
+        intake.Status = CourseIntakeStatus.Published;
+        intake.RegistrationOpensAt = DateTime.UtcNow.AddDays(-1);
+        await f.Db.SaveChangesAsync();
+        var error = await Assert.ThrowsAsync<CourseException>(() => new EnrollmentService(f.Db).EnrolAsync(1,
+            new EnrolRequest(1, Assert.Single(d.Sessions).Id)));
+        Assert.Equal("SELF_ENROLLMENT_NOT_ALLOWED", error.Code);
+        Assert.Empty(await f.Db.Enrollments.ToListAsync());
+    }
+
+    [Fact]
     public async Task Submission_RechecksCoursePublication()
     {
         await using var f = await Fixture.CreateAsync();

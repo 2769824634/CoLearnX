@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 import Modal from '../components/Modal';
 import PasswordInput from '../components/PasswordInput';
@@ -24,9 +24,17 @@ function roleMeta(id) {
   return ROLE_META[id] || { label: id, desc: '' };
 }
 
+function memberReturnPath(from) {
+  const path = typeof from === 'string' ? from : `${from?.pathname || ''}${from?.search || ''}`;
+  if (!path.startsWith('/') || path.startsWith('//') || path.startsWith('/login') || path.startsWith('/admin') || path.startsWith('/staff')) return null;
+  return path;
+}
+
 export default function LoginPage() {
   const { login, isAuthenticated, activeRole, booting } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnPath = memberReturnPath(location.state?.from);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -49,7 +57,7 @@ export default function LoginPage() {
   }, [booting]);
 
   if (!booting && isAuthenticated && activeRole) {
-    return <Navigate to={`/${activeRole}/home`} replace />;
+    return <Navigate to={returnPath || `/${activeRole}/home`} replace />;
   }
 
   async function onSubmit(e) {
@@ -65,7 +73,7 @@ export default function LoginPage() {
       }
       if (roles.length === 1) {
         const user = await login(email, password, roles[0]);
-        navigate(`/${user.activeRole.toLowerCase()}/home`);
+        navigate(returnPath || `/${user.activeRole.toLowerCase()}/home`);
         return;
       }
       setAvailableRoles(roles);
@@ -85,7 +93,7 @@ export default function LoginPage() {
     try {
       const user = await login(email, password, pickedRole);
       setRoleOpen(false);
-      navigate(`/${user.activeRole.toLowerCase()}/home`);
+      navigate(returnPath || `/${user.activeRole.toLowerCase()}/home`);
     } catch (err) {
       setError(err.message || 'Login failed');
       setRoleOpen(false);

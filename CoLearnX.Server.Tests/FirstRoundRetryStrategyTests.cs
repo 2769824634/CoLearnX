@@ -151,6 +151,30 @@ public sealed class FirstRoundRetryStrategyTests
         harness.Probe.AssertExplicitTransactionsRanInsideStrategy();
     }
 
+    [Fact]
+    public async Task DisputeCreate_RejectsEnrollmentThatAlreadyHasARefund()
+    {
+        await using var harness = await TestDatabase.CreateAsync();
+        await SeedDisputeAsync(harness.Db);
+        harness.Db.CreditTransactions.Add(new CreditTransaction
+        {
+            UserId = 3,
+            Type = CreditTransactionType.Refund,
+            Description = "Earlier partial refund",
+            Delta = 10,
+            BalanceAfter = 110,
+            HeldAfter = 0,
+            RelatedEnrollmentId = 3,
+        });
+        await harness.Db.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<LaterPhaseException>(() =>
+            new AdminFinanceService(harness.Db).CreateDisputeAsync(3, new CreateDisputeRequest(3, "Ask for the rest")));
+
+        Assert.Equal("DISPUTE_NOT_ALLOWED", error.Code);
+        Assert.Empty(await harness.Db.Disputes.ToListAsync());
+    }
+
     private static async Task SeedIntakeAsync(CoLearnXDbContext db)
     {
         db.Users.Add(new User

@@ -1,8 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Modal from './Modal';
 import { importantNotificationTypes, safeNotificationPath, useMemberNotifications } from './memberNotificationsState';
 import { formatUtcDateTime } from '../pages/businessPresentation';
+
+const shownNoticeKey = 'colearnx.notice-shown';
+
+function readShownNotices() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(shownNoticeKey) || '[]');
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function rememberShownNotice(id) {
+  const ids = readShownNotices();
+  ids.add(id);
+  localStorage.setItem(shownNoticeKey, JSON.stringify([...ids].slice(-100)));
+}
 
 function ImportantNotice({ item, onDismiss }) {
   const path = item ? safeNotificationPath(item.targetPath) : null;
@@ -23,10 +40,15 @@ export default function MemberNotifications() {
   const notifications = useMemberNotifications();
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(() => new Set());
+  const [shown] = useState(readShownNotices);
+  const data = notifications?.data;
+  const important = !notifications || open ? null : data?.items?.find((item) => !item.isRead && importantNotificationTypes.has(item.type) && !dismissed.has(item.id) && !shown.has(item.id));
+  useEffect(() => {
+    if (important?.id != null) rememberShownNotice(important.id);
+  }, [important?.id]);
   if (!notifications) return null;
-  const { data, loading, error, refresh, markRead, busy, actionError } = notifications;
+  const { loading, error, refresh, markRead, busy, actionError } = notifications;
   const unread = data?.unreadCount ?? 0;
-  const important = open ? null : data?.items?.find((item) => !item.isRead && importantNotificationTypes.has(item.type) && !dismissed.has(item.id));
   function dismissImportant() {
     setDismissed((ids) => new Set(ids).add(important.id));
     void markRead(important.id);

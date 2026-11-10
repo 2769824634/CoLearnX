@@ -17,6 +17,11 @@ public sealed partial class TrainerLaterPhaseService
         await RequireOwnedIntakeAsync(trainerUserId, enrollment.CourseSession.CourseIntakeId, ct);
         if (enrollment.Status != EnrollmentStatus.Active)
             throw new LaterPhaseException("ENROLLMENT_NOT_COMPLETABLE", "Only an active enrollment can be completed.", 409);
+        var intakeId = enrollment.CourseSession.CourseIntakeId;
+        var lastSessionEnds = await db.CourseSessions.Where(item => item.CourseIntakeId == intakeId)
+            .MaxAsync(item => (DateTime?)item.EndsAt, ct);
+        if (lastSessionEnds is null || lastSessionEnds > DateTime.UtcNow)
+            throw new LaterPhaseException("ENROLLMENT_NOT_COMPLETABLE", "The last session must end before a learner can be marked complete.", 409);
         var rules = await db.Assessments.Where(a => a.CourseIntakeId == enrollment.CourseSession.CourseIntakeId)
             .Select(a => new { a.Id, a.PassScore }).ToListAsync(ct);
         var grades = await db.AssessmentResults.Where(r => r.EnrollmentId == enrollmentId)

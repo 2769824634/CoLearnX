@@ -60,6 +60,8 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
                 throw new CourseException("REGISTRATION_CLOSED", "Registration is closed.");
             if (now < intake.RegistrationOpensAt)
                 throw new CourseException("REGISTRATION_NOT_OPEN", "Registration is not open yet.");
+            if (userId == course.CreatorId || userId == intake.TrainerId)
+                throw new CourseException("SELF_ENROLLMENT_NOT_ALLOWED", "You cannot enrol in a class you teach or created.");
             if (session.PhysicalCapacity > 0 && session.PhysicalBookingDeadline < now)
                 throw new CourseException("PHYSICAL_BOOKING_CLOSED", "Physical booking is closed.");
             if (await db.Enrollments.AnyAsync(e => e.UserId == userId && e.CourseId == course.Id

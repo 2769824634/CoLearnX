@@ -5,6 +5,7 @@ import useTrainerQuery from '../trainer/useTrainerQuery';
 import CourseMaterialsCard from './CourseMaterialsCard';
 import CourseTrainersCard from './CourseTrainersCard';
 import { CreatorError, CreatorHeader } from './CreatorUi';
+import { statusLabel } from '../trainer/intakeForm';
 
 async function loadCourseForm(token, courseId, signal) {
   const [options, interestTree] = await Promise.all([creatorCoursesApi.options(token, signal), interestsApi.tree()]);
@@ -170,7 +171,7 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
   const title = course ? course.title : 'Create Course';
   return <section className="creator-page">
     <Link className="creator-back" to="/creator/courses">← Courses</Link>
-    <CreatorHeader eyebrow={course ? course.code : 'New Course'} title={title} action={course ? <div className="creator-header-actions"><span className={`creator-status ${course.status.toLowerCase()}`}>{course.status}</span><button type="button" className="btn btn-primary" onClick={() => setUploadOpen(true)}>Upload materials</button></div> : null}>
+    <CreatorHeader eyebrow={course ? course.code : 'New Course'} title={title} action={course ? <div className="creator-header-actions"><span className={`creator-status ${course.status.toLowerCase()}`}>{statusLabel(course.status)}</span><button type="button" className="btn btn-primary" onClick={() => setUploadOpen(true)}>Upload materials</button></div> : null}>
       {course
         ? editable ? 'Review the Course definition and submit it for Admin approval when it is ready.'
           : 'View the submitted Course definition and its materials.'

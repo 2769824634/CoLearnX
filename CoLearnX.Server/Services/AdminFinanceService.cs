@@ -142,7 +142,8 @@ public sealed class AdminFinanceService(CoLearnXDbContext db, ILogger<AdminFinan
                 await RequireActiveMemberAsync(userId, ct);
                 var enrollment = await EnrollmentQuery().SingleOrDefaultAsync(item => item.Id == request.EnrollmentId && item.UserId == userId, ct)
                     ?? throw new LaterPhaseException("ENROLLMENT_NOT_FOUND", "Enrollment was not found.", 404);
-                if (enrollment.Status is EnrollmentStatus.Cancelled or EnrollmentStatus.Refunded or EnrollmentStatus.Reserved)
+                if (enrollment.Status is EnrollmentStatus.Cancelled or EnrollmentStatus.Refunded or EnrollmentStatus.Reserved
+                    || await AlreadyRefundedAsync(enrollment.Id, ct))
                     throw new LaterPhaseException("DISPUTE_NOT_ALLOWED", "This enrollment cannot be disputed.", 409);
 
                 var existing = await db.Disputes.SingleOrDefaultAsync(item => item.EnrollmentId == enrollment.Id && item.Status == DisputeStatus.Open, ct);
@@ -236,6 +237,8 @@ public sealed class AdminFinanceService(CoLearnXDbContext db, ILogger<AdminFinan
                     return new DisputeResolutionOutcome(dispute.Id, true);
                 }
 
+                if (refund && await AlreadyRefundedAsync(dispute.EnrollmentId.Value, ct))
+                    throw new LaterPhaseException("DISPUTE_ALREADY_REFUNDED", "This enrollment has already been refunded.", 409);
                 if (refund && (!request.RefundCredits.HasValue || request.RefundCredits <= 0
                     || request.RefundCredits > dispute.Enrollment!.CreditsSpent))
                     throw new LaterPhaseException("INVALID_REFUND", "Refund credits must be positive and cannot exceed the enrollment cost.", field: "refundCredits");
@@ -331,6 +334,10 @@ public sealed class AdminFinanceService(CoLearnXDbContext db, ILogger<AdminFinan
     private IQueryable<Enrollment> EnrollmentQuery()
         => db.Enrollments.Include(item => item.User).Include(item => item.Course)
             .Include(item => item.CourseSession).ThenInclude(session => session.CourseIntake);
+
+    private Task<bool> AlreadyRefundedAsync(int enrollmentId, CancellationToken ct)
+        => db.CreditTransactions.AnyAsync(item => item.RelatedEnrollmentId == enrollmentId
+            && item.Type == CreditTransactionType.Refund && item.Delta > 0, ct);
 
     private IQueryable<Dispute> DisputeQuery()
         => db.Disputes.Include(item => item.Enrollment).ThenInclude(enrollment => enrollment!.User)

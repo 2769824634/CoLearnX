@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { trainerLaterPhaseApi } from '../../api/trainerLaterPhase';
-import { formatUtcDate } from '../businessPresentation';
+import { formatUtcDate, formatUtcRange } from '../businessPresentation';
 import { TrainerError } from './TrainerUi';
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
@@ -155,7 +155,7 @@ export default function TrainerSessionMaterialsPanel({ token, intake, api = trai
             return (
               <article key={id} className="trainer-session-card">
                 <div className="trainer-section-heading">
-                  <div><p className="trainer-eyebrow">Session #{id}</p><h3>{label}</h3></div>
+                  <div><p className="trainer-eyebrow">{session.startsAt ? formatUtcRange(session.startsAt, session.endsAt) : label}</p><h3>{label}</h3></div>
                 </div>
                 {list.length ? (
                   <ul className="later-resource-list">
