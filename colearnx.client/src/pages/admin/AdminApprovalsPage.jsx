@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom';
 import AdminCourseReviewsPage from './AdminCourseReviewsPage';
 import AdminRoleRequestsPage from './AdminRoleRequestsPage';
 import AdminLaterApprovalsPage from './AdminLaterApprovalsPage';
+import AdminDisputesPage from './AdminDisputesPage';
 import { useAdminPending } from './adminPending';
 
 const QUEUES = [
@@ -9,6 +10,7 @@ const QUEUES = [
   { id: 'courses', label: 'Course reviews', detail: 'Publish & reject', countKey: 'courses' },
   { id: 'materials', label: 'Material versions', detail: 'Approve Trainer use', countKey: 'materialVersions' },
   { id: 'certificates', label: 'Certificates', detail: 'Final issuance gate', countKey: 'certificates' },
+  { id: 'disputes', label: 'Disputes', detail: 'Refund or reject', countKey: 'disputes' },
 ];
 
 export default function AdminApprovalsPage() {
@@ -22,7 +24,7 @@ export default function AdminApprovalsPage() {
       <div className="admin-approval-switch" role="group" aria-label="Approval queues">
         <div className="admin-approval-switch-label">
           <span>Approval desk</span>
-          <small>04 governed queues</small>
+          <small>0{QUEUES.length} governed queues</small>
         </div>
         {QUEUES.map((queue, index) => {
           const pending = counts?.[queue.countKey] ?? 0;
@@ -55,6 +57,7 @@ export default function AdminApprovalsPage() {
         {activeQueue === 'courses' ? <AdminCourseReviewsPage /> : null}
         {activeQueue === 'materials' ? <AdminLaterApprovalsPage type="materials" /> : null}
         {activeQueue === 'certificates' ? <AdminLaterApprovalsPage type="certificates" /> : null}
+        {activeQueue === 'disputes' ? <AdminDisputesPage /> : null}
       </div>
     </div>
   );

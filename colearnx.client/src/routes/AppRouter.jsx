@@ -13,10 +13,9 @@ import AdminApprovalsPage from '../pages/admin/AdminApprovalsPage';
 import AdminAuditLogsPage from '../pages/admin/AdminAuditLogsPage';
 import AdminAccountPage from '../pages/admin/AdminAccountPage';
 import AdminUsersPage from '../pages/admin/AdminUsersPage';
-import AdminDisputesPage from '../pages/admin/AdminDisputesPage';
 import AdminPricingPage from '../pages/admin/AdminPricingPage';
 import AdminLearningPathsPage from '../pages/admin/AdminLearningPathsPage';
-import AdminIntakeDatesPage from '../pages/admin/AdminIntakeDatesPage';
+import AdminClassesPage from '../pages/admin/AdminClassesPage';
 import TrainerHomePage from '../pages/trainer/TrainerHomePage';
 import TrainerIntakesPage from '../pages/trainer/TrainerIntakesPage';
 import TrainerCourseDetailPage from '../pages/trainer/TrainerCourseDetailPage';
@@ -177,9 +176,10 @@ export default function AppRouter() {
             <Route path="home" element={<AdminHomePage />} />
             <Route path="approvals" element={<AdminApprovalsPage />} />
             <Route path="users" element={<AdminUsersPage />} />
-            <Route path="class-dates" element={<AdminIntakeDatesPage />} />
+            <Route path="classes" element={<AdminClassesPage />} />
+            <Route path="class-dates" element={<Navigate to="/admin/classes" replace />} />
             <Route path="ledger" element={<LegacyLedgerRedirect />} />
-            <Route path="disputes" element={<AdminDisputesPage />} />
+            <Route path="disputes" element={<Navigate to="/admin/approvals?queue=disputes" replace />} />
             <Route path="pricing" element={<AdminPricingPage />} />
             <Route path="learning-paths" element={<AdminLearningPathsPage />} />
             <Route path="audit" element={<AdminAuditLogsPage />} />

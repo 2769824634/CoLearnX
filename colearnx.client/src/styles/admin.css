@@ -359,7 +359,7 @@
 
 .admin-approval-switch {
   display: grid;
-  grid-template-columns: minmax(130px, 0.9fr) repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(130px, 0.9fr) repeat(5, minmax(0, 1fr));
   gap: 1px;
   overflow: hidden;
   margin-bottom: 26px;

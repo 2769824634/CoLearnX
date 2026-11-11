@@ -52,6 +52,9 @@ export const adminAuditApi = {
 
 export const adminOverviewApi = {
   pendingCounts: (token, signal) => apiRequest('/api/admin/pending-counts', { token, signal }),
+  classes: (token, signal) => apiRequest('/api/admin/classes', { token, signal }),
+  classDetail: (token, id, signal) => apiRequest(`/api/admin/classes/${encodeURIComponent(id)}`, { token, signal }),
+  userActivity: (token, id, signal) => apiRequest(`/api/admin/users/${encodeURIComponent(id)}/activity`, { token, signal }),
 };
 
 export const adminRoleRequestsApi = {

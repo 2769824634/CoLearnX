@@ -197,13 +197,10 @@ it('highlights Pricing in Admin navigation on /admin/pricing', () => {
   );
 
   const labels = screen.getAllByRole('link').map((link) => link.textContent);
-  const disputes = labels.indexOf('Disputes');
-  const pricing = labels.indexOf('Pricing');
-  const audit = labels.indexOf('Audit Log');
-  expect(pricing).toBeGreaterThan(disputes);
-  expect(audit).toBeGreaterThan(pricing);
+  expect(labels.filter((label) => label !== 'Skip to main content')).toEqual(['Home', 'Approvals', 'Users', 'Classes', 'Pricing', 'Learning paths', 'Audit Log', 'My Account']);
   expect(screen.getByRole('link', { name: 'Pricing' }).className).toMatch(/active/);
-  expect(screen.getByRole('link', { name: 'Disputes' }).className).not.toMatch(/active/);
+  expect(screen.queryByRole('link', { name: 'Disputes' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Class dates' })).toBeNull();
   expect(screen.getByRole('link', { name: 'Audit Log' }).className).not.toMatch(/active/);
   expect(screen.queryByRole('link', { name: 'Staff' })).toBeNull();
 });
