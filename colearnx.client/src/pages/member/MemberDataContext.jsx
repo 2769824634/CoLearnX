@@ -105,6 +105,9 @@ function mapLedgerItem(l) {
     delta: l.delta,
     balance: l.balanceAfter,
     heldAfter: l.heldAfter,
+    courseId: l.courseId,
+    courseCode: l.courseCode,
+    courseTitle: l.courseTitle,
   };
 }
 

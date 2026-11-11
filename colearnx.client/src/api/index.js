@@ -230,11 +230,10 @@ export const materialsApi = {
     return apiRequest(`/api/materials${qs ? `?${qs}` : ''}`, { token, signal });
   },
   storage: (token) => apiRequest('/api/materials/storage', { token }),
-  upload: ({ title, category, description, file, courseId, token }) => {
+  upload: ({ title, description, file, courseId, token }) => {
     const body = new FormData();
     body.append('title', title);
     body.append('courseId', String(courseId));
-    if (category) body.append('category', category);
     if (description) body.append('description', description);
     body.append('file', file);
     return apiRequest('/api/materials', { method: 'POST', body, asForm: true, token });

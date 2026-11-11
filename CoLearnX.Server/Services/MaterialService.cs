@@ -53,7 +53,7 @@ public class MaterialService(CoLearnXDbContext db, IFileStorage files, IMaterial
                 m.Id,
                 m.Title,
                 m.Format,
-                m.Category,
+                string.Empty,
                 m.Status.ToString(),
                 m.Creator.FullName,
                 m.Version,
@@ -93,7 +93,7 @@ public class MaterialService(CoLearnXDbContext db, IFileStorage files, IMaterial
                     string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
                     key,
                     MaterialFiles.FormatLabel(ext),
-                    string.IsNullOrWhiteSpace(category) ? "General" : category.Trim(),
+                    string.Empty,
                     courseId),
                 ct);
         }
@@ -118,7 +118,7 @@ public class MaterialService(CoLearnXDbContext db, IFileStorage files, IMaterial
             submitted.LearningMaterialId,
             submitted.Title,
             submitted.Format,
-            submitted.Category,
+            string.Empty,
             MaterialStatus.PendingReview.ToString(),
             submitted.CreatorName,
             submitted.VersionNumber,

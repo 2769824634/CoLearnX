@@ -76,6 +76,7 @@ public sealed class AdminCourseReviewTests : IClassFixture<CoLearnXApiFactory>
         var payload = JsonNode.Parse(await response.Content.ReadAsStringAsync())!.AsArray();
         var item = payload.Single(node => node!["id"]!.GetValue<int>() == course.Id)!.AsObject();
 
+        Assert.Equal(string.Empty, item["category"]!.GetValue<string>());
         var interests = item["interests"]!.AsArray();
         Assert.Contains(interests, interest => interest!["name"]!.GetValue<string>()!.Length > 0);
         Assert.Equal(2, item["materialVersionCount"]!.GetValue<int>());

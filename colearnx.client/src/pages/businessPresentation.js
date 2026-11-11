@@ -68,6 +68,16 @@ export const ledgerPillClass = (type) => `pill ${LEDGER_PILL[type] || 'neutral'}
 
 // "AdminAdjustment" -> "Admin adjustment", "TopUp" -> "Top up".
 export function ledgerTypeLabel(type) {
+  const labels = {
+    AdminAdjustment: 'Manual adjustment',
+    Hold: 'Course reservation',
+    Capture: 'Course payment',
+    Release: 'Reservation released',
+    Forfeit: 'Cancellation charge',
+    Enrolment: 'Course enrolment',
+    Royalty: 'Trainer payment',
+  };
+  if (labels[type]) return labels[type];
   const words = String(type ?? '').replace(/([a-z])([A-Z])/g, '$1 $2');
   return words.charAt(0) + words.slice(1).toLowerCase();
 }

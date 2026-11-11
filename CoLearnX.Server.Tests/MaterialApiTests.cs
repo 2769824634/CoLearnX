@@ -153,6 +153,7 @@ public class MaterialApiTests : IClassFixture<CoLearnXApiFactory>
         Assert.NotNull(material);
         Assert.Equal(courseId, material.CourseId);
         Assert.Equal("PNG", material.Format);
+        Assert.Equal(string.Empty, material.Category);
 
         var admin = await ApiClient.AsOperationsAdminAsync(_factory);
         var pending = await admin.GetFromJsonAsync<List<MaterialVersionDto>>(

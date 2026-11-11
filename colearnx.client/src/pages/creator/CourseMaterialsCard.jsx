@@ -3,7 +3,6 @@ import { materialsApi } from '../../api';
 import MaterialList from '../../components/MaterialList';
 import Modal from '../../components/Modal';
 import { userFacingError } from '../businessPresentation';
-import { categoryChoices, startingCategory } from './courseCategories';
 
 function titleFromFile(file) {
   return file.name.replace(/\.[^.]+$/, '').trim() || 'Course material';
@@ -42,7 +41,6 @@ export default function CourseMaterialsCard({ course, materials, onMaterials, to
 }
 
 function CourseMaterialUploadDialog({ course, token, onClose, onLibraryChange, onUploaded }) {
-  const [category, setCategory] = useState(() => startingCategory(course.category));
   const [description, setDescription] = useState('');
   const [files, setFiles] = useState([]);
   const [fileError, setFileError] = useState('');
@@ -76,7 +74,6 @@ function CourseMaterialUploadDialog({ course, token, onClose, onLibraryChange, o
       for (const item of files) {
         await materialsApi.upload({
           title: item.title.trim(),
-          category: categoryChoices(course.category).includes(category) ? category : 'Design',
           description: description.trim(),
           file: item.file,
           courseId: course.id,
@@ -107,12 +104,6 @@ function CourseMaterialUploadDialog({ course, token, onClose, onLibraryChange, o
           </div>
         ) : null}
         <fieldset disabled={busy} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
-          <div className="form-group">
-            <label htmlFor="course-material-category">Category</label>
-            <select id="course-material-category" value={category} onChange={(event) => setCategory(event.target.value)}>
-              {categoryChoices(course.category).map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </div>
           <div className="form-group">
             <label htmlFor="course-material-description">Description</label>
             <textarea id="course-material-description" value={description} onChange={(event) => setDescription(event.target.value)} />

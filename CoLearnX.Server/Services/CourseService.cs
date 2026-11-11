@@ -107,7 +107,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             TrainerId = creatorUserId,
             Status = CourseStatus.Draft,
         };
-        ApplyCourseFields(course, input.Code, request.Title, request.Description, request.Category,
+        ApplyCourseFields(course, input.Code, request.Title, request.Description,
             request.CreditCost, request.LearningOutcomes, input.Level, input.Path, priced.Subject, request.DurationHours, priced.ExceptionReason);
         course.Interests = await ValidateInterestsAsync(request.InterestIds, priced.Subject, ct);
         db.Courses.Add(course);
@@ -135,7 +135,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         var priced = await RequirePricedSubjectAsync(request.CourseSubjectId, input.Level, request.DurationHours, request.CreditCost, request.PriceExceptionReason, ct);
         db.CourseLearningOutcomes.RemoveRange(course.LearningOutcomes);
         var selectedInterestIds = request.InterestIds;
-        ApplyCourseFields(course, input.Code, request.Title, request.Description, request.Category,
+        ApplyCourseFields(course, input.Code, request.Title, request.Description,
             request.CreditCost, request.LearningOutcomes, input.Level, input.Path, priced.Subject, request.DurationHours, priced.ExceptionReason);
         if (selectedInterestIds is not null)
         {
@@ -196,8 +196,6 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
                 EF.Functions.Like(c.Title, pattern, "\\") ||
                 EF.Functions.Like(c.Trainer.FullName, pattern, "\\"));
         }
-        if (!string.IsNullOrWhiteSpace(category))
-            query = query.Where(c => c.Category == category);
         if (!string.IsNullOrWhiteSpace(level))
             query = query.Where(c => c.Level == level);
         if (featured == true)
@@ -211,7 +209,6 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
                 c.Trainer.FullName,
                 c.CreditCost,
                 c.Level,
-                c.Category,
                 c.IsFeatured,
                 c.IsPlatformOwned ? PlatformIdentity.Name : c.Creator.FullName,
                 c.IsPlatformOwned,
@@ -251,7 +248,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         var stars = ratingRows.ToDictionary(row => row.CourseId, row => (Count: row.Count, Average: row.Average));
 
         return courses.Select(c => new CourseListItemDto(
-            c.Id, c.Code, c.Title, c.TrainerName, c.CreditCost, c.Level, c.Category, c.IsFeatured,
+            c.Id, c.Code, c.Title, c.TrainerName, c.CreditCost, c.Level, string.Empty, c.IsFeatured,
             wished.Contains(c.Id), tags.GetValueOrDefault(c.Id) ?? [],
             stars.GetValueOrDefault(c.Id).Average, stars.GetValueOrDefault(c.Id).Count,
             CreatorName: c.CreatorName, TrainerNames: trainerNames.GetValueOrDefault(c.Id) ?? [],
@@ -300,7 +297,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             course.Trainer.FullName,
             course.CreditCost,
             course.Level,
-            course.Category,
+            string.Empty,
             course.Status.ToString(),
             course.LearningOutcomes.OrderBy(o => o.SortOrder).Select(o => o.Text).ToList(),
             course.Intakes.SelectMany(i => i.Sessions).OrderBy(s => s.StartsAt).Select(s => new CourseSessionDto(
@@ -337,7 +334,6 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         string TrainerName,
         int CreditCost,
         string Level,
-        string Category,
         bool IsFeatured,
         string CreatorName,
         bool IsPlatformOwned,
@@ -486,7 +482,6 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         string code,
         string title,
         string? description,
-        string? category,
         int creditCost,
         IReadOnlyList<string>? learningOutcomes,
         CourseLevel level,
@@ -507,7 +502,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         course.LearningPathId = path.Id;
         course.LearningPath = path;
         course.Level = level.Name;
-        if (category is not null) course.Category = category.Trim();
+        course.Category = string.Empty;
         course.CreditCost = creditCost;
         course.LearningOutcomes = NormalizeOutcomes(learningOutcomes)
             .Select((text, index) => new CourseLearningOutcome { SortOrder = index + 1, Text = text })
@@ -535,7 +530,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             course.CourseLevel?.Name ?? course.Level,
             course.LearningPathId ?? 0,
             course.LearningPath?.Name ?? "Unassigned",
-            course.Category,
+            string.Empty,
             course.CreditCost,
             course.Status.ToString(),
             course.LearningOutcomes.OrderBy(outcome => outcome.SortOrder).Select(outcome => outcome.Text).ToList(),

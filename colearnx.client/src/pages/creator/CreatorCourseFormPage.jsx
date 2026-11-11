@@ -90,7 +90,6 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
     for (const file of files) {
       await materialsApi.upload({
         title: titleFromFile(file),
-        category: 'Design',
         file,
         courseId,
         token,

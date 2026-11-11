@@ -217,7 +217,10 @@ public record CreditLedgerItemDto(
     int Delta,
     int BalanceAfter,
     int? HeldAfter = null,
-    int? RelatedEnrollmentId = null);
+    int? RelatedEnrollmentId = null,
+    int? CourseId = null,
+    string? CourseCode = null,
+    string? CourseTitle = null);
 
 public record TopUpRequest([Required] int CreditPackageId, string? ProviderReference);
 

@@ -25,7 +25,6 @@ public sealed class MaterialVersionService(CoLearnXDbContext db, IFileStorage fi
         var title = RequireText(request.Title, 160, "title");
         var filePath = NormalizeMaterialPath(request.FilePath);
         var format = RequireText(request.Format, 32, "format").ToUpperInvariant();
-        var category = RequireText(request.Category, 80, "category");
         if (request.CourseId <= 0)
             throw new LaterPhaseException("COURSE_REQUIRED", "Choose the Course this material belongs to.", field: "courseId");
 
@@ -60,7 +59,7 @@ public sealed class MaterialVersionService(CoLearnXDbContext db, IFileStorage fi
                 Description = request.Description?.Trim(),
                 FilePath = filePath,
                 Format = format,
-                Category = category,
+                Category = string.Empty,
                 Status = MaterialStatus.PendingReview,
                 Version = 1,
             };
@@ -213,7 +212,7 @@ public sealed class MaterialVersionService(CoLearnXDbContext db, IFileStorage fi
             item.LearningMaterial.Description,
             item.FilePath,
             item.Format,
-            item.LearningMaterial.Category,
+            string.Empty,
             item.VersionNumber,
             item.Status.ToString(),
             item.LearningMaterial.Creator.FullName,

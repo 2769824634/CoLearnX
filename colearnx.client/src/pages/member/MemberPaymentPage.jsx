@@ -6,6 +6,14 @@ import { creditsApi } from '../../api';
 import { useMemberSlices } from './memberDataState';
 import { formatCount, ledgerPillClass, ledgerTypeLabel } from '../businessPresentation';
 
+function relatedCourseOptions(ledger) {
+  const courses = new Map();
+  ledger.forEach((item) => {
+    if (item.courseId) courses.set(String(item.courseId), { id: item.courseId, code: item.courseCode, title: item.courseTitle });
+  });
+  return [...courses.values()].sort((a, b) => String(a.code || a.title).localeCompare(String(b.code || b.title)));
+}
+
 // Fixed credit packages + PayPal.
 export default function MemberPaymentPage() {
   const { state, showToast, applyLedgerTopUp, reload } = useMemberSlices('billing');
@@ -13,10 +21,21 @@ export default function MemberPaymentPage() {
   const [selectedId, setSelectedId] = useState(null);
   const [success, setSuccess] = useState(null);
   const [payError, setPayError] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [courseFilter, setCourseFilter] = useState('');
   const capturingReturn = useRef(false);
 
   const packages = state.packages || [];
   const selected = packages.find((p) => p.id === selectedId) || packages[0];
+  const ledger = state.ledger || [];
+  const ledgerTypes = [...new Set(ledger.map((item) => item.type))].sort();
+  const ledgerCourses = relatedCourseOptions(ledger);
+  const filteredLedger = ledger.filter((item) => (
+    (!typeFilter || item.type === typeFilter)
+    && (!courseFilter || String(item.courseId) === courseFilter)
+  ));
+  const creditsAdded = ledger.reduce((total, item) => total + Math.max(0, item.delta), 0);
+  const creditsUsed = ledger.reduce((total, item) => total + Math.abs(Math.min(0, item.delta)), 0);
 
   const onCaptured = useCallback(
     async (ledger) => {
@@ -134,23 +153,52 @@ export default function MemberPaymentPage() {
           </>
         ) : (
           <div className="card cx-wallet-ledger">
+            <div className="cx-ledger-summary" aria-label="Ledger summary">
+              <div><strong>{formatCount(creditsAdded, 'credit')} added</strong><span>Across all transactions</span></div>
+              <div><strong>{formatCount(creditsUsed, 'credit')} used</strong><span>Payments, holds and adjustments</span></div>
+              <div><strong>{formatCount(state.heldCredits ?? 0, 'credit')} on hold</strong><span>Reserved for upcoming courses</span></div>
+            </div>
+            <div className="cx-ledger-filters">
+              <label>
+                Transaction type
+                <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+                  <option value="">All transaction types</option>
+                  {ledgerTypes.map((type) => <option key={type} value={type}>{ledgerTypeLabel(type)}</option>)}
+                </select>
+              </label>
+              <label>
+                Related course
+                <select value={courseFilter} onChange={(event) => setCourseFilter(event.target.value)}>
+                  <option value="">All courses</option>
+                  {ledgerCourses.map((course) => <option key={course.id} value={course.id}>{course.code ? `${course.code} · ` : ''}{course.title || `Course ${course.id}`}</option>)}
+                </select>
+              </label>
+            </div>
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Date</th>
                   <th>Type</th>
                   <th>Description</th>
+                  <th>Related course</th>
                   <th className="num">Credits</th>
                   <th className="num">Balance</th>
                   <th className="num">On hold</th>
                 </tr>
               </thead>
               <tbody>
-                {state.ledger.map((l, i) => (
+                {filteredLedger.map((l, i) => (
                   <tr key={`${l.date}-${i}`}>
                     <td>{l.date}</td>
                     <td><span className={ledgerPillClass(l.type)}>{ledgerTypeLabel(l.type)}</span></td>
                     <td>{l.desc}</td>
+                    <td>
+                      {l.courseId ? (
+                        <a href={`/member/courses/${l.courseId}`}>
+                          {l.courseCode ? `${l.courseCode} · ` : ''}{l.courseTitle || `Course ${l.courseId}`}
+                        </a>
+                      ) : '—'}
+                    </td>
                     <td className={`num cx-ledger-delta${l.delta > 0 ? ' in' : ''}`}>
                       {l.delta > 0 ? '+' : ''}
                       {l.delta}
@@ -161,6 +209,7 @@ export default function MemberPaymentPage() {
                 ))}
               </tbody>
             </table>
+            {!filteredLedger.length ? <p className="cx-ledger-empty">No transactions match these filters.</p> : null}
           </div>
         )}
       </MemberShell>

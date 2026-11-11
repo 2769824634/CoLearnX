@@ -181,7 +181,7 @@ describe('Creator Course workspace', () => {
     }
     if (status === 'Rejected') {
       fireEvent.click(screen.getByRole('button', { name: 'Upload materials' }));
-      expect(within(screen.getByRole('dialog', { name: 'Upload materials' })).getByLabelText('Category').value).toBe('Design');
+      expect(within(screen.getByRole('dialog', { name: 'Upload materials' })).queryByLabelText('Category')).toBeNull();
     }
   });
 
@@ -191,10 +191,7 @@ describe('Creator Course workspace', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Upload materials' }));
     const dialog = screen.getByRole('dialog', { name: 'Upload materials' });
-    const category = within(dialog).getByRole('combobox', { name: 'Category' });
-    expect(category.value).toBe('Design');
-    expect(within(category).getAllByRole('option').map((option) => option.textContent)).toEqual(['Programming', 'Design', 'Business']);
-    fireEvent.change(category, { target: { value: 'Programming' } });
+    expect(within(dialog).queryByRole('combobox', { name: 'Category' })).toBeNull();
     fireEvent.change(within(dialog).getByLabelText('Description'), { target: { value: 'Batch notes' } });
     fireEvent.change(within(dialog).getByLabelText('Files'), {
       target: { files: [new File(['notes'], 'notes.pdf', { type: 'application/pdf' }), new File(['slides'], 'slides.pptx', { type: 'application/vnd.ms-powerpoint' })] },
@@ -214,8 +211,8 @@ describe('Creator Course workspace', () => {
       courseId: options.body.get('courseId'),
       fileName: options.body.get('file').name,
     }))).toEqual([
-      { title: 'Workshop notes', category: 'Programming', description: 'Batch notes', courseId: '44', fileName: 'notes.pdf' },
-      { title: 'slides', category: 'Programming', description: 'Batch notes', courseId: '44', fileName: 'slides.pptx' },
+      { title: 'Workshop notes', category: null, description: 'Batch notes', courseId: '44', fileName: 'notes.pdf' },
+      { title: 'slides', category: null, description: 'Batch notes', courseId: '44', fileName: 'slides.pptx' },
     ]);
   });
 

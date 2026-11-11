@@ -131,7 +131,7 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
     }
 
     [Fact]
-    public async Task Update_WithoutCategory_KeepsTheStoredCategory()
+    public async Task Update_RetiresTheLegacyCategoryValue()
     {
         using var client = await AsCreatorAsync();
         var created = await CreateCourseAsync(client);
@@ -150,7 +150,11 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var updated = JsonNode.Parse(await response.Content.ReadAsStringAsync())!.AsObject();
-        Assert.Equal("Design", updated["category"]!.GetValue<string>());
+        Assert.Equal(string.Empty, updated["category"]!.GetValue<string>());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        Assert.Equal(string.Empty, await db.Courses.Where(course => course.Id == courseId).Select(course => course.Category).SingleAsync());
     }
 
     [Fact]

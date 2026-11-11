@@ -35,11 +35,25 @@ public class CreditService(CoLearnXDbContext db, IPayPalClient payPal, Microsoft
 
     public async Task<IReadOnlyList<CreditLedgerItemDto>> GetMyLedgerAsync(int userId, CancellationToken ct = default)
     {
-        return await db.CreditTransactions.AsNoTracking()
-            .Where(t => t.UserId == userId)
-            .OrderByDescending(t => t.CreatedAt)
-            .Select(t => new CreditLedgerItemDto(t.Id, t.CreatedAt, t.Type.ToString(), t.Description,
-                t.Delta, t.BalanceAfter, t.HeldAfter, t.RelatedEnrollmentId))
+        return await (from transaction in db.CreditTransactions.AsNoTracking()
+            join enrollment in db.Enrollments.AsNoTracking()
+                on new { EnrollmentId = transaction.RelatedEnrollmentId, transaction.UserId }
+                equals new { EnrollmentId = (int?)enrollment.Id, enrollment.UserId } into enrollments
+            from enrollment in enrollments.DefaultIfEmpty()
+            where transaction.UserId == userId
+            orderby transaction.CreatedAt descending
+            select new CreditLedgerItemDto(
+                transaction.Id,
+                transaction.CreatedAt,
+                transaction.Type.ToString(),
+                transaction.Description,
+                transaction.Delta,
+                transaction.BalanceAfter,
+                transaction.HeldAfter,
+                transaction.RelatedEnrollmentId,
+                enrollment == null ? null : enrollment.CourseId,
+                enrollment == null ? null : enrollment.Course.Code,
+                enrollment == null ? null : enrollment.Course.Title))
             .ToListAsync(ct);
     }
 

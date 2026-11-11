@@ -276,7 +276,7 @@ public sealed class AdminCourseReviewService(
             course.Creator.FullName,
             course.CreditCost,
             course.Level,
-            course.Category,
+            string.Empty,
             course.Status.ToString(),
             reviewLog?.Reason,
             reviewLog?.AdminAccountId,

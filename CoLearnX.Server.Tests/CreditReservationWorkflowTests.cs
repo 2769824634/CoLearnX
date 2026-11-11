@@ -288,7 +288,11 @@ public class CreditReservationWorkflowTests
         Assert.Equal(available, final!["creditBalance"]!.GetValue<int>());
         Assert.Equal(held, final["heldCredits"]!.GetValue<int>());
         var ledger = await member.GetFromJsonAsync<JsonArray>("/api/credits/ledger/my");
-        Assert.Single(ledger!, item => item!["type"]!.GetValue<string>() == "Hold");
-        Assert.Single(ledger!, item => item!["type"]!.GetValue<string>() == "Release");
+        var hold = Assert.Single(ledger!, item => item!["type"]!.GetValue<string>() == "Hold");
+        var release = Assert.Single(ledger!, item => item!["type"]!.GetValue<string>() == "Release");
+        Assert.Equal(courseId, hold!["courseId"]!.GetValue<int>());
+        Assert.Equal("INFT 4010", hold["courseCode"]!.GetValue<string>());
+        Assert.Equal("UX Research Methods", hold["courseTitle"]!.GetValue<string>());
+        Assert.Equal(courseId, release!["courseId"]!.GetValue<int>());
     }
 }

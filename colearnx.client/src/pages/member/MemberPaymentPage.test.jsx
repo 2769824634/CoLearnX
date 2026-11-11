@@ -9,6 +9,7 @@ const packages = [
 const ledger = [
   { id: 1, date: '14 Sept 2026, UTC', type: 'TopUp', desc: 'PayPal package', delta: 20, balance: 120, heldAfter: null },
   { id: 2, date: '13 Sept 2026, UTC', type: 'AdminAdjustment', desc: 'Correction', delta: -5, balance: 100, heldAfter: 0 },
+  { id: 3, date: '12 Sept 2026, UTC', type: 'Hold', desc: 'Reserved', delta: -30, balance: 70, heldAfter: 30, courseId: 7, courseCode: 'INFT 2051', courseTitle: 'UI/UX Design Fundamentals' },
 ];
 
 vi.mock('../../components/MemberShell', () => ({ default: ({ title, children }) => <div><h1>{title}</h1>{children}</div> }));
@@ -43,12 +44,25 @@ it('marks the chosen package and passes that package to the PayPal buttons', () 
   expect(screen.getByText('240 credits · $200')).toBeTruthy();
 });
 
-it('shows ledger rows with readable type chips and unchanged amounts', () => {
+it('shows readable ledger summaries, labels, filters and related courses', () => {
   render(<MemberPaymentPage />);
   fireEvent.click(screen.getByRole('button', { name: 'Credit Ledger' }));
-  const [, topUp, adjustment] = screen.getAllByRole('row');
+  expect(screen.getByText('20 credits added')).toBeTruthy();
+  expect(screen.getByText('35 credits used')).toBeTruthy();
+  const [, topUp, adjustment, courseHold] = screen.getAllByRole('row');
   expect(within(topUp).getByText('Top up').className).toContain('pill');
   expect(within(topUp).getByText('+20')).toBeTruthy();
-  expect(within(adjustment).getByText('Admin adjustment')).toBeTruthy();
+  expect(within(adjustment).getByText('Manual adjustment')).toBeTruthy();
   expect(within(adjustment).getByText('-5')).toBeTruthy();
+  expect(within(courseHold).getByText('Course reservation')).toBeTruthy();
+  expect(within(courseHold).getByRole('link', { name: /INFT 2051.*UI\/UX Design Fundamentals/ }).getAttribute('href')).toBe('/member/courses/7');
+
+  fireEvent.change(screen.getByRole('combobox', { name: 'Transaction type' }), { target: { value: 'Hold' } });
+  expect(screen.getAllByRole('row')).toHaveLength(2);
+  expect(screen.queryByText('PayPal package')).toBeNull();
+
+  fireEvent.change(screen.getByRole('combobox', { name: 'Transaction type' }), { target: { value: '' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Related course' }), { target: { value: '7' } });
+  expect(screen.getAllByRole('row')).toHaveLength(2);
+  expect(screen.getByText('Reserved')).toBeTruthy();
 });
