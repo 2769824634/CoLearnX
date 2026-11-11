@@ -8,6 +8,8 @@ import { useNoCredentialAutofill } from '../auth/noCredentialAutofill';
 import { maskEmail } from '../data/memberMock';
 import { PASSWORD_RULES, passwordIssues } from './passwordRules';
 
+const SIGNUP_ROLES = ['Member', 'Trainer', 'Creator'];
+
 export default function RegisterPage() {
   const { register, isAuthenticated, activeRole, booting } = useAuth();
   const navigate = useNavigate();
@@ -15,6 +17,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [role, setRole] = useState('Member');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -43,7 +46,7 @@ export default function RegisterPage() {
     }
     setBusy(true);
     try {
-      const result = await register({ email, password, fullName });
+      const result = await register({ email, password, fullName, role });
       if (result.emailVerificationRequired) {
         const serverMessage = result.message || 'Check your email to verify your account before signing in.';
         setMessage(email.trim() ? serverMessage.replaceAll(email.trim(), maskEmail(email.trim())) : serverMessage);
@@ -93,7 +96,22 @@ export default function RegisterPage() {
           </div>
         ) : <form className="auth-body" onSubmit={onSubmit} autoComplete="off">
           <h2>Create your account</h2>
-          <p className="auth-lead">New accounts start as Member. Trainer and Creator roles are granted later.</p>
+          <div className="form-group" role="group" aria-label="Account type" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {SIGNUP_ROLES.map((item) => (
+              <button
+                key={item}
+                type="button"
+                className={`btn btn-sm ${role === item ? 'btn-primary' : 'btn-ghost'}`}
+                aria-pressed={role === item}
+                onClick={() => { setRole(item); setError(''); }}
+              >
+                Sign up as {item}
+              </button>
+            ))}
+          </div>
+          {role !== 'Member' ? (
+            <p className="auth-lead">{role} accounts must be certified by an administrator before the workspace opens. You will choose your specialties during certification.</p>
+          ) : null}
           <div className="form-group">
             <label htmlFor="register-name">Full name</label>
             <input id="register-name" value={fullName} onChange={(e) => { setFullName(e.target.value); setError(''); }} required minLength={2} maxLength={80} {...nameAutofill} />

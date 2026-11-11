@@ -38,6 +38,7 @@ public static class SeedData
         await PricingSchema.EnsureAsync(db);
         await CourseTrainerSchema.EnsureAsync(db);
         await CourseSubjectSchema.EnsureAsync(db);
+        await RoleCertificationSchema.EnsureAsync(db);
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
         var verifiedAt = DateTime.UtcNow;
 
@@ -90,6 +91,7 @@ public static class SeedData
             await RecommendationSeed.EnsureDemoProfileAndRatingsAsync(db);
             await CourseTrainerSchema.BackfillAsync(db);
             await AlignFoundationCertificatesAsync(db);
+            await EnsureDemoSpecialtiesAsync(db);
             return;
         }
 
@@ -157,6 +159,7 @@ public static class SeedData
         });
         await db.SaveChangesAsync();
         await EnsurePlatformCreatorAsync(db);
+        await EnsureDemoSpecialtiesAsync(db);
 
         db.CreditPackages.AddRange(
             new CreditPackage { PayAudCents = 2000, Credits = 20, Note = "1:1", SortOrder = 1 },
@@ -490,6 +493,24 @@ public static class SeedData
             CreatedByAdminAccountId = adminAccountId,
             SessionStamp = Guid.NewGuid(),
         });
+        await db.SaveChangesAsync();
+    }
+
+    // Demo Trainer and Creator specialties, matching their profile text.
+    private static async Task EnsureDemoSpecialtiesAsync(CoLearnXDbContext db)
+    {
+        var wanted = new (string Email, string[] Subjects)[]
+        {
+            (TrainerEmail, ["Digital Product Design", "Cybersecurity and Infrastructure"]),
+            (CreatorEmail, ["Cybersecurity and Infrastructure", "Software Development"]),
+        };
+        foreach (var (email, subjects) in wanted)
+        {
+            var userId = await db.Users.Where(user => user.Email == email).Select(user => (int?)user.Id).SingleOrDefaultAsync();
+            if (userId is null || await db.UserSpecialties.AnyAsync(item => item.UserId == userId)) continue;
+            var ids = await db.CourseSubjects.Where(subject => subjects.Contains(subject.Name)).Select(subject => subject.Id).ToListAsync();
+            db.UserSpecialties.AddRange(ids.Select(id => new UserSpecialty { UserId = userId.Value, CourseSubjectId = id }));
+        }
         await db.SaveChangesAsync();
     }
 

@@ -81,6 +81,7 @@ builder.Services.AddScoped<IAdminRoleRequestService, AdminRoleRequestService>();
 builder.Services.AddScoped<IRoleRequestService, RoleRequestService>();
 builder.Services.AddScoped<IAdminCourseReviewService, AdminCourseReviewService>();
 builder.Services.AddScoped<IAuthorizationHandler, ActiveAdminAccountHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, CertifiedRoleHandler>();
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, TrainerAuthorizationResultHandler>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
@@ -155,6 +156,7 @@ builder.Services.AddAuthorization(options =>
         policy.RequireClaim(AuthTokenSubjects.ClaimType, AuthTokenSubjects.User);
         policy.RequireClaim("active_role", "Trainer");
         policy.RequireRole("Trainer");
+        policy.AddRequirements(CertifiedRoleRequirement.Instance);
     });
     options.AddPolicy(CreatorAuthorization.PolicyName, policy =>
     {
@@ -163,6 +165,7 @@ builder.Services.AddAuthorization(options =>
         policy.RequireClaim(AuthTokenSubjects.ClaimType, AuthTokenSubjects.User);
         policy.RequireClaim("active_role", "Creator");
         policy.RequireRole("Creator");
+        policy.AddRequirements(CertifiedRoleRequirement.Instance);
     });
     options.AddPolicy(AdminAuthorization.PolicyName, policy =>
     {

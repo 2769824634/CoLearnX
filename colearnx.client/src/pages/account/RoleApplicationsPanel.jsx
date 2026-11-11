@@ -15,6 +15,11 @@ function roleSet(user) {
   return new Set((user?.roles || []).map((role) => String(role)));
 }
 
+// Only the active role reports its certification; other roles predate certification and count as certified.
+function isCertified(user, role) {
+  return String(user?.activeRole) !== role || user?.certifiedAt !== null;
+}
+
 function latestFor(requests, role) {
   return requests.find((item) => item.requestedRole === role);
 }
@@ -125,6 +130,7 @@ export default function RoleApplicationsPanel() {
         {!loading && (!error || applyRole) ? APPLY_ROLES.map((role) => {
           const latest = latestFor(requests, role.id);
           const owned = granted.has(role.id);
+          const certified = owned && isCertified(user, role.id);
           let statusText = 'No application yet';
           let action = !owned ? (
             <button
@@ -137,12 +143,15 @@ export default function RoleApplicationsPanel() {
             </button>
           ) : null;
 
-          if (owned) {
-            statusText = `${role.id} workspace is active`;
-            action = <span className="pill">Active</span>;
-          } else if (latest?.status === 'Pending') {
+          if (latest?.status === 'Pending') {
             statusText = `${role.id} request is pending`;
             action = <span className="pill">Pending</span>;
+          } else if (certified) {
+            statusText = `${role.id} workspace is active`;
+            action = <span className="pill">Active</span>;
+          } else if (owned) {
+            statusText = `${role.id} certification is not complete`;
+            action = null;
           } else if (latest?.status === 'Approved') {
             statusText = `${role.id} access approved. Switch workspace from the top bar.`;
             action = <span className="pill">Approved</span>;

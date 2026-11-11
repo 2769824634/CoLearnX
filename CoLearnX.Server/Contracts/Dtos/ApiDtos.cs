@@ -11,7 +11,8 @@ public record RegisterRequest(
     [RegularExpression(PasswordRules.Pattern, ErrorMessage = PasswordRules.Hint)]
     string Password,
     [Required, MinLength(2), MaxLength(80)] string FullName,
-    [MaxLength(80)] string? DisplayName);
+    [MaxLength(80)] string? DisplayName,
+    string? Role = null);
 
 public record LoginRequest(
     [Required, EmailAddress] string Email,
@@ -56,7 +57,9 @@ public record UserMeDto(
     int HeldCredits = 0,
     int TotalCredits = 0,
     string? Country = null,
-    string Occupation = "unknown");
+    string Occupation = "unknown",
+    DateTime? CertifiedAt = null,
+    IReadOnlyList<string>? Specialties = null);
 
 public record UpdateProfileRequest(
     string? FullName,
@@ -272,7 +275,10 @@ public record RoleRequestDto(
     DateTime? ReviewedAt,
     bool HasResume = false,
     bool HasIdDocument = false,
-    string? Statement = null);
+    string? Statement = null,
+    IReadOnlyList<string>? Specialties = null);
+
+public record SpecialtyOptionDto(int Id, string Name, string Area);
 
 public record ApiError(string Code, string Message,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]

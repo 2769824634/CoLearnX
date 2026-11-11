@@ -32,6 +32,7 @@ public class UserService(CoLearnXDbContext db, IFileStorage files) : IUserServic
         var (extension, contentType) = AvatarImageType(bytes);
         var user = await db.Users.Include(item => item.Roles)
             .Include(item => item.Preference).Include(item => item.TrainerProfile).Include(item => item.CreatorProfile)
+            .Include(item => item.Specialties).ThenInclude(item => item.CourseSubject)
             .SingleOrDefaultAsync(item => item.Id == userId && item.IsActive, ct)
             ?? throw new KeyNotFoundException("User not found.");
         var key = $"avatars/{userId}/{Guid.NewGuid():N}{extension}";
@@ -77,6 +78,7 @@ public class UserService(CoLearnXDbContext db, IFileStorage files) : IUserServic
             .Include(u => u.Preference)
             .Include(u => u.TrainerProfile)
             .Include(u => u.CreatorProfile)
+            .Include(u => u.Specialties).ThenInclude(item => item.CourseSubject)
             .FirstOrDefaultAsync(u => u.Id == userId, ct)
             ?? throw new KeyNotFoundException("User not found.");
 

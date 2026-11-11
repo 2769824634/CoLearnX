@@ -30,6 +30,11 @@ public static class RoleParse
     }
 }
 
+public sealed class RegistrationException(string code, string message) : Exception(message)
+{
+    public string Code { get; } = code;
+}
+
 public class AuthService(
     CoLearnXDbContext db,
     IJwtTokenService jwt,
@@ -49,6 +54,7 @@ public class AuthService(
             throw new InvalidOperationException(PasswordRules.TakenMessage);
         if (!PasswordRules.Meets(request.Password, email))
             throw new FormatException(PasswordRules.Hint);
+        var role = ParseRegistrationRole(request);
 
         var user = new User
         {
@@ -62,23 +68,42 @@ public class AuthService(
         db.Users.Add(user);
         await db.SaveChangesAsync(ct);
 
-        db.UserRoles.Add(new UserRole { UserId = user.Id, Role = AppRole.Member, IsVisible = true });
+        db.UserRoles.Add(new UserRole
+        {
+            UserId = user.Id,
+            Role = role,
+            IsVisible = true,
+            CertifiedAt = role == AppRole.Member ? DateTime.UtcNow : null,
+        });
+        if (role == AppRole.Trainer)
+            db.TrainerProfiles.Add(new TrainerProfile { UserId = user.Id });
+        else if (role == AppRole.Creator)
+            db.CreatorProfiles.Add(new CreatorProfile { UserId = user.Id });
         db.UserPreferences.Add(new UserPreference { UserId = user.Id });
         await db.SaveChangesAsync(ct);
         if (!PasswordResetOptions.CanDeliver(mailOptions.Value, environment))
         {
             user.EmailVerifiedAt = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
-            return new AuthResponse(string.Empty, DateTime.UtcNow, MapMe(user, AppRole.Member));
+            return new AuthResponse(string.Empty, DateTime.UtcNow, MapMe(user, role));
         }
         await emailVerification.RequestAsync(user, ct);
 
         return new AuthResponse(
             string.Empty,
             DateTime.UtcNow,
-            MapMe(user, AppRole.Member),
+            MapMe(user, role),
             EmailVerificationRequired: true,
             Message: "Check your email to verify your account before signing in.");
+    }
+
+    private static AppRole ParseRegistrationRole(RegisterRequest request)
+    {
+        if (!Enum.TryParse<AppRole>(request.Role, true, out var role)
+            || role is not (AppRole.Member or AppRole.Trainer or AppRole.Creator)
+            || int.TryParse(request.Role, out _))
+            throw new RegistrationException("ROLE_NOT_ALLOWED", "Choose Member, Trainer or Creator.");
+        return role;
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct = default)
@@ -129,6 +154,7 @@ public class AuthService(
             .Include(u => u.Preference)
             .Include(u => u.TrainerProfile)
             .Include(u => u.CreatorProfile)
+            .Include(u => u.Specialties).ThenInclude(item => item.CourseSubject)
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == userId, ct)
             ?? throw new KeyNotFoundException("User not found.");
@@ -176,6 +202,7 @@ public class AuthService(
             .Include(u => u.Preference)
             .Include(u => u.TrainerProfile)
             .Include(u => u.CreatorProfile)
+            .Include(u => u.Specialties).ThenInclude(item => item.CourseSubject)
             .FirstAsync(u => u.Id == userId, ct);
         if (rotateSession || user.SessionStamp == Guid.Empty)
         {
@@ -217,6 +244,11 @@ public class AuthService(
             user.HeldCredits,
             user.CreditBalance + user.HeldCredits,
             user.Country,
-            user.Occupation);
+            user.Occupation,
+            user.Roles.FirstOrDefault(r => r.Role == activeRole)?.CertifiedAt,
+            activeRole is AppRole.Trainer or AppRole.Creator
+                ? user.Specialties.Where(item => item.CourseSubject is not null)
+                    .Select(item => item.CourseSubject.Name).OrderBy(name => name).ToList()
+                : null);
     }
 }

@@ -233,9 +233,11 @@ export const notificationsApi = {
 
 export const roleRequestsApi = {
   my: () => apiRequest('/api/role-requests/my'),
-  create: (requestedRole, resume, idDocument, statement) => {
+  specialties: () => apiRequest('/api/role-requests/specialties'),
+  create: (requestedRole, resume, idDocument, statement, specialtyIds = []) => {
     const body = new FormData();
     body.append('requestedRole', requestedRole);
+    specialtyIds.forEach((id) => body.append('specialtyIds', String(id)));
     body.append('statement', statement);
     body.append('resume', resume);
     body.append('idDocument', idDocument);

@@ -9,7 +9,7 @@ namespace CoLearnX.Server.Services;
 public interface ICourseTrainerService
 {
     Task<IReadOnlyList<CourseTrainerDto>> ListAsync(int creatorId, int courseId, CancellationToken ct = default);
-    Task<IReadOnlyList<TrainerCandidateDto>> SearchCandidatesAsync(string? search, CancellationToken ct = default);
+    Task<IReadOnlyList<TrainerCandidateDto>> SearchCandidatesAsync(int creatorId, int courseId, string? search, CancellationToken ct = default);
     Task<CourseTrainerDto> InviteAsync(int creatorId, int courseId, int trainerId, CancellationToken ct = default);
     Task<CourseTrainerDto> RemoveAsync(int creatorId, int courseId, int trainerId, CancellationToken ct = default);
     Task<IReadOnlyList<CourseInvitationDto>> ListInvitationsAsync(int trainerId, CancellationToken ct = default);
@@ -34,9 +34,12 @@ public sealed class CourseTrainerService(CoLearnXDbContext db, INotificationReal
             .ToList();
     }
 
-    public async Task<IReadOnlyList<TrainerCandidateDto>> SearchCandidatesAsync(string? search, CancellationToken ct = default)
+    public async Task<IReadOnlyList<TrainerCandidateDto>> SearchCandidatesAsync(int creatorId, int courseId, string? search, CancellationToken ct = default)
     {
-        var query = ActiveTrainers().AsNoTracking();
+        var subjectId = (await OwnedCourseAsync(creatorId, courseId, ct)).CourseSubjectId;
+        var query = ActiveTrainers().AsNoTracking()
+            .Where(user => user.Id != creatorId
+                && subjectId != null && user.Specialties.Any(item => item.CourseSubjectId == subjectId));
         var term = search?.Trim();
         if (!string.IsNullOrEmpty(term))
         {
@@ -50,16 +53,22 @@ public sealed class CourseTrainerService(CoLearnXDbContext db, INotificationReal
             .Take(CandidateLimit)
             .Select(user => new TrainerCandidateDto(user.Id, user.FullName,
                 user.TrainerProfile == null ? null : user.TrainerProfile.Headline,
-                user.TrainerProfile == null ? null : user.TrainerProfile.Specialisations))
+                user.TrainerProfile == null ? null : user.TrainerProfile.Specialisations,
+                user.Specialties.OrderBy(item => item.CourseSubject.Name).Select(item => item.CourseSubject.Name).ToList()))
             .ToListAsync(ct);
     }
 
     public async Task<CourseTrainerDto> InviteAsync(int creatorId, int courseId, int trainerId, CancellationToken ct = default)
     {
         var course = await OwnedCourseAsync(creatorId, courseId, ct);
+        if (trainerId == creatorId)
+            throw new CourseException("CREATOR_CANNOT_TEACH", "A Creator cannot teach. Invite a Trainer account instead.", StatusCodes.Status400BadRequest);
         var trainer = await ActiveTrainers().Include(user => user.TrainerProfile)
             .SingleOrDefaultAsync(user => user.Id == trainerId, ct)
             ?? throw new CourseException("TRAINER_NOT_FOUND", "This Trainer was not found or cannot teach right now.", StatusCodes.Status404NotFound);
+        if (course.CourseSubjectId is null
+            || !await db.UserSpecialties.AnyAsync(item => item.UserId == trainerId && item.CourseSubjectId == course.CourseSubjectId, ct))
+            throw new CourseException("TRAINER_SUBJECT_MISMATCH", "This Trainer is not certified in the specialty of this Course.", StatusCodes.Status409Conflict);
         var row = await db.CourseTrainers.SingleOrDefaultAsync(item => item.CourseId == courseId && item.TrainerId == trainerId, ct);
         if (row is { Status: CourseTrainerStatus.Invited or CourseTrainerStatus.Accepted })
             throw new CourseException("TRAINER_ALREADY_INVITED", "This Trainer is already invited to or teaching this Course.", StatusCodes.Status409Conflict);
@@ -70,25 +79,19 @@ public sealed class CourseTrainerService(CoLearnXDbContext db, INotificationReal
             db.CourseTrainers.Add(row);
         }
 
-        var now = DateTime.UtcNow;
-        var self = trainerId == creatorId;
-        row.Status = self ? CourseTrainerStatus.Accepted : CourseTrainerStatus.Invited;
+        row.Status = CourseTrainerStatus.Invited;
         row.InvitedByUserId = creatorId;
-        row.InvitedAt = now;
-        row.RespondedAt = self ? now : null;
+        row.InvitedAt = DateTime.UtcNow;
+        row.RespondedAt = null;
         row.RemovedAt = null;
         row.Trainer = trainer;
 
-        Notification? notification = null;
-        if (!self)
+        var notification = new Notification
         {
-            notification = new Notification
-            {
-                UserId = trainerId, Code = "N-course-invitation", Title = "Teaching invitation", EmailPending = true,
-                Body = $"{course.Creator.FullName} invited you to teach {CourseName(course)}.",
-            };
-            db.Notifications.Add(notification);
-        }
+            UserId = trainerId, Code = "N-course-invitation", Title = "Teaching invitation", EmailPending = true,
+            Body = $"{course.Creator.FullName} invited you to teach {CourseName(course)}.",
+        };
+        db.Notifications.Add(notification);
 
         await Audit(creatorId, "CourseTrainerInvited", row, ct);
         await db.SaveChangesAsync(ct);
@@ -180,10 +183,11 @@ public sealed class CourseTrainerService(CoLearnXDbContext db, INotificationReal
     }
 
     private IQueryable<User> ActiveTrainers()
-        => db.Users.Where(user => user.IsActive && user.Roles.Any(role => role.Role == AppRole.Trainer));
+        => db.Users.Where(user => user.IsActive
+            && user.Roles.Any(role => role.Role == AppRole.Trainer && role.CertifiedAt != null));
 
     private async Task<Course> OwnedCourseAsync(int creatorId, int courseId, CancellationToken ct)
-        => await db.Courses.Include(course => course.Creator)
+        => await db.Courses.Include(course => course.Creator).Include(course => course.CourseSubject)
             .SingleOrDefaultAsync(course => course.Id == courseId && course.CreatorId == creatorId, ct)
             ?? throw new CourseException("COURSE_NOT_FOUND", "Course was not found.", StatusCodes.Status404NotFound);
 

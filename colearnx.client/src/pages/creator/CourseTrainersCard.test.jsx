@@ -19,7 +19,7 @@ function mount(handler = () => null) {
     const custom = await handler(path, init);
     if (custom) return custom;
     if (path === '/api/creator/courses/9/trainers' && isGet(init)) return json(roster);
-    if (path.startsWith('/api/creator/trainers?search=')) return json([
+    if (path.startsWith('/api/creator/trainers?courseId=9&search=')) return json([
       { id: 2, fullName: 'Alex Chen', headline: 'Coach', specialisations: 'Accessibility' },
       { id: 6, fullName: 'Erin Dual', headline: 'Facilitator', specialisations: 'Workshops' },
     ]);
@@ -63,7 +63,7 @@ it('searches after two characters and refreshes the roster after an invitation',
 
   fireEvent.change(search, { target: { value: 'er' } });
   const erin = (await within(dialog).findByText('Erin Dual')).closest('li');
-  expect(calls(fetch, (path) => path.startsWith('/api/creator/trainers'))).toEqual([['/api/creator/trainers?search=er', expect.anything()]]);
+  expect(calls(fetch, (path) => path.startsWith('/api/creator/trainers'))).toEqual([['/api/creator/trainers?courseId=9&search=er', expect.anything()]]);
   const alex = within(dialog).getByText('Alex Chen').closest('li');
   expect(within(alex).queryByRole('button', { name: 'Invite' })).toBeNull();
   expect(within(alex).getByText('Available')).toBeTruthy();

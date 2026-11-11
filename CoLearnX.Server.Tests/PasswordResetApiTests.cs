@@ -54,7 +54,7 @@ public class PasswordResetApiTests : IDisposable
         }));
         var client = app.CreateClient();
         var email = $"bound.{Guid.NewGuid():N}@colearnx.test";
-        (await client.PostAsJsonAsync("/api/auth/register", new RegisterRequest(email, "Password123!", "Bound User", null))).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/api/auth/register", new RegisterRequest(email, "Password123!", "Bound User", null, "Member"))).EnsureSuccessStatusCode();
         var verificationToken = mail.Messages.Single(x => x.Link.Contains("/verify-email#token=")).Link.Split("#token=")[1];
         (await client.PostAsJsonAsync("/api/auth/verify-email", new { token = verificationToken })).EnsureSuccessStatusCode();
         (await client.PostAsJsonAsync("/api/auth/forgot-password", new { email })).EnsureSuccessStatusCode();
@@ -86,7 +86,7 @@ public class PasswordResetApiTests : IDisposable
         }));
         var client = app.CreateClient();
         var email = $"reset.{Guid.NewGuid():N}@colearnx.test";
-        var registration = await client.PostAsJsonAsync("/api/auth/register", new RegisterRequest(email, "Password123!", "Reset User", null));
+        var registration = await client.PostAsJsonAsync("/api/auth/register", new RegisterRequest(email, "Password123!", "Reset User", null, "Member"));
         registration.EnsureSuccessStatusCode();
         var pending = (await registration.Content.ReadFromJsonAsync<AuthResponse>(ApiJson.Options))!;
         var verificationToken = mail.Messages.Single(x => x.Link.Contains("/verify-email#token=")).Link.Split("#token=")[1];

@@ -23,6 +23,10 @@ public partial class AuthController(IAuthService auth) : ControllerBase
         {
             return Ok(await auth.RegisterAsync(request, ct));
         }
+        catch (RegistrationException ex)
+        {
+            return BadRequest(new ApiError(ex.Code, ex.Message));
+        }
         catch (FormatException ex)
         {
             return BadRequest(new ApiError("WEAK_PASSWORD", ex.Message));

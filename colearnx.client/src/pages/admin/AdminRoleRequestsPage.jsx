@@ -261,6 +261,12 @@ export default function AdminRoleRequestsPage() {
             )}
             {downloadBusy ? <p role="status">Downloading {download.kind === 'resume' ? 'resume' : 'ID document'}…</p> : download?.message ? <p role="status">{download.message}</p> : null}
             {download?.error ? <p role="alert" className="admin-review-inline-error">{download.error}</p> : null}
+            {selected.specialties?.length ? (
+              <div className="form-group">
+                <label>Specialties</label>
+                <p style={{ margin: '6px 0 16px', fontSize: 13 }}>{selected.specialties.join(', ')}</p>
+              </div>
+            ) : null}
             {selected.applicantStatement ? (
               <div className="form-group">
                 <label>Applicant statement</label>
