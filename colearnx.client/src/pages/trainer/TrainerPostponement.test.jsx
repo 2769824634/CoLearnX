@@ -20,7 +20,7 @@ function renderIntake(overrides = {}) {
   });
   vi.stubGlobal('fetch', fetch);
   render(<AuthContext.Provider value={{ token: 'creator-token' }}><MemoryRouter initialEntries={['/creator/intakes/12']}>
-    <Routes><Route path="/creator/intakes/12" element={<CreatorIntakeDetailPage />} /><Route path="/creator/intakes/20" element={<p>New replacement draft</p>} /></Routes>
+    <Routes><Route path="/creator/intakes/:courseIntakeId" element={<CreatorIntakeDetailPage />} /><Route path="/creator/courses/:courseId/intakes/:courseIntakeId" element={<p>New replacement draft</p>} /></Routes>
   </MemoryRouter></AuthContext.Provider>);
   return fetch;
 }

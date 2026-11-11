@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthContext } from '../auth/AuthContext';
 import { MemberDataContext } from './member/memberDataState';
@@ -11,7 +11,6 @@ import MemberBadgesPage from './member/MemberBadgesPage';
 import MemberDisputesPage from './member/MemberDisputesPage';
 import CreatorCourseFormPage from './creator/CreatorCourseFormPage';
 import CreatorUsagePage from './creator/CreatorUsagePage';
-import CreatorIntakesPage from './creator/CreatorIntakesPage';
 import TrainerAttendancePage from './trainer/TrainerAttendancePage';
 import TrainerLearnersPage from './trainer/TrainerLearnersPage';
 import { TrainerError } from './trainer/TrainerUi';
@@ -102,17 +101,25 @@ it('explains the dispute prerequisite and excludes reserved enrollments', async 
   expect(screen.getByRole('button', { name: 'Submit dispute' }).disabled).toBe(true);
 });
 
-it('keeps a submitted Course definition visible as read-only', async () => {
+it('shows a submitted course as a short profile', async () => {
   mount(<CreatorCourseFormPage />, {}, '/creator/courses/1', async (url) => json(url.endsWith('/options') ? { courseLevels: [{ id: 1, name: 'Beginner' }], learningPaths: [{ id: 2, name: 'Design' }] } : url === '/api/interests' || url.startsWith('/api/materials') ? [] : { ...course, creditCost: 20, courseLevelId: 1, learningPathId: 2, learningOutcomes: ['Build a portfolio'], status: 'PendingApproval' }));
-  await waitFor(() => expect(screen.getByLabelText('Description').value).toBe('Learn useful skills.'));
-  expect(screen.getByLabelText('Description').matches(':disabled')).toBe(true);
-  expect(screen.getByLabelText('Learning outcomes').value).toBe('Build a portfolio');
+  expect(await screen.findByText('Learn useful skills.')).toBeTruthy();
+  expect(screen.getByText('Build a portfolio')).toBeTruthy();
+  expect(screen.getAllByText('LONG-CODE-123').length).toBeGreaterThan(0);
+  expect(screen.queryByText('Course editing is locked')).toBeNull();
+  expect(screen.queryByLabelText('Description')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
 });
 
-it('shows an empty class list without an approval queue', async () => {
-  mount(<CreatorIntakesPage />);
-  await screen.findByText('No classes yet');
+it('shows an empty class list on the course without an approval queue', async () => {
+  mount(<CreatorCourseFormPage />, {}, '/creator/courses/1', async (url) => json(
+    url.endsWith('/options') ? { courseLevels: [{ id: 1, name: 'Beginner' }], learningPaths: [{ id: 2, name: 'Design' }] }
+      : url === '/api/interests' || url.startsWith('/api/materials') || String(url).includes('/intakes') ? []
+        : String(url).includes('/trainers') ? [{ trainerId: 2, fullName: 'Trainer One', status: 'Accepted', headline: 'Design' }]
+          : { ...course, creditCost: 20, courseLevelId: 1, learningPathId: 2, learningOutcomes: ['Build a portfolio'], status: 'Published' },
+  ));
+  expect(await screen.findByText('No classes yet')).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Open a class' }).getAttribute('href')).toBe('/creator/courses/1/intakes/new');
   expect(screen.queryByText('Action required')).toBeNull();
 });
 

@@ -44,7 +44,7 @@ describe('Creator Course workspace', () => {
     expect(screen.queryByRole('button', { name: /Art/ })).toBeNull();
   });
 
-  it('shows creator-owned courses and an intake review entry point', async () => {
+  it('shows creator-owned courses on one course workspace', async () => {
     vi.stubGlobal('fetch', vi.fn(async (path) => {
       const data = path === '/api/creator/courses'
         ? [{ id: 17, code: 'CRT-17', title: 'Accessible Learning', status: 'Draft', courseLevelName: 'Beginner', learningPathName: 'Design', creditCost: 24 }]
@@ -63,8 +63,8 @@ describe('Creator Course workspace', () => {
     expect(await screen.findByRole('heading', { name: 'Course workspace' })).toBeTruthy();
     expect(screen.getByRole('link', { name: /Accessible Learning/ }).getAttribute('href')).toBe('/creator/courses/17');
     expect(screen.queryByRole('link', { name: 'Open →' })).toBeNull();
-    expect(screen.getByRole('link', { name: 'Classes' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: /Open and publish classes/i })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Classes' })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Open and publish classes/i })).toBeNull();
     expect(screen.getAllByRole('link', { name: /Create Course/i }).length).toBeGreaterThan(0);
     expect(screen.getByText('24 credits')).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Upload Material' })).toBeNull();

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { creatorCoursesApi } from '../../api';
 import { creatorIntakesApi } from '../../api/creatorIntakes';
 import { ScheduleForm, SessionForm } from '../trainer/IntakeForms';
@@ -7,6 +7,8 @@ import { formatDate, statusLabel } from '../trainer/intakeForm';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { formatCount, formatUtcDate } from '../businessPresentation';
 import { CreatorError, CreatorHeader } from './CreatorUi';
+
+const loadIntake = (token, id, signal) => creatorIntakesApi.get(token, id, signal);
 
 async function loadDetail(token, id, signal) {
   const [intake, courses] = await Promise.all([
@@ -31,7 +33,7 @@ function SessionCard({ session, editable, onEdit, onDelete }) {
   </article>;
 }
 
-function IntakeWorkspace({ query }) {
+export function IntakeWorkspace({ query, onOpenClass }) {
   const navigate = useNavigate();
   const { intake, courses } = query.data;
   const course = courses.find((item) => item.id === intake.courseId);
@@ -75,11 +77,13 @@ function IntakeWorkspace({ query }) {
     setError(null);
     try {
       const replacement = await creatorIntakesApi.postpone(query.token, intake.id, { ...body, trainerId: intake.trainerId });
-      navigate(`/creator/intakes/${replacement.id}`);
+      if (onOpenClass) onOpenClass(replacement);
+      else navigate(`/creator/courses/${intake.courseId}/intakes/${replacement.id}`);
     } catch (failure) { setError(failure); }
     finally { setBusy(false); }
   }
 
+  const replacementTarget = `/creator/courses/${intake.courseId}/intakes/${intake.replacementIntakeId}`;
   return <>
     <CreatorHeader eyebrow={`${course?.code || course?.title || 'Course'} · ${formatDate(intake.startsAt)}`} title={course?.title || course?.code || 'Course'} action={<span className={`creator-status ${intake.status.toLowerCase()}`}>{statusLabel(intake.status)}</span>}>
       Trainer {intake.trainerName || 'assigned'}. Times are shown in UTC.
@@ -87,7 +91,9 @@ function IntakeWorkspace({ query }) {
     {notice ? <div className="trainer-notice" role="status">{notice}</div> : null}
     <CreatorError error={error} />
     {intake.cancelledAt ? <p>Cancelled {formatDate(intake.cancelledAt)}{intake.cancellationReason === 'MinimumEnrollmentNotMet' ? ' because the class did not reach the minimum.' : '.'}</p> : null}
-    {intake.replacementIntakeId ? <p>Postponed to <Link to={`/creator/intakes/${intake.replacementIntakeId}`}>the replacement class</Link>.</p> : null}
+    {intake.replacementIntakeId ? <p>Postponed to {onOpenClass
+      ? <button type="button" className="btn btn-ghost" onClick={() => onOpenClass({ id: intake.replacementIntakeId })}>the replacement class</button>
+      : <Link to={replacementTarget}>the replacement class</Link>}.</p> : null}
     {canPostpone ? <section>
       <h2>Postpone this class</h2>
       {editor?.type === 'postpone'
@@ -106,13 +112,33 @@ function IntakeWorkspace({ query }) {
   </>;
 }
 
-export default function CreatorIntakeDetailPage() {
+export function CreatorIntakeRedirect() {
   const { courseIntakeId } = useParams();
-  const query = useTrainerQuery(loadDetail, courseIntakeId);
+  const navigate = useNavigate();
+  const query = useTrainerQuery(loadIntake, courseIntakeId);
+  useEffect(() => {
+    if (query.data?.courseId) navigate(`/creator/courses/${query.data.courseId}/intakes/${query.data.id}`, { replace: true });
+  }, [navigate, query.data]);
   return <section className="creator-page">
-    <Link className="creator-back" to="/creator/intakes">← All classes</Link>
+    {query.error ? <CreatorError error={query.error} onRetry={query.refresh} /> : <div className="creator-empty" role="status">Opening the course…</div>}
+  </section>;
+}
+
+export default function CreatorIntakeDetailPage({ intakeId, course }) {
+  const params = useParams();
+  const courseIntakeId = intakeId || params.courseIntakeId;
+  const query = useTrainerQuery(loadDetail, courseIntakeId);
+  const [, setSearchParams] = useSearchParams();
+  const courseId = query.data?.intake?.courseId;
+  const listed = query.data?.courses || [];
+  const data = query.data && course && !listed.some((item) => item.id === course.id)
+    ? { ...query.data, courses: [...listed, course] }
+    : query.data;
+  const workspaceQuery = data ? { ...query, data } : query;
+  return <section className={course ? undefined : 'creator-page'}>
+    {course ? null : <Link className="creator-back" to={courseId ? `/creator/courses/${courseId}` : '/creator/courses'}>← Course</Link>}
     {query.loading ? <div className="creator-empty" role="status">Loading class…</div>
       : query.error ? <CreatorError error={query.error} onRetry={query.refresh} />
-        : <IntakeWorkspace key={`${query.token}:${courseIntakeId}`} query={query} />}
+        : <IntakeWorkspace key={`${query.token}:${courseIntakeId}`} query={workspaceQuery} onOpenClass={course ? (replacement) => setSearchParams({ class: String(replacement.id) }, { replace: true }) : undefined} />}
   </section>;
 }

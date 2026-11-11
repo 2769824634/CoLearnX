@@ -53,8 +53,8 @@ export default function CreatorHomePage() {
               </div> : null}
             </section>
             <section aria-labelledby="creator-classes-title">
-              <div className="creator-home-heading"><h2 id="creator-classes-title">Classes</h2><Link to="/creator/intakes">All classes →</Link></div>
-              <p>Open a class on a published course and assign a Trainer who has accepted it.</p>
+              <div className="creator-home-heading"><h2 id="creator-classes-title">Classes</h2><Link to="/creator/courses">Open a course →</Link></div>
+              <p>Materials, classes, and sessions live on each course. Open a published course to create them.</p>
             </section>
           </div>
           <section className="creator-quick-actions" aria-labelledby="creator-actions-title">
