@@ -4,7 +4,6 @@ import MemberNotifications from '../components/MemberNotifications';
 import { MemberNotificationsProvider } from '../components/MemberNotificationsProvider';
 import { useAuth } from '../auth/AuthContext';
 import useAdminAuth from '../auth/useAdminAuth';
-import useStaffAuth from '../auth/useStaffAuth';
 import { AdminPendingProvider } from '../pages/admin/AdminPendingProvider';
 import { approvalTotal, useAdminPending } from '../pages/admin/adminPending';
 import { ShellChrome, ShellNavLink } from './ShellChrome';
@@ -15,7 +14,6 @@ import '../styles/later-phase.css';
 import '../styles/admin-v10.css';
 import '../styles/trainer-v10.css';
 import '../styles/creator-v10.css';
-import '../styles/staff-v10.css';
 
 const NAV = {
   trainer: [
@@ -36,18 +34,11 @@ const NAV = {
     { to: '/admin/home', label: 'Homepage' },
     { to: '/admin/approvals', label: 'Approvals', pending: 'approvals' },
     { to: '/admin/users', label: 'Users' },
-    { to: '/admin/staff', label: 'Staff' },
     { to: '/admin/class-dates', label: 'Class dates' },
     { to: '/admin/disputes', label: 'Disputes', pending: 'disputes' },
     { to: '/admin/pricing', label: 'Pricing' },
     { to: '/admin/audit', label: 'Audit Log' },
     { to: '/admin/account', label: 'My Account' },
-  ],
-  staff: [
-    { to: '/staff/home', label: 'Homepage' },
-    { to: '/staff/courses', label: 'Platform courses' },
-    { to: '/staff/intakes', label: 'Classes' },
-    { to: '/staff/account', label: 'My Account' },
   ],
 };
 
@@ -71,7 +62,7 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
 
   return (
     <ShellChrome
-      shellClassName={`shell${role === 'admin' ? ' admin-shell' : ''}${role === 'trainer' ? ' trainer-shell' : ''}${role === 'creator' ? ' creator-shell' : ''}${role === 'staff' ? ' staff-shell' : ''}`}
+      shellClassName={`shell${role === 'admin' ? ' admin-shell' : ''}${role === 'trainer' ? ' trainer-shell' : ''}${role === 'creator' ? ' creator-shell' : ''}`}
       role={role}
       identityName={identityName}
       avatarUrl={avatarUrl}
@@ -140,17 +131,4 @@ export function AdminRoleShell({ title, subtitle }) {
       />
     </AdminPendingProvider>
   );
-}
-
-export function StaffRoleShell({ title, subtitle }) {
-  const { staff, token, logout } = useStaffAuth();
-  return <ShellFrame
-    identityName={staff?.displayName}
-    token={token}
-    role="staff"
-    logout={logout}
-    identityLabel="Platform staff"
-    title={title}
-    subtitle={subtitle}
-  />;
 }

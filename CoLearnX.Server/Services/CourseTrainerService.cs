@@ -14,6 +14,9 @@ public interface ICourseTrainerService
     Task<CourseTrainerDto> RemoveAsync(int creatorId, int courseId, int trainerId, CancellationToken ct = default);
     Task<IReadOnlyList<CourseInvitationDto>> ListInvitationsAsync(int trainerId, CancellationToken ct = default);
     Task<CourseInvitationDto> RespondAsync(int trainerId, int invitationId, bool accept, CancellationToken ct = default);
+    Task<IReadOnlyList<TrainerCourseApplicationDto>> ListAvailableAsync(int trainerId, CancellationToken ct = default);
+    Task<CourseInvitationDto> ApplyAsync(int trainerId, int courseId, CancellationToken ct = default);
+    Task<CourseTrainerDto> ReviewRequestAsync(int creatorId, int courseId, int trainerId, bool accept, CancellationToken ct = default);
 }
 
 public sealed class CourseTrainerService(CoLearnXDbContext db, INotificationRealtime? realtime = null) : ICourseTrainerService
@@ -173,6 +176,97 @@ public sealed class CourseTrainerService(CoLearnXDbContext db, INotificationReal
         return ToInvitationDto(row);
     }
 
+    public async Task<IReadOnlyList<TrainerCourseApplicationDto>> ListAvailableAsync(int trainerId, CancellationToken ct = default)
+    {
+        await RequireActiveTrainerAsync(trainerId, ct);
+        var courses = await db.Courses.AsNoTracking()
+            .Where(course => course.Status == CourseStatus.Published
+                && course.CourseSubjectId != null
+                && db.UserSpecialties.Any(specialty => specialty.UserId == trainerId && specialty.CourseSubjectId == course.CourseSubjectId))
+            .OrderBy(course => course.Title)
+            .Select(course => new
+            {
+                course.Id, course.Code, course.Title, CreatorName = course.Creator.FullName,
+                SpecialtyName = course.CourseSubject!.Name,
+                Status =
+                db.CourseTrainers.Where(row => row.CourseId == course.Id && row.TrainerId == trainerId)
+                    .Select(row => (CourseTrainerStatus?)row.Status).SingleOrDefault(),
+            })
+            .ToListAsync(ct);
+        return courses.Select(course => new TrainerCourseApplicationDto(
+            course.Id, course.Code, course.Title, course.CreatorName, course.SpecialtyName, course.Status?.ToString()))
+            .ToList();
+    }
+
+    public async Task<CourseInvitationDto> ApplyAsync(int trainerId, int courseId, CancellationToken ct = default)
+    {
+        var trainer = await RequireActiveTrainerAsync(trainerId, ct);
+        var course = await db.Courses.Include(item => item.Creator).Include(item => item.CourseSubject)
+            .SingleOrDefaultAsync(item => item.Id == courseId, ct)
+            ?? throw new CourseException("COURSE_NOT_FOUND", "Course was not found.", StatusCodes.Status404NotFound);
+        if (course.Status != CourseStatus.Published)
+            throw new CourseException("COURSE_NOT_PUBLISHED", "Only published Courses accept teaching applications.", StatusCodes.Status409Conflict);
+        if (course.CourseSubjectId is null
+            || !await db.UserSpecialties.AnyAsync(item => item.UserId == trainerId && item.CourseSubjectId == course.CourseSubjectId, ct))
+            throw new CourseException("TRAINER_SUBJECT_MISMATCH", "You can only apply for Courses in your certified specialties.", StatusCodes.Status409Conflict);
+
+        var row = await db.CourseTrainers.SingleOrDefaultAsync(item => item.CourseId == courseId && item.TrainerId == trainerId, ct);
+        if (row is { Status: CourseTrainerStatus.Requested or CourseTrainerStatus.Invited or CourseTrainerStatus.Accepted })
+            throw new CourseException("APPLICATION_ALREADY_EXISTS", "You already have an active invitation or application for this Course.", StatusCodes.Status409Conflict);
+        if (row is null)
+        {
+            row = new CourseTrainer { CourseId = courseId, TrainerId = trainerId };
+            db.CourseTrainers.Add(row);
+        }
+        row.Status = CourseTrainerStatus.Requested;
+        row.InvitedByUserId = trainerId;
+        row.InvitedAt = DateTime.UtcNow;
+        row.RespondedAt = null;
+        row.RemovedAt = null;
+        row.Course = course;
+        row.Trainer = trainer;
+
+        var notification = new Notification
+        {
+            UserId = course.CreatorId, Code = "N-course-trainer-requested", Title = "Teaching application",
+            Body = $"{trainer.FullName} applied to teach {CourseName(course)}.", EmailPending = true,
+        };
+        db.Notifications.Add(notification);
+        await Audit(trainerId, "CourseTrainerRequested", row, ct);
+        await db.SaveChangesAsync(ct);
+        await PublishAsync(notification, ct);
+        return ToInvitationDto(row);
+    }
+
+    public async Task<CourseTrainerDto> ReviewRequestAsync(int creatorId, int courseId, int trainerId, bool accept, CancellationToken ct = default)
+    {
+        var course = await OwnedCourseAsync(creatorId, courseId, ct);
+        var row = await db.CourseTrainers.Include(item => item.Trainer).ThenInclude(user => user.TrainerProfile)
+            .SingleOrDefaultAsync(item => item.CourseId == courseId && item.TrainerId == trainerId, ct)
+            ?? throw new CourseException("APPLICATION_NOT_FOUND", "This teaching application was not found.", StatusCodes.Status404NotFound);
+        if (row.Status != CourseTrainerStatus.Requested)
+            throw new CourseException("APPLICATION_NOT_PENDING", "This teaching application is no longer waiting for review.", StatusCodes.Status409Conflict);
+        if (accept && (!row.Trainer.IsActive
+            || !await db.UserRoles.AnyAsync(role => role.UserId == trainerId && role.Role == AppRole.Trainer && role.CertifiedAt != null, ct)
+            || course.CourseSubjectId is null
+            || !await db.UserSpecialties.AnyAsync(item => item.UserId == trainerId && item.CourseSubjectId == course.CourseSubjectId, ct)))
+            throw new CourseException("TRAINER_NOT_ELIGIBLE", "This Trainer is no longer certified for the Course specialty.", StatusCodes.Status409Conflict);
+        row.Status = accept ? CourseTrainerStatus.Accepted : CourseTrainerStatus.Declined;
+        row.RespondedAt = DateTime.UtcNow;
+        var notification = new Notification
+        {
+            UserId = trainerId,
+            Code = accept ? "N-course-application-accepted" : "N-course-application-declined",
+            Title = accept ? "Teaching application accepted" : "Teaching application declined",
+            Body = $"Your application to teach {CourseName(course)} was {(accept ? "accepted" : "declined")}.",
+        };
+        db.Notifications.Add(notification);
+        await Audit(creatorId, accept ? "CourseTrainerRequestAccepted" : "CourseTrainerRequestDeclined", row, ct);
+        await db.SaveChangesAsync(ct);
+        await PublishAsync(notification, ct);
+        return ToDto(row);
+    }
+
     // A first invitation has no row Id until saved; the course/trainer pair keeps the entry in the same save.
     private async Task Audit(int actorUserId, string action, CourseTrainer row, CancellationToken ct)
     {
@@ -185,6 +279,10 @@ public sealed class CourseTrainerService(CoLearnXDbContext db, INotificationReal
     private IQueryable<User> ActiveTrainers()
         => db.Users.Where(user => user.IsActive
             && user.Roles.Any(role => role.Role == AppRole.Trainer && role.CertifiedAt != null));
+
+    private async Task<User> RequireActiveTrainerAsync(int trainerId, CancellationToken ct)
+        => await ActiveTrainers().SingleOrDefaultAsync(user => user.Id == trainerId, ct)
+            ?? throw new CourseException("TRAINER_NOT_FOUND", "This Trainer was not found or cannot teach right now.", StatusCodes.Status404NotFound);
 
     private async Task<Course> OwnedCourseAsync(int creatorId, int courseId, CancellationToken ct)
         => await db.Courses.Include(course => course.Creator).Include(course => course.CourseSubject)
@@ -202,9 +300,10 @@ public sealed class CourseTrainerService(CoLearnXDbContext db, INotificationReal
     private static int RosterOrder(CourseTrainerStatus status) => status switch
     {
         CourseTrainerStatus.Accepted => 0,
-        CourseTrainerStatus.Invited => 1,
-        CourseTrainerStatus.Declined => 2,
-        _ => 3,
+        CourseTrainerStatus.Requested => 1,
+        CourseTrainerStatus.Invited => 2,
+        CourseTrainerStatus.Declined => 3,
+        _ => 4,
     };
 
     private static CourseTrainerDto ToDto(CourseTrainer row) => new(

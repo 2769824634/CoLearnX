@@ -11,6 +11,7 @@ const STATUS = {
   Invited: { label: 'Invited', tone: 'pending' },
   Declined: { label: 'Declined', tone: 'rejected' },
   Removed: { label: 'Removed', tone: 'rejected' },
+  Requested: { label: 'Requested', tone: 'pending' },
 };
 const MIN_SEARCH = 2;
 const SEARCH_DELAY_MS = 300;
@@ -25,6 +26,7 @@ function StatusPill({ status }) {
 function rowNote(row) {
   if (row.status === 'Removed') return `Removed ${formatUtcDateTime(row.removedAt)}`;
   if (row.status === 'Invited') return `Invited ${formatUtcDateTime(row.invitedAt)}`;
+  if (row.status === 'Requested') return `Applied ${formatUtcDateTime(row.invitedAt)}`;
   return `${row.status === 'Accepted' ? 'Joined' : 'Declined'} ${formatUtcDateTime(row.respondedAt || row.invitedAt)}`;
 }
 
@@ -53,6 +55,7 @@ export default function CourseTrainersCard({ courseId }) {
 
   const invite = (trainerId) => run(trainerId, () => courseTrainersApi.invite(query.token, courseId, trainerId));
   const remove = (trainerId) => run(trainerId, () => courseTrainersApi.remove(query.token, courseId, trainerId));
+  const review = (trainerId, accept) => run(trainerId, () => (accept ? courseTrainersApi.acceptRequest : courseTrainersApi.declineRequest)(query.token, courseId, trainerId));
 
   return <div className="card" style={{ marginTop: 16 }}>
     <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -69,6 +72,10 @@ export default function CourseTrainersCard({ courseId }) {
               <div><strong>{row.fullName}</strong><small>{row.headline || 'No headline yet'} · {rowNote(row)}</small></div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <StatusPill status={row.status} />
+                {row.status === 'Requested' ? <>
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={busyId === row.trainerId} onClick={() => review(row.trainerId, false)}>Decline request</button>
+                  <button type="button" className="btn btn-primary btn-sm" disabled={busyId === row.trainerId} onClick={() => review(row.trainerId, true)}>Accept request</button>
+                </> : null}
                 {row.status === 'Invited' ? <button type="button" className="btn btn-ghost btn-sm" disabled={busyId === row.trainerId} onClick={() => remove(row.trainerId)}>Withdraw</button> : null}
                 {row.status === 'Accepted' ? <button type="button" className="btn btn-ghost btn-sm" disabled={busyId === row.trainerId} onClick={() => setRemoving(row)}>Remove</button> : null}
                 {row.status === 'Declined' || row.status === 'Removed' ? <button type="button" className="btn btn-ghost btn-sm" disabled={busyId === row.trainerId} onClick={() => invite(row.trainerId)}>Invite again</button> : null}
@@ -145,7 +152,7 @@ function InviteDialog({ courseId, roster, onInvite, busyId, onClose }) {
     {results === null ? null : !results.length ? <p className="page-sub">No trainers match “{term.trim()}”.</p>
       : <ul className="later-resource-list">{results.map((candidate) => {
         const status = statusById.get(candidate.id);
-        const onRoster = status === 'Invited' || status === 'Accepted';
+        const onRoster = status === 'Invited' || status === 'Accepted' || status === 'Requested';
         return <li key={candidate.id}>
           <div><strong>{candidate.fullName}</strong><small>{[(candidate.specialties || []).join(', '), candidate.headline, candidate.specialisations].filter(Boolean).join(' · ') || 'No profile details yet'}</small></div>
           {onRoster ? <StatusPill status={status} />

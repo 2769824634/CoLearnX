@@ -198,6 +198,7 @@ it('highlights Pricing in Admin navigation on /admin/pricing', () => {
   expect(screen.getByRole('link', { name: 'Pricing' }).className).toMatch(/active/);
   expect(screen.getByRole('link', { name: 'Disputes' }).className).not.toMatch(/active/);
   expect(screen.getByRole('link', { name: 'Audit Log' }).className).not.toMatch(/active/);
+  expect(screen.queryByRole('link', { name: 'Staff' })).toBeNull();
 });
 
 it.each([

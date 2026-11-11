@@ -2,16 +2,13 @@ import { invalidateQueries } from './readCache.js';
 
 const TOKEN_KEY = 'colearnx.token';
 const ADMIN_TOKEN_KEY = 'colearnx.admin.token';
-const STAFF_TOKEN_KEY = 'colearnx.staff.token';
 const SESSION_REPLACED_KEY = 'colearnx.sessionReplaced';
 const ADMIN_SESSION_REPLACED_KEY = 'colearnx.admin.sessionReplaced';
-const STAFF_SESSION_REPLACED_KEY = 'colearnx.staff.sessionReplaced';
 const SIGN_IN_PATHS = new Set([
   '/api/auth/login',
   '/api/auth/available-roles',
   '/api/auth/register',
   '/api/admin/auth/login',
-  '/api/staff/auth/login',
 ]);
 
 export const SESSION_REPLACED_EVENT = 'colearnx:session-replaced';
@@ -35,19 +32,9 @@ export function setStoredAdminToken(token) {
   else localStorage.removeItem(ADMIN_TOKEN_KEY);
 }
 
-export function getStoredStaffToken() {
-  return localStorage.getItem(STAFF_TOKEN_KEY);
-}
-
-export function setStoredStaffToken(token) {
-  if (token) localStorage.setItem(STAFF_TOKEN_KEY, token);
-  else localStorage.removeItem(STAFF_TOKEN_KEY);
-}
-
 export function consumeSessionReplacedMessage(admin = false) {
   try {
-    const key = admin === 'staff' ? STAFF_SESSION_REPLACED_KEY
-      : admin ? ADMIN_SESSION_REPLACED_KEY : SESSION_REPLACED_KEY;
+    const key = admin ? ADMIN_SESSION_REPLACED_KEY : SESSION_REPLACED_KEY;
     if (!sessionStorage.getItem(key)) return null;
     sessionStorage.removeItem(key);
     return SESSION_REPLACED_MESSAGE;
@@ -73,18 +60,15 @@ function requestPath(path) {
 function notifySessionReplaced(path, usedToken) {
   if (!usedToken || SIGN_IN_PATHS.has(requestPath(path))) return;
   const admin = requestPath(path).startsWith('/api/admin');
-  const staff = requestPath(path).startsWith('/api/staff') || usedToken === getStoredStaffToken();
-  if (staff) setStoredStaffToken(null);
-  else if (admin) setStoredAdminToken(null);
+  if (admin) setStoredAdminToken(null);
   else setStoredToken(null);
   try {
-    sessionStorage.setItem(staff ? STAFF_SESSION_REPLACED_KEY
-      : admin ? ADMIN_SESSION_REPLACED_KEY : SESSION_REPLACED_KEY, '1');
+    sessionStorage.setItem(admin ? ADMIN_SESSION_REPLACED_KEY : SESSION_REPLACED_KEY, '1');
   } catch {
     /* storage may be unavailable in tests */
   }
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-    window.dispatchEvent(new CustomEvent(SESSION_REPLACED_EVENT, { detail: { admin, staff } }));
+    window.dispatchEvent(new CustomEvent(SESSION_REPLACED_EVENT, { detail: { admin } }));
   }
 }
 

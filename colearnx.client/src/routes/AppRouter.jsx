@@ -1,8 +1,7 @@
 import { Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-dom';
 import { RequireAuth } from '../auth/RequireAuth';
 import RequireAdmin from '../auth/RequireAdmin';
-import RequireStaff from '../auth/RequireStaff';
-import RoleShell, { AdminRoleShell, StaffRoleShell } from '../layouts/RoleShell';
+import RoleShell, { AdminRoleShell } from '../layouts/RoleShell';
 import LoginPage from '../pages/LoginPage';
 import PublicHomePage from '../pages/PublicHomePage';
 import PublicCatalogPage from '../pages/PublicCatalogPage';
@@ -16,17 +15,7 @@ import AdminAccountPage from '../pages/admin/AdminAccountPage';
 import AdminUsersPage from '../pages/admin/AdminUsersPage';
 import AdminDisputesPage from '../pages/admin/AdminDisputesPage';
 import AdminPricingPage from '../pages/admin/AdminPricingPage';
-import AdminStaffPage from '../pages/admin/AdminStaffPage';
 import AdminIntakeDatesPage from '../pages/admin/AdminIntakeDatesPage';
-import StaffLoginPage from '../pages/staff/StaffLoginPage';
-import StaffHomePage from '../pages/staff/StaffHomePage';
-import StaffAccountPage from '../pages/staff/StaffAccountPage';
-import StaffCoursesPage from '../pages/staff/StaffCoursesPage';
-import StaffCourseFormPage from '../pages/staff/StaffCourseFormPage';
-import StaffIntakesPage from '../pages/staff/StaffIntakesPage';
-import StaffIntakeCreatePage from '../pages/staff/StaffIntakeCreatePage';
-import StaffIntakeDetailPage from '../pages/staff/StaffIntakeDetailPage';
-import StaffSessionDetailPage from '../pages/staff/StaffSessionDetailPage';
 import TrainerHomePage from '../pages/trainer/TrainerHomePage';
 import TrainerIntakesPage from '../pages/trainer/TrainerIntakesPage';
 import TrainerCourseDetailPage from '../pages/trainer/TrainerCourseDetailPage';
@@ -57,7 +46,6 @@ import MemberDisputesPage from '../pages/member/MemberDisputesPage';
 import MemberPaymentPage from '../pages/member/MemberPaymentPage';
 import MemberBadgesPage from '../pages/member/MemberBadgesPage';
 import MemberAccountPage from '../pages/member/MemberAccountPage';
-import MemberPlatformCoursesPage from '../pages/member/MemberPlatformCoursesPage';
 import CreatorUsagePage from '../pages/creator/CreatorUsagePage';
 import Modal from '../components/Modal';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
@@ -113,7 +101,6 @@ function MemberArea() {
         <Route path="home" element={<MemberHomePage />} />
         <Route path="courses" element={<MemberCatalogPage />} />
         <Route path="courses/:courseId" element={<MemberCourseDetailPage />} />
-        <Route path="platform" element={<MemberPlatformCoursesPage />} />
         <Route path="programs" element={<MemberProgramsPage />} />
         <Route path="disputes" element={<MemberDisputesPage />} />
         <Route path="payment" element={<MemberPaymentPage />} />
@@ -138,7 +125,6 @@ export default function AppRouter() {
         <Route path="/verify-email" element={<EmailVerificationPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
-        <Route path="/staff/login" element={<StaffLoginPage />} />
         <Route path="/" element={<PublicHomePage />} />
         <Route path="/courses" element={<PublicCatalogPage />} />
         <Route path="/courses/:courseId" element={<PublicCourseDetailPage />} />
@@ -188,7 +174,6 @@ export default function AppRouter() {
             <Route path="home" element={<AdminHomePage />} />
             <Route path="approvals" element={<AdminApprovalsPage />} />
             <Route path="users" element={<AdminUsersPage />} />
-            <Route path="staff" element={<AdminStaffPage />} />
             <Route path="class-dates" element={<AdminIntakeDatesPage />} />
             <Route path="ledger" element={<LegacyLedgerRedirect />} />
             <Route path="disputes" element={<AdminDisputesPage />} />
@@ -197,22 +182,6 @@ export default function AppRouter() {
             <Route path="account" element={<AdminAccountPage />} />
             <Route index element={<Navigate to="home" replace />} />
             <Route path="*" element={<Navigate to="/admin/home" replace />} />
-          </Route>
-        </Route>
-
-        <Route element={<RequireStaff />}>
-          <Route path="/staff" element={<StaffRoleShell />}>
-            <Route path="home" element={<StaffHomePage />} />
-            <Route path="account" element={<StaffAccountPage />} />
-            <Route path="courses" element={<StaffCoursesPage />} />
-            <Route path="courses/new" element={<StaffCourseFormPage />} />
-            <Route path="courses/:courseId" element={<StaffCourseFormPage />} />
-            <Route path="intakes" element={<StaffIntakesPage />} />
-            <Route path="intakes/new" element={<StaffIntakeCreatePage />} />
-            <Route path="intakes/:courseIntakeId" element={<StaffIntakeDetailPage />} />
-            <Route path="intakes/:courseIntakeId/sessions/:courseSessionId" element={<StaffSessionDetailPage />} />
-            <Route index element={<Navigate to="home" replace />} />
-            <Route path="*" element={<Navigate to="/staff/home" replace />} />
           </Route>
         </Route>
 

@@ -6,7 +6,7 @@ import CourseTrainersCard from './CourseTrainersCard';
 const auth = { user: { id: 1 }, isAuthenticated: true, activeRole: 'creator' };
 
 const row = (trainerId, fullName, status) => ({ trainerId, fullName, headline: `${fullName} headline`, status, invitedAt: '2026-10-20T01:00:00Z', respondedAt: null, removedAt: null });
-const roster = [row(2, 'Alex Chen', 'Accepted'), row(3, 'Blair Ng', 'Invited'), row(4, 'Casey Lee', 'Declined'), row(5, 'Drew Park', 'Removed')];
+const roster = [row(2, 'Alex Chen', 'Accepted'), row(3, 'Blair Ng', 'Invited'), row(4, 'Casey Lee', 'Declined'), row(5, 'Drew Park', 'Removed'), row(7, 'Gale Applicant', 'Requested')];
 
 const isGet = (init) => !init.method || init.method === 'GET';
 
@@ -85,6 +85,20 @@ it('asks before removing an available trainer', async () => {
   await screen.findByRole('button', { name: 'Invite trainer' });
   await vi.waitFor(() => expect(calls(fetch, (path, init) => init.method === 'POST').map(([path]) => path)).toEqual(['/api/creator/courses/9/trainers/2/remove']));
   expect(screen.queryByRole('dialog')).toBeNull();
+});
+
+it('lets the Creator accept or decline Trainer applications', async () => {
+  const fetch = mount((path, init) => {
+    if (path.endsWith('/accept-request') && init.method === 'POST') return json(row(7, 'Gale Applicant', 'Accepted'));
+    if (path.endsWith('/decline-request') && init.method === 'POST') return json(row(7, 'Gale Applicant', 'Declined'));
+    return null;
+  });
+  const applicant = (await screen.findByText('Gale Applicant')).closest('li');
+  expect(within(applicant).getByText('Requested')).toBeTruthy();
+  fireEvent.click(within(applicant).getByRole('button', { name: 'Accept request' }));
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith(
+    '/api/creator/courses/9/trainers/7/accept-request', expect.objectContaining({ method: 'POST' }),
+  ));
 });
 
 it('shows why an action failed', async () => {

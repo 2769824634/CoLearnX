@@ -14,12 +14,10 @@ public static class SeedData
     public const string TrainerEmail = "gu.yincheng@colearnx.com";
     public const string CreatorEmail = "zou.ruiqi@colearnx.com";
     public const string AdminEmail = "zhu.zirui@colearnx.com";
-    public const string StaffEmail = "qingkong@colearnx.com";
 
     public static async Task InitializeAsync(
         CoLearnXDbContext db,
-        bool seedDemoAdmin = true,
-        bool seedDemoStaff = false)
+        bool seedDemoAdmin = true)
     {
         await db.Database.EnsureCreatedAsync();
         if (db.Database.IsSqlite())
@@ -29,6 +27,7 @@ public static class SeedData
         await ProfileCountrySchema.EnsureAsync(db);
         await ProfileOccupationSchema.EnsureAsync(db);
         await PlatformStaffSchema.EnsureAsync(db);
+        await DisableStaffUsersAsync(db);
         await RecommendationSeed.EnsureSchemaAsync(db);
         await CreditReservationSchema.EnsureAsync(db);
         await NotificationSchema.EnsureAsync(db);
@@ -81,8 +80,6 @@ public static class SeedData
 
         if (await db.Users.AnyAsync())
         {
-            if (seedDemoStaff && adminAccount is not null)
-                await EnsureDemoStaffAsync(db, adminAccount.Id, hash, verifiedAt);
             await EnsurePlatformCreatorAsync(db);
             await EnsureDemoWorkspaceRolesAsync(db);
             await EnsureRoleRequestFixturesAsync(db);
@@ -134,10 +131,8 @@ public static class SeedData
 
         db.UserRoles.AddRange(
             new UserRole { UserId = member.Id, Role = AppRole.Member, IsVisible = true },
-            new UserRole { UserId = trainer.Id, Role = AppRole.Member, IsVisible = true },
-            new UserRole { UserId = trainer.Id, Role = AppRole.Trainer, IsVisible = true },
-            new UserRole { UserId = creator.Id, Role = AppRole.Member, IsVisible = true },
-            new UserRole { UserId = creator.Id, Role = AppRole.Creator, IsVisible = true }
+            new UserRole { UserId = trainer.Id, Role = AppRole.Trainer, IsVisible = true, CertifiedAt = verifiedAt },
+            new UserRole { UserId = creator.Id, Role = AppRole.Creator, IsVisible = true, CertifiedAt = verifiedAt }
         );
 
         db.UserPreferences.AddRange(
@@ -429,8 +424,6 @@ public static class SeedData
         }
 
         await db.SaveChangesAsync();
-        if (seedDemoStaff && adminAccount is not null)
-            await EnsureDemoStaffAsync(db, adminAccount.Id, hash, verifiedAt);
         await EnsureDemoWorkspaceRolesAsync(db);
         await EnsureRoleRequestFixturesAsync(db);
         await EnsureCourseReviewFixturesAsync(db);
@@ -440,60 +433,17 @@ public static class SeedData
         await CourseTrainerSchema.BackfillAsync(db);
     }
 
-    private static async Task EnsureDemoStaffAsync(
-        CoLearnXDbContext db,
-        int adminAccountId,
-        string passwordHash,
-        DateTime verifiedAt)
+    private static async Task DisableStaffUsersAsync(CoLearnXDbContext db)
     {
-        const string localName = "qingkong";
-        var existing = await db.StaffAccounts.Include(account => account.User)
-            .SingleOrDefaultAsync(account => account.Email == StaffEmail);
-        if (existing is not null)
+        var users = await db.StaffAccounts.Include(account => account.User)
+            .Select(account => account.User)
+            .Where(user => user.IsActive)
+            .ToListAsync();
+        foreach (var user in users)
         {
-            existing.FullName = localName;
-            existing.DisplayName = localName;
-            existing.User.FullName = localName;
-            existing.User.DisplayName = localName;
-            await db.SaveChangesAsync();
-            return;
+            user.IsActive = false;
+            user.SessionStamp = Guid.NewGuid();
         }
-
-        var staffNumber = (await db.StaffAccounts.MaxAsync(account => (int?)account.StaffNumber) ?? 0) + 1;
-        var hiddenUser = new User
-        {
-            Email = $"demo-staff-{staffNumber}@staff.colearnx",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(Convert.ToHexString(RandomNumberGenerator.GetBytes(32))),
-            FullName = localName,
-            DisplayName = localName,
-            CreditBalance = 0,
-            HeldCredits = 0,
-            IsActive = true,
-            EmailVerifiedAt = verifiedAt,
-            SessionStamp = Guid.NewGuid(),
-        };
-        db.Users.Add(hiddenUser);
-        await db.SaveChangesAsync();
-
-        db.UserRoles.Add(new UserRole
-        {
-            UserId = hiddenUser.Id,
-            Role = AppRole.Trainer,
-            IsVisible = false,
-        });
-        db.TrainerProfiles.Add(new TrainerProfile { UserId = hiddenUser.Id });
-        db.StaffAccounts.Add(new StaffAccount
-        {
-            Email = StaffEmail,
-            PasswordHash = passwordHash,
-            FullName = localName,
-            DisplayName = localName,
-            StaffNumber = staffNumber,
-            DocumentPath = "demo/staff/qingkong.pdf",
-            UserId = hiddenUser.Id,
-            CreatedByAdminAccountId = adminAccountId,
-            SessionStamp = Guid.NewGuid(),
-        });
         await db.SaveChangesAsync();
     }
 
@@ -553,8 +503,8 @@ public static class SeedData
         var required = new (string Email, AppRole[] Roles)[]
         {
             (MemberEmail, [AppRole.Member]),
-            (TrainerEmail, [AppRole.Member, AppRole.Trainer]),
-            (CreatorEmail, [AppRole.Member, AppRole.Creator]),
+            (TrainerEmail, [AppRole.Trainer]),
+            (CreatorEmail, [AppRole.Creator]),
         };
 
         foreach (var (email, roles) in required)
@@ -563,14 +513,16 @@ public static class SeedData
             if (user is null)
                 continue;
 
-            var existing = await db.UserRoles
-                .Where(item => item.UserId == user.Id)
-                .Select(item => item.Role)
-                .ToListAsync();
+            var existing = await db.UserRoles.Where(item => item.UserId == user.Id).ToListAsync();
+            db.UserRoles.RemoveRange(existing.Where(item => !roles.Contains(item.Role)));
             foreach (var role in roles)
             {
-                if (!existing.Contains(role))
-                    db.UserRoles.Add(new UserRole { UserId = user.Id, Role = role, IsVisible = true });
+                var current = existing.SingleOrDefault(item => item.Role == role);
+                if (current is null)
+                    db.UserRoles.Add(new UserRole { UserId = user.Id, Role = role, IsVisible = true,
+                        CertifiedAt = role == AppRole.Member ? null : DateTime.UtcNow });
+                else if (role != AppRole.Member && current.CertifiedAt is null)
+                    current.CertifiedAt = DateTime.UtcNow;
             }
         }
 

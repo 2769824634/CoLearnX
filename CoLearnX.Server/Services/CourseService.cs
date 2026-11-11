@@ -52,6 +52,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             .Select(path => new CourseOptionDto(path.Id, path.Name))
             .ToListAsync(ct);
         var subjects = await db.CourseSubjects.AsNoTracking()
+            .Where(subject => db.UserSpecialties.Any(item => item.UserId == creatorUserId && item.CourseSubjectId == subject.Id))
             .OrderBy(subject => subject.SortOrder)
             .Select(subject => new CourseSubjectOptionDto(subject.Id, subject.Name, subject.Subject.ToString()))
             .ToListAsync(ct);
@@ -97,6 +98,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
 
         var input = await ValidateCourseInputAsync(
             null, request.Code, request.CourseLevelId, request.LearningPathId, ct);
+        await RequireCreatorSpecialtyAsync(creatorUserId, request.CourseSubjectId, ct);
         var priced = await RequirePricedSubjectAsync(request.CourseSubjectId, input.Level, request.DurationHours, request.CreditCost, request.PriceExceptionReason, ct);
 
         var course = new Course
@@ -129,6 +131,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
 
         var input = await ValidateCourseInputAsync(
             courseId, request.Code, request.CourseLevelId, request.LearningPathId, ct);
+        await RequireCreatorSpecialtyAsync(creatorUserId, request.CourseSubjectId, ct);
         var priced = await RequirePricedSubjectAsync(request.CourseSubjectId, input.Level, request.DurationHours, request.CreditCost, request.PriceExceptionReason, ct);
         db.CourseLearningOutcomes.RemoveRange(course.LearningOutcomes);
         var selectedInterestIds = request.InterestIds;
@@ -381,6 +384,16 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         if (creator is null || !creator.IsActive || !creator.Roles.Any(role => role.Role == AppRole.Creator))
             throw new CourseException("CREATOR_REQUIRED", "An active Creator account is required.", 403);
         return creator;
+    }
+
+    private async Task RequireCreatorSpecialtyAsync(int creatorUserId, int courseSubjectId, CancellationToken ct)
+    {
+        if (!await db.UserSpecialties.AnyAsync(
+            item => item.UserId == creatorUserId && item.CourseSubjectId == courseSubjectId, ct))
+            throw new CourseException(
+                "CREATOR_SUBJECT_MISMATCH",
+                "You can only create or edit Courses in your certified specialties.",
+                StatusCodes.Status409Conflict);
     }
 
     private IQueryable<Course> CreatorCoursesQuery(bool tracked = false)

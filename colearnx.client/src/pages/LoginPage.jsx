@@ -26,7 +26,7 @@ function roleMeta(id) {
 
 function memberReturnPath(from) {
   const path = typeof from === 'string' ? from : `${from?.pathname || ''}${from?.search || ''}`;
-  if (!path.startsWith('/') || path.startsWith('//') || path.startsWith('/login') || path.startsWith('/admin') || path.startsWith('/staff')) return null;
+  if (!path.startsWith('/') || path.startsWith('//') || path.startsWith('/login') || path.startsWith('/admin')) return null;
   return path;
 }
 

@@ -377,6 +377,42 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
     private async Task<HttpClient> AsCreatorAsync()
         => await AsUserAsync(SeedData.CreatorEmail, "Creator");
 
+    [Fact]
+    public async Task Creator_only_sees_and_uses_certified_course_specialties()
+    {
+        using var creator = await AsCreatorAsync();
+        int invalidSubjectId;
+        int creatorId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+            creatorId = await db.Users.Where(user => user.Email == SeedData.CreatorEmail).Select(user => user.Id).SingleAsync();
+            invalidSubjectId = await db.CourseSubjects
+                .Where(subject => !db.UserSpecialties.Any(item => item.UserId == creatorId && item.CourseSubjectId == subject.Id))
+                .Select(subject => subject.Id)
+                .FirstAsync();
+        }
+
+        var options = await creator.GetFromJsonAsync<CreatorCourseOptionsDto>("/api/creator/courses/options");
+        Assert.DoesNotContain(options!.CourseSubjects!, subject => subject.Id == invalidSubjectId);
+
+        using var response = await creator.PostAsJsonAsync("/api/creator/courses", new
+        {
+            code = $"SPEC-{Guid.NewGuid():N}",
+            title = "Outside specialty",
+            description = "Must be rejected before pricing.",
+            courseLevelId = 1,
+            learningPathId = 1,
+            courseSubjectId = invalidSubjectId,
+            durationHours = 2,
+            creditCost = 40,
+            learningOutcomes = new[] { "Respect specialty ownership" },
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("CREATOR_SUBJECT_MISMATCH", await response.Content.ReadAsStringAsync());
+    }
+
     private async Task<HttpClient> AsUserAsync(string email, string role)
     {
         var client = _factory.CreateClient();

@@ -65,7 +65,7 @@ export default function PublicHomePage({ onboardingMode = 'auto' }) {
             <Link className="btn btn-primary" to="/member/courses">Browse all courses</Link>
           </div>
           {platformCourses.length ? <section className="cx-home-section">
-            <div className="section-heading cx-home-heading"><h2 className="section-title">CoLearnX courses</h2><Link to="/member/platform">View all platform courses</Link></div>
+            <div className="section-heading cx-home-heading"><h2 className="section-title">CoLearnX courses</h2><Link to="/courses">View all platform courses</Link></div>
             <div className="cx-grid">{platformCourses.map((course) => <CoursePreview key={course.id} course={course} onOpen={(id) => navigate(`/member/courses/${id}`)} />)}</div>
           </section> : null}
           <section className="cx-home-section">
