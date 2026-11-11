@@ -6,6 +6,7 @@ export const creatorIntakesApi = {
   list: (token, courseId, signal) => apiRequest(courseId ? `/api/creator/intakes?courseId=${encodeURIComponent(courseId)}` : '/api/creator/intakes', { token, signal }),
   get: (token, id, signal) => apiRequest(intakePath(id), { token, signal }),
   create: (token, courseId, body) => apiRequest(`/api/creator/courses/${encodeURIComponent(courseId)}/intakes`, { method: 'POST', token, body }),
+  openClass: (token, courseId, body) => apiRequest(`/api/creator/courses/${encodeURIComponent(courseId)}/classes`, { method: 'POST', token, body }),
   update: (token, id, body) => apiRequest(intakePath(id), { method: 'PUT', token, body }),
   createSession: (token, id, body) => apiRequest(`${intakePath(id)}/sessions`, { method: 'POST', token, body }),
   updateSession: (token, id, sessionId, body) => apiRequest(`${intakePath(id)}/sessions/${encodeURIComponent(sessionId)}`, { method: 'PUT', token, body }),

@@ -205,7 +205,7 @@ public class TrainerIntakesIntegrationTests
         await Error(await client.PostAsJsonAsync("/api/creator/courses/999999/intakes", Draft), 404, "COURSE_NOT_FOUND");
         var d = await Detail(await client.PostAsJsonAsync(CreatePath, Draft), HttpStatusCode.Created);
         await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/publish", new SubmitCourseIntakeRequest(d.Version)), 400, "SESSION_REQUIRED", true);
-        await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/sessions", Session(d.Version) with { StartsAt = Start.AddDays(-1) }), 400, "SESSION_OUTSIDE_INTAKE", true);
+        await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/sessions", Session(d.Version) with { StartsAt = Draft.RegistrationClosesAt.AddHours(-1) }), 400, "SESSION_BEFORE_REGISTRATION_CLOSES", true);
         await Error(await client.PostAsJsonAsync(Intake(d.Id) + "/sessions", Session(d.Version) with { MeetingLink = "javascript:alert(1)" }), 400, "INVALID_MEETING_LINK", true);
         d = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/sessions", Session(d.Version)));
         await Error(await client.DeleteAsync(Intake(d.Id) + "/sessions/99999?version=" + d.Version), 404, "SESSION_NOT_FOUND");

@@ -187,19 +187,42 @@ export function sessionEndLocal(sessionDate, startTime, durationMinutes = DEFAUL
   return `${sessionDate}T${pad(Math.floor(end / 60))}:${pad(end % 60)}`;
 }
 
+// A new session is pre-filled from the class: the morning of the first teaching day, or a week after the
+// previous session at the same time and in the same room.
+function nextSessionDefaults(intake) {
+  const existing = [...(intake?.sessions || [])].filter((item) => item?.startsAt)
+    .sort((left, right) => utcDate(left.startsAt).getTime() - utcDate(right.startsAt).getTime());
+  const previous = existing.at(-1);
+  const label = `Session ${existing.length + 1}`;
+  if (!previous) {
+    const startLocal = toLocalInput(intake?.startsAt);
+    const time = startLocal.slice(11, 16);
+    return { label, sessionDate: startLocal.slice(0, 10), startTime: !time || time === '00:00' ? '09:00' : time, meetingLink: '' };
+  }
+  const previousLocal = toLocalInput(previous.startsAt);
+  const lastDay = intake?.endsAt ? inclusiveDeliveryEnd(intake.endsAt, localDate(intake.startsAt)) : '';
+  const fits = (date) => !lastDay || date <= lastDay;
+  const sessionDate = [7, 1, 0].map((days) => addLocalDays(previousLocal.slice(0, 10), days)).find(fits) || previousLocal.slice(0, 10);
+  return { label, sessionDate, startTime: previousLocal.slice(11, 16), meetingLink: previous.meetingLink || '', previous };
+}
+
 export function initialSession(session, intake) {
+  const fresh = session ? null : nextSessionDefaults(intake);
   const startLocal = toLocalInput(session?.startsAt || intake?.startsAt);
-  const sessionDate = startLocal.slice(0, 10);
-  let startTime = startLocal.slice(11, 16);
+  const sessionDate = fresh?.sessionDate || startLocal.slice(0, 10);
+  let startTime = fresh?.startTime || startLocal.slice(11, 16);
   let durationMinutes = DEFAULT_SESSION_MINUTES;
-  if (session?.startsAt && session?.endsAt) {
-    const endLocal = toLocalInput(session.endsAt);
-    const length = clockMinutes(endLocal.slice(11, 16)) - clockMinutes(startTime);
-    if (endLocal.slice(0, 10) === sessionDate && length > 0) durationMinutes = length;
+  const timed = session || fresh?.previous;
+  if (timed?.startsAt && timed?.endsAt) {
+    const timedStart = toLocalInput(timed.startsAt);
+    const endLocal = toLocalInput(timed.endsAt);
+    const length = clockMinutes(endLocal.slice(11, 16)) - clockMinutes(timedStart.slice(11, 16));
+    if (endLocal.slice(0, 10) === timedStart.slice(0, 10) && length > 0) durationMinutes = length;
   }
   if (!sessionEndLocal(sessionDate, startTime, durationMinutes)) startTime = '09:00';
   return {
-    label: session?.label || '', sessionDate, startTime, durationMinutes, meetingLink: session?.meetingLink || '',
+    label: session?.label || fresh?.label || '', sessionDate, startTime, durationMinutes,
+    meetingLink: session?.meetingLink || fresh?.meetingLink || '',
     physical: Boolean(session?.physicalAddress), physicalAddress: session?.physicalAddress || '',
     physicalCapacity: session?.physicalCapacity || 1, physicalBookingDeadline: toLocalInput(session?.physicalBookingDeadline),
   };

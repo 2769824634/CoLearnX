@@ -11,6 +11,12 @@ public record CreateCourseIntakeRequest([property: JsonRequired] DateTime Regist
 public record UpdateCourseIntakeRequest([property: JsonRequired] DateTime RegistrationOpensAt,
     [property: JsonRequired] DateTime RegistrationClosesAt, [property: JsonRequired] DateTime StartsAt,
     [property: JsonRequired] DateTime EndsAt, [property: JsonRequired] Guid Version, int? MinEnrollment = null, int DaysBeforeTeaching = 0);
+// One step: the Creator says when the class meets; the registration window and every session are derived.
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public record OpenClassRequest([property: JsonRequired] int TrainerId,
+    [property: JsonRequired] IReadOnlyList<DateTime> SessionStarts, int SessionMinutes = 120,
+    int RegistrationClosesDaysBefore = 2, DateTime? RegistrationOpensAt = null, string? MeetingLink = null,
+    string? PhysicalAddress = null, int PhysicalCapacity = 0, int MinEnrollment = 3, bool Publish = true);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record CreateCourseSessionRequest([property: JsonRequired] string Label, [property: JsonRequired] DateTime StartsAt,
     [property: JsonRequired] DateTime EndsAt, string? MeetingLink,

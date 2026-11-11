@@ -25,6 +25,7 @@ public interface ICourseIntakeService
     Task<CourseIntakeDetailDto> UpdateSessionAsync(int creatorUserId, int courseIntakeId, int courseSessionId, UpdateCourseSessionRequest request, CancellationToken ct = default);
     Task<CourseIntakeDetailDto> DeleteSessionAsync(int creatorUserId, int courseIntakeId, int courseSessionId, Guid version, CancellationToken ct = default);
     Task<CourseIntakeDetailDto> PublishAsync(int creatorUserId, int courseIntakeId, Guid version, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> OpenClassAsync(int creatorUserId, int courseId, OpenClassRequest request, CancellationToken ct = default);
 }
 
 public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealtime? realtime = null) : ICourseIntakeService
@@ -190,7 +191,12 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
     public async Task<CourseIntakeDetailDto> UpdateAsync(int creatorUserId, int courseIntakeId, UpdateCourseIntakeRequest request, CancellationToken ct = default)
     {
         var intake = await LoadEditableAsync(creatorUserId, courseIntakeId, request.Version, ct);
-        ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt, request.EndsAt, request.DaysBeforeTeaching);
+        // Registration that already opened keeps its opening time; only a new opening time must be in the future.
+        ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt, request.EndsAt, request.DaysBeforeTeaching,
+            utcNow: request.RegistrationOpensAt == intake.RegistrationOpensAt ? intake.RegistrationOpensAt : null);
+        if (request.RegistrationClosesAt <= DateTime.UtcNow)
+            throw new CourseIntakeException("REGISTRATION_ALREADY_CLOSED",
+                "Registration must close in the future.", field: "registrationClosesAt");
         var minEnrollment = request.MinEnrollment ?? intake.MinEnrollment;
         ValidateMinEnrollment(minEnrollment);
         foreach (var session in intake.Sessions)
@@ -215,6 +221,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             request.PhysicalAddress, request.PhysicalCapacity, request.PhysicalBookingDeadline, intake);
         ValidateCapacity(session, intake.MinEnrollment);
         intake.Sessions.Add(session);
+        FitTeachingDates(intake);
         KeepScheduleStatus(intake);
         await SaveAsync(intake, creatorUserId, "CourseSessionAdded", ct);
         return ToDto(intake);
@@ -235,6 +242,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         session.PhysicalAddress = next.PhysicalAddress;
         session.PhysicalCapacity = next.PhysicalCapacity;
         session.PhysicalBookingDeadline = next.PhysicalBookingDeadline;
+        FitTeachingDates(intake);
         KeepScheduleStatus(intake);
         await SaveAsync(intake, creatorUserId, "CourseSessionUpdated", ct);
         return ToDto(intake);
@@ -247,9 +255,76 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         await RequireNoHistoryAsync(session.Id, ct);
         db.CourseSessions.Remove(session);
         intake.Sessions.Remove(session);
+        FitTeachingDates(intake);
         KeepScheduleStatus(intake);
         await SaveAsync(intake, creatorUserId, "CourseSessionDeleted", ct);
         return ToDto(intake);
+    }
+
+    // The Creator says when the class meets. Registration opens now (or at a chosen time) and closes
+    // a number of days before the first session; teaching runs from the first session to the last.
+    public async Task<CourseIntakeDetailDto> OpenClassAsync(int creatorUserId, int courseId, OpenClassRequest request, CancellationToken ct = default)
+    {
+        var starts = request.SessionStarts ?? [];
+        if (starts.Count is < 1 or > 60)
+            throw new CourseIntakeException("INVALID_SESSION_SCHEDULE", "Add between 1 and 60 sessions.", field: "sessionStarts");
+        if (request.SessionMinutes is < 30 or > 720)
+            throw new CourseIntakeException("INVALID_SESSION_SCHEDULE", "A session lasts between 30 minutes and 12 hours.", field: "sessionMinutes");
+        if (request.RegistrationClosesDaysBefore is < 0 or > 60)
+            throw new CourseIntakeException("INVALID_INTAKE_DATES", "Registration closes 0 to 60 days before the first session.", field: "registrationClosesDaysBefore");
+        foreach (var start in starts) CourseIntakeValidation.Utc(start, "sessionStarts");
+        var length = TimeSpan.FromMinutes(request.SessionMinutes);
+        for (var index = 1; index < starts.Count; index++)
+        {
+            if (starts[index] < starts[index - 1] + length)
+                throw new CourseIntakeException("INVALID_SESSION_SCHEDULE", "Sessions must be in order and must not overlap.", field: "sessionStarts");
+        }
+        var meetingLink = string.IsNullOrWhiteSpace(request.MeetingLink) ? null : request.MeetingLink.Trim();
+        var physicalAddress = string.IsNullOrWhiteSpace(request.PhysicalAddress) ? null : request.PhysicalAddress.Trim();
+        if (meetingLink is null && physicalAddress is null)
+            throw new CourseIntakeException("DELIVERY_LOCATION_REQUIRED", "Provide an online meeting link or a physical location.", field: "meetingLink");
+        ValidateMinEnrollment(request.MinEnrollment);
+
+        var now = DateTime.UtcNow;
+        var opens = request.RegistrationOpensAt is { } chosen && chosen > now ? chosen : now;
+        if (request.RegistrationOpensAt is not null) CourseIntakeValidation.Utc(request.RegistrationOpensAt.Value, "registrationOpensAt");
+        var closes = starts[0].AddDays(-request.RegistrationClosesDaysBefore);
+        if (closes <= opens)
+        {
+            var earliest = opens.AddDays(request.RegistrationClosesDaysBefore);
+            throw new CourseIntakeException("FIRST_SESSION_TOO_SOON",
+                $"Registration needs time to run. The first session can start after {earliest:yyyy-MM-dd HH:mm} UTC, or close registration fewer days before it.",
+                field: "sessionStarts");
+        }
+
+        var teachingStart = starts[0];
+        var teachingEnd = starts[^1] + length;
+        var bookingDeadline = physicalAddress is null ? (DateTime?)null : closes;
+        for (var index = 0; index < starts.Count; index++)
+        {
+            var prototype = new CourseSession
+            {
+                Label = $"Session {index + 1}",
+                StartsAt = starts[index],
+                EndsAt = starts[index] + length,
+                MeetingLink = meetingLink,
+                PhysicalAddress = physicalAddress,
+                PhysicalCapacity = physicalAddress is null ? 0 : request.PhysicalCapacity,
+                PhysicalBookingDeadline = bookingDeadline,
+            };
+            CourseIntakeValidation.Session(prototype, teachingStart, teachingEnd);
+            ValidateCapacity(prototype, request.MinEnrollment);
+        }
+
+        var intake = await CreateAsync(creatorUserId, courseId, new CreateCourseIntakeRequest(
+            opens, closes, starts[0], starts[^1] + length, request.TrainerId, request.MinEnrollment), ct);
+        for (var index = 0; index < starts.Count; index++)
+        {
+            intake = await AddSessionAsync(creatorUserId, intake.Id, new CreateCourseSessionRequest(
+                $"Session {index + 1}", starts[index], starts[index] + length, meetingLink, physicalAddress,
+                physicalAddress is null ? 0 : request.PhysicalCapacity, physicalAddress is null ? null : closes, intake.Version), ct);
+        }
+        return request.Publish ? await PublishAsync(creatorUserId, intake.Id, intake.Version, ct) : intake;
     }
 
     public async Task<CourseIntakeDetailDto> PublishAsync(int creatorUserId, int courseIntakeId, Guid version, CancellationToken ct = default)
@@ -261,6 +336,13 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             throw new CourseIntakeException("INTAKE_NOT_PUBLISHABLE", "Only a draft Intake can be published.", 409);
         await RequirePublishedCourseAsync(intake.CourseId, ct);
         await RequireAcceptedTrainerAsync(intake.CourseId, intake.TrainerId, ct);
+        // A draft may have been prepared earlier. Registration then opens at the moment of publishing.
+        var publishedAt = DateTime.UtcNow;
+        if (intake.RegistrationClosesAt <= publishedAt)
+            throw new CourseIntakeException("REGISTRATION_ALREADY_CLOSED",
+                "Registration would already be closed. Move the registration dates into the future.", 409, "registrationClosesAt");
+        if (intake.RegistrationOpensAt < publishedAt)
+            intake.RegistrationOpensAt = publishedAt;
         CourseIntakeValidation.Dates(intake.RegistrationOpensAt, intake.RegistrationClosesAt, intake.StartsAt, intake.EndsAt);
         if (intake.Sessions.Count == 0)
             throw new CourseIntakeException("SESSION_REQUIRED", "Add at least one valid session before publishing.", field: "sessions");
@@ -395,18 +477,33 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         var session = new CourseSession { CourseIntakeId = intake.Id, Label = label?.Trim() ?? "", StartsAt = starts, EndsAt = ends,
             MeetingLink = string.IsNullOrWhiteSpace(link) ? null : link.Trim(), PhysicalAddress = string.IsNullOrWhiteSpace(address) ? null : address.Trim(),
             PhysicalCapacity = capacity, PhysicalBookingDeadline = deadline };
-        CourseIntakeValidation.Session(session, intake.StartsAt, intake.EndsAt);
+        if (starts < intake.RegistrationClosesAt)
+            throw new CourseIntakeException("SESSION_BEFORE_REGISTRATION_CLOSES",
+                "A session cannot start before registration closes.", field: "startsAt");
+        CourseIntakeValidation.Session(session, Earlier(intake.StartsAt, starts), Later(intake.EndsAt, ends));
         return session;
     }
 
+    private static DateTime Earlier(DateTime left, DateTime right) => left <= right ? left : right;
+    private static DateTime Later(DateTime left, DateTime right) => left >= right ? left : right;
 
-    private static void ValidateDates(DateTime opens, DateTime closes, DateTime starts, DateTime ends, int daysBeforeTeaching = 0)
+    // Teaching dates are the first session start and the last session end. Adding, moving, or deleting a session refits them.
+    private static void FitTeachingDates(CourseIntake intake)
+    {
+        if (intake.Sessions.Count == 0) return;
+        intake.StartsAt = intake.Sessions.Min(session => session.StartsAt);
+        intake.EndsAt = intake.Sessions.Max(session => session.EndsAt);
+    }
+
+
+    private static void ValidateDates(DateTime opens, DateTime closes, DateTime starts, DateTime ends, int daysBeforeTeaching = 0,
+        DateTime? utcNow = null)
     {
         CourseIntakeValidation.Utc(opens, "registrationOpensAt");
         CourseIntakeValidation.Utc(closes, "registrationClosesAt");
         CourseIntakeValidation.Utc(starts, "startsAt");
         CourseIntakeValidation.Utc(ends, "endsAt");
-        CourseIntakeValidation.Dates(opens, closes, starts, ends, daysBeforeTeaching);
+        CourseIntakeValidation.Dates(opens, closes, starts, ends, daysBeforeTeaching, utcNow);
     }
 
     private static void ValidateMinEnrollment(int value)

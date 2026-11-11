@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { clearFieldErrors, fieldMessages, initialSchedule, initialSession, localTimezone, schedulePayload, sessionEndLocal, sessionPayload, todayInput } from './intakeForm';
+import { clearFieldErrors, fieldMessages, initialSchedule, initialSession, localTimezone, schedulePayload, sessionEndLocal, sessionPayload, toLocalInput, todayInput } from './intakeForm';
 import { TrainerField } from './TrainerUi';
 
 function WhenField({ name, label, kind, value, onChange, required, error, min, max }) {
@@ -74,7 +74,8 @@ export function ScheduleForm({ intake, courses, trainers, onCourseChange, onSave
 
 export function SessionForm({ session, intake, onSave, onCancel, busy, blocked, error, onError }) {
   const [values, setValues] = useState(() => initialSession(session, intake));
-  const delivery = initialSchedule(intake);
+  // A session may fall outside the teaching dates: the server stretches them. It cannot start before registration closes.
+  const earliestDate = intake?.registrationClosesAt ? toLocalInput(intake.registrationClosesAt).slice(0, 10) : undefined;
   const startLocal = `${values.sessionDate}T${String(values.startTime || '').slice(0, 5)}`;
   const endLocal = sessionEndLocal(values.sessionDate, values.startTime, values.durationMinutes);
   function clearField(name) {
@@ -96,10 +97,10 @@ export function SessionForm({ session, intake, onSave, onCancel, busy, blocked, 
   }
   return <form onSubmit={submit} className="trainer-form">
     <fieldset disabled={busy || blocked}><legend>{session ? 'Edit Session' : 'Add a Session'}</legend>
-      <p>One session stays on a single day in {localTimezone}. Choose the date and start time. It lasts 2 hours unless this session already has another length.</p>
+      <p>One session stays on a single day in {localTimezone}. Choose the date and start time. It lasts 2 hours unless this session already has another length. If it falls outside the current teaching dates, the teaching dates stretch to include it.</p>
       <TrainerField name="label" label="Session label" maxLength={128} value={values.label} onChange={change} required error={error} />
       <div className="trainer-form-grid">
-        <WhenField name="sessionDate" label="Class date" kind="date" value={values.sessionDate} min={delivery.deliveryStartDate} max={delivery.deliveryEndDate} onChange={changeClassTime} required error={error} />
+        <WhenField name="sessionDate" label="Class date" kind="date" value={values.sessionDate} min={earliestDate} onChange={changeClassTime} required error={error} />
         <div className="form-group">
           <label htmlFor="trainer-startTime">Class starts</label>
           <input id="trainer-startTime" name="startTime" type="time" step="60" required value={values.startTime} onChange={changeClassTime} />

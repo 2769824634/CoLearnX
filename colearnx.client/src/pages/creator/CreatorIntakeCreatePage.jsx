@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { creatorCoursesApi } from '../../api';
 import { creatorIntakesApi } from '../../api/creatorIntakes';
 import { courseTrainersApi } from '../../api/courseTrainers';
-import { ScheduleForm } from '../trainer/IntakeForms';
+import OpenClassForm from './OpenClassForm';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 
@@ -22,7 +22,7 @@ function CourseClassForm({ course, onCancel, onCreated }) {
     setBusy(true);
     setError(null);
     try {
-      const intake = await creatorIntakesApi.create(query.token, course.id, body);
+      const intake = await creatorIntakesApi.openClass(query.token, course.id, body);
       onCreated(intake);
     } catch (failure) { setError(failure); }
     finally { setBusy(false); }
@@ -33,13 +33,13 @@ function CourseClassForm({ course, onCancel, onCreated }) {
   }
   return <>
     <CreatorHeader eyebrow="Classes / New" title="Open a class.">
-      Choose a Trainer who has already accepted this course. Add sessions after the draft is saved, then publish.
+      Say when the class meets and who teaches it. Every session is created for you. Publish the class now, or save it as a draft.
     </CreatorHeader>
     {query.loading ? <div className="creator-empty" role="status">Loading trainers…</div>
       : query.error ? <CreatorError error={query.error} onRetry={query.refresh} />
         : trainers.length ? <>
           <CreatorError error={error} />
-          <ScheduleForm trainers={trainers} onSave={create} onCancel={onCancel} busy={busy} error={error} onError={setError} />
+          <OpenClassForm trainers={trainers} onSave={create} onCancel={onCancel} busy={busy} error={error} onError={setError} />
         </> : <div className="creator-empty"><strong>No accepted Trainer yet</strong><p>Invite a Trainer and wait until they accept this course.</p></div>}
   </>;
 }
@@ -66,7 +66,7 @@ function StandaloneCreate() {
     setBusy(true);
     setError(null);
     try {
-      const intake = await creatorIntakesApi.create(query.token, courseId, body);
+      const intake = await creatorIntakesApi.openClass(query.token, courseId, body);
       navigate(`/creator/intakes/${intake.id}`, { replace: true });
     } catch (failure) { setError(failure); }
     finally { setBusy(false); }
@@ -75,13 +75,13 @@ function StandaloneCreate() {
   return <section className="creator-page">
     <Link className="creator-back" to="/creator/intakes">← All classes</Link>
     <CreatorHeader eyebrow="Classes / New" title="Open a class.">
-      Choose a published course and a Trainer who has already accepted it. Add sessions after the draft is saved, then publish.
+      Choose a published course, say when the class meets and who teaches it. Every session is created for you.
     </CreatorHeader>
     {query.loading ? <div className="creator-empty" role="status">Loading courses…</div>
       : query.error ? <CreatorError error={query.error} onRetry={query.refresh} />
         : published.length ? <>
           <CreatorError error={error} />
-          <ScheduleForm courses={published} trainers={trainers} onCourseChange={onCourseChange} onSave={create} onCancel={() => navigate('/creator/intakes')} busy={busy} error={error} onError={setError} />
+          <OpenClassForm courses={published} trainers={trainers} onCourseChange={onCourseChange} onSave={create} onCancel={() => navigate('/creator/intakes')} busy={busy} error={error} onError={setError} />
         </> : <div className="creator-empty"><strong>No published courses</strong><p>Publish a course before opening a class.</p></div>}
     </section>;
 }

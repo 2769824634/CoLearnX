@@ -28,6 +28,13 @@ public sealed class CreatorIntakesController(ICourseIntakeService intakes, IInta
         return CreatedAtAction(nameof(Get), new { courseIntakeId = result.Id }, result);
     }
 
+    [HttpPost("courses/{courseId:int}/classes")]
+    public async Task<ActionResult<CourseIntakeDetailDto>> OpenClass(int courseId, [FromBody] OpenClassRequest request, CancellationToken ct)
+    {
+        var result = await intakes.OpenClassAsync(User.GetUserId(), courseId, request, ct);
+        return CreatedAtAction(nameof(Get), new { courseIntakeId = result.Id }, result);
+    }
+
     [HttpPut("intakes/{courseIntakeId:int}")]
     public async Task<ActionResult<CourseIntakeDetailDto>> Update(int courseIntakeId, [FromBody] UpdateCourseIntakeRequest request, CancellationToken ct)
         => Ok(await intakes.UpdateAsync(User.GetUserId(), courseIntakeId, request, ct));
