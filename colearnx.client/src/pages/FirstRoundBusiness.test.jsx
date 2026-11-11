@@ -34,7 +34,7 @@ it('shows loading rather than empty programs and false zero totals on the dashbo
   mount(<MemberHomePage />, { state: { ...state, loading: true } });
   expect(screen.queryByText('No active programs')).toBeNull();
   expect(screen.queryByText('Available Credits')).toBeNull();
-  await screen.findByText(/No matching courses/);
+  await screen.findByText(/No courses match your interests/);
 });
 
 it('explains a filtered empty catalog and restores the results after clearing', () => {

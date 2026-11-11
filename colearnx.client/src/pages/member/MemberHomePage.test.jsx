@@ -73,3 +73,18 @@ it('gives each recommended course a cover and keeps its detail link', async () =
   expect(card.querySelector('.g-art')).toBeTruthy();
   expect(within(card).getByRole('button', { name: 'View Details' })).toBeTruthy();
 });
+
+it('marks a recommended course that has no open class yet', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ items: [{ ...recommendation, hasOpenClass: false }] }), { headers: { 'Content-Type': 'application/json' } })));
+  render(
+    <MemoryRouter>
+      <AuthContext.Provider value={{ token: 't', user: { id: 1, roles: ['Member'] } }}>
+        <MemberDataContext.Provider value={{ state: baseState, toggleWish: vi.fn(), reload: vi.fn() }}>
+          <MemberHomePage />
+        </MemberDataContext.Provider>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  );
+  const card = (await screen.findByText('Visual Storytelling')).closest('article');
+  expect(within(card).getByText('No class scheduled yet')).toBeTruthy();
+});

@@ -62,94 +62,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Member role applications', () => {
-  it('does not show application actions or Not requested while requests are loading', async () => {
-    let release;
-    const pending = new Promise((resolve) => { release = resolve; });
-    renderAccount({}, async (path) => {
-      if (path === '/api/role-requests/my') return pending;
-      return json([]);
-    });
+describe('One account, one role', () => {
+  it('explains that teaching or creating needs a separate account and offers no role application', async () => {
+    const fetch = vi.fn(async () => json([]));
+    renderAccount({}, fetch);
 
-    expect(await screen.findByText('Loading applications…')).toBeTruthy();
-    expect(document.querySelector('.avatar-frame').dataset.role).toBe('member');
-    expect(screen.queryByText('Not requested')).toBeNull();
+    expect(await screen.findByText(/Each account holds one role/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Apply for Trainer' })).toBeNull();
-    release([]);
-  });
-
-  it('shows a pending Creator request and submits a Trainer application', async () => {
-    const requests = [
-      {
-        id: 7,
-        requestedRole: 'Creator',
-        status: 'Pending',
-        reviewNote: null,
-        createdAt: '2026-09-01T00:00:00Z',
-        reviewedAt: null,
-      },
-    ];
-    renderAccount({}, async (path, options = {}) => {
-      if (path === '/api/role-requests/my') return json(requests);
-      if (path === '/api/role-requests' && options.method === 'POST') {
-        const body = options.body;
-        const requestedRole = body instanceof FormData ? body.get('requestedRole') : JSON.parse(body).requestedRole;
-        const statement = body instanceof FormData ? body.get('statement') : '';
-        const created = {
-          id: 8,
-          requestedRole,
-          status: 'Pending',
-          statement,
-          reviewNote: null,
-          createdAt: '2026-09-17T00:00:00Z',
-          reviewedAt: null,
-          hasResume: true,
-          hasIdDocument: true,
-        };
-        requests.push(created);
-        return json(created);
-      }
-      return json([]);
-    });
-
-    expect(await screen.findByText('Creator request is pending')).toBeTruthy();
-    expect(screen.queryByLabelText('Resume / degree')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Apply for Trainer' }));
-    expect(screen.getByLabelText('Resume / degree')).toBeTruthy();
-    expect(screen.getByLabelText('Application statement')).toBeTruthy();
-    const resume = new File(['resume'], 'resume.pdf', { type: 'application/pdf' });
-    const idDocument = new File(['id'], 'id.pdf', { type: 'application/pdf' });
-    fireEvent.change(screen.getByLabelText('Resume / degree'), { target: { files: [resume] } });
-    fireEvent.change(screen.getByLabelText('Identity document'), { target: { files: [idDocument] } });
-    fireEvent.change(screen.getByLabelText('Application statement'), { target: { value: 'I facilitate inclusive workshops.' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Submit application' }));
-    expect(await screen.findByText('Trainer request is pending')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Apply for Trainer' })).toBeNull();
-  });
-
-  it('refreshes the signed-in user after a role is approved', async () => {
-    const { refreshUser } = renderAccount({}, async (path) => {
-      if (path === '/api/role-requests/my') {
-        return json([{
-          id: 9,
-          requestedRole: 'Trainer',
-          status: 'Approved',
-          reviewNote: null,
-          createdAt: '2026-09-01T00:00:00Z',
-          reviewedAt: '2026-09-02T00:00:00Z',
-        }]);
-      }
-      if (path === '/api/auth/me') {
-        return json({ ...memberUser, roles: ['Member', 'Trainer'] });
-      }
-      return json([]);
-    });
-
-    expect(await screen.findByText(/Trainer (access approved|workspace is active)/i)).toBeTruthy();
-    await waitFor(() => {
-      expect(refreshUser).toHaveBeenCalled();
-    });
-    expect(refreshUser.mock.calls[0][0].roles).toContain('Trainer');
+    expect(screen.queryByRole('button', { name: 'Apply for Creator' })).toBeNull();
+    expect(fetch.mock.calls.some(([path]) => String(path).startsWith('/api/role-requests'))).toBe(false);
   });
 });
 

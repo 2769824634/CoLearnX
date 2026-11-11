@@ -40,7 +40,6 @@ function AccountMenu({ role, identityName, avatarUrl, token, logout }) {
           <Link to="/forgot-password" onClick={() => setOpen(false)}>Change password</Link>
           <Link to={`${accountPath}#edit-profile`} onClick={() => setOpen(false)}>Edit Profile</Link>
           <Link to={accountPath} onClick={() => setOpen(false)}>My Account</Link>
-          <Link to={`${accountPath}#applications`} onClick={() => setOpen(false)}>Identity applications &amp; status</Link>
           <button type="button" onClick={() => { setOpen(false); logout(); }}>Log out</button>
         </div>
       ) : null}

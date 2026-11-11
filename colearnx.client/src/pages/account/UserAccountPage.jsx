@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
-import RoleApplicationsPanel from './RoleApplicationsPanel';
+import OneRoleNotice from './OneRoleNotice';
 import AvatarEditor from './AvatarEditor';
 import { ProfileEditor, ProfileDetails, IdentityVisibility } from './ProfileEditor';
 import useAccountShortcuts from './useAccountShortcuts';
@@ -78,7 +78,7 @@ export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summ
                 <IdentityVisibility user={user} />
               </div>
             </div>
-            <RoleApplicationsPanel />
+            <OneRoleNotice />
           </div>
         </div>
       </div>

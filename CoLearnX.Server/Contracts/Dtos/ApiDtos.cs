@@ -96,7 +96,8 @@ public record CourseListItemDto(
     string? CreatorName = null,
     IReadOnlyList<string>? TrainerNames = null,
     string? LearningPath = null,
-    bool IsPlatformOwned = false);
+    bool IsPlatformOwned = false,
+    bool MatchesInterests = false);
 
 public record CourseSessionDto(
     int Id,

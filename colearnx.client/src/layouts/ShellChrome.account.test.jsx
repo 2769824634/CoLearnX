@@ -19,8 +19,7 @@ describe('account menu', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Edit Profile' }));
     expect(screen.getByTestId('location').textContent).toBe(`/${role}/account#edit-profile`);
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
-    fireEvent.click(screen.getByRole('link', { name: 'Identity applications & status' }));
-    expect(screen.getByTestId('location').textContent).toBe(`/${role}/account#applications`);
+    expect(screen.queryByRole('link', { name: 'Identity applications & status' })).toBeNull();
   });
   it('closes on Escape and outside click, and logs out from the menu', () => {
     const logout = renderShell();

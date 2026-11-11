@@ -19,6 +19,7 @@ function mapCourseListItem(c) {
     learningPath: c.learningPath,
     featured: c.isFeatured,
     interests: c.interests || [],
+    matchesInterests: Boolean(c.matchesInterests),
     averageStars: c.averageStars,
     ratingCount: c.ratingCount || 0,
     wishlisted: c.inWishlist,

@@ -91,9 +91,9 @@ public class SeedDataTests
     }
 
     [Fact]
-    public async Task Initialize_repairs_demo_accounts_to_one_role_each()
+    public async Task Initialize_repairs_demo_accounts_to_one_role_each_and_rejects_stale_role_requests()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"colearnx-seed-repair-{Guid.NewGuid():N}.db");
+        var path = Path.Combine(Path.GetTempPath(), $"colearnx-seed-single-role-{Guid.NewGuid():N}.db");
         var options = new DbContextOptionsBuilder<CoLearnXDbContext>()
             .UseSqlite($"Data Source={path}")
             .Options;
@@ -105,19 +105,24 @@ public class SeedDataTests
                 await SeedData.InitializeAsync(seeded);
                 var trainer = await seeded.Users.SingleAsync(user => user.Email == SeedData.TrainerEmail);
                 var creator = await seeded.Users.SingleAsync(user => user.Email == SeedData.CreatorEmail);
+                var member = await seeded.Users.SingleAsync(user => user.Email == SeedData.MemberEmail);
                 seeded.UserRoles.AddRange(
                     new UserRole { UserId = trainer.Id, Role = AppRole.Member },
                     new UserRole { UserId = creator.Id, Role = AppRole.Member });
+                // A pending request from the old "Member applies for another role" flow.
+                seeded.RoleRequests.Add(new RoleRequest { UserId = member.Id, RequestedRole = AppRole.Trainer });
                 await seeded.SaveChangesAsync();
             }
 
-            await using (var repaired = new CoLearnXDbContext(options))
+            await using (var cleaned = new CoLearnXDbContext(options))
             {
-                await SeedData.InitializeAsync(repaired);
+                await SeedData.InitializeAsync(cleaned);
             }
 
             await using var db = new CoLearnXDbContext(options);
             await AssertDemoWorkspaceRolesAsync(db);
+            Assert.False(await db.RoleRequests.AnyAsync(request => request.Status == RoleRequestStatus.Pending
+                && !db.UserRoles.Any(role => role.UserId == request.UserId && role.Role == request.RequestedRole)));
         }
         finally
         {

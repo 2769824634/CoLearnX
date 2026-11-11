@@ -71,13 +71,13 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
             .FirstOrDefaultAsync(item => item.Id == userId, ct)
             ?? throw new RoleRequestException("USER_NOT_FOUND", "User was not found.", StatusCodes.Status404NotFound);
 
-        var awaitingCertification = user.Roles.FirstOrDefault(item =>
-            item.Role is AppRole.Trainer or AppRole.Creator && item.CertifiedAt == null);
-        if (awaitingCertification is not null && awaitingCertification.Role != role)
+        // One account holds one role. An application only certifies the role the account registered with;
+        // it never adds a role. A different role needs a separate account.
+        if (user.Roles.All(item => item.Role != role))
         {
             throw new RoleRequestException(
                 "ROLE_NOT_REQUESTABLE",
-                $"Complete certification for your {awaitingCertification.Role} role first.",
+                $"Each account holds one role. Register a separate {role} account instead.",
                 StatusCodes.Status400BadRequest);
         }
 
@@ -120,8 +120,7 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
                 StatusCodes.Status400BadRequest);
         }
 
-        // Certification requires 1 to 5 specialties. Legacy applications from a Member may still omit them.
-        var specialties = await ValidateSpecialtiesAsync(specialtyIds, required: awaitingCertification is not null, ct);
+        var specialties = await ValidateSpecialtiesAsync(specialtyIds, required: true, ct);
 
         var resumeKey = await SaveRequiredFileAsync(userId, resume, "resume", ct);
         var idKey = await SaveRequiredFileAsync(userId, idDocument, "identity document", ct);

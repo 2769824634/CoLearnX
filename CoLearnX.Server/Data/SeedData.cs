@@ -84,8 +84,8 @@ public static class SeedData
         if (await db.Users.AnyAsync())
         {
             await EnsurePlatformCreatorAsync(db);
+            await RoleRequestCleanup.RejectRequestsForRolesNotHeldAsync(db);
             await EnsureDemoWorkspaceRolesAsync(db);
-            await EnsureRoleRequestFixturesAsync(db);
             await EnsureCourseReviewFixturesAsync(db);
             await EnsureLaterPhaseFixturesAsync(db);
             await RecommendationSeed.EnsureCourseTagsAsync(db);
@@ -429,7 +429,6 @@ public static class SeedData
 
         await db.SaveChangesAsync();
         await EnsureDemoWorkspaceRolesAsync(db);
-        await EnsureRoleRequestFixturesAsync(db);
         await EnsureCourseReviewFixturesAsync(db);
         await EnsureLaterPhaseFixturesAsync(db);
         await RecommendationSeed.EnsureCourseTagsAsync(db);
@@ -550,41 +549,6 @@ public static class SeedData
                 new LearningPath { Name = "Professional Skills" },
                 new LearningPath { Name = "Technology" },
                 new LearningPath { Name = "Design" });
-        }
-
-        await db.SaveChangesAsync();
-    }
-
-    private static async Task EnsureRoleRequestFixturesAsync(CoLearnXDbContext db)
-    {
-        // Seed pending requests so Admin review has queue data before users submit live ones.
-        var member = await db.Users.SingleOrDefaultAsync(
-            user => user.Email == MemberEmail);
-        var creator = await db.Users.SingleOrDefaultAsync(
-            user => user.Email == CreatorEmail);
-
-        if (member is not null && !await db.RoleRequests.AnyAsync(
-                request => request.UserId == member.Id && request.RequestedRole == AppRole.Creator))
-        {
-            db.RoleRequests.Add(new RoleRequest
-            {
-                UserId = member.Id,
-                RequestedRole = AppRole.Creator,
-                DegreeOrResumePath = "role-requests/huang-yousheng-portfolio.pdf",
-                IdDocumentPath = "role-requests/huang-yousheng-id.pdf",
-            });
-        }
-
-        if (creator is not null && !await db.RoleRequests.AnyAsync(
-                request => request.UserId == creator.Id && request.RequestedRole == AppRole.Trainer))
-        {
-            db.RoleRequests.Add(new RoleRequest
-            {
-                UserId = creator.Id,
-                RequestedRole = AppRole.Trainer,
-                DegreeOrResumePath = "role-requests/zou-ruiqi-resume.pdf",
-                IdDocumentPath = "role-requests/zou-ruiqi-id.pdf",
-            });
         }
 
         await db.SaveChangesAsync();

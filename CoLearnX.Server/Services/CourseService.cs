@@ -212,7 +212,8 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
                 c.IsFeatured,
                 c.IsPlatformOwned ? PlatformIdentity.Name : c.Creator.FullName,
                 c.IsPlatformOwned,
-                c.CourseSubject == null ? null : c.CourseSubject.Name))
+                c.CourseSubject == null ? null : c.CourseSubject.Name,
+                c.CourseSubjectId))
             .ToListAsync(ct);
         if (courses.Count == 0) return [];
 
@@ -247,12 +248,20 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             group => (IReadOnlyList<string>)group.Select(row => row.Name).Distinct().OrderBy(name => name).ToList());
         var stars = ratingRows.ToDictionary(row => row.CourseId, row => (Count: row.Count, Average: row.Average));
 
-        return courses.Select(c => new CourseListItemDto(
+        // A signed-in Member sees courses that share an interest, or sit in a subject their interests point to, first.
+        var interestIds = userId is null ? [] : await db.UserInterests.AsNoTracking()
+            .Where(i => i.UserId == userId).Select(i => i.InterestId).ToListAsync(ct);
+        var subjectIds = await InterestSubjectMap.SubjectIdsForInterestsAsync(db, interestIds, ct);
+        var interestCourseIds = interestRows.Where(row => interestIds.Contains(row.InterestId)).Select(row => row.CourseId).ToHashSet();
+        bool Matches(CourseListRow c) => interestCourseIds.Contains(c.Id)
+            || (c.CourseSubjectId is int subjectId && subjectIds.Contains(subjectId));
+
+        return courses.OrderByDescending(Matches).Select(c => new CourseListItemDto(
             c.Id, c.Code, c.Title, c.TrainerName, c.CreditCost, c.Level, string.Empty, c.IsFeatured,
             wished.Contains(c.Id), tags.GetValueOrDefault(c.Id) ?? [],
             stars.GetValueOrDefault(c.Id).Average, stars.GetValueOrDefault(c.Id).Count,
             CreatorName: c.CreatorName, TrainerNames: trainerNames.GetValueOrDefault(c.Id) ?? [],
-            LearningPath: c.LearningPath, IsPlatformOwned: c.IsPlatformOwned)).ToList();
+            LearningPath: c.LearningPath, IsPlatformOwned: c.IsPlatformOwned, MatchesInterests: Matches(c))).ToList();
     }
 
     public async Task<CourseDetailDto?> GetByIdAsync(int courseId, int? userId, CancellationToken ct = default)
@@ -341,7 +350,8 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         bool IsFeatured,
         string CreatorName,
         bool IsPlatformOwned,
-        string? LearningPath);
+        string? LearningPath,
+        int? CourseSubjectId);
 
     private static IReadOnlyList<string> PublicTrainerNames(Course course)
         => course.Intakes.Where(i => i.Status is CourseIntakeStatus.Published or CourseIntakeStatus.InProgress or CourseIntakeStatus.Completed)

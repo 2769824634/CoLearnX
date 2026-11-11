@@ -103,7 +103,7 @@ export default function MemberHomePage() {
       </div>
       {recommendationError ? <p role="alert" className="callout warn">{recommendationError}</p> : null}
       {!recommendations && !recommendationError ? <p role="status">Loading recommendations…</p> : null}
-      {recommendations && !recommendations.items.length ? <div className="callout">No matching courses are open for registration right now. Browse the catalog or update your interests.</div> : null}
+      {recommendations && !recommendations.items.length ? <div className="callout">No courses match your interests yet. Browse the catalog or update your interests.</div> : null}
       <div className="cx-grid">
         {(recommendations?.items || []).map((c) => {
           const open = () => navigate(`/member/courses/${c.courseId}`);
@@ -122,6 +122,7 @@ export default function MemberHomePage() {
                 {c.suggestedPrerequisite ? <p className="cx-card-people">Suggested first: {c.suggestedPrerequisite}</p> : null}
                 {c.hasOpenClass === false ? <p className="cx-card-people">No class currently open for registration</p> : null}
                 {c.interests?.length ? <p className="cx-card-people">{c.interests.map((item) => item.name).join(' · ')}</p> : null}
+                {c.hasOpenClass === false ? <p className="cx-card-people">No class scheduled yet</p> : null}
                 <p className="cx-card-rating">
                   {c.ratingCount > 0 && c.averageStars != null
                     ? <><span className="cx-star" aria-hidden="true">★</span> <b>{Number(c.averageStars).toFixed(1)}</b> ({c.ratingCount})</>

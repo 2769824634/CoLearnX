@@ -98,18 +98,12 @@ public sealed class AdminRoleRequestService(
                     userRole => userRole.UserId == roleRequest.UserId
                         && userRole.Role == roleRequest.RequestedRole,
                     ct);
+                // Approval only certifies the account's own role; it never adds a second role.
                 if (existingRole is null)
-                {
-                    db.UserRoles.Add(new UserRole
-                    {
-                        UserId = roleRequest.UserId,
-                        Role = roleRequest.RequestedRole,
-                        IsVisible = true,
-                        CertifiedAt = DateTime.UtcNow,
-                    });
-                }
-                else
-                    existingRole.CertifiedAt = DateTime.UtcNow;
+                    throw new AdminReviewConflictException(
+                        "ROLE_NOT_HELD",
+                        "This account does not hold the requested role. Each account holds one role.");
+                existingRole.CertifiedAt = DateTime.UtcNow;
 
                 var specialtyIds = RoleRequestService.ParseSpecialtyIds(roleRequest.SpecialtyIds);
                 if (specialtyIds.Count > 0)

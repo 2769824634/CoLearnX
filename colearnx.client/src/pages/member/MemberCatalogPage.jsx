@@ -95,6 +95,7 @@ export default function MemberCatalogPage() {
                 <div className="cx-card-body">
                   <div className="cx-card-meta">
                     <span className="cx-chip">{c.level}</span>
+                    {c.matchesInterests ? <span className="cx-chip">Matches your interests</span> : null}
                     <span className="cx-card-credits"><strong>{c.credits}</strong> Credits</span>
                   </div>
                   <h4 className="cx-card-title">{c.title}</h4>

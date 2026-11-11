@@ -28,7 +28,7 @@ public class RoleRequestApiTests : IClassFixture<CoLearnXApiFactory>
     [Fact]
     public async Task Json_create_without_files_returns_FILES_REQUIRED()
     {
-        var member = await RegisterMemberAsync($"nofile.{Guid.NewGuid():N}@colearnx.test");
+        var member = await RegisterApplicantAsync($"nofile.{Guid.NewGuid():N}@colearnx.test");
 
         var response = await member.PostAsJsonAsync(
             "/api/role-requests",
@@ -40,23 +40,9 @@ public class RoleRequestApiTests : IClassFixture<CoLearnXApiFactory>
     }
 
     [Fact]
-    public async Task Member_lists_own_pending_creator_request()
+    public async Task Uncertified_trainer_can_apply_and_cannot_repeat_while_pending()
     {
-        var member = await ApiClient.AsMemberAsync(_factory);
-
-        var mine = await member.GetFromJsonAsync<List<RoleRequestDto>>("/api/role-requests/my", ApiJson.Options);
-
-        Assert.NotNull(mine);
-        var creator = Assert.Single(mine, item => item.RequestedRole == "Creator");
-        Assert.Equal("Pending", creator.Status);
-        Assert.True(creator.HasResume);
-        Assert.True(creator.HasIdDocument);
-    }
-
-    [Fact]
-    public async Task New_member_can_request_trainer_and_cannot_repeat_while_pending()
-    {
-        var member = await RegisterMemberAsync($"role.{Guid.NewGuid():N}@colearnx.test");
+        var member = await RegisterApplicantAsync($"role.{Guid.NewGuid():N}@colearnx.test");
 
         using var createdContent = ApplicationForm("Trainer");
         var created = await member.PostAsync("/api/role-requests", createdContent);
@@ -82,7 +68,7 @@ public class RoleRequestApiTests : IClassFixture<CoLearnXApiFactory>
     [Fact]
     public async Task Uploaded_files_are_stored_outside_the_materials_container()
     {
-        var member = await RegisterMemberAsync($"files.{Guid.NewGuid():N}@colearnx.test");
+        var member = await RegisterApplicantAsync($"files.{Guid.NewGuid():N}@colearnx.test", "Creator");
         var me = await member.GetFromJsonAsync<UserMeDto>("/api/auth/me", ApiJson.Options);
         Assert.NotNull(me);
 
@@ -114,7 +100,7 @@ public class RoleRequestApiTests : IClassFixture<CoLearnXApiFactory>
     [Fact]
     public async Task Admin_can_download_uploaded_role_request_files()
     {
-        var member = await RegisterMemberAsync($"dl.{Guid.NewGuid():N}@colearnx.test");
+        var member = await RegisterApplicantAsync($"dl.{Guid.NewGuid():N}@colearnx.test");
         using var content = ApplicationForm("Trainer");
         var created = await member.PostAsync("/api/role-requests", content);
         created.EnsureSuccessStatusCode();
@@ -135,7 +121,7 @@ public class RoleRequestApiTests : IClassFixture<CoLearnXApiFactory>
     [Fact]
     public async Task Application_requires_a_statement_of_at_most_300_words()
     {
-        var member = await RegisterMemberAsync($"note.{Guid.NewGuid():N}@colearnx.test");
+        var member = await RegisterApplicantAsync($"note.{Guid.NewGuid():N}@colearnx.test");
 
         using var missing = ApplicationForm("Trainer", statement: "  ");
         var missingResponse = await member.PostAsync("/api/role-requests", missing);
@@ -149,7 +135,7 @@ public class RoleRequestApiTests : IClassFixture<CoLearnXApiFactory>
     }
 
     [Fact]
-    public async Task Member_cannot_request_member_or_a_role_already_held()
+    public async Task Member_cannot_apply_for_any_role_and_a_held_role_cannot_be_requested_again()
     {
         var member = await ApiClient.AsMemberAsync(_factory);
         var trainer = await ApiClient.AsRoleAsync(_factory, SeedData.TrainerEmail, "Trainer");
@@ -159,6 +145,15 @@ public class RoleRequestApiTests : IClassFixture<CoLearnXApiFactory>
         Assert.Equal(HttpStatusCode.BadRequest, memberRole.StatusCode);
         Assert.Equal("ROLE_NOT_REQUESTABLE", (await ApiClient.ReadErrorAsync(memberRole))?.Code);
 
+        // One account, one role: a Member registers a separate account to teach or create.
+        foreach (var role in new[] { "Trainer", "Creator" })
+        {
+            using var otherRoleContent = ApplicationForm(role);
+            var otherRole = await member.PostAsync("/api/role-requests", otherRoleContent);
+            Assert.Equal(HttpStatusCode.BadRequest, otherRole.StatusCode);
+            Assert.Equal("ROLE_NOT_REQUESTABLE", (await ApiClient.ReadErrorAsync(otherRole))?.Code);
+        }
+
         using var alreadyHeldContent = ApplicationForm("Trainer");
         var alreadyHeld = await trainer.PostAsync("/api/role-requests", alreadyHeldContent);
         Assert.Equal(HttpStatusCode.Conflict, alreadyHeld.StatusCode);
@@ -166,10 +161,10 @@ public class RoleRequestApiTests : IClassFixture<CoLearnXApiFactory>
     }
 
     [Fact]
-    public async Task Rejected_request_can_be_submitted_again_and_approval_grants_the_role()
+    public async Task Rejected_request_can_be_submitted_again_and_approval_certifies_the_role()
     {
         var email = $"grant.{Guid.NewGuid():N}@colearnx.test";
-        var member = await RegisterMemberAsync(email);
+        var member = await RegisterApplicantAsync(email, "Creator");
 
         using var firstContent = ApplicationForm("Creator");
         var first = await member.PostAsync("/api/role-requests", firstContent);
@@ -201,7 +196,8 @@ public class RoleRequestApiTests : IClassFixture<CoLearnXApiFactory>
         Assert.Contains(mine!, item => item.Id == second.Id && item.Status == "Approved");
 
         var me = await member.GetFromJsonAsync<UserMeDto>("/api/auth/me", ApiJson.Options);
-        Assert.Contains("Creator", me!.Roles);
+        Assert.Equal(["Creator"], me!.Roles);
+        Assert.NotNull(me.CertifiedAt);
 
         using var againContent = ApplicationForm("Creator");
         var again = await member.PostAsync("/api/role-requests", againContent);
@@ -209,16 +205,17 @@ public class RoleRequestApiTests : IClassFixture<CoLearnXApiFactory>
         Assert.Equal("ROLE_ALREADY_GRANTED", (await ApiClient.ReadErrorAsync(again))?.Code);
     }
 
-    private async Task<HttpClient> RegisterMemberAsync(string email)
+    // Applications only certify the role an account registered with; there is no "Member applies for a role" path.
+    private async Task<HttpClient> RegisterApplicantAsync(string email, string role = "Trainer")
     {
         var client = ApiClient.Anonymous(_factory);
         var register = await client.PostAsJsonAsync(
             "/api/auth/register",
-            new RegisterRequest(email, SeedData.DemoPassword, "Role Applicant", null, "Member"),
+            new RegisterRequest(email, SeedData.DemoPassword, "Role Applicant", null, role),
             ApiJson.Options);
         register.EnsureSuccessStatusCode();
         await ApiClient.MarkEmailVerifiedAsync(_factory, email);
-        return await ApiClient.AsMemberAsync(_factory, email);
+        return await ApiClient.AsRoleAsync(_factory, email, role);
     }
 
     private static MultipartFormDataContent ApplicationForm(string requestedRole, string statement = "I run inclusive workshops.")
@@ -226,6 +223,7 @@ public class RoleRequestApiTests : IClassFixture<CoLearnXApiFactory>
         var content = new MultipartFormDataContent();
         content.Add(new StringContent(requestedRole), "requestedRole");
         content.Add(new StringContent(statement), "statement");
+        content.Add(new StringContent("1"), "specialtyIds");
         content.Add(PdfPart(), "resume", "resume.pdf");
         content.Add(PdfPart(), "idDocument", "id.pdf");
         return content;

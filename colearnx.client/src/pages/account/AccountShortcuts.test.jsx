@@ -24,11 +24,9 @@ describe('account shortcuts', () => {
     expect(screen.getByText('0411222333')).toBeTruthy();
     expect(screen.getByRole('dialog').textContent).toContain('Profile editor');
   });
-  it.each(['member', 'trainer', 'creator'])('%s scrolls to role applications', (role) => {
-    const scrollIntoView = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoView;
-    renderAccount(role, '#applications');
-    expect(scrollIntoView).toHaveBeenCalledOnce();
-    delete Element.prototype.scrollIntoView;
+  it.each(['member', 'trainer', 'creator'])('%s explains that each account holds one role', (role) => {
+    renderAccount(role, '');
+    expect(screen.getByText(/Each account holds one role/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Apply for/ })).toBeNull();
   });
 });

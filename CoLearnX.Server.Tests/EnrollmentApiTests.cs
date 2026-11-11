@@ -68,7 +68,8 @@ public class EnrollmentApiTests : IClassFixture<CoLearnXApiFactory>
 
         var catalog = await member.GetFromJsonAsync<List<CourseListItemDto>>("/api/courses", ApiJson.Options)
             ?? [];
-        var target = catalog.First(c => !activeIds.Contains(c.Id));
+        // The catalog lists a Member's interest matches first, so pick by course code for a stable target.
+        var target = catalog.OrderBy(c => c.Code, StringComparer.Ordinal).First(c => !activeIds.Contains(c.Id));
         var detail = await member.GetFromJsonAsync<CourseDetailDto>($"/api/courses/{target.Id}", ApiJson.Options)
             ?? throw new InvalidOperationException("Course detail missing.");
         var session = detail.Sessions[0];

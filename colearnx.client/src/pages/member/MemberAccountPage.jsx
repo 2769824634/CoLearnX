@@ -3,7 +3,7 @@ import MemberShell from '../../components/MemberShell';
 import { useAuth } from '../../auth/AuthContext';
 import { ProfileEditor, ProfileDetails, IdentityVisibility } from '../account/ProfileEditor';
 import { useMemberData } from './memberDataState';
-import RoleApplicationsPanel from '../account/RoleApplicationsPanel';
+import OneRoleNotice from '../account/OneRoleNotice';
 import AvatarEditor from '../account/AvatarEditor';
 import useAccountShortcuts from '../account/useAccountShortcuts';
 
@@ -65,7 +65,7 @@ export default function MemberAccountPage() {
                 <IdentityVisibility user={user} />
               </div>
             </div>
-            <RoleApplicationsPanel />
+            <OneRoleNotice />
           </div>
         </div>
       </MemberShell>
