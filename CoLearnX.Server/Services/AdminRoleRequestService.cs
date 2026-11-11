@@ -92,17 +92,22 @@ public sealed class AdminRoleRequestService(
                     "ROLE_REQUEST_USER_INACTIVE",
                     "An inactive user cannot be granted a requested role.");
 
+            if (decision == AdminReviewDecision.Approve
+                && await db.UserRoles.AnyAsync(item => item.UserId == roleRequest.UserId && item.Role == AppRole.Member, ct))
+                throw new AdminReviewConflictException(
+                    "ROLE_NOT_REQUESTABLE",
+                    "Member accounts cannot apply for Trainer or Creator roles. Reject this request instead.");
+
             if (decision == AdminReviewDecision.Approve)
             {
                 var existingRole = await db.UserRoles.SingleOrDefaultAsync(
                     userRole => userRole.UserId == roleRequest.UserId
                         && userRole.Role == roleRequest.RequestedRole,
                     ct);
-                // Approval only certifies the account's own role; it never adds a second role.
                 if (existingRole is null)
                     throw new AdminReviewConflictException(
-                        "ROLE_NOT_HELD",
-                        "This account does not hold the requested role. Each account holds one role.");
+                        "ROLE_NOT_REQUESTABLE",
+                        "Accounts can only be certified for an existing role. Reject this request instead.");
                 existingRole.CertifiedAt = DateTime.UtcNow;
 
                 var specialtyIds = RoleRequestService.ParseSpecialtyIds(roleRequest.SpecialtyIds);
@@ -124,7 +129,7 @@ public sealed class AdminRoleRequestService(
                 ? new Notification
                 {
                     UserId = roleRequest.UserId, Code = "N-role-approved", Title = "Role request approved",
-                    Body = $"Your {role} access is approved. Switch to it from the account menu.",
+                    Body = $"Your {role} certification is approved. Your workspace is now open.",
                 }
                 : new Notification
                 {

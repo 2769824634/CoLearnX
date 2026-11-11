@@ -1,5 +1,4 @@
 import { NavLink } from 'react-router-dom';
-import WorkspaceSwitcher from './WorkspaceSwitcher';
 import MemberNotifications from './MemberNotifications';
 import { MEMBER_NAV } from '../data/memberMock';
 import { useAuth } from '../auth/AuthContext';
@@ -43,7 +42,7 @@ export default function MemberShell({
           <MemberNotifications />
         </>
       )}
-      identityMeta={<WorkspaceSwitcher />}
+      identityMeta={<div className="role">Member</div>}
       navLabel="Member navigation"
       navHintId="member-nav-scroll-hint"
       navItems={MEMBER_NAV.map((item) => (

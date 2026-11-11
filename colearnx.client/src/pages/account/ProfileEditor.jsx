@@ -5,20 +5,12 @@ import Modal from '../../components/Modal';
 import { COUNTRIES } from '../../data/countries';
 
 const IDENTITY_ROWS = [
-  { key: 'member', label: 'Member', grantedHint: 'Learner profile & certificates' },
-  { key: 'trainer', label: 'Trainer', grantedHint: 'Specialisations · programs taught' },
-  { key: 'creator', label: 'Creator', grantedHint: 'Expertise · materials' },
+  { key: 'trainer', label: 'Trainer' },
+  { key: 'creator', label: 'Creator' },
 ];
 
 function roleSet(user) {
   return new Set((user?.roles || []).map((role) => String(role).toLowerCase()));
-}
-
-function isVisible(user, key) {
-  const vis = user?.identityVisibility || {};
-  if (typeof vis[key] === 'boolean') return vis[key];
-  const titled = key.charAt(0).toUpperCase() + key.slice(1);
-  return Boolean(vis[titled]);
 }
 
 function AccountField({ id, label, value, onChange, maxLength }) {
@@ -42,11 +34,6 @@ function profileDraft(user) {
     specialisations: user?.specialisations ?? '',
     creatorHeadline: user?.creatorHeadline ?? '',
     expertiseTags: user?.expertiseTags ?? '',
-    identityVisibility: {
-      member: isVisible(user, 'member'),
-      trainer: isVisible(user, 'trainer'),
-      creator: isVisible(user, 'creator'),
-    },
   };
 }
 
@@ -61,7 +48,7 @@ export function ProfileEditor({ onClose }) {
   const granted = roleSet(user);
   const sections = [
     { key: 'personal', label: 'Personal info' },
-    ...IDENTITY_ROWS.filter((row) => row.key !== 'member' && granted.has(row.key)),
+    ...IDENTITY_ROWS.filter((row) => granted.has(row.key)),
   ];
 
   function navigateTabs(event, index) {
@@ -84,9 +71,6 @@ export function ProfileEditor({ onClose }) {
     try {
       const updated = await usersApi.update(user.id, {
         fullName: draft.fullName, displayName: draft.displayName, phone: draft.phone, bio: draft.bio, country: draft.country, occupation: draft.occupation,
-        identityVisibility: Object.fromEntries(
-          IDENTITY_ROWS.filter((row) => granted.has(row.key)).map((row) => [row.key, draft.identityVisibility[row.key]]),
-        ),
         ...(granted.has('trainer') ? { trainerHeadline: draft.trainerHeadline, specialisations: draft.specialisations } : {}),
         ...(granted.has('creator') ? { creatorHeadline: draft.creatorHeadline, expertiseTags: draft.expertiseTags } : {}),
       });
@@ -116,8 +100,6 @@ export function ProfileEditor({ onClose }) {
               ))}
             </div>
             {sections.map((section) => {
-              const visibilityKey = section.key === 'personal' ? 'member' : section.key;
-              const visibilityRow = IDENTITY_ROWS.find((row) => row.key === visibilityKey && granted.has(row.key));
               return (
                 <section key={section.key} role="tabpanel" id={`${tabsId}-panel-${section.key}`}
                   aria-labelledby={`${tabsId}-tab-${section.key}`} hidden={activeSection !== section.key}>
@@ -148,14 +130,6 @@ export function ProfileEditor({ onClose }) {
                         <AccountField id="account-expertiseTags" label="Expertise tags" value={draft.expertiseTags} onChange={(expertiseTags) => setDraft({ ...draft, expertiseTags })} />
                       </>}
                     </div>
-                    {visibilityRow && <div className="identity-block">
-                      <div className="ib-head">
-                        <span className="grow">{visibilityRow.label} visibility</span>
-                        <button type="button" className={`switch${draft.identityVisibility[visibilityKey] ? ' on' : ''}`}
-                          aria-pressed={draft.identityVisibility[visibilityKey]} aria-label={`${visibilityRow.label} visibility`}
-                          onClick={() => setDraft({ ...draft, identityVisibility: { ...draft.identityVisibility, [visibilityKey]: !draft.identityVisibility[visibilityKey] } })} />
-                      </div>
-                    </div>}
                   </>}
                 </section>
               );
@@ -180,16 +154,4 @@ export function ProfileDetails({ user }) {
     {roles.has('trainer') && <><div className="masked-field"><div className="label">Trainer headline</div><div className="value">{user?.trainerHeadline || '—'}</div></div><div className="masked-field"><div className="label">Specialisations</div><div className="value">{user?.specialisations || '—'}</div></div></>}
     {roles.has('creator') && <><div className="masked-field"><div className="label">Creator headline</div><div className="value">{user?.creatorHeadline || '—'}</div></div><div className="masked-field"><div className="label">Expertise tags</div><div className="value">{user?.expertiseTags || '—'}</div></div></>}
   </>);
-}
-
-export function IdentityVisibility({ user }) {
-  const granted = roleSet(user);
-  return IDENTITY_ROWS.map((row) => {
-    const hasRole = granted.has(row.key);
-    return <div key={row.key} style={{ display: 'flex', marginBottom: 8, fontSize: 13, gap: 12 }}>
-      <span style={{ minWidth: 72, fontWeight: 600 }}>{row.label}</span>
-      <span style={{ flex: 1, color: 'var(--slate)' }}>{hasRole ? row.grantedHint : 'Not activated'}</span>
-      <span className={`pill${hasRole && isVisible(user, row.key) ? '' : ' muted'}`}>{!hasRole ? 'Hidden / pending' : isVisible(user, row.key) ? 'Visible' : 'Hidden'}</span>
-    </div>;
-  });
 }

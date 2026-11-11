@@ -14,7 +14,6 @@ const auth = {
   login: vi.fn(),
   register: vi.fn(),
   logout: vi.fn(),
-  switchRole: vi.fn(),
 };
 
 afterEach(() => {

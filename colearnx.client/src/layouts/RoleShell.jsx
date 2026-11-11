@@ -1,5 +1,4 @@
 import { Outlet, useLocation } from 'react-router-dom';
-import WorkspaceSwitcher from '../components/WorkspaceSwitcher';
 import MemberNotifications from '../components/MemberNotifications';
 import { MemberNotificationsProvider } from '../components/MemberNotificationsProvider';
 import { useAuth } from '../auth/AuthContext';
@@ -56,7 +55,7 @@ function pendingCount(kind, counts) {
   return kind === 'disputes' ? counts.disputes : approvalTotal(counts);
 }
 
-function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspaceSwitcher = false, identityLabel = 'Administrator', title, subtitle, accessNotice, onDismissAccessNotice }) {
+function ShellFrame({ identityName, avatarUrl, token, role, logout, identityLabel = 'Administrator', title, subtitle, accessNotice, onDismissAccessNotice }) {
   const location = useLocation();
   const items = NAV[role] || [];
   const pendingCounts = useAdminPending()?.counts;
@@ -70,7 +69,7 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, showWorkspac
       token={token}
       logout={logout}
       extraActions={role === 'trainer' || role === 'creator' ? <MemberNotifications /> : null}
-      identityMeta={showWorkspaceSwitcher ? <WorkspaceSwitcher /> : <div className="role">{identityLabel}</div>}
+      identityMeta={<div className="role">{identityLabel}</div>}
       navLabel={`${role} navigation`}
       navHintId={`${role}-nav-scroll-hint`}
       navItems={items.map((item) => {
@@ -109,7 +108,7 @@ export default function RoleShell({ role, title, subtitle }) {
       token={token}
       role={role}
       logout={logout}
-      showWorkspaceSwitcher
+      identityLabel={role.charAt(0).toUpperCase() + role.slice(1)}
       title={title}
       subtitle={subtitle}
       accessNotice={accessNotice}

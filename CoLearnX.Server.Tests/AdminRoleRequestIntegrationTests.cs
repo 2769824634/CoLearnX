@@ -17,14 +17,71 @@ namespace CoLearnX.Server.Tests;
 
 public class AdminRoleRequestIntegrationTests
 {
-    [Fact]
-    public async Task Approve_GrantsRoleAndAuditsExactlyOnce_WhenReplayed()
+    [Theory]
+    [InlineData(AppRole.Member, AppRole.Trainer)]
+    [InlineData(AppRole.Trainer, AppRole.Creator)]
+    [InlineData(AppRole.Creator, AppRole.Trainer)]
+    public async Task Legacy_cross_role_request_cannot_be_approved_but_can_be_rejected(AppRole heldRole, AppRole requestedRole)
     {
         var factory = new RoleRequestApiFactory();
         try
         {
             using var client = await CreateAdminClientAsync(factory);
-            var roleRequest = await FindPendingAsync(factory, client, "Creator");
+            int requestId;
+            int userId;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+                var applicant = new User
+                {
+                    Email = $"legacy.{Guid.NewGuid():N}@colearnx.test",
+                    PasswordHash = "hash",
+                    FullName = "Legacy Applicant",
+                    DisplayName = "Applicant",
+                };
+                db.Users.Add(applicant);
+                await db.SaveChangesAsync();
+                db.UserRoles.Add(new UserRole { UserId = applicant.Id, Role = heldRole });
+                var application = new RoleRequest { UserId = applicant.Id, RequestedRole = requestedRole };
+                db.RoleRequests.Add(application);
+                await db.SaveChangesAsync();
+                requestId = application.Id;
+                userId = applicant.Id;
+            }
+
+            var approval = await client.PostAsJsonAsync(
+                $"/api/admin/role-requests/{requestId}/review", new AdminReviewRequest("Approve", null));
+            Assert.Equal(HttpStatusCode.Conflict, approval.StatusCode);
+            Assert.Equal("ROLE_NOT_REQUESTABLE", (await approval.Content.ReadFromJsonAsync<ApiError>())?.Code);
+
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+                Assert.Equal(RoleRequestStatus.Pending, (await db.RoleRequests.SingleAsync(item => item.Id == requestId)).Status);
+                Assert.Equal(1, await db.UserRoles.CountAsync(item => item.UserId == userId));
+                Assert.False(await db.AuditLogs.AnyAsync(item => item.EntityId == requestId.ToString() && item.Action == "RoleRequestApproved"));
+            }
+
+            var rejection = await client.PostAsJsonAsync(
+                $"/api/admin/role-requests/{requestId}/review", new AdminReviewRequest("Reject", "Accounts cannot request another role."));
+            Assert.Equal(HttpStatusCode.OK, rejection.StatusCode);
+        }
+        finally
+        {
+            factory.Dispose();
+            factory.DeleteDatabase();
+        }
+    }
+
+    [Fact]
+    public async Task Approve_CertifiesRoleAndAuditsExactlyOnce_WhenReplayed()
+    {
+        var factory = new RoleRequestApiFactory();
+        try
+        {
+            using var client = await CreateAdminClientAsync(factory);
+            await AddCertificationAsync(factory, AppRole.Creator);
+            var roleRequest = await FindPendingAsync(client, "Creator");
 
             var firstResponse = await client.PostAsJsonAsync(
                 $"/api/admin/role-requests/{roleRequest.Id}/review",
@@ -48,9 +105,9 @@ public class AdminRoleRequestIntegrationTests
 
             using var scope = factory.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-            var role = await db.UserRoles.SingleAsync(item => item.UserId == roleRequest.UserId);
-            Assert.Equal(AppRole.Creator, role.Role);
-            Assert.NotNull(role.CertifiedAt);
+            Assert.Equal(1, await db.UserRoles.CountAsync(item =>
+                item.UserId == roleRequest.UserId && item.Role == AppRole.Creator));
+            Assert.NotNull((await db.UserRoles.SingleAsync(item => item.UserId == roleRequest.UserId)).CertifiedAt);
             Assert.Equal(1, await db.AuditLogs.CountAsync(log =>
                 log.Action == "RoleRequestApproved"
                 && log.EntityId == roleRequest.Id.ToString()));
@@ -73,7 +130,8 @@ public class AdminRoleRequestIntegrationTests
         try
         {
             using var client = await CreateAdminClientAsync(factory);
-            var roleRequest = await FindPendingAsync(factory, client, "Trainer");
+            await AddCertificationAsync(factory, AppRole.Trainer);
+            var roleRequest = await FindPendingAsync(client, "Trainer");
 
             var response = await client.PostAsJsonAsync(
                 $"/api/admin/role-requests/{roleRequest.Id}/review",
@@ -103,7 +161,8 @@ public class AdminRoleRequestIntegrationTests
         try
         {
             using var client = await CreateAdminClientAsync(factory);
-            var roleRequest = await FindPendingAsync(factory, client, "Trainer");
+            await AddCertificationAsync(factory, AppRole.Trainer);
+            var roleRequest = await FindPendingAsync(client, "Trainer");
 
             var firstResponse = await client.PostAsJsonAsync(
                 $"/api/admin/role-requests/{roleRequest.Id}/review",
@@ -151,7 +210,8 @@ public class AdminRoleRequestIntegrationTests
         try
         {
             using var client = await CreateAdminClientAsync(factory);
-            var roleRequest = await FindPendingAsync(factory, client, "Creator");
+            await AddCertificationAsync(factory, AppRole.Creator);
+            var roleRequest = await FindPendingAsync(client, "Creator");
 
             var response = await client.PostAsJsonAsync(
                 $"/api/admin/role-requests/{roleRequest.Id}/review",
@@ -192,7 +252,7 @@ public class AdminRoleRequestIntegrationTests
             db.Users.Add(user);
             db.AdminAccounts.Add(admin);
             await db.SaveChangesAsync();
-            db.UserRoles.Add(new UserRole { UserId = user.Id, Role = AppRole.Trainer, IsVisible = true, CertifiedAt = null });
+            db.UserRoles.Add(new UserRole { UserId = user.Id, Role = AppRole.Trainer, CertifiedAt = null });
             var roleRequest = new RoleRequest
             {
                 UserId = user.Id,
@@ -212,9 +272,6 @@ public class AdminRoleRequestIntegrationTests
             Assert.Equal("Approved", result.RoleRequest.Status);
             Assert.Equal(1, await db.UserRoles.CountAsync(item =>
                 item.UserId == user.Id && item.Role == AppRole.Trainer));
-            var certified = await db.UserRoles.SingleAsync(item => item.UserId == user.Id);
-            Assert.Equal(AppRole.Trainer, certified.Role);
-            Assert.NotNull(certified.CertifiedAt);
         }
         finally
         {
@@ -228,9 +285,12 @@ public class AdminRoleRequestIntegrationTests
         var factory = new RoleRequestApiFactory();
         try
         {
-            var existing = await SeedPendingCertificationAsync(factory, AppRole.Creator);
+            _ = factory.Services;
+            await AddCertificationAsync(factory, AppRole.Creator);
             using var scope = factory.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+            var existing = await db.RoleRequests.SingleAsync(item =>
+                item.RequestedRole == AppRole.Creator && item.Status == RoleRequestStatus.Pending);
             db.RoleRequests.Add(new RoleRequest
             {
                 UserId = existing.UserId,
@@ -264,64 +324,26 @@ public class AdminRoleRequestIntegrationTests
         return client;
     }
 
-    [Fact]
-    public async Task Approve_conflicts_when_the_account_does_not_hold_the_requested_role()
-    {
-        var factory = new RoleRequestApiFactory();
-        try
-        {
-            using var client = await CreateAdminClientAsync(factory);
-            int userId, requestId;
-            using (var scope = factory.Services.CreateScope())
-            {
-                // A request left over from the old "Member applies for another role" flow.
-                var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-                var user = new User { Email = $"legacy.{Guid.NewGuid():N}@colearnx.test", PasswordHash = "hash", FullName = "Legacy Member" };
-                db.Users.Add(user);
-                await db.SaveChangesAsync();
-                db.UserRoles.Add(new UserRole { UserId = user.Id, Role = AppRole.Member });
-                var request = new RoleRequest { UserId = user.Id, RequestedRole = AppRole.Trainer };
-                db.RoleRequests.Add(request);
-                await db.SaveChangesAsync();
-                (userId, requestId) = (user.Id, request.Id);
-            }
-
-            var response = await client.PostAsJsonAsync(
-                $"/api/admin/role-requests/{requestId}/review",
-                new AdminReviewRequest("Approve", null));
-
-            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-            Assert.Equal("ROLE_NOT_HELD", (await response.Content.ReadFromJsonAsync<ApiError>())?.Code);
-            using var check = factory.Services.CreateScope();
-            var roles = await check.ServiceProvider.GetRequiredService<CoLearnXDbContext>().UserRoles
-                .Where(item => item.UserId == userId).Select(item => item.Role).ToListAsync();
-            Assert.Equal([AppRole.Member], roles);
-        }
-        finally
-        {
-            factory.Dispose();
-            factory.DeleteDatabase();
-        }
-    }
-
-    // A self-registered Trainer or Creator waiting for certification.
-    private static async Task<RoleRequest> SeedPendingCertificationAsync(RoleRequestApiFactory factory, AppRole role)
+    private static async Task AddCertificationAsync(RoleRequestApiFactory factory, AppRole role)
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-        var user = new User { Email = $"applicant.{Guid.NewGuid():N}@colearnx.test", PasswordHash = "hash", FullName = $"{role} Applicant" };
-        db.Users.Add(user);
+        var applicant = new User
+        {
+            Email = $"certification.{Guid.NewGuid():N}@colearnx.test",
+            PasswordHash = "hash",
+            FullName = "Certification Applicant",
+            DisplayName = "Applicant",
+        };
+        db.Users.Add(applicant);
         await db.SaveChangesAsync();
-        db.UserRoles.Add(new UserRole { UserId = user.Id, Role = role, CertifiedAt = null });
-        var request = new RoleRequest { UserId = user.Id, RequestedRole = role, ApplicantStatement = "Please certify me." };
-        db.RoleRequests.Add(request);
+        db.UserRoles.Add(new UserRole { UserId = applicant.Id, Role = role, CertifiedAt = null });
+        db.RoleRequests.Add(new RoleRequest { UserId = applicant.Id, RequestedRole = role });
         await db.SaveChangesAsync();
-        return request;
     }
 
-    private static async Task<AdminRoleRequestDto> FindPendingAsync(RoleRequestApiFactory factory, HttpClient client, string requestedRole)
+    private static async Task<AdminRoleRequestDto> FindPendingAsync(HttpClient client, string requestedRole)
     {
-        await SeedPendingCertificationAsync(factory, Enum.Parse<AppRole>(requestedRole));
         var roleRequests = await client.GetFromJsonAsync<List<AdminRoleRequestDto>>(
             "/api/admin/role-requests?status=Pending");
         return Assert.Single(roleRequests!, item => item.RequestedRole == requestedRole);

@@ -173,7 +173,6 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
                 null,
                 null,
                 null,
-                new Dictionary<string, bool> { ["trainer"] = true },
                 "UI/UX Design",
                 "Lead workshop trainer"),
             ApiJson.Options);
@@ -201,7 +200,6 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
                 null,
                 null,
                 "Design materials author",
-                null,
                 null,
                 null,
                 null,

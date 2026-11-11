@@ -25,11 +25,6 @@ export const authApi = {
   register: (payload) =>
     apiRequest('/api/auth/register', { method: 'POST', body: payload }),
   me: () => apiRequest('/api/auth/me'),
-  switchRole: (activeRole) =>
-    apiRequest('/api/auth/switch-role', {
-      method: 'POST',
-      body: { activeRole },
-    }),
 };
 
 export const adminAuthApi = {

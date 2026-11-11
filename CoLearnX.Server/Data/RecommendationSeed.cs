@@ -295,7 +295,7 @@ public static class RecommendationSeed
         }
 
         if (!await db.UserRoles.AnyAsync(role => role.UserId == reviewer.Id && role.Role == AppRole.Member))
-            db.UserRoles.Add(new UserRole { UserId = reviewer.Id, Role = AppRole.Member, IsVisible = true });
+            db.UserRoles.Add(new UserRole { UserId = reviewer.Id, Role = AppRole.Member });
         if (!await db.UserPreferences.AnyAsync(preference => preference.UserId == reviewer.Id))
             db.UserPreferences.Add(new UserPreference { UserId = reviewer.Id });
         await db.SaveChangesAsync();

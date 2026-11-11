@@ -3,7 +3,7 @@ import { authApi } from '../api';
 import { ApiError, getStoredToken, setStoredToken, SESSION_REPLACED_EVENT } from '../api/client';
 import { AuthContext } from './AuthContext';
 
-// Session + login / switchRole. Shared: AuthProvider
+// Session and login. Shared: AuthProvider
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => getStoredToken());
   const [user, setUser] = useState(null);
@@ -80,14 +80,6 @@ export function AuthProvider({ children }) {
     return res.user;
   }
 
-  async function switchRole(activeRole) {
-    const res = await authApi.switchRole(activeRole);
-    setStoredToken(res.accessToken);
-    setToken(res.accessToken);
-    setUser(res.user);
-    return res.user;
-  }
-
   function logout() {
     setStoredToken(null);
     setToken(null);
@@ -108,7 +100,6 @@ export function AuthProvider({ children }) {
     roles: user?.roles ?? [],
     login,
     register,
-    switchRole,
     logout,
     refreshUser,
   };

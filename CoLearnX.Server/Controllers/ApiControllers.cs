@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace CoLearnX.Server.Controllers;
 
-// Register, login, me, switch-role. Keep: AuthController, route api/auth
+// Register, login and me. Keep: AuthController, route api/auth
 [ApiController]
 [Route("api/auth")]
 public partial class AuthController(IAuthService auth) : ControllerBase
@@ -79,23 +79,6 @@ public partial class AuthController(IAuthService auth) : ControllerBase
         return Ok(me);
     }
 
-    [HttpPost("switch-role")]
-    [Authorize]
-    public async Task<ActionResult<AuthResponse>> SwitchRole([FromBody] SwitchRoleRequest request, CancellationToken ct)
-    {
-        try
-        {
-            return Ok(await auth.SwitchRoleAsync(User.GetUserId(), request, ct));
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return Unauthorized(new ApiError("SWITCH_ROLE_FAILED", ex.Message));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new ApiError("SWITCH_ROLE_FAILED", ex.Message));
-        }
-    }
 }
 
 // Profile read/update. Keep: UsersController, route api/users

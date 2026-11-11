@@ -44,13 +44,12 @@ it('logs a single-role account in directly without an identity chooser', async (
   expect(screen.queryByRole('dialog', { name: 'Continue as' })).toBeNull();
 });
 
-it('introduces the learning path and workspaces beside the unchanged sign-in form', () => {
+it('introduces the learning path and one-role policy beside the sign-in form', () => {
   const auth = { booting: false, isAuthenticated: false, activeRole: null, login: vi.fn() };
   const view = render(<MemoryRouter><AuthContext.Provider value={auth}><LoginPage /></AuthContext.Provider></MemoryRouter>);
   const steps = [...view.container.querySelectorAll('.login-path li strong')].map((item) => item.textContent);
   expect(steps).toEqual(['Choose a course', 'Learn with your trainer', 'Earn your certificate']);
-  const workspaces = [...view.container.querySelectorAll('.login-workspaces [data-role]')];
-  expect(workspaces.map((item) => item.dataset.role)).toEqual(['member', 'trainer', 'creator']);
+  expect(screen.getByText('Each account has one role: Member, Trainer or Creator.')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Show password' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Login to your account' })).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Forgot password?' }).getAttribute('href')).toBe('/forgot-password');
@@ -58,14 +57,13 @@ it('introduces the learning path and workspaces beside the unchanged sign-in for
   expect(screen.getByRole('link', { name: 'Back to home' }).getAttribute('href')).toBe('/');
 });
 
-it('tags each identity option with its role so the selection follows the role colour', async () => {
-  const auth = { booting: false, isAuthenticated: false, activeRole: null, login: vi.fn() };
+it('signs in with the first returned role without showing a chooser', async () => {
+  const auth = { booting: false, isAuthenticated: false, activeRole: null, login: vi.fn().mockResolvedValue({ activeRole: 'Creator' }) };
   authApi.availableRoles.mockResolvedValue({ roles: ['Creator', 'Member', 'Trainer'] });
   const view = render(<MemoryRouter><AuthContext.Provider value={auth}><LoginPage /></AuthContext.Provider></MemoryRouter>);
   fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'multi@example.test' } });
   fireEvent.change(view.container.querySelector('input[type="password"]'), { target: { value: 'StrongPass123!' } });
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-  const dialog = await screen.findByRole('dialog', { name: 'Continue as' });
-  const options = [...dialog.querySelectorAll('.role-option')];
-  expect(options.map((option) => option.dataset.role)).toEqual(['creator', 'member', 'trainer']);
+  await waitFor(() => expect(auth.login).toHaveBeenCalledWith('multi@example.test', 'StrongPass123!', 'Creator'));
+  expect(screen.queryByRole('dialog', { name: 'Continue as' })).toBeNull();
 });

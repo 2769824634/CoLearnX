@@ -19,7 +19,6 @@ const auth = {
   isAuthenticated: true,
   activeRole: 'member',
   logout: vi.fn(),
-  switchRole: vi.fn(),
 };
 
 afterEach(() => {

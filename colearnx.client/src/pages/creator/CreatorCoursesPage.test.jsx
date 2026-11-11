@@ -19,7 +19,6 @@ const auth = {
   activeRole: 'creator',
   roles: ['Creator'],
   logout: vi.fn(),
-  switchRole: vi.fn(),
 };
 
 afterEach(() => {

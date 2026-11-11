@@ -81,6 +81,8 @@ public class SeedDataTests
                 new[] { "Beginner", "Intermediate", "Advanced" },
                 await db.CourseLevels.OrderBy(item => item.SortOrder).Select(item => item.Name).ToListAsync());
             await AssertDemoWorkspaceRolesAsync(db);
+            Assert.False(await db.RoleRequests.AnyAsync(request =>
+                !db.UserRoles.Any(role => role.UserId == request.UserId && role.Role == request.RequestedRole)));
         }
         finally
         {

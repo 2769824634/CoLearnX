@@ -1,9 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import { useAuth } from '../../auth/AuthContext';
-import { ProfileEditor, ProfileDetails, IdentityVisibility } from '../account/ProfileEditor';
+import { ProfileEditor, ProfileDetails } from '../account/ProfileEditor';
 import { useMemberData } from './memberDataState';
-import OneRoleNotice from '../account/OneRoleNotice';
 import AvatarEditor from '../account/AvatarEditor';
 import useAccountShortcuts from '../account/useAccountShortcuts';
 
@@ -59,13 +58,6 @@ export default function MemberAccountPage() {
                 </div>
               </div>
             </div>
-            <div className="card">
-              <div className="card-header">Identity visibility</div>
-              <div className="card-body cx-account-rows">
-                <IdentityVisibility user={user} />
-              </div>
-            </div>
-            <OneRoleNotice />
           </div>
         </div>
       </MemberShell>

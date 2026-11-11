@@ -7,7 +7,6 @@ import RoleShell, { AdminRoleShell } from './RoleShell';
 import MemberShell from '../components/MemberShell';
 
 vi.mock('../components/Logo', () => ({ default: () => <span>Logo</span> }));
-vi.mock('../components/WorkspaceSwitcher', () => ({ default: () => <span>Workspace</span> }));
 vi.mock('../components/UserAvatar', () => ({ default: () => <span>Avatar</span> }));
 vi.mock('../components/MemberNotifications', () => ({ default: () => null }));
 vi.mock('../components/MemberNotificationsProvider', () => ({ MemberNotificationsProvider: ({ children }) => children }));
@@ -130,6 +129,14 @@ it.each([
   );
 
   expect(container.querySelector('.user-chip').dataset.role).toBe(role);
+  expect(container.querySelector('.user-chip .role').textContent).toBe(
+    { member: 'Member', trainer: 'Trainer', creator: 'Creator', admin: 'Administrator' }[role],
+  );
+  if (role !== 'admin') {
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+    const applicationLink = screen.queryByRole('link', { name: 'Certification status' });
+    expect(applicationLink).toBeNull();
+  }
 });
 
 function stubHorizontalNavLayout() {

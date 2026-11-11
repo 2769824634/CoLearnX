@@ -8,7 +8,7 @@ import UserAccountPage from './UserAccountPage';
 
 vi.mock('../../components/MemberShell', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('./AvatarEditor', () => ({ default: () => <div>Upload avatar</div> }));
-vi.mock('./ProfileEditor', () => ({ ProfileEditor: () => <div role="dialog">Profile editor</div>, ProfileDetails: () => null, IdentityVisibility: () => <div>Identity visibility details</div> }));
+vi.mock('./ProfileEditor', () => ({ ProfileEditor: () => <div role="dialog">Profile editor</div>, ProfileDetails: () => null }));
 const user = { id: 1, email: 'person@example.test', phone: '0411222333', fullName: 'Person', displayName: 'Person', roles: ['Member'] };
 function renderAccount(role, hash = '') {
   const auth = { user, refreshUser: vi.fn() };
@@ -23,10 +23,5 @@ describe('account shortcuts', () => {
     expect(screen.getByText('person@example.test')).toBeTruthy();
     expect(screen.getByText('0411222333')).toBeTruthy();
     expect(screen.getByRole('dialog').textContent).toContain('Profile editor');
-  });
-  it.each(['member', 'trainer', 'creator'])('%s explains that each account holds one role', (role) => {
-    renderAccount(role, '');
-    expect(screen.getByText(/Each account holds one role/)).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Apply for/ })).toBeNull();
   });
 });

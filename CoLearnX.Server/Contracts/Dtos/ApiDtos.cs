@@ -25,8 +25,6 @@ public record AvailableRolesRequest(
 
 public record AvailableRolesDto(IReadOnlyList<string> Roles);
 
-public record SwitchRoleRequest([Required] string ActiveRole);
-
 public record AuthResponse(
     string AccessToken,
     DateTime ExpiresAt,
@@ -44,7 +42,6 @@ public record UserMeDto(
     int CreditBalance,
     string ActiveRole,
     IReadOnlyList<string> Roles,
-    IReadOnlyDictionary<string, bool> IdentityVisibility,
     string? LearningGoals = null,
     string? Specialisations = null,
     string? TrainerHeadline = null,
@@ -69,7 +66,6 @@ public record UpdateProfileRequest(
     string? LearningGoals,
     bool? EmailNotifications,
     bool? DarkMode,
-    IReadOnlyDictionary<string, bool>? IdentityVisibility,
     string? Specialisations,
     string? TrainerHeadline,
     string? ExpertiseTags = null,

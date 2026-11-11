@@ -30,6 +30,45 @@ public class RoleCertificationTests : IClassFixture<CoLearnXApiFactory>
     [Theory]
     [InlineData("Trainer")]
     [InlineData("Creator")]
+    public async Task Member_cannot_apply_for_another_role(string requestedRole)
+    {
+        var (email, _) = await RegisterAsync("Member");
+        using var member = await ApiClient.AsRoleAsync(_factory, email, "Member");
+
+        var response = await member.PostAsync("/api/role-requests", await FormAsync(requestedRole, 1));
+
+        await AssertErrorAsync(response, HttpStatusCode.Forbidden, "ROLE_NOT_REQUESTABLE");
+        var requests = await member.GetFromJsonAsync<List<RoleRequestDto>>("/api/role-requests/my", ApiJson.Options);
+        Assert.Empty(requests!);
+        Assert.Equal(1, await RoleCountAsync(email));
+    }
+
+    [Theory]
+    [InlineData("Trainer", "Creator")]
+    [InlineData("Creator", "Trainer")]
+    public async Task Certified_user_cannot_apply_for_a_different_role(string heldRole, string requestedRole)
+    {
+        var (email, _) = await RegisterAsync(heldRole);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+            var role = await db.UserRoles.SingleAsync(item => item.User.Email == email);
+            role.CertifiedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+        using var applicant = await ApiClient.AsRoleAsync(_factory, email, heldRole);
+
+        var response = await applicant.PostAsync("/api/role-requests", await FormAsync(requestedRole, 1));
+
+        await AssertErrorAsync(response, HttpStatusCode.Forbidden, "ROLE_NOT_REQUESTABLE");
+        var requests = await applicant.GetFromJsonAsync<List<RoleRequestDto>>("/api/role-requests/my", ApiJson.Options);
+        Assert.Empty(requests!);
+        Assert.Equal(1, await RoleCountAsync(email));
+    }
+
+    [Theory]
+    [InlineData("Trainer")]
+    [InlineData("Creator")]
     public async Task Trainer_and_creator_sign_up_get_one_uncertified_role(string role)
     {
         var (email, user) = await RegisterAsync(role);

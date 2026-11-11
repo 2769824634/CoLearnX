@@ -21,7 +21,6 @@ function authFor(role, extra = {}) {
       bio: `${titled} bio`,
       activeRole: titled,
       roles: [titled],
-      identityVisibility: { [role]: true },
       trainerHeadline: 'Senior Trainer',
       specialisations: 'UI/UX Design',
       creatorHeadline: 'Content creator',
@@ -33,7 +32,6 @@ function authFor(role, extra = {}) {
     activeRole: role,
     roles: [titled],
     logout: vi.fn(),
-    switchRole: vi.fn(),
     refreshUser: vi.fn(),
   };
 }
@@ -146,8 +144,8 @@ describe('Trainer and Creator My Account', () => {
 
 
 describe('multi-role profile editing', () => {
-  it.each(['trainer', 'creator'])('edits both role profiles from the %s workspace and keeps hidden data', async (role) => {
-    const auth = authFor(role, { roles: ['Member', 'Trainer', 'Creator'], identityVisibility: { member: true, trainer: true, creator: true } });
+  it.each(['trainer', 'creator'])('edits both existing role profiles from the %s workspace', async (role) => {
+    const auth = authFor(role, { roles: ['Member', 'Trainer', 'Creator'] });
     const fetchMock = vi.fn(async (path, options = {}) => {
       if (String(path) === '/api/users/3' && options.method === 'PUT') return json({ ...auth.user, ...JSON.parse(options.body) });
       return json([]);
@@ -161,7 +159,7 @@ describe('multi-role profile editing', () => {
     expect(screen.getByLabelText('Creator headline').value).toBe('Content creator');
     fireEvent.change(screen.getByLabelText('Expertise tags'), { target: { value: '' } });
     fireEvent.change(screen.getByLabelText('Creator headline'), { target: { value: 'Updated creator' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Creator visibility' }));
+    expect(screen.queryByRole('button', { name: 'Creator visibility' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     await waitFor(() => expect(auth.refreshUser).toHaveBeenCalled());
     const call = fetchMock.mock.calls.find(([path, options]) => path === '/api/users/3' && options.method === 'PUT');
@@ -169,7 +167,6 @@ describe('multi-role profile editing', () => {
     expect(body.trainerHeadline).toBe('Senior Trainer');
     expect(body.creatorHeadline).toBe('Updated creator');
     expect(body.expertiseTags).toBe('');
-    expect(body.identityVisibility.creator).toBe(false);
   });
 });
 
@@ -185,5 +182,4 @@ it.each(['trainer', 'creator'])('does not submit unowned role fields from the %s
   await waitFor(() => expect(auth.refreshUser).toHaveBeenCalled());
   const body = JSON.parse(fetchMock.mock.calls.find(([path, options]) => path === '/api/users/3' && options.method === 'PUT')[1].body);
   expect(body).not.toHaveProperty(role === 'trainer' ? 'creatorHeadline' : 'trainerHeadline');
-  expect(body.identityVisibility).toEqual({ [role]: true });
 });

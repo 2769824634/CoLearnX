@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import OneRoleNotice from './OneRoleNotice';
 import AvatarEditor from './AvatarEditor';
-import { ProfileEditor, ProfileDetails, IdentityVisibility } from './ProfileEditor';
+import { ProfileEditor, ProfileDetails } from './ProfileEditor';
 import useAccountShortcuts from './useAccountShortcuts';
 
 export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summaryStats = [] }) {
@@ -67,15 +67,6 @@ export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summ
                   <div className="masked-field"><div className="label">Phone</div><div className="value">{user?.phone || '—'}</div></div>
                 </div>
                 <ProfileDetails user={user} />
-              </div>
-            </div>
-            <div className="card">
-              <div className="card-header">Identity visibility</div>
-              <div className="card-body">
-                <p style={{ fontSize: 12, color: 'var(--slate)', marginTop: 0 }}>
-                  Update visibility and role details from Edit Profile.
-                </p>
-                <IdentityVisibility user={user} />
               </div>
             </div>
             <OneRoleNotice />

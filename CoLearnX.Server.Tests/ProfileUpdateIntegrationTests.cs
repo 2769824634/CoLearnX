@@ -16,7 +16,7 @@ public class ProfileUpdateIntegrationTests : IClassFixture<CoLearnXApiFactory>
     public ProfileUpdateIntegrationTests(CoLearnXApiFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task Multi_role_profile_survives_hiding_and_role_text_can_be_cleared()
+    public async Task Existing_role_profiles_can_be_updated_and_role_text_cleared()
     {
         using var client = await ApiClient.AsRoleAsync(_factory, SeedData.TrainerEmail, "Trainer");
         var me = await client.GetFromJsonAsync<UserMeDto>("/api/auth/me", ApiJson.Options);
@@ -24,12 +24,12 @@ public class ProfileUpdateIntegrationTests : IClassFixture<CoLearnXApiFactory>
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-            db.UserRoles.Add(new UserRole { UserId = me.Id, Role = AppRole.Creator, IsVisible = true });
+            db.UserRoles.Add(new UserRole { UserId = me.Id, Role = AppRole.Creator });
             await db.SaveChangesAsync();
         }
 
         var profile = new UpdateProfileRequest("Xiao Ming", "Ming", "0412345678", "Creative teacher",
-            null, null, null, new Dictionary<string, bool> { ["member"] = true, ["trainer"] = true, ["creator"] = false },
+            null, null, null,
             "Workshops", "Trainer", "Design", "Graphic Designer");
         using var save = await client.PutAsJsonAsync($"/api/users/{me.Id}", profile, ApiJson.Options);
         Assert.Equal(HttpStatusCode.OK, save.StatusCode);
@@ -43,25 +43,21 @@ public class ProfileUpdateIntegrationTests : IClassFixture<CoLearnXApiFactory>
         Assert.Equal("Workshops", updated.Specialisations);
         Assert.Equal("Graphic Designer", updated.CreatorHeadline);
         Assert.Equal("Design", updated.ExpertiseTags);
-        Assert.False(updated.IdentityVisibility["creator"]);
 
         var reloaded = await client.GetFromJsonAsync<UserMeDto>("/api/auth/me", ApiJson.Options);
         Assert.NotNull(reloaded);
         Assert.Contains("Creator", reloaded.Roles);
-        Assert.False(reloaded.IdentityVisibility["creator"]);
         Assert.Equal("Graphic Designer", reloaded.CreatorHeadline);
         Assert.Equal("Design", reloaded.ExpertiseTags);
         Assert.Equal("Trainer", reloaded.TrainerHeadline);
 
         using var clear = await client.PutAsJsonAsync($"/api/users/{me.Id}", profile with
         {
-            CreatorHeadline = "", ExpertiseTags = "",
-            IdentityVisibility = new Dictionary<string, bool> { ["creator"] = true }
+            CreatorHeadline = "", ExpertiseTags = ""
         }, ApiJson.Options);
         Assert.Equal(HttpStatusCode.OK, clear.StatusCode);
         reloaded = await client.GetFromJsonAsync<UserMeDto>("/api/auth/me", ApiJson.Options);
         Assert.NotNull(reloaded);
-        Assert.True(reloaded.IdentityVisibility["creator"]);
         Assert.Equal("", reloaded.CreatorHeadline);
         Assert.Equal("", reloaded.ExpertiseTags);
         Assert.Equal("Trainer", reloaded.TrainerHeadline);
@@ -75,7 +71,6 @@ public class ProfileUpdateIntegrationTests : IClassFixture<CoLearnXApiFactory>
         Assert.NotNull(me);
         using var save = await client.PutAsJsonAsync($"/api/users/{me.Id}", new UpdateProfileRequest(
             null, null, null, null, null, null, null,
-            new Dictionary<string, bool> { ["trainer"] = true, ["creator"] = true },
             "Teaching", "Trainer", "Design", "Creator"), ApiJson.Options);
         Assert.Equal(HttpStatusCode.OK, save.StatusCode);
         var updated = await client.GetFromJsonAsync<UserMeDto>("/api/auth/me", ApiJson.Options);
@@ -86,8 +81,6 @@ public class ProfileUpdateIntegrationTests : IClassFixture<CoLearnXApiFactory>
         Assert.Null(updated.Specialisations);
         Assert.Null(updated.CreatorHeadline);
         Assert.Null(updated.ExpertiseTags);
-        Assert.False(updated.IdentityVisibility.ContainsKey("trainer"));
-        Assert.False(updated.IdentityVisibility.ContainsKey("creator"));
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
         Assert.False(await db.TrainerProfiles.AnyAsync(p => p.UserId == me.Id));

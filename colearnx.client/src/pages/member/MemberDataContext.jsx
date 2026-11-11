@@ -295,11 +295,6 @@ export function MemberDataProvider({ children }) {
         specialisations: user?.specialisations ?? '',
         trainerHeadline: user?.trainerHeadline ?? '',
       },
-      identityVisibility: {
-        member: user?.identityVisibility?.member ?? true,
-        trainer: user?.identityVisibility?.trainer ?? false,
-        creator: user?.identityVisibility?.creator ?? false,
-      },
       enrolled,
       wishlist,
       ledger,
@@ -388,7 +383,6 @@ export function MemberDataProvider({ children }) {
       learningGoals: draft.user.learningGoals,
       emailNotifications: draft.prefs.emailNotif,
       darkMode: draft.prefs.darkMode,
-      identityVisibility: draft.identityVisibility,
       specialisations: draft.user.specialisations,
       trainerHeadline: draft.user.trainerHeadline,
     });

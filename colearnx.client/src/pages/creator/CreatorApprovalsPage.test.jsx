@@ -12,7 +12,6 @@ const auth = {
   activeRole: 'creator',
   roles: ['Creator'],
   logout: vi.fn(),
-  switchRole: vi.fn(),
 };
 
 const course = (id, status, extra = {}) => ({ id, code: `CRT-${id}`, title: `Course ${id}`, status, courseLevelName: 'Beginner', learningPathName: 'Design', creditCost: 20, reviewReason: null, ...extra });

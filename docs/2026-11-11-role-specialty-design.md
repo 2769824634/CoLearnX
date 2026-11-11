@@ -4,6 +4,7 @@
 
 ## 已实现规则
 
+- 账号只能申请认证已持有的 Trainer 或 Creator 角色；历史跨角色申请保留记录，管理员可驳回但不能批准新增角色。
 - 演示账号种子固定为单角色；`scripts/single-role-cleanup.sql` 清理已知多角色账号。无法确认用途的 `youshengh1@colearnx.xyz` 按最小权限保留 Member。
 - Creator 只能从自己的 `UserSpecialties` 中选择课程专业；创建和修改接口都会再次校验。
 - Creator 只能邀请已认证且专业匹配的 Trainer，不能邀请自己。

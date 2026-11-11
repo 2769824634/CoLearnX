@@ -95,16 +95,6 @@ public class UserService(CoLearnXDbContext db, IFileStorage files) : IUserServic
         if (request.EmailNotifications is not null) user.Preference.EmailNotifications = request.EmailNotifications.Value;
         if (request.DarkMode is not null) user.Preference.DarkMode = request.DarkMode.Value;
 
-        if (request.IdentityVisibility is not null)
-        {
-            foreach (var (key, visible) in request.IdentityVisibility)
-            {
-                if (!Enum.TryParse<AppRole>(key, true, out var role)) continue;
-                var row = user.Roles.FirstOrDefault(r => r.Role == role);
-                if (row is not null) row.IsVisible = visible;
-            }
-        }
-
         if (user.Roles.Any(r => r.Role == AppRole.Trainer))
         {
             user.TrainerProfile ??= new TrainerProfile { UserId = user.Id };

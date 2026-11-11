@@ -134,9 +134,9 @@ public static class SeedData
         await db.SaveChangesAsync();
 
         db.UserRoles.AddRange(
-            new UserRole { UserId = member.Id, Role = AppRole.Member, IsVisible = true },
-            new UserRole { UserId = trainer.Id, Role = AppRole.Trainer, IsVisible = true, CertifiedAt = verifiedAt },
-            new UserRole { UserId = creator.Id, Role = AppRole.Creator, IsVisible = true, CertifiedAt = verifiedAt }
+            new UserRole { UserId = member.Id, Role = AppRole.Member },
+            new UserRole { UserId = trainer.Id, Role = AppRole.Trainer, CertifiedAt = verifiedAt },
+            new UserRole { UserId = creator.Id, Role = AppRole.Creator, CertifiedAt = verifiedAt }
         );
 
         db.UserPreferences.AddRange(
@@ -496,7 +496,6 @@ public static class SeedData
             {
                 UserId = user.Id,
                 Role = AppRole.Creator,
-                IsVisible = false,
             });
             await db.SaveChangesAsync();
         }
@@ -523,7 +522,7 @@ public static class SeedData
             {
                 var current = existing.SingleOrDefault(item => item.Role == role);
                 if (current is null)
-                    db.UserRoles.Add(new UserRole { UserId = user.Id, Role = role, IsVisible = true,
+                    db.UserRoles.Add(new UserRole { UserId = user.Id, Role = role,
                         CertifiedAt = role == AppRole.Member ? null : DateTime.UtcNow });
                 else if (role != AppRole.Member && current.CertifiedAt is null)
                     current.CertifiedAt = DateTime.UtcNow;

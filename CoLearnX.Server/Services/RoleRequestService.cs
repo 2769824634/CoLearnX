@@ -71,15 +71,27 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
             .FirstOrDefaultAsync(item => item.Id == userId, ct)
             ?? throw new RoleRequestException("USER_NOT_FOUND", "User was not found.", StatusCodes.Status404NotFound);
 
-        // One account holds one role. An application only certifies the role the account registered with;
-        // it never adds a role. A different role needs a separate account.
-        if (user.Roles.All(item => item.Role != role))
+        if (user.Roles.Any(item => item.Role == AppRole.Member))
+            throw new RoleRequestException(
+                "ROLE_NOT_REQUESTABLE",
+                "Member accounts cannot apply for Trainer or Creator roles.",
+                StatusCodes.Status403Forbidden);
+
+        var awaitingCertification = user.Roles.FirstOrDefault(item =>
+            item.Role is AppRole.Trainer or AppRole.Creator && item.CertifiedAt == null);
+        if (awaitingCertification is not null && awaitingCertification.Role != role)
         {
             throw new RoleRequestException(
                 "ROLE_NOT_REQUESTABLE",
-                $"Each account holds one role. Register a separate {role} account instead.",
+                $"Complete certification for your {awaitingCertification.Role} role first.",
                 StatusCodes.Status400BadRequest);
         }
+
+        if (!user.Roles.Any(item => item.Role == role))
+            throw new RoleRequestException(
+                "ROLE_NOT_REQUESTABLE",
+                "An account can only request certification for its existing role.",
+                StatusCodes.Status403Forbidden);
 
         if (user.Roles.Any(item => item.Role == role && item.CertifiedAt != null))
         {
@@ -120,7 +132,8 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
                 StatusCodes.Status400BadRequest);
         }
 
-        var specialties = await ValidateSpecialtiesAsync(specialtyIds, required: true, ct);
+        // Certification requires 1 to 5 specialties for an existing role.
+        var specialties = await ValidateSpecialtiesAsync(specialtyIds, required: awaitingCertification is not null, ct);
 
         var resumeKey = await SaveRequiredFileAsync(userId, resume, "resume", ct);
         var idKey = await SaveRequiredFileAsync(userId, idDocument, "identity document", ct);

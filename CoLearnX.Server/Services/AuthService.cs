@@ -14,7 +14,6 @@ public interface IAuthService
     Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct = default);
     Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct = default);
     Task<AvailableRolesDto> GetAvailableRolesAsync(AvailableRolesRequest request, CancellationToken ct = default);
-    Task<AuthResponse> SwitchRoleAsync(int userId, SwitchRoleRequest request, CancellationToken ct = default);
     Task<UserMeDto> GetMeAsync(int userId, AppRole activeRole, CancellationToken ct = default);
 }
 
@@ -72,7 +71,6 @@ public class AuthService(
         {
             UserId = user.Id,
             Role = role,
-            IsVisible = true,
             CertifiedAt = role == AppRole.Member ? DateTime.UtcNow : null,
         });
         if (role == AppRole.Trainer)
@@ -119,7 +117,7 @@ public class AuthService(
             throw new UnauthorizedAccessException($"Role '{activeRole}' is not enabled for this account.");
         }
 
-        return await IssueAsync(user.Id, activeRole, rotateSession: true, ct);
+        return await IssueAsync(user.Id, activeRole, ct);
     }
 
     public async Task<AvailableRolesDto> GetAvailableRolesAsync(AvailableRolesRequest request, CancellationToken ct = default)
@@ -130,21 +128,6 @@ public class AuthService(
             .Distinct()
             .OrderBy(role => role)
             .ToList());
-    }
-
-    public async Task<AuthResponse> SwitchRoleAsync(int userId, SwitchRoleRequest request, CancellationToken ct = default)
-    {
-        var user = await db.Users.Include(u => u.Roles).FirstOrDefaultAsync(u => u.Id == userId, ct)
-            ?? throw new KeyNotFoundException("User not found.");
-
-        if (!user.IsActive)
-            throw new UnauthorizedAccessException("Account is inactive.");
-
-        var activeRole = RoleParse.Parse(request.ActiveRole);
-        if (!user.Roles.Any(r => r.Role == activeRole))
-            throw new UnauthorizedAccessException($"Role '{activeRole}' is not enabled for this account.");
-
-        return await IssueAsync(user.Id, activeRole, rotateSession: false, ct);
     }
 
     public async Task<UserMeDto> GetMeAsync(int userId, AppRole activeRole, CancellationToken ct = default)
@@ -195,7 +178,7 @@ public class AuthService(
         return user;
     }
 
-    private async Task<AuthResponse> IssueAsync(int userId, AppRole activeRole, bool rotateSession, CancellationToken ct)
+    private async Task<AuthResponse> IssueAsync(int userId, AppRole activeRole, CancellationToken ct)
     {
         var user = await db.Users
             .Include(u => u.Roles)
@@ -204,11 +187,8 @@ public class AuthService(
             .Include(u => u.CreatorProfile)
             .Include(u => u.Specialties).ThenInclude(item => item.CourseSubject)
             .FirstAsync(u => u.Id == userId, ct);
-        if (rotateSession || user.SessionStamp == Guid.Empty)
-        {
-            user.SessionStamp = SessionStampValidator.NewStamp();
-            await db.SaveChangesAsync(ct);
-        }
+        user.SessionStamp = SessionStampValidator.NewStamp();
+        await db.SaveChangesAsync(ct);
 
         var roles = user.Roles.Select(r => r.Role).ToList();
         var (token, expires) = jwt.CreateToken(user, activeRole, roles);
@@ -217,10 +197,6 @@ public class AuthService(
 
     internal static UserMeDto MapMe(User user, AppRole activeRole)
     {
-        var visibility = user.Roles.ToDictionary(
-            r => r.Role.ToString().ToLowerInvariant(),
-            r => r.IsVisible);
-
         return new UserMeDto(
             user.Id,
             user.Email,
@@ -231,7 +207,6 @@ public class AuthService(
             user.CreditBalance,
             activeRole.ToString(),
             user.Roles.Select(r => r.Role.ToString()).OrderBy(x => x).ToList(),
-            visibility,
             user.Preference?.LearningGoals,
             user.TrainerProfile?.Specialisations,
             user.TrainerProfile?.Headline,

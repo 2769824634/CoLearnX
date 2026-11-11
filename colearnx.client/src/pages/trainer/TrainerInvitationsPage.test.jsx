@@ -13,7 +13,6 @@ const auth = {
   activeRole: 'trainer',
   roles: ['Trainer'],
   logout: vi.fn(),
-  switchRole: vi.fn(),
 };
 
 const invitation = (id, status, extra = {}) => ({

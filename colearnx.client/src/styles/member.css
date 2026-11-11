@@ -775,42 +775,6 @@ a {
   font-size: 12px;
 }
 
-.login-workspaces {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.login-workspaces li {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 12px 5px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--white) 80%, transparent);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.login-workspace-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--teal);
-}
-
-.login-workspaces [data-role="member"] .login-workspace-dot {
-  background: var(--warn);
-}
-
-.login-workspaces [data-role="trainer"] .login-workspace-dot {
-  background: color-mix(in srgb, var(--purple), var(--teal));
-}
-
 .password-input {
   position: relative;
 }
@@ -1337,121 +1301,12 @@ a {
   background: var(--danger);
 }
 
-.user-chip[data-role="member"] .role::before,
-.workspace-switcher-item[data-role="member"] strong::before {
+.user-chip[data-role="member"] .role::before {
   background: var(--warn);
 }
 
-.user-chip[data-role="trainer"] .role::before,
-.workspace-switcher-item[data-role="trainer"] strong::before {
+.user-chip[data-role="trainer"] .role::before {
   background: color-mix(in srgb, var(--purple), var(--teal));
-}
-
-.workspace-switcher-item strong::before {
-  content: '';
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-right: 8px;
-  border-radius: 50%;
-  vertical-align: 1px;
-  background: var(--teal);
-}
-
-.workspace-switcher {
-  position: relative;
-}
-
-.workspace-switcher-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-}
-
-.workspace-switcher-trigger:hover .role {
-  color: var(--charcoal);
-}
-
-.workspace-switcher-caret {
-  font-size: 11px;
-  color: var(--slate);
-  transition: transform 0.2s ease;
-}
-
-.workspace-switcher-trigger[aria-expanded="true"] .workspace-switcher-caret {
-  transform: rotate(180deg);
-}
-
-.workspace-switcher-menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 10px);
-  width: 220px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 16px 40px -12px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.04);
-  padding: 8px;
-  z-index: 40;
-  transform-origin: top right;
-  animation: shell-pop 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.workspace-switcher-title {
-  font-size: 11px;
-  color: var(--slate);
-  padding: 6px 8px 8px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.workspace-switcher-item {
-  width: 100%;
-  text-align: left;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
-  padding: 10px 10px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  transition: background-color 0.14s ease;
-}
-
-.workspace-switcher-item strong {
-  font-size: 14px;
-  color: var(--charcoal);
-}
-
-.workspace-switcher-item span {
-  font-size: 12px;
-  color: var(--slate);
-}
-
-.workspace-switcher-item:hover {
-  background: var(--chrome);
-}
-
-.workspace-switcher-item.selected {
-  background: var(--purple-soft);
-}
-
-.workspace-switcher-item.selected strong {
-  color: var(--purple);
-}
-
-.workspace-switcher-error {
-  margin-top: 6px;
-  padding: 8px;
-  font-size: 12px;
-  color: var(--danger);
 }
 
 .shell-body {
@@ -2414,71 +2269,6 @@ a {
   gap: 10px;
   justify-content: flex-end;
   margin-top: 16px;
-}
-
-.identity-block {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 12px;
-  overflow: hidden;
-}
-
-.identity-block .ib-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  background: var(--chrome);
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.identity-block.collapsed .ib-body {
-  display: none;
-}
-
-.identity-block.collapsed .ib-head {
-  border-bottom: none;
-}
-
-.identity-block .ib-body {
-  padding: 14px;
-}
-
-.identity-block .grow {
-  flex: 1;
-}
-
-.switch {
-  width: 36px;
-  height: 20px;
-  border-radius: 10px;
-  background: var(--border);
-  position: relative;
-  cursor: pointer;
-  flex-shrink: 0;
-  border: none;
-}
-
-.switch.on {
-  background: var(--purple);
-}
-
-.switch::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  transition: left 0.15s;
-}
-
-.switch.on::after {
-  left: 18px;
 }
 
 .masked-field .label {

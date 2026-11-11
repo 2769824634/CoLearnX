@@ -1,28 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
-import Modal from '../components/Modal';
 import PasswordInput from '../components/PasswordInput';
 import { authApi } from '../api';
 import { consumeSessionReplacedMessage, SESSION_REPLACED_MESSAGE } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useNoCredentialAutofill } from '../auth/noCredentialAutofill';
 
-const ROLE_META = {
-  Member: { label: 'Member', desc: 'Learn & enrol with credits' },
-  Trainer: { label: 'Trainer', desc: 'Run courses & issue certs' },
-  Creator: { label: 'Creator', desc: 'Upload materials & royalties' },
-};
-
 const LEARNING_PATH = [
   ['Choose a course', 'Browse the catalogue and enrol with credits.'],
   ['Learn with your trainer', 'Join a scheduled intake and attend each session.'],
   ['Earn your certificate', 'Request it on completion; it is reviewed before issue.'],
 ];
-
-function roleMeta(id) {
-  return ROLE_META[id] || { label: id, desc: '' };
-}
 
 function memberReturnPath(from) {
   const path = typeof from === 'string' ? from : `${from?.pathname || ''}${from?.search || ''}`;
@@ -39,9 +28,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [roleOpen, setRoleOpen] = useState(false);
-  const [availableRoles, setAvailableRoles] = useState([]);
-  const [pickedRole, setPickedRole] = useState('');
   const emailAutofill = useNoCredentialAutofill();
   const passwordAutofill = useNoCredentialAutofill();
 
@@ -71,32 +57,10 @@ export default function LoginPage() {
         setError('No role is enabled for this account.');
         return;
       }
-      if (roles.length === 1) {
-        const user = await login(email, password, roles[0]);
-        navigate(returnPath || `/${user.activeRole.toLowerCase()}/home`);
-        return;
-      }
-      setAvailableRoles(roles);
-      setPickedRole(roles[0]);
-      setRoleOpen(true);
-    } catch (err) {
-      setError(err.message || 'Login failed');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function onContinue() {
-    if (!pickedRole) return;
-    setBusy(true);
-    setError('');
-    try {
-      const user = await login(email, password, pickedRole);
-      setRoleOpen(false);
+      const user = await login(email, password, roles[0]);
       navigate(returnPath || `/${user.activeRole.toLowerCase()}/home`);
     } catch (err) {
       setError(err.message || 'Login failed');
-      setRoleOpen(false);
     } finally {
       setBusy(false);
     }
@@ -119,15 +83,7 @@ export default function LoginPage() {
               ))}
             </ol>
             <div className="login-workspaces-block">
-              <p>One account for every workspace</p>
-              <ul className="login-workspaces">
-                {['Member', 'Trainer', 'Creator'].map((id) => (
-                  <li key={id} data-role={id.toLowerCase()}>
-                    <span className="login-workspace-dot" aria-hidden="true" />
-                    {ROLE_META[id].label}
-                  </li>
-                ))}
-              </ul>
+              <p>Each account has one role: Member, Trainer or Creator.</p>
             </div>
           </section>
           <form className="login-form" autoComplete="off" onSubmit={onSubmit}>
@@ -173,7 +129,7 @@ export default function LoginPage() {
               </div>
             ) : null}
             <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
-              {busy && !roleOpen ? 'Signing in…' : 'Sign in'}
+              {busy ? 'Signing in…' : 'Sign in'}
             </button>
             <p className="login-register">
               New here? <Link to="/register">Create an account</Link>
@@ -183,44 +139,6 @@ export default function LoginPage() {
         </main>
       </div>
 
-      <Modal
-        open={roleOpen}
-        title="Continue as"
-        onClose={() => {
-          if (!busy) setRoleOpen(false);
-        }}
-      >
-        <div className="role-pick" style={{ margin: 0 }}>
-          {availableRoles.map((id) => {
-            const meta = roleMeta(id);
-            return (
-              <button
-                key={id}
-                type="button"
-                data-role={id.toLowerCase()}
-                className={`role-option${pickedRole === id ? ' selected' : ''}`}
-                onClick={() => setPickedRole(id)}
-              >
-                <div className="radio" />
-                <div className="meta">
-                  <strong>{meta.label}</strong>
-                  <span>{meta.desc}</span>
-                </div>
-                {pickedRole === id ? <span className="pill">Selected</span> : null}
-              </button>
-            );
-          })}
-        </div>
-        <button
-          type="button"
-          className="btn btn-primary btn-block"
-          style={{ marginTop: 16 }}
-          disabled={busy || !pickedRole}
-          onClick={onContinue}
-        >
-          {busy ? 'Signing in…' : `Continue as ${pickedRole}`}
-        </button>
-      </Modal>
     </>
   );
 }

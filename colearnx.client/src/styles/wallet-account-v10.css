@@ -263,31 +263,6 @@
   overflow-wrap: anywhere;
 }
 
-/* Rows in Identity visibility and Workspace applications. */
-.cx-account-rows > div,
-.cx-account #account-applications .card-body > div {
-  align-items: center !important; /* The rows are shared components with inline layout. */
-  margin: 0 !important;
-  padding: 11px 0;
-  border-top: 1px solid var(--border);
-}
-
-.cx-account-rows > div:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.cx-account-rows > div:last-child,
-.cx-account #account-applications .card-body > div:last-child {
-  padding-bottom: 0;
-}
-
-.cx-account #account-applications .card-body > p {
-  margin-bottom: 12px;
-  font-size: 13px !important;
-  line-height: 1.6;
-}
-
 @media (max-width: 900px) {
   .cx-account {
     grid-template-columns: minmax(0, 1fr);

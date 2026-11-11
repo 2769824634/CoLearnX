@@ -9,7 +9,6 @@ it('separates personal, trainer and creator details while retaining edits across
   const auth = {
     user: {
       id: 3, email: 'user@example.com', roles: ['Member', 'Trainer', 'Creator'],
-      identityVisibility: { member: true, trainer: true, creator: false },
       trainerHeadline: 'Trainer', creatorHeadline: 'Creator',
     },
     refreshUser: vi.fn(),
@@ -29,14 +28,13 @@ it('separates personal, trainer and creator details while retaining edits across
   fireEvent.click(screen.getByRole('tab', { name: 'Creator' }));
   expect(screen.queryByLabelText('Trainer headline')).toBeNull();
   fireEvent.change(screen.getByLabelText('Creator headline'), { target: { value: 'Course designer' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Creator visibility' }));
+  expect(screen.queryByRole('button', { name: 'Creator visibility' })).toBeNull();
   fireEvent.click(screen.getByRole('tab', { name: 'Personal info' }));
   expect(screen.getByLabelText('Occupation').value).toBe('Community educator');
   fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
   await waitFor(() => expect(auth.refreshUser).toHaveBeenCalled());
   const body = JSON.parse(fetchMock.mock.calls[0][1].body);
   expect(body).toMatchObject({ occupation: 'Community educator', trainerHeadline: 'Workshop facilitator', creatorHeadline: 'Course designer' });
-  expect(body.identityVisibility.creator).toBe(true);
 });
 
 it('only shows sections for granted roles and supports keyboard tab navigation', () => {
