@@ -22,4 +22,12 @@ export const adminLaterPhaseApi = {
   reviewCertificate: (token, requestId, decision, reason) => apiRequest(`/api/admin/certificate-requests/${encodeURIComponent(requestId)}/review`, {
     method: 'POST', token, body: { decision, reason: reason || null },
   }),
+  issueCertificate: (token, requestId, file, reason) => {
+    const body = new FormData();
+    body.append('file', file);
+    if (reason?.trim()) body.append('reason', reason.trim());
+    return apiRequest(`/api/admin/certificate-requests/${encodeURIComponent(requestId)}/issue`, {
+      method: 'POST', token, body, asForm: true,
+    });
+  },
 };

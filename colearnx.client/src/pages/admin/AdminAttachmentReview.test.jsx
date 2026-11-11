@@ -7,7 +7,7 @@ import AdminLaterApprovalsPage from './AdminLaterApprovalsPage';
 
 vi.mock('../../auth/useAdminAuth', () => ({ default: () => ({ token: 'admin-token', logout: vi.fn() }) }));
 vi.mock('../../api', () => ({ adminRoleRequestsApi: { list: vi.fn(), review: vi.fn(), downloadResume: vi.fn(), downloadIdDocument: vi.fn() } }));
-vi.mock('../../api/adminLaterPhase', () => ({ adminLaterPhaseApi: { materialVersions: vi.fn(), certificateRequests: vi.fn(), reviewMaterial: vi.fn(), reviewCertificate: vi.fn(), downloadMaterial: vi.fn() } }));
+vi.mock('../../api/adminLaterPhase', () => ({ adminLaterPhaseApi: { materialVersions: vi.fn(), certificateRequests: vi.fn(), reviewMaterial: vi.fn(), reviewCertificate: vi.fn(), issueCertificate: vi.fn(), downloadMaterial: vi.fn() } }));
 
 const applicant = { id: 3, userFullName: 'Trainer Applicant', userEmail: 'applicant@example.test', requestedRole: 'Trainer', status: 'Pending', createdAt: '2026-09-30T17:30:00', degreeOrResumePath: 'private/resume.pdf', idDocumentPath: null };
 const material = { versionId: 8, title: 'Workshop guide', status: 'PendingApproval', creatorName: 'Creator Jane', format: 'PNG', versionNumber: 1, courseCode: 'UX101', courseTitle: 'Inclusive UX', courseStatus: 'Published', fileName: 'workshop-guide.png', fileSizeBytes: 2560, filePath: 'private/material.png', submittedAt: '2026-09-30T17:30:00' };
@@ -111,4 +111,26 @@ it('keeps a file download failure local to the attachment rather than relabeling
   expect(screen.getByText('Workshop guide')).toBeTruthy();
   expect(screen.queryByText('Records could not be loaded')).toBeNull();
   expect(screen.queryByText(/IOException/)).toBeNull();
+});
+
+it('issues a trainer-approved certificate only with a PDF and rejects only with a reason', async () => {
+  adminLaterPhaseApi.certificateRequests.mockResolvedValue([{
+    id: 4, learnerName: 'Learner', courseCode: 'UX101', courseTitle: 'Inclusive UX', status: 'TrainerApproved',
+    trainerReviewReason: 'Ready', submittedAt: '2026-09-30T17:30:00', trainerReviewedAt: '2026-09-30T18:00:00',
+  }]);
+  adminLaterPhaseApi.issueCertificate.mockResolvedValue({ id: 4, status: 'Issued' });
+  adminLaterPhaseApi.reviewCertificate.mockResolvedValue({ id: 4, status: 'AdminRejected' });
+  render(<AdminLaterApprovalsPage type="certificates" />);
+  const issue = await screen.findByRole('button', { name: 'Issue certificate' });
+  expect(issue.disabled).toBe(true);
+  const reject = screen.getByRole('button', { name: 'Reject' });
+  expect(reject.disabled).toBe(true);
+  const file = new File(['%PDF-1.4'], 'award.pdf', { type: 'application/pdf' });
+  fireEvent.change(screen.getByLabelText('Certificate PDF'), { target: { files: [file] } });
+  expect(issue.disabled).toBe(false);
+  fireEvent.click(issue);
+  await waitFor(() => expect(adminLaterPhaseApi.issueCertificate).toHaveBeenCalledWith('admin-token', 4, file, undefined));
+  fireEvent.change(await screen.findByLabelText('Optional note / required rejection reason'), { target: { value: 'Attendance evidence is incomplete.' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+  await waitFor(() => expect(adminLaterPhaseApi.reviewCertificate).toHaveBeenCalledWith('admin-token', 4, 'Reject', 'Attendance evidence is incomplete.'));
 });

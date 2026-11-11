@@ -49,6 +49,12 @@ public sealed class AdminLaterPhaseController(
         [FromBody] WorkflowReviewRequest request, CancellationToken ct)
         => Ok(await certificates.AdminReviewAsync(User.GetAdminAccountId(), certificateRequestId, request, ct));
 
+    [HttpPost("certificate-requests/{certificateRequestId:int}/issue")]
+    [RequestSizeLimit(CertificateFiles.MaxRequestBytes)]
+    public async Task<ActionResult<CertificateRequestDto>> IssueCertificate(int certificateRequestId,
+        [FromForm] string? reason, IFormFile? file, CancellationToken ct)
+        => Ok(await certificates.IssueAsync(User.GetAdminAccountId(), certificateRequestId, reason, file, ct));
+
     [HttpPost("credits/adjustments")]
     public async Task<ActionResult<AdminCreditMutationDto>> AdjustCredits([FromBody] AdminCreditAdjustmentRequest request,
         CancellationToken ct)

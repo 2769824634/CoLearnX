@@ -138,8 +138,9 @@ public sealed class LaterPhaseWorkflowIntegrationTests
         foreach (var role in new[] { "trainer", "admin" })
         {
             var client = role == "trainer" ? trainer : admin;
-            var reviews = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => client.PostAsJsonAsync(
-                $"/api/{role}/certificate-requests/{id}/review", new { decision = "Approve", reason = "Verified" })));
+            var reviews = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => role == "admin"
+                ? client.PostAsync($"/api/admin/certificate-requests/{id}/issue", CertificatePdf("Verified"))
+                : client.PostAsJsonAsync($"/api/trainer/certificate-requests/{id}/review", new { decision = "Approve", reason = "Verified" })));
             foreach (var review in reviews)
                 using (review) Assert.Equal(HttpStatusCode.OK, review.StatusCode);
         }
@@ -166,7 +167,8 @@ public sealed class LaterPhaseWorkflowIntegrationTests
         using var submitted = await member.PostAsJsonAsync("/api/certificates/requests", new { enrollmentId = 200 });
         var id = (await Body(submitted)).GetProperty("id").GetInt32();
         using var trainerReview = await trainer.PostAsJsonAsync($"/api/trainer/certificate-requests/{id}/review", new { decision = "Approve", reason = "Verified" });
-        using var adminReview = await admin.PostAsJsonAsync($"/api/admin/certificate-requests/{id}/review", new { decision = "Approve", reason = "Verified" });
+        var uploaded = "%PDF-1.4 uploaded-certificate\n%%EOF"u8.ToArray();
+        using var adminReview = await admin.PostAsync($"/api/admin/certificate-requests/{id}/issue", CertificatePdf("Verified", uploaded));
         Assert.Equal(HttpStatusCode.OK, adminReview.StatusCode);
         var stage = await factory.ReadAsync(db => db.UserCertificates.Include(item => item.CertificateTemplate)
             .Where(item => item.UserId == 202).Select(item => item.CertificateTemplate.StageNumber).SingleAsync());
@@ -176,7 +178,7 @@ public sealed class LaterPhaseWorkflowIntegrationTests
         using var owned = await member.GetAsync($"/api/certificates/{certificateId}/file");
         Assert.Equal(HttpStatusCode.OK, owned.StatusCode);
         Assert.Equal("application/pdf", owned.Content.Headers.ContentType?.MediaType);
-        Assert.StartsWith("%PDF", System.Text.Encoding.ASCII.GetString(await owned.Content.ReadAsByteArrayAsync())[..4]);
+        Assert.Equal(uploaded, await owned.Content.ReadAsByteArrayAsync());
         using var stranger = factory.AnonymousClient();
         using var publicLookup = await stranger.GetAsync($"/api/certificates/verify/{code}");
         Assert.Equal(HttpStatusCode.NotFound, publicLookup.StatusCode);
@@ -489,8 +491,10 @@ public sealed class LaterPhaseWorkflowIntegrationTests
             new { decision = "Approve", reason = "Attendance and assessment verified" });
         Assert.Equal(HttpStatusCode.OK, trainerReview.StatusCode);
 
-        using var adminReview = await admin.PostAsJsonAsync($"/api/admin/certificate-requests/{requestId}/review",
+        using var missingPdf = await admin.PostAsJsonAsync($"/api/admin/certificate-requests/{requestId}/review",
             new { decision = "Approve", reason = "Final approval" });
+        Assert.Equal(HttpStatusCode.BadRequest, missingPdf.StatusCode);
+        using var adminReview = await admin.PostAsync($"/api/admin/certificate-requests/{requestId}/issue", CertificatePdf("Final approval"));
         Assert.Equal(HttpStatusCode.OK, adminReview.StatusCode);
         var issued = await Body(adminReview);
         Assert.Equal("Issued", issued.GetProperty("status").GetString());
@@ -500,8 +504,7 @@ public sealed class LaterPhaseWorkflowIntegrationTests
 
         using var replay = await member.PostAsJsonAsync("/api/certificates/requests", new { enrollmentId = 200 });
         Assert.Equal(requestId, (await Body(replay)).GetProperty("id").GetInt32());
-        using var reviewReplay = await admin.PostAsJsonAsync($"/api/admin/certificate-requests/{requestId}/review",
-            new { decision = "Approve", reason = "Final approval" });
+        using var reviewReplay = await admin.PostAsync($"/api/admin/certificate-requests/{requestId}/issue", CertificatePdf("Final approval"));
         Assert.Equal(HttpStatusCode.OK, reviewReplay.StatusCode);
         Assert.Equal(3, await factory.ReadAsync(db => db.Notifications.CountAsync(n => n.UserId == 202 && n.Code.StartsWith("Certificate"))));
 
@@ -713,6 +716,16 @@ public sealed class LaterPhaseWorkflowIntegrationTests
 
     private static async Task<JsonElement> Body(HttpResponseMessage response)
         => (await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync())).RootElement.Clone();
+
+    private static HttpContent CertificatePdf(string reason, byte[]? bytes = null)
+    {
+        var content = new MultipartFormDataContent();
+        var file = new ByteArrayContent(bytes ?? "%PDF-1.4 certificate\n%%EOF"u8.ToArray());
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        content.Add(file, "file", "certificate.pdf");
+        content.Add(new StringContent(reason), "reason");
+        return content;
+    }
 
     private sealed class LaterPhaseApiFactory(bool useFileDatabase = false) : WebApplicationFactory<Program>
     {

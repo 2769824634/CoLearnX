@@ -1,6 +1,7 @@
 using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Entities;
+using CoLearnX.Server.Storage;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoLearnX.Server.Services;
@@ -13,7 +14,7 @@ public interface ICertificateService
 
 public sealed record CertificateFile(byte[] Bytes, string FileName);
 
-public class CertificateService(CoLearnXDbContext db) : ICertificateService
+public class CertificateService(CoLearnXDbContext db, IFileStorage files) : ICertificateService
 {
     public async Task<IReadOnlyList<CertificateDto>> GetMyAsync(int userId, CancellationToken ct = default)
     {
@@ -40,7 +41,16 @@ public class CertificateService(CoLearnXDbContext db) : ICertificateService
             .Include(item => item.CertificateTemplate)
             .Include(item => item.User)
             .SingleOrDefaultAsync(item => item.Id == certificateId && item.UserId == userId && item.AdminApproved, ct);
-        return certificate is null ? null : await RenderAsync(certificate, ct);
+        if (certificate is null) return null;
+        if (!string.IsNullOrWhiteSpace(certificate.FilePath))
+        {
+            await using var stored = await files.OpenAsync(certificate.FilePath, ct);
+            if (stored is null) return null;
+            using var buffer = new MemoryStream();
+            await stored.CopyToAsync(buffer, ct);
+            return new CertificateFile(buffer.ToArray(), CertificateFiles.DownloadName(certificate.OriginalFileName));
+        }
+        return await RenderAsync(certificate, ct);
     }
 
     private async Task<CertificateFile> RenderAsync(UserCertificate certificate, CancellationToken ct)

@@ -7,6 +7,12 @@ internal static class LaterPhaseModelConfiguration
 {
     public static void Configure(ModelBuilder modelBuilder, bool sqlite)
     {
+        modelBuilder.Entity<UserCertificate>(entity =>
+        {
+            entity.Property(item => item.FilePath).HasMaxLength(512);
+            entity.Property(item => item.OriginalFileName).HasMaxLength(260);
+        });
+
         modelBuilder.Entity<CourseMaterialVersion>(entity =>
         {
             entity.ToTable("CourseMaterialVersions", table =>

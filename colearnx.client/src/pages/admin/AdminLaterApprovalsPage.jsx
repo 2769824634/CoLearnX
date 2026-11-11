@@ -35,6 +35,7 @@ export default function AdminLaterApprovalsPage({ type }) {
   const query = useAdminQuery(loadLaterApprovals, type);
   const pending = useAdminPending();
   const [notes, setNotes] = useState({});
+  const [files, setFiles] = useState({});
   const [busyId, setBusyId] = useState(null);
   const [mutationError, setMutationError] = useState(null);
   const [notice, setNotice] = useState('');
@@ -49,10 +50,11 @@ export default function AdminLaterApprovalsPage({ type }) {
     const id = item.id || item.versionId;
     try {
       if (type === 'materials') await adminLaterPhaseApi.reviewMaterial(token, item.versionId, decision, notes[id]);
+      else if (decision === 'Approve') await adminLaterPhaseApi.issueCertificate(token, item.id, files[id], notes[id]);
       else await adminLaterPhaseApi.reviewCertificate(token, item.id, decision, notes[id]);
       setNotice(type === 'materials'
         ? `Material version ${decision === 'Approve' ? 'approved for Trainer use' : 'rejected'}.`
-        : `Certificate request ${decision === 'Approve' ? 'approved and issued' : 'rejected'}.`);
+        : `Certificate request ${decision === 'Approve' ? 'issued' : 'rejected'}.`);
       query.refresh();
       pending?.refresh();
     } catch (error) {
@@ -82,7 +84,7 @@ export default function AdminLaterApprovalsPage({ type }) {
   const heading = type === 'materials' ? 'Material version approvals' : 'Certificate final review';
   const subtitle = type === 'materials'
     ? 'Approve immutable versions before Trainers can attach them to an Intake.'
-    : 'Only Trainer-approved requests reach this final issuance gate.';
+    : 'Upload the certificate PDF to issue a Trainer-approved request, or reject it with a reason.';
   return <section className="admin-review-page later-page"><header className="admin-review-header"><div><p className="admin-form-eyebrow">Governed queue</p><h1>{heading}</h1><p>{subtitle}</p></div><button className="btn btn-ghost" type="button" disabled={query.loading || Boolean(busyId) || downloadBusy} onClick={refreshRecords}>Refresh</button></header>
     <AdminDataState loading={query.loading} error={query.error} onRetry={refreshRecords} />
     {mutationError ? <div className="admin-review-state error" role="alert"><strong>Review result needs checking</strong><span>{userFacingError(mutationError, 'The review could not be confirmed. Refresh the queue to check its current status before trying again.')}</span><button type="button" className="btn btn-ghost" onClick={refreshRecords}>Check current queue</button></div> : null}
@@ -99,7 +101,9 @@ export default function AdminLaterApprovalsPage({ type }) {
             {download?.id === item.versionId && download.error ? <p role="alert">{download.error}</p> : null}
           </> : <><small>Trainer note: {item.trainerReviewReason || 'Approved without a note'}</small><p>Submitted (UTC): {formatUtcDateTime(item.submittedAt)}</p>{item.trainerReviewedAt ? <p>Trainer reviewed (UTC): {formatUtcDateTime(item.trainerReviewedAt)}</p> : null}</>}
         </div>
-        <div className="later-review-card-action"><label htmlFor={`review-note-${type}-${id}`}>Review note / required rejection reason</label><textarea id={`review-note-${type}-${id}`} maxLength="512" disabled={Boolean(busyId) || downloadBusy} value={notes[id] || ''} onChange={(event) => setNotes({ ...notes, [id]: event.target.value })} /><div className="trainer-actions"><button className="btn btn-teal" type="button" disabled={Boolean(busyId) || downloadBusy} onClick={() => review(item, 'Approve')}>{busyId === id ? 'Saving…' : 'Approve'}</button><button className="btn btn-danger" type="button" disabled={Boolean(busyId) || downloadBusy || !notes[id]?.trim()} onClick={() => review(item, 'Reject')}>Reject</button></div></div>
+        <div className="later-review-card-action">
+          {type === 'certificates' ? <><label htmlFor={`certificate-pdf-${id}`}>Certificate PDF</label><input id={`certificate-pdf-${id}`} type="file" accept="application/pdf,.pdf" disabled={Boolean(busyId) || downloadBusy} onChange={(event) => setFiles({ ...files, [id]: event.target.files?.[0] || null })} />{files[id] ? <p>{files[id].name}</p> : <p>Choose the PDF that the learner will download.</p>}</> : null}
+          <label htmlFor={`review-note-${type}-${id}`}>{type === 'certificates' ? 'Optional note / required rejection reason' : 'Review note / required rejection reason'}</label><textarea id={`review-note-${type}-${id}`} maxLength="512" disabled={Boolean(busyId) || downloadBusy} value={notes[id] || ''} onChange={(event) => setNotes({ ...notes, [id]: event.target.value })} /><div className="trainer-actions"><button className="btn btn-teal" type="button" disabled={Boolean(busyId) || downloadBusy || (type === 'certificates' && !files[id]?.name?.toLowerCase().endsWith('.pdf'))} onClick={() => review(item, 'Approve')}>{busyId === id ? 'Saving…' : type === 'certificates' ? 'Issue certificate' : 'Approve'}</button><button className="btn btn-danger" type="button" disabled={Boolean(busyId) || downloadBusy || !notes[id]?.trim()} onClick={() => review(item, 'Reject')}>Reject</button></div></div>
       </article>;
     })}</div> : !query.loading && !query.error ? <div className="admin-review-state"><strong>No pending {type === 'materials' ? 'material versions' : 'certificate requests'}</strong><span>The queue is currently clear.</span></div> : null}
   </section>;
