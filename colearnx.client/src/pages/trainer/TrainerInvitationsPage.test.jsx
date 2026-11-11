@@ -25,10 +25,23 @@ function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-function renderPage(items, respond = (id, action) => json(invitation(id, action === 'accept' ? 'Accepted' : 'Declined', { respondedAt: '2026-10-21T01:00:00Z' }))) {
+function renderPage(
+  items,
+  respond = (id, action) => json(invitation(id, action === 'accept' ? 'Accepted' : 'Declined', { respondedAt: '2026-10-21T01:00:00Z' })),
+  available = [],
+) {
   const fetch = vi.fn(async (path, init = {}) => {
     const match = /^\/api\/trainer\/course-invitations\/(\d+)\/(accept|decline)$/.exec(path);
     if (match && init.method === 'POST') return respond(Number(match[1]), match[2]);
+    const application = /^\/api\/trainer\/course-applications\/(\d+)$/.exec(path);
+    if (application && init.method === 'POST') {
+      const course = available.find((item) => item.courseId === Number(application[1]));
+      return json(invitation(9, 'Requested', {
+        courseId: Number(application[1]), courseCode: course.courseCode,
+        courseTitle: course.courseTitle, creatorName: course.creatorName,
+      }));
+    }
+    if (path === '/api/trainer/course-applications/available') return json(available);
     return json(path === '/api/trainer/course-invitations' ? items : []);
   });
   vi.stubGlobal('fetch', fetch);
@@ -77,4 +90,15 @@ it('keeps a failed answer in place and explains why', async () => {
 it('explains when there are no invitations yet', async () => {
   renderPage([]);
   expect(await screen.findByText('No teaching invitations yet')).toBeTruthy();
+});
+
+it('lets a Trainer apply for a published course in their specialty', async () => {
+  const fetch = renderPage([], undefined, [{
+    courseId: 42, courseCode: 'DES-42', courseTitle: 'Service Design', creatorName: 'Zou Ruiqi',
+    specialtyName: 'Digital Product Design', status: null,
+  }]);
+  const available = await screen.findByRole('region', { name: 'Available courses' });
+  fireEvent.click(within(available).getByRole('button', { name: 'Apply to teach' }));
+  expect(await within(screen.getByRole('region', { name: 'Applications' })).findByText('Service Design')).toBeTruthy();
+  expect(fetch).toHaveBeenCalledWith('/api/trainer/course-applications/42', expect.objectContaining({ method: 'POST' }));
 });

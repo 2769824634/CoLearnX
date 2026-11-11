@@ -221,45 +221,6 @@ public sealed class CourseTrainerInvitationTests
     }
 
     [Fact]
-    public async Task A_staff_trainers_invitation_response_is_audited_as_the_staff_account()
-    {
-        using var factory = await RosterFactory.CreateAsync();
-        var staffId = await factory.ReadAsync(async db =>
-        {
-            var admin = new AdminAccount { Email = "roster-admin@example.com", PasswordHash = "x" };
-            db.AdminAccounts.Add(admin);
-            await db.SaveChangesAsync();
-            var staff = new StaffAccount
-            {
-                Email = "alex-staff@example.com",
-                PasswordHash = "x",
-                FullName = "Alex Chen",
-                DisplayName = "Alex",
-                StaffNumber = 7,
-                DocumentPath = "staff/7/document.pdf",
-                UserId = Alex,
-                CreatedByAdminAccountId = admin.Id,
-                SessionStamp = Guid.NewGuid(),
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
-            };
-            db.StaffAccounts.Add(staff);
-            await db.SaveChangesAsync();
-            return staff.Id;
-        });
-        using var creator = factory.UserClient(Creator, AppRole.Creator);
-        using var alex = factory.UserClient(Alex, AppRole.Trainer);
-        await Read<CourseTrainerDto>(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(Alex)));
-        var invitationId = (await alex.GetFromJsonAsync<List<CourseInvitationDto>>("/api/trainer/course-invitations"))!.Single().Id;
-        await Read<CourseInvitationDto>(await alex.PostAsync($"/api/trainer/course-invitations/{invitationId}/accept", null));
-
-        var entry = await factory.ReadAsync(db => db.AuditLogs.SingleAsync(log => log.Action == "CourseInvitationAccepted"));
-        Assert.Equal(staffId, entry.StaffAccountId);
-        Assert.Null(entry.UserId);
-        Assert.Null(entry.AdminAccountId);
-    }
-
-    [Fact]
     public async Task Importing_past_intake_trainers_writes_no_audit_entries()
     {
         using var factory = await RosterFactory.CreateAsync();
@@ -312,6 +273,54 @@ public sealed class CourseTrainerInvitationTests
         using var foreignCourse = await creator.GetAsync($"/api/creator/trainers?courseId={OtherCourse}");
         Assert.Equal(HttpStatusCode.NotFound, foreignCourse.StatusCode);
         Assert.Contains("COURSE_NOT_FOUND", await foreignCourse.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Trainer_requests_a_matching_published_course_and_creator_accepts_the_request()
+    {
+        using var factory = await RosterFactory.CreateAsync();
+        await factory.ReadAsync(async db =>
+        {
+            var course = await db.Courses.SingleAsync(item => item.Id == Course);
+            course.Status = CourseStatus.Published;
+            await db.SaveChangesAsync();
+            return true;
+        });
+        using var alex = factory.UserClient(Alex, AppRole.Trainer);
+        using var creator = factory.UserClient(Creator, AppRole.Creator);
+
+        var available = await alex.GetFromJsonAsync<List<TrainerCourseApplicationDto>>("/api/trainer/course-applications/available");
+        Assert.Contains(available!, item => item.CourseId == Course && item.Status is null);
+
+        var requested = await Read<CourseInvitationDto>(
+            await alex.PostAsync($"/api/trainer/course-applications/{Course}", null));
+        Assert.Equal("Requested", requested.Status);
+
+        var roster = await creator.GetFromJsonAsync<List<CourseTrainerDto>>($"/api/creator/courses/{Course}/trainers");
+        Assert.Equal("Requested", Assert.Single(roster!).Status);
+
+        var accepted = await Read<CourseTrainerDto>(
+            await creator.PostAsync($"/api/creator/courses/{Course}/trainers/{Alex}/accept-request", null));
+        Assert.Equal("Accepted", accepted.Status);
+        Assert.NotNull(accepted.RespondedAt);
+    }
+
+    [Fact]
+    public async Task Trainer_cannot_request_a_draft_or_foreign_specialty_course()
+    {
+        using var factory = await RosterFactory.CreateAsync();
+        using var alex = factory.UserClient(Alex, AppRole.Trainer);
+        using var otherSpecialty = factory.UserClient(OtherSpecialtyTrainer, AppRole.Trainer);
+
+        await Error(await alex.PostAsync($"/api/trainer/course-applications/{Course}", null), 409, "COURSE_NOT_PUBLISHED");
+        await factory.ReadAsync(async db =>
+        {
+            var course = await db.Courses.SingleAsync(item => item.Id == Course);
+            course.Status = CourseStatus.Published;
+            await db.SaveChangesAsync();
+            return true;
+        });
+        await Error(await otherSpecialty.PostAsync($"/api/trainer/course-applications/{Course}", null), 409, "TRAINER_SUBJECT_MISMATCH");
     }
 
     [Fact]

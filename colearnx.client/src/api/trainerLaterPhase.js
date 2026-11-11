@@ -70,4 +70,3 @@ function createLaterPhaseApi(scope) {
 }
 
 export const trainerLaterPhaseApi = createLaterPhaseApi('trainer');
-export const staffLaterPhaseApi = createLaterPhaseApi('staff');

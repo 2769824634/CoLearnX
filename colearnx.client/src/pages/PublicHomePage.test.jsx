@@ -154,7 +154,7 @@ it('places published CoLearnX courses above the general member catalogue', async
   }, [platformCourse, ...courseList()]);
 
   expect(await screen.findByRole('heading', { name: 'CoLearnX courses' })).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'View all platform courses' }).getAttribute('href')).toBe('/member/platform');
+  expect(screen.getByRole('link', { name: 'View all platform courses' }).getAttribute('href')).toBe('/courses');
   const headings = screen.getAllByRole('heading').map((heading) => heading.textContent);
   expect(headings.indexOf('CoLearnX courses')).toBeLessThan(headings.indexOf('Training programs'));
 });

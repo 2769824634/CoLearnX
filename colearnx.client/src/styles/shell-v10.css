@@ -212,8 +212,7 @@
 .sidebar .nav-item[href="/"]::before,
 .sidebar .nav-item[href="/trainer/home"]::before,
 .sidebar .nav-item[href="/creator/home"]::before,
-.sidebar .nav-item[href="/admin/home"]::before,
-.sidebar .nav-item[href="/staff/home"]::before {
+.sidebar .nav-item[href="/admin/home"]::before {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10.5 12 3l9 7.5'/%3E%3Cpath d='M5 9.5V21h14V9.5'/%3E%3Cpath d='M10 21v-6h4v6'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10.5 12 3l9 7.5'/%3E%3Cpath d='M5 9.5V21h14V9.5'/%3E%3Cpath d='M10 21v-6h4v6'/%3E%3C/svg%3E");
 }
@@ -248,8 +247,7 @@
 }
 
 .sidebar .nav-item[href="/trainer/courses"]::before,
-.sidebar .nav-item[href="/creator/courses"]::before,
-.sidebar .nav-item[href="/staff/courses"]::before {
+.sidebar .nav-item[href="/creator/courses"]::before {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='3' width='16' height='18' rx='2'/%3E%3Cpath d='M8 7h8M8 11h8M8 15h5'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='3' width='16' height='18' rx='2'/%3E%3Cpath d='M8 7h8M8 11h8M8 15h5'/%3E%3C/svg%3E");
 }
@@ -270,8 +268,7 @@
 }
 
 .sidebar .nav-item[href="/creator/intakes"]::before,
-.sidebar .nav-item[href="/admin/class-dates"]::before,
-.sidebar .nav-item[href="/staff/intakes"]::before {
+.sidebar .nav-item[href="/admin/class-dates"]::before {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='17' rx='3'/%3E%3Cpath d='M3 9h18M8 2v4M16 2v4'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='17' rx='3'/%3E%3Cpath d='M3 9h18M8 2v4M16 2v4'/%3E%3C/svg%3E");
 }
@@ -291,7 +288,6 @@
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='8' r='4'/%3E%3Cpath d='M2 21a7 7 0 0 1 14 0'/%3E%3Cpath d='M16 4a4 4 0 0 1 0 8'/%3E%3Cpath d='M22 21a7 7 0 0 0-4-6.3'/%3E%3C/svg%3E");
 }
 
-.sidebar .nav-item[href="/admin/staff"]::before,
 .sidebar .nav-item[href="/admin/pricing"]::before {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='7' width='18' height='13' rx='2'/%3E%3Cpath d='M9 7V4h6v3'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='7' width='18' height='13' rx='2'/%3E%3Cpath d='M9 7V4h6v3'/%3E%3C/svg%3E");

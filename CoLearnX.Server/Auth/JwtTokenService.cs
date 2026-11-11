@@ -55,7 +55,6 @@ public static class AuthTokenSubjects
     public const string ClaimType = "subject_type";
     public const string User = "user";
     public const string Admin = "admin";
-    public const string Staff = "staff";
 }
 
 public static class ClaimsPrincipalExtensions

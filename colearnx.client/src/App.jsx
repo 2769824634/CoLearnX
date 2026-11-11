@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthProvider';
 import AdminAuthProvider from './auth/AdminAuthProvider';
-import StaffAuthProvider from './auth/StaffAuthProvider';
 import AppRouter from './routes/AppRouter';
 import { SITE_TITLE } from './siteTitle';
 import './styles/member.css';
@@ -27,9 +26,7 @@ export default function App() {
       <SiteTitle />
       <AuthProvider>
         <AdminAuthProvider>
-          <StaffAuthProvider>
-            <AppRouter />
-          </StaffAuthProvider>
+          <AppRouter />
         </AdminAuthProvider>
       </AuthProvider>
     </BrowserRouter>

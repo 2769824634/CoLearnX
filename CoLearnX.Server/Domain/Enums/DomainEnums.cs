@@ -46,7 +46,8 @@ public enum CourseTrainerStatus
     Invited = 0,
     Accepted = 1,
     Declined = 2,
-    Removed = 3
+    Removed = 3,
+    Requested = 4
 }
 
 public enum CourseIntakeRequestStatus

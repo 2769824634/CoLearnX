@@ -59,7 +59,6 @@ builder.Services.AddSingleton<IPayPalClient, PayPalClient>();
 // Keep these interface + impl pairs when extending services
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAdminTokenService, AdminTokenService>();
-builder.Services.AddScoped<IStaffTokenService, StaffTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<PasswordResetOptions>(builder.Configuration.GetSection("PasswordReset"));
@@ -73,9 +72,6 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<INotificationRealtime, NotificationRealtime>();
 builder.Services.AddScoped<NotificationEmailDispatcher>();
 builder.Services.AddScoped<IAdminAuthService, AdminAuthService>();
-builder.Services.AddScoped<IAdminStaffService, AdminStaffService>();
-builder.Services.AddScoped<IStaffAuthService, StaffAuthService>();
-builder.Services.AddScoped<IStaffCourseService, StaffCourseService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IAdminRoleRequestService, AdminRoleRequestService>();
 builder.Services.AddScoped<IRoleRequestService, RoleRequestService>();
@@ -132,11 +128,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         options.TokenValidationParameters = CreateTokenValidationParameters(jwt);
         options.Events = ExclusiveSessionEvents(AuthTokenSubjects.Admin);
-    })
-    .AddJwtBearer(StaffAuthorization.SchemeName, options =>
-    {
-        options.TokenValidationParameters = CreateTokenValidationParameters(jwt);
-        options.Events = ExclusiveSessionEvents(AuthTokenSubjects.Staff);
     });
 
 builder.Services.AddAuthorization(options =>
@@ -174,13 +165,6 @@ builder.Services.AddAuthorization(options =>
         policy.RequireClaim(AuthTokenSubjects.ClaimType, AuthTokenSubjects.Admin);
         policy.RequireClaim(AdminAuthorization.AdminAccountIdClaim);
         policy.AddRequirements(ActiveAdminAccountRequirement.Instance);
-    });
-    options.AddPolicy(StaffAuthorization.PolicyName, policy =>
-    {
-        policy.AddAuthenticationSchemes(StaffAuthorization.SchemeName);
-        policy.RequireAuthenticatedUser();
-        policy.RequireClaim(AuthTokenSubjects.ClaimType, AuthTokenSubjects.Staff);
-        policy.RequireClaim(StaffAuthorization.StaffAccountIdClaim);
     });
 });
 builder.Services.AddControllers();
@@ -250,8 +234,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
     await SeedData.InitializeAsync(
         db,
-        seedDemoAdmin: !app.Environment.IsProduction(),
-        seedDemoStaff: app.Environment.IsDevelopment());
+        seedDemoAdmin: !app.Environment.IsProduction());
 }
 
 var storage = app.Services.GetRequiredService<IFileStorage>();
@@ -321,6 +304,7 @@ app.UseAuthorization();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
+app.MapFallback("/api/{**path}", () => Results.NotFound());
 app.MapFallbackToFile("/index.html");
 
 app.Run();
