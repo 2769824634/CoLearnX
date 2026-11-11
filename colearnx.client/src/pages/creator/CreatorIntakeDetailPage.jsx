@@ -3,10 +3,13 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { creatorCoursesApi } from '../../api';
 import { creatorIntakesApi } from '../../api/creatorIntakes';
 import { ScheduleForm, SessionForm } from '../trainer/IntakeForms';
-import { formatDate, statusLabel } from '../trainer/intakeForm';
+import { localTimezone, statusLabel } from '../trainer/intakeForm';
 import useTrainerQuery from '../trainer/useTrainerQuery';
-import { formatCount, formatUtcDate } from '../businessPresentation';
+import { formatCount } from '../businessPresentation';
 import { CreatorError, CreatorHeader } from './CreatorUi';
+import EditClassScheduleForm from './EditClassScheduleForm';
+import { localDateTime, timeLabel } from './openClass';
+import { utcDate } from '../../utils/utcDates';
 
 const loadIntake = (token, id, signal) => creatorIntakesApi.get(token, id, signal);
 
@@ -23,9 +26,8 @@ const structuralStatuses = new Set(['Draft', 'Rejected', 'Published', 'InProgres
 function SessionCard({ session, editable, onEdit, onDelete }) {
   return <article className="creator-application-row">
     <div>
-      <p className="creator-eyebrow">{formatDate(session.startsAt)} → {formatDate(session.endsAt)}</p>
+      <p className="creator-eyebrow">{localDateTime(session.startsAt)}–{timeLabel(utcDate(session.endsAt))}</p>
       <h2>{session.label}</h2>
-      <p>{formatDate(session.startsAt)} → {formatDate(session.endsAt)}</p>
       {session.meetingLink ? <p>{session.meetingLink}</p> : null}
       {session.physicalAddress ? <p>{session.physicalAddress} · {formatCount(session.physicalCapacity, 'seat')}</p> : null}
     </div>
@@ -85,12 +87,12 @@ export function IntakeWorkspace({ query, onOpenClass }) {
 
   const replacementTarget = `/creator/courses/${intake.courseId}/intakes/${intake.replacementIntakeId}`;
   return <>
-    <CreatorHeader eyebrow={`${course?.code || course?.title || 'Course'} · ${formatDate(intake.startsAt)}`} title={course?.title || course?.code || 'Course'} action={<span className={`creator-status ${intake.status.toLowerCase()}`}>{statusLabel(intake.status)}</span>}>
-      Trainer {intake.trainerName || 'assigned'}. Times are shown in UTC.
+    <CreatorHeader eyebrow={`${course?.code || course?.title || 'Course'} · ${localDateTime(intake.startsAt)}`} title={course?.title || course?.code || 'Course'} action={<span className={`creator-status ${intake.status.toLowerCase()}`}>{statusLabel(intake.status)}</span>}>
+      Trainer {intake.trainerName || 'assigned'}. Times are shown in your local time zone ({localTimezone}).
     </CreatorHeader>
     {notice ? <div className="trainer-notice" role="status">{notice}</div> : null}
     <CreatorError error={error} />
-    {intake.cancelledAt ? <p>Cancelled {formatDate(intake.cancelledAt)}{intake.cancellationReason === 'MinimumEnrollmentNotMet' ? ' because the class did not reach the minimum.' : '.'}</p> : null}
+    {intake.cancelledAt ? <p>Cancelled {localDateTime(intake.cancelledAt)}{intake.cancellationReason === 'MinimumEnrollmentNotMet' ? ' because the class did not reach the minimum.' : '.'}</p> : null}
     {intake.replacementIntakeId ? <p>Postponed to {onOpenClass
       ? <button type="button" className="btn btn-ghost" onClick={() => onOpenClass({ id: intake.replacementIntakeId })}>the replacement class</button>
       : <Link to={replacementTarget}>the replacement class</Link>}.</p> : null}
@@ -101,8 +103,8 @@ export function IntakeWorkspace({ query, onOpenClass }) {
         : <button type="button" className="btn btn-primary" disabled={busy} onClick={() => setEditor({ type: 'postpone' })}>Create replacement class</button>}
     </section> : null}
     <div className="creator-section-heading"><h2>Schedule</h2>{editable && !editor ? <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setEditor({ type: 'schedule' })}>Edit schedule</button> : null}</div>
-    <p className="creator-schedule-line">{formatUtcDate(intake.registrationOpensAt)} → {formatUtcDate(intake.registrationClosesAt)} registration · {formatDate(intake.startsAt)} → {formatDate(intake.endsAt)} delivery · minimum {formatCount(intake.minEnrollment ?? 10, 'learner')}</p>
-    {editor?.type === 'schedule' ? <ScheduleForm key={intake.version} intake={intake} error={error} onError={setError} busy={busy} onCancel={() => setEditor(null)} onSave={(body) => mutate(() => creatorIntakesApi.update(query.token, intake.id, body), 'Schedule saved.')} /> : null}
+    <p className="creator-schedule-line">Registration {localDateTime(intake.registrationOpensAt)} → {localDateTime(intake.registrationClosesAt)} · teaching {localDateTime(intake.startsAt)} → {localDateTime(intake.endsAt)} · minimum {formatCount(intake.minEnrollment ?? 10, 'learner')}</p>
+    {editor?.type === 'schedule' ? <EditClassScheduleForm key={intake.version} intake={intake} error={error} onError={setError} busy={busy} onCancel={() => setEditor(null)} onSave={(body) => mutate(() => creatorIntakesApi.update(query.token, intake.id, body), 'Schedule saved.')} /> : null}
     <div className="creator-section-heading"><h2>Sessions</h2>{editable && !editor ? <button type="button" className="btn btn-primary" disabled={busy} onClick={() => setEditor({ type: 'session' })}>Add session</button> : null}</div>
     {editor?.type === 'session' ? <SessionForm key={`${intake.version}:${editor.session?.id || 'new'}`} session={editor.session} intake={intake} error={error} onError={setError} busy={busy} onCancel={() => setEditor(null)} onSave={(body) => mutate(() => editor.session ? creatorIntakesApi.updateSession(query.token, intake.id, editor.session.id, body) : creatorIntakesApi.createSession(query.token, intake.id, body), editor.session ? 'Session updated.' : 'Session added.')} /> : null}
     {sessions.length ? <div className="creator-application-list creator-session-rows">{sessions.map((session) => <SessionCard key={session.id} session={session} editable={editable && !editor && !busy} onEdit={() => setEditor({ type: 'session', session })} onDelete={() => setEditor({ type: 'delete', session })} />)}</div> : <div className="creator-empty"><strong>No sessions yet</strong><p>Add a session before publishing.</p></div>}

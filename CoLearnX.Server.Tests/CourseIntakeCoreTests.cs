@@ -186,7 +186,7 @@ public class CourseIntakeCoreTests
         var d = await f.Service.CreateAsync(1, 1, DraftRequest);
         var r = SessionRequest(d.Version);
         r = scenario switch {
-            0 => r with { StartsAt = Start.AddHours(-1) },
+            0 => r with { StartsAt = Start.AddDays(-11), EndsAt = Start.AddDays(-11).AddHours(1) }, // before registration closes
             1 => r with { EndsAt = Start },
             2 => r with { MeetingLink = "javascript:alert(1)" },
             3 => r with { PhysicalCapacity = -1 },
@@ -420,6 +420,197 @@ public class CourseIntakeCoreTests
                 throw new DbUpdateException("Injected audit failure");
             return base.SaveChangesAsync(ct);
         }
+    }
+
+    [Fact]
+    public async Task Publish_opens_registration_now_when_the_planned_opening_time_has_passed()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var draft = await f.Service.CreateAsync(1, 1, DraftRequest);
+        draft = await f.Service.AddSessionAsync(1, draft.Id, SessionRequest(draft.Version));
+        // The Creator prepared the draft earlier; the planned opening time is now behind us.
+        var stored = await f.Db.CourseIntakes.SingleAsync(x => x.Id == draft.Id);
+        stored.RegistrationOpensAt = DateTime.UtcNow.AddHours(-1);
+        stored.RegistrationClosesAt = DateTime.UtcNow.AddDays(3);
+        await f.Db.SaveChangesAsync();
+
+        var before = DateTime.UtcNow;
+        var published = await f.Service.PublishAsync(1, draft.Id, draft.Version);
+
+        Assert.Equal("Published", published.Status);
+        Assert.InRange(published.RegistrationOpensAt, before.AddSeconds(-1), DateTime.UtcNow.AddSeconds(1));
+    }
+
+    [Fact]
+    public async Task Publish_is_refused_when_registration_would_already_be_closed()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var draft = await f.Service.CreateAsync(1, 1, DraftRequest);
+        draft = await f.Service.AddSessionAsync(1, draft.Id, SessionRequest(draft.Version));
+        var stored = await f.Db.CourseIntakes.SingleAsync(x => x.Id == draft.Id);
+        stored.RegistrationOpensAt = DateTime.UtcNow.AddDays(-3);
+        stored.RegistrationClosesAt = DateTime.UtcNow.AddMinutes(-5);
+        await f.Db.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.PublishAsync(1, draft.Id, draft.Version));
+
+        Assert.Equal("REGISTRATION_ALREADY_CLOSED", error.Code);
+        Assert.True(error.FieldErrors.ContainsKey("registrationClosesAt"));
+    }
+
+    private static DateTime FirstClass => DateTime.SpecifyKind(DateTime.UtcNow.Date.AddDays(10).AddHours(8), DateTimeKind.Utc);
+    private static OpenClassRequest WeeklyClass => new(TrainerId: 1,
+        SessionStarts: [FirstClass, FirstClass.AddDays(7), FirstClass.AddDays(14)],
+        MeetingLink: "https://example.com/meeting");
+
+    [Fact]
+    public async Task Open_class_creates_every_session_and_publishes_in_one_step()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var before = DateTime.UtcNow;
+
+        var opened = await f.Service.OpenClassAsync(1, 1, WeeklyClass);
+
+        Assert.Equal("Published", opened.Status);
+        Assert.Equal(3, opened.MinEnrollment);
+        Assert.Equal(["Session 1", "Session 2", "Session 3"], opened.Sessions.OrderBy(x => x.StartsAt).Select(x => x.Label));
+        Assert.All(opened.Sessions, session => Assert.Equal(TimeSpan.FromHours(2), session.EndsAt - session.StartsAt));
+        Assert.All(opened.Sessions, session => Assert.Equal("https://example.com/meeting", session.MeetingLink));
+        // Registration opens on publishing and closes two days before the first session.
+        Assert.InRange(opened.RegistrationOpensAt, before.AddSeconds(-1), DateTime.UtcNow.AddSeconds(1));
+        Assert.Equal(FirstClass.AddDays(-2), opened.RegistrationClosesAt);
+        Assert.Equal(FirstClass, opened.StartsAt);
+        Assert.Equal(FirstClass.AddDays(14).AddHours(2), opened.EndsAt);
+    }
+
+    [Fact]
+    public async Task Open_class_can_stay_a_draft()
+    {
+        await using var f = await Fixture.CreateAsync();
+
+        var draft = await f.Service.OpenClassAsync(1, 1, WeeklyClass with { Publish = false, MinEnrollment = 5 });
+
+        Assert.Equal("Draft", draft.Status);
+        Assert.Equal(3, draft.Sessions.Count);
+        Assert.Equal(5, draft.MinEnrollment);
+    }
+
+    [Fact]
+    public async Task Open_class_says_when_the_first_session_is_too_soon_for_the_registration_window()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var tomorrow = DateTime.SpecifyKind(DateTime.UtcNow.AddDays(1), DateTimeKind.Utc);
+
+        var error = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.OpenClassAsync(1, 1,
+            WeeklyClass with { SessionStarts = [tomorrow], RegistrationClosesDaysBefore = 2 }));
+
+        Assert.Equal("FIRST_SESSION_TOO_SOON", error.Code);
+        Assert.True(error.FieldErrors.ContainsKey("sessionStarts"));
+        Assert.False(await f.Db.CourseIntakes.AnyAsync());
+    }
+
+    [Fact]
+    public async Task Open_class_needs_a_place_to_meet_and_sessions_in_order()
+    {
+        await using var f = await Fixture.CreateAsync();
+
+        var noPlace = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.OpenClassAsync(1, 1,
+            WeeklyClass with { MeetingLink = null }));
+        Assert.Equal("DELIVERY_LOCATION_REQUIRED", noPlace.Code);
+
+        var overlapping = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.OpenClassAsync(1, 1,
+            WeeklyClass with { SessionStarts = [FirstClass, FirstClass.AddHours(1)] }));
+        Assert.Equal("INVALID_SESSION_SCHEDULE", overlapping.Code);
+
+        Assert.False(await f.Db.CourseIntakes.AnyAsync());
+    }
+
+    [Fact]
+    public async Task Open_class_rejects_a_bad_meeting_link_before_creating_a_draft()
+    {
+        await using var f = await Fixture.CreateAsync();
+
+        var error = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.OpenClassAsync(1, 1,
+            WeeklyClass with { MeetingLink = "javascript:alert(1)" }));
+
+        Assert.Equal("INVALID_MEETING_LINK", error.Code);
+        Assert.False(await f.Db.CourseIntakes.AnyAsync());
+    }
+
+    [Fact]
+    public async Task Adding_a_session_outside_the_teaching_dates_extends_them()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var draft = await f.Service.OpenClassAsync(1, 1, WeeklyClass with { SessionStarts = [FirstClass], Publish = false });
+
+        var later = FirstClass.AddDays(7);
+        draft = await f.Service.AddSessionAsync(1, draft.Id,
+            new("Session 2", later, later.AddHours(2), "https://example.com/meeting", null, 0, null, draft.Version));
+        Assert.Equal(later.AddHours(2), draft.EndsAt);
+
+        var earlier = FirstClass.AddHours(-12);
+        draft = await f.Service.AddSessionAsync(1, draft.Id,
+            new("Warm-up", earlier, earlier.AddHours(1), "https://example.com/meeting", null, 0, null, draft.Version));
+        Assert.Equal(earlier, draft.StartsAt);
+        Assert.Equal(3, draft.Sessions.Count);
+    }
+
+    [Fact]
+    public async Task A_session_cannot_start_before_registration_closes()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var draft = await f.Service.OpenClassAsync(1, 1, WeeklyClass with { SessionStarts = [FirstClass], Publish = false });
+        var tooEarly = draft.RegistrationClosesAt.AddHours(-1);
+
+        var error = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.AddSessionAsync(1, draft.Id,
+            new("Too early", tooEarly, tooEarly.AddHours(1), "https://example.com/meeting", null, 0, null, draft.Version)));
+
+        Assert.Equal("SESSION_BEFORE_REGISTRATION_CLOSES", error.Code);
+        Assert.Equal(FirstClass, (await f.Service.GetOwnedAsync(1, draft.Id)).StartsAt);
+    }
+
+    [Fact]
+    public async Task Deleting_or_moving_a_session_refits_the_teaching_dates()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var draft = await f.Service.OpenClassAsync(1, 1, WeeklyClass with { Publish = false });
+        var ordered = draft.Sessions.OrderBy(session => session.StartsAt).ToList();
+
+        draft = await f.Service.DeleteSessionAsync(1, draft.Id, ordered[^1].Id, draft.Version);
+
+        Assert.Equal(2, draft.Sessions.Count);
+        Assert.Equal(FirstClass, draft.StartsAt);
+        Assert.Equal(FirstClass.AddDays(7).AddHours(2), draft.EndsAt);
+
+        var first = draft.Sessions.OrderBy(session => session.StartsAt).First();
+        var moved = FirstClass.AddDays(1);
+        draft = await f.Service.UpdateSessionAsync(1, draft.Id, first.Id,
+            new("Session 1", moved, moved.AddHours(2), "https://example.com/meeting", null, 0, null, draft.Version));
+
+        Assert.Equal(moved, draft.StartsAt);
+        Assert.Equal(FirstClass.AddDays(7).AddHours(2), draft.EndsAt);
+    }
+
+    [Fact]
+    public async Task The_schedule_can_still_be_edited_after_registration_has_opened()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var open = await f.Service.OpenClassAsync(1, 1, WeeklyClass);
+        var stored = await f.Db.CourseIntakes.SingleAsync(x => x.Id == open.Id);
+        stored.RegistrationOpensAt = DateTime.UtcNow.AddHours(-1);
+        await f.Db.SaveChangesAsync();
+        open = await f.Service.GetOwnedAsync(1, open.Id);
+
+        // Registration opened a moment ago; the Creator moves the closing time and the minimum.
+        var edited = await f.Service.UpdateAsync(1, open.Id, new(open.RegistrationOpensAt, FirstClass.AddDays(-1),
+            open.StartsAt, open.EndsAt, open.Version, MinEnrollment: 4));
+        Assert.Equal(FirstClass.AddDays(-1), edited.RegistrationClosesAt);
+        Assert.Equal(4, edited.MinEnrollment);
+
+        // Moving the opening time into the past is still refused.
+        var error = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.UpdateAsync(1, open.Id,
+            new(open.RegistrationOpensAt.AddHours(-3), FirstClass.AddDays(-1), open.StartsAt, open.EndsAt, edited.Version)));
+        Assert.Equal("REGISTRATION_IN_THE_PAST", error.Code);
     }
 
     private sealed class Fixture(SqliteConnection connection, CoLearnXDbContext db, DbContextOptions<CoLearnXDbContext> options) : IAsyncDisposable

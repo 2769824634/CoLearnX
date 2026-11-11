@@ -151,3 +151,21 @@ it('parses server UTC timestamps with and without a zone consistently for local 
   expect(payload.startsAt).toBe(withZone);
   expect(payload.endsAt).toBe('2099-01-01T03:30:00.000Z');
 });
+
+it('lets a new Session fall after the last teaching date but not before registration closes', () => {
+  const closes = new Date(2026, 8, 20, 18, 0);
+  const intake = {
+    registrationOpensAt: '2026-09-01T00:00:00.000Z',
+    registrationClosesAt: closes.toISOString(),
+    startsAt: '2026-10-10T00:00:00.000Z',
+    endsAt: '2026-10-11T00:00:00.000Z',
+    minEnrollment: 2,
+    version: 'v1',
+  };
+  render(<SessionForm intake={intake} onError={vi.fn()} onSave={vi.fn()} />);
+
+  const date = screen.getByLabelText('Class date');
+  expect(date.getAttribute('max')).toBeNull();
+  expect(date.getAttribute('min')).toBe('2026-09-20');
+  expect(screen.getByText(/teaching dates stretch to include it/i)).toBeTruthy();
+});
