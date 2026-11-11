@@ -59,10 +59,11 @@ it('counts courses at each stage of the publishing pipeline', async () => {
   expect(screen.getByRole('link', { name: /Needs Rework/ }).getAttribute('href')).toBe('/creator/courses/5');
 });
 
-it('links to classes and keeps quick actions', async () => {
+it('links classes from the course workspace and keeps quick actions', async () => {
   stubApi();
   renderHome();
-  expect(await screen.findByRole('link', { name: 'All classes →' })).toBeTruthy();
+  expect(await screen.findByRole('link', { name: 'Open a course →' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Open a course →' }).getAttribute('href')).toBe('/creator/courses');
   expect(screen.getByRole('link', { name: '+ Create Course' }).getAttribute('href')).toBe('/creator/courses/new');
   const actions = screen.getByRole('region', { name: 'Quick actions' });
   expect(within(actions).queryByRole('link', { name: /Upload Material/ })).toBeNull();

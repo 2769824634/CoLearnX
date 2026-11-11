@@ -4,6 +4,7 @@ import { creatorCoursesApi, interestsApi, materialsApi } from '../../api';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import CourseMaterialsCard from './CourseMaterialsCard';
 import CourseTrainersCard from './CourseTrainersCard';
+import CourseClassesSection from './CourseClassesSection';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 import { statusLabel } from '../trainer/intakeForm';
 
@@ -173,23 +174,13 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
     <Link className="creator-back" to="/creator/courses">← Courses</Link>
     <CreatorHeader eyebrow={course ? course.code : 'New Course'} title={title} action={course ? <div className="creator-header-actions"><span className={`creator-status ${course.status.toLowerCase()}`}>{statusLabel(course.status)}</span><button type="button" className="btn btn-primary" onClick={() => setUploadOpen(true)}>Upload materials</button></div> : null}>
       {course
-        ? editable ? 'Review the Course definition and submit it for Admin approval when it is ready.'
-          : 'View the submitted Course definition and its materials.'
+        ? editable ? 'Review the course definition and submit it for Admin approval. After it is published, open a class from this page.'
+          : 'Upload materials, invite a Trainer, and open a class from this course.'
         : 'Three steps: basic information, materials, then interests and price. The Course is saved when you finish the last step.'}
     </CreatorHeader>
     <CreatorError error={error} />
     {course?.reviewReason ? <div className="creator-error"><strong>Admin feedback</strong><p>{course.reviewReason}</p></div> : null}
-    {!editable ? <>
-      <div className="creator-empty creator-locked"><strong>Course editing is locked</strong><p>{course?.status === 'Published'
-        ? 'Published definitions are read-only. Contact your course administrator to discuss changes.'
-        : 'This submitted Course is locked while Admin reviews it. If rejected, you can update it and submit again.'} Its definition remains available below.</p></div>
-      <div className="card creator-course-definition">
-        <fieldset disabled className="creator-course-fields"><legend>Submitted Course definition (read-only)</legend>
-          <BasicFields form={form} options={options} setForm={setForm} />
-          <InterestPriceFields form={form} options={options} setForm={setForm} />
-        </fieldset>
-      </div>
-    </> : <>
+    {!editable ? <CourseSummary course={course} options={options} /> : <>
       <ol className="creator-steps" aria-label="Course creation steps">
         {steps.map(([label], index) => <li key={label} data-state={index < step ? 'done' : index === step ? 'current' : 'todo'}>
           <button type="button" aria-current={index === step ? 'step' : undefined} disabled={busy || index > reached} onClick={() => goTo(index)}>
@@ -221,7 +212,36 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
     </>}
     {course ? <CourseMaterialsCard course={course} materials={materials} onMaterials={setMaterials} token={token} open={uploadOpen} onOpenChange={setUploadOpen} /> : null}
     {course ? <CourseTrainersCard courseId={course.id} /> : null}
+    {course ? <CourseClassesSection course={course} /> : null}
   </section>;
+}
+
+function optionName(list, id, fallback) {
+  return fallback || (list || []).find((item) => String(item.id) === String(id))?.name || '—';
+}
+
+function interestNames(tree, ids) {
+  const leaves = (tree || []).flatMap((category) => category.children || []);
+  return (ids || []).map((id) => leaves.find((leaf) => leaf.id === id)?.name).filter(Boolean);
+}
+
+function CourseSummary({ course, options }) {
+  const interests = interestNames(options.interestTree, course.interestIds);
+  const outcomes = course.learningOutcomes || [];
+  return <div className="card creator-course-definition">
+    <dl className="creator-course-brief">
+      <div><dt>Course code</dt><dd>{course.code}</dd></div>
+      <div><dt>Title</dt><dd>{course.title}</dd></div>
+      <div className="wide"><dt>Description</dt><dd>{course.description || '—'}</dd></div>
+      <div><dt>Course level</dt><dd>{optionName(options.courseLevels, course.courseLevelId, course.courseLevelName)}</dd></div>
+      <div><dt>Subject</dt><dd>{optionName(options.courseSubjects, course.courseSubjectId, course.courseSubjectName)}</dd></div>
+      <div><dt>Learning path</dt><dd>{optionName(options.learningPaths, course.learningPathId, course.learningPathName)}</dd></div>
+      <div><dt>Duration (hours)</dt><dd>{course.durationHours || '—'}</dd></div>
+      <div className="wide"><dt>Learning outcomes</dt><dd>{outcomes.length ? <ul>{outcomes.map((item) => <li key={item}>{item}</li>)}</ul> : '—'}</dd></div>
+      <div className="wide"><dt>Course interests</dt><dd>{interests.length ? interests.join(', ') : '—'}</dd></div>
+      <div><dt>Credit cost</dt><dd>{course.creditCost ? `${course.creditCost} credits` : '—'}</dd></div>
+    </dl>
+  </div>;
 }
 
 function MaterialsStep({ pendingFiles, setPendingFiles, busy }) {

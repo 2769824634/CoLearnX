@@ -204,8 +204,6 @@ it.each([
   ['/creator/courses', 'Courses'],
   ['/creator/courses/17', 'Courses'],
   ['/creator/courses/new', 'Create Course'],
-  ['/creator/intakes', 'Classes'],
-  ['/creator/intakes/7', 'Classes'],
 ])('highlights only %s in Creator navigation for %s', (path, label) => {
   render(
     <MemoryRouter initialEntries={[path]}>
@@ -221,7 +219,7 @@ it.each([
   expect(screen.queryByRole('link', { name: 'Upload Material' })).toBeNull();
   const current = screen.getByRole('link', { name: label });
   expect(current.className).toMatch(/active/);
-  for (const name of ['Courses', 'Create Course', 'Classes']) {
+  for (const name of ['Courses', 'Create Course']) {
     if (name === label) continue;
     expect(screen.getByRole('link', { name }).className).not.toMatch(/active/);
   }

@@ -29,7 +29,6 @@ const NAV = {
     { to: '/creator/courses', label: 'Courses', match: 'courses' },
     { to: '/creator/courses/new', label: 'Create Course', end: true },
     { to: '/creator/approvals', label: 'Approval status' },
-    { to: '/creator/intakes', label: 'Classes', match: 'intakes' },
     { to: '/creator/usage', label: 'Usage Records' },
     { to: '/creator/account', label: 'My Account' },
   ],
@@ -54,10 +53,9 @@ const NAV = {
 
 function isNavActive(item, pathname, isActive) {
   if (item.match === 'courses') {
-    return pathname === '/creator/courses' || /^\/creator\/courses\/\d+$/.test(pathname);
+    return pathname === '/creator/courses' || /^\/creator\/courses\/\d+(\/intakes\/(?:\d+|new))?$/.test(pathname);
   }
   if (item.to === '/creator/courses/new') return pathname === item.to;
-  if (item.match === 'intakes') return pathname === '/creator/intakes' || pathname.startsWith('/creator/intakes/');
   return isActive;
 }
 

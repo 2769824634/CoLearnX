@@ -303,6 +303,33 @@
   padding: 22px 24px;
 }
 
+:is(.creator-shell, .staff-shell) .creator-course-brief {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 28px;
+  margin: 0;
+}
+
+:is(.creator-shell, .staff-shell) .creator-course-brief .wide { grid-column: 1 / -1; }
+
+:is(.creator-shell, .staff-shell) .creator-course-brief dt {
+  margin: 0 0 4px;
+  color: var(--slate);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+:is(.creator-shell, .staff-shell) .creator-course-brief dd {
+  margin: 0;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+:is(.creator-shell, .staff-shell) .creator-course-brief ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
 :is(.creator-shell, .staff-shell) .creator-steps {
   padding: 4px 8px 0;
   border: 1px solid var(--border);

@@ -42,9 +42,8 @@ import CreatorHomePage from '../pages/creator/CreatorHomePage';
 import CreatorAccountPage from '../pages/creator/CreatorAccountPage';
 import CreatorCoursesPage from '../pages/creator/CreatorCoursesPage';
 import CreatorCourseFormPage from '../pages/creator/CreatorCourseFormPage';
-import CreatorIntakesPage from '../pages/creator/CreatorIntakesPage';
 import CreatorIntakeCreatePage from '../pages/creator/CreatorIntakeCreatePage';
-import CreatorIntakeDetailPage from '../pages/creator/CreatorIntakeDetailPage';
+import CreatorIntakeDetailPage, { CreatorIntakeRedirect } from '../pages/creator/CreatorIntakeDetailPage';
 import { MemberDataProvider } from '../pages/member/MemberDataContext';
 import { useMemberData } from '../pages/member/memberDataState';
 import MemberHomePage from '../pages/member/MemberHomePage';
@@ -170,10 +169,12 @@ export default function AppRouter() {
             <Route path="home" element={<CreatorHomePage />} />
             <Route path="courses" element={<CreatorCoursesPage />} />
             <Route path="courses/new" element={<CreatorCourseFormPage />} />
+            <Route path="courses/:courseId/intakes/new" element={<CreatorIntakeCreatePage />} />
+            <Route path="courses/:courseId/intakes/:courseIntakeId" element={<CreatorIntakeDetailPage />} />
             <Route path="courses/:courseId" element={<CreatorCourseFormPage />} />
-            <Route path="intakes" element={<CreatorIntakesPage />} />
-            <Route path="intakes/new" element={<CreatorIntakeCreatePage />} />
-            <Route path="intakes/:courseIntakeId" element={<CreatorIntakeDetailPage />} />
+            <Route path="intakes" element={<Navigate to="/creator/courses" replace />} />
+            <Route path="intakes/new" element={<Navigate to="/creator/courses" replace />} />
+            <Route path="intakes/:courseIntakeId" element={<CreatorIntakeRedirect />} />
             <Route path="approvals" element={<CreatorApprovalsPage />} />
             <Route path="upload" element={<Navigate to="/creator/courses" replace />} />
             <Route path="usage" element={<CreatorUsagePage />} />
