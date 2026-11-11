@@ -24,7 +24,9 @@ public interface IRoleRequestService
         IFormFile? resume,
         IFormFile? idDocument,
         string? statement,
+        IReadOnlyList<int>? specialtyIds,
         CancellationToken ct = default);
+    Task<IReadOnlyList<SpecialtyOptionDto>> SpecialtyOptionsAsync(CancellationToken ct = default);
     Task<MaterialFileResult> OpenDocumentAsync(int roleRequestId, RoleRequestDocument document, CancellationToken ct = default);
 }
 
@@ -42,7 +44,8 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
             .Where(item => item.UserId == userId)
             .OrderByDescending(item => item.CreatedAt)
             .ToListAsync(ct);
-        return items.Select(ToDto).ToList();
+        var names = await SpecialtyNamesAsync(db, ct);
+        return items.Select(item => ToDto(item, names)).ToList();
     }
 
     public async Task<RoleRequestDto> SubmitAsync(
@@ -51,6 +54,7 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
         IFormFile? resume,
         IFormFile? idDocument,
         string? statement,
+        IReadOnlyList<int>? specialtyIds,
         CancellationToken ct = default)
     {
         if (!Enum.TryParse<AppRole>(requestedRole, true, out var role)
@@ -67,7 +71,17 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
             .FirstOrDefaultAsync(item => item.Id == userId, ct)
             ?? throw new RoleRequestException("USER_NOT_FOUND", "User was not found.", StatusCodes.Status404NotFound);
 
-        if (user.Roles.Any(item => item.Role == role))
+        var awaitingCertification = user.Roles.FirstOrDefault(item =>
+            item.Role is AppRole.Trainer or AppRole.Creator && item.CertifiedAt == null);
+        if (awaitingCertification is not null && awaitingCertification.Role != role)
+        {
+            throw new RoleRequestException(
+                "ROLE_NOT_REQUESTABLE",
+                $"Complete certification for your {awaitingCertification.Role} role first.",
+                StatusCodes.Status400BadRequest);
+        }
+
+        if (user.Roles.Any(item => item.Role == role && item.CertifiedAt != null))
         {
             throw new RoleRequestException(
                 "ROLE_ALREADY_GRANTED",
@@ -106,6 +120,9 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
                 StatusCodes.Status400BadRequest);
         }
 
+        // Certification requires 1 to 5 specialties. Legacy applications from a Member may still omit them.
+        var specialties = await ValidateSpecialtiesAsync(specialtyIds, required: awaitingCertification is not null, ct);
+
         var resumeKey = await SaveRequiredFileAsync(userId, resume, "resume", ct);
         var idKey = await SaveRequiredFileAsync(userId, idDocument, "identity document", ct);
 
@@ -116,6 +133,7 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
             DegreeOrResumePath = resumeKey,
             IdDocumentPath = idKey,
             ApplicantStatement = note,
+            SpecialtyIds = specialties.Count == 0 ? null : string.Join(",", specialties),
         };
         db.RoleRequests.Add(entity);
         try
@@ -130,7 +148,41 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
                 StatusCodes.Status409Conflict);
         }
 
-        return ToDto(entity);
+        return ToDto(entity, await SpecialtyNamesAsync(db, ct));
+    }
+
+    public async Task<IReadOnlyList<SpecialtyOptionDto>> SpecialtyOptionsAsync(CancellationToken ct = default)
+        => (await db.CourseSubjects.AsNoTracking().OrderBy(item => item.Subject).ThenBy(item => item.SortOrder).ToListAsync(ct))
+            .Select(item => new SpecialtyOptionDto(item.Id, item.Name, item.Subject.ToString())).ToList();
+
+    public const int MaxSpecialties = 5;
+
+    private async Task<IReadOnlyList<int>> ValidateSpecialtiesAsync(IReadOnlyList<int>? ids, bool required, CancellationToken ct)
+    {
+        var chosen = (ids ?? []).Distinct().ToList();
+        if (chosen.Count == 0)
+        {
+            if (!required) return chosen;
+            throw new RoleRequestException("SPECIALTIES_REQUIRED", "Choose at least one specialty.", StatusCodes.Status400BadRequest);
+        }
+        if (chosen.Count > MaxSpecialties)
+            throw new RoleRequestException("TOO_MANY_SPECIALTIES", $"Choose at most {MaxSpecialties} specialties.", StatusCodes.Status400BadRequest);
+        var known = await db.CourseSubjects.CountAsync(item => chosen.Contains(item.Id), ct);
+        if (known != chosen.Count)
+            throw new RoleRequestException("SPECIALTY_NOT_FOUND", "One of the chosen specialties does not exist.", StatusCodes.Status400BadRequest);
+        return chosen;
+    }
+
+    internal static async Task<IReadOnlyDictionary<int, string>> SpecialtyNamesAsync(CoLearnXDbContext db, CancellationToken ct)
+        => await db.CourseSubjects.AsNoTracking().ToDictionaryAsync(item => item.Id, item => item.Name, ct);
+
+    internal static IReadOnlyList<int> ParseSpecialtyIds(string? value)
+        => string.IsNullOrWhiteSpace(value) ? [] : value.Split(',').Select(int.Parse).ToList();
+
+    internal static IReadOnlyList<string>? SpecialtyNames(string? value, IReadOnlyDictionary<int, string> names)
+    {
+        var ids = ParseSpecialtyIds(value);
+        return ids.Count == 0 ? null : ids.Where(names.ContainsKey).Select(id => names[id]).ToList();
     }
 
     public async Task<MaterialFileResult> OpenDocumentAsync(
@@ -187,7 +239,7 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
         return key;
     }
 
-    private static RoleRequestDto ToDto(RoleRequest item)
+    private static RoleRequestDto ToDto(RoleRequest item, IReadOnlyDictionary<int, string> names)
         => new(
             item.Id,
             item.RequestedRole.ToString(),
@@ -197,5 +249,6 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
             item.ReviewedAt,
             !string.IsNullOrWhiteSpace(item.DegreeOrResumePath),
             !string.IsNullOrWhiteSpace(item.IdDocumentPath),
-            item.ApplicantStatement);
+            item.ApplicantStatement,
+            SpecialtyNames(item.SpecialtyIds, names));
 }

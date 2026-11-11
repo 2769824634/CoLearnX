@@ -28,7 +28,7 @@ public class EmailVerificationApiTests : IDisposable
 
         var registration = await client.PostAsJsonAsync(
             "/api/auth/register",
-            new RegisterRequest(email, "Password123!", "Verify User", null),
+            new RegisterRequest(email, "Password123!", "Verify User", null, "Member"),
             ApiJson.Options);
 
         Assert.Equal(HttpStatusCode.OK, registration.StatusCode);
@@ -47,7 +47,7 @@ public class EmailVerificationApiTests : IDisposable
 
         var registration = await client.PostAsJsonAsync(
             "/api/auth/register",
-            new RegisterRequest(email, "Password123!", "Pending User", null),
+            new RegisterRequest(email, "Password123!", "Pending User", null, "Member"),
             ApiJson.Options);
 
         registration.EnsureSuccessStatusCode();
@@ -83,7 +83,7 @@ public class EmailVerificationApiTests : IDisposable
 
         (await client.PostAsJsonAsync(
             "/api/auth/register",
-            new RegisterRequest(email, "Password123!", "Confirm User", null),
+            new RegisterRequest(email, "Password123!", "Confirm User", null, "Member"),
             ApiJson.Options)).EnsureSuccessStatusCode();
 
         var link = Assert.Single(mail.Messages).Link;
@@ -149,7 +149,7 @@ public class EmailVerificationApiTests : IDisposable
         var email = $"resend.{Guid.NewGuid():N}@colearnx.test";
         (await client.PostAsJsonAsync(
             "/api/auth/register",
-            new RegisterRequest(email, "Password123!", "Resend User", null),
+            new RegisterRequest(email, "Password123!", "Resend User", null, "Member"),
             ApiJson.Options)).EnsureSuccessStatusCode();
         Assert.Single(mail.Messages);
 
@@ -191,7 +191,7 @@ public class EmailVerificationApiTests : IDisposable
 
         (await client.PostAsJsonAsync(
             "/api/auth/register",
-            new RegisterRequest($"unsafe.{Guid.NewGuid():N}@colearnx.test", "Password123!", "Unsafe Origin", null),
+            new RegisterRequest($"unsafe.{Guid.NewGuid():N}@colearnx.test", "Password123!", "Unsafe Origin", null, "Member"),
             ApiJson.Options)).EnsureSuccessStatusCode();
 
         Assert.Empty(mail.Messages);
@@ -206,7 +206,7 @@ public class EmailVerificationApiTests : IDisposable
 
         var registration = await client.PostAsJsonAsync(
             "/api/auth/register",
-            new RegisterRequest(email, "Password123!", "Cloud User", null),
+            new RegisterRequest(email, "Password123!", "Cloud User", null, "Member"),
             ApiJson.Options);
         registration.EnsureSuccessStatusCode();
         using var body = JsonDocument.Parse(await registration.Content.ReadAsStringAsync());
@@ -227,7 +227,7 @@ public class EmailVerificationApiTests : IDisposable
         var email = $"stuck.{Guid.NewGuid():N}@colearnx.test";
         (await client.PostAsJsonAsync(
             "/api/auth/register",
-            new RegisterRequest(email, "Password123!", "Stuck User", null),
+            new RegisterRequest(email, "Password123!", "Stuck User", null, "Member"),
             ApiJson.Options)).EnsureSuccessStatusCode();
         using (var scope = app.Services.CreateScope())
         {

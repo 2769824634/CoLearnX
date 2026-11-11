@@ -26,6 +26,7 @@ public class User
     public TrainerProfile? TrainerProfile { get; set; }
     public CreatorProfile? CreatorProfile { get; set; }
     public ICollection<UserRole> Roles { get; set; } = new List<UserRole>();
+    public ICollection<UserSpecialty> Specialties { get; set; } = new List<UserSpecialty>();
     public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
     public ICollection<CreditTransaction> CreditTransactions { get; set; } = new List<CreditTransaction>();
     public ICollection<WishlistItem> WishlistItems { get; set; } = new List<WishlistItem>();
@@ -42,8 +43,21 @@ public class UserRole
     public AppRole Role { get; set; }
     public bool IsVisible { get; set; } = true;
     public DateTime GrantedAt { get; set; } = DateTime.UtcNow;
+    // Null until an admin approves the certification request. Self-registered Trainer and
+    // Creator accounts clear it explicitly; every other path grants a certified role.
+    public DateTime? CertifiedAt { get; set; } = DateTime.UtcNow;
 
     public User User { get; set; } = null!;
+}
+
+// Certified specialty of a Trainer or Creator: one of the existing course subjects, 1 to 5 per user.
+public class UserSpecialty
+{
+    public int UserId { get; set; }
+    public int CourseSubjectId { get; set; }
+
+    public User User { get; set; } = null!;
+    public CourseSubject CourseSubject { get; set; } = null!;
 }
 
 public class UserPreference
@@ -140,6 +154,8 @@ public class RoleRequest
     public string? DegreeOrResumePath { get; set; }
     public string? IdDocumentPath { get; set; }
     public string? ApplicantStatement { get; set; }
+    // Comma-separated CourseSubject ids chosen in the application; written to UserSpecialties on approval.
+    public string? SpecialtyIds { get; set; }
     public string? ReviewNote { get; set; }
     public int? ReviewedByAdminAccountId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

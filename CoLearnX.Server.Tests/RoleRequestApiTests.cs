@@ -214,7 +214,7 @@ public class RoleRequestApiTests : IClassFixture<CoLearnXApiFactory>
         var client = ApiClient.Anonymous(_factory);
         var register = await client.PostAsJsonAsync(
             "/api/auth/register",
-            new RegisterRequest(email, SeedData.DemoPassword, "Role Applicant", null),
+            new RegisterRequest(email, SeedData.DemoPassword, "Role Applicant", null, "Member"),
             ApiJson.Options);
         register.EnsureSuccessStatusCode();
         await ApiClient.MarkEmailVerifiedAsync(_factory, email);

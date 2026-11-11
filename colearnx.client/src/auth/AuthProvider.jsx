@@ -71,6 +71,7 @@ export function AuthProvider({ children }) {
       password: payload.password,
       fullName: payload.fullName,
       displayName: payload.displayName || undefined,
+      role: payload.role,
     });
     if (res.emailVerificationRequired) return res;
     setStoredToken(res.accessToken);

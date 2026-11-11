@@ -227,7 +227,7 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
 
         var response = await client.PostAsJsonAsync(
             "/api/auth/register",
-            new RegisterRequest(email, SeedData.DemoPassword, "New Learner", null),
+            new RegisterRequest(email, SeedData.DemoPassword, "New Learner", null, "Member"),
             ApiJson.Options);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -319,7 +319,7 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
         var client = ApiClient.Anonymous(_factory);
         var response = await client.PostAsJsonAsync(
             "/api/auth/register",
-            new RegisterRequest($"weak.{Guid.NewGuid():N}@colearnx.test", "password", "Weak User", null),
+            new RegisterRequest($"weak.{Guid.NewGuid():N}@colearnx.test", "password", "Weak User", null, "Member"),
             ApiJson.Options);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -331,7 +331,7 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
         var client = ApiClient.Anonymous(_factory);
         var response = await client.PostAsJsonAsync(
             "/api/auth/register",
-            new RegisterRequest(SeedData.MemberEmail, SeedData.DemoPassword, "Duplicate", null),
+            new RegisterRequest(SeedData.MemberEmail, SeedData.DemoPassword, "Duplicate", null, "Member"),
             ApiJson.Options);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
@@ -346,7 +346,7 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
         var client = ApiClient.Anonymous(_factory);
         var response = await client.PostAsJsonAsync(
             "/api/auth/register",
-            new RegisterRequest(SeedData.AdminEmail, SeedData.DemoPassword, "Not Admin", null),
+            new RegisterRequest(SeedData.AdminEmail, SeedData.DemoPassword, "Not Admin", null, "Member"),
             ApiJson.Options);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
@@ -360,7 +360,7 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
         var client = ApiClient.Anonymous(_factory);
         var response = await client.PostAsJsonAsync(
             "/api/auth/register",
-            new RegisterRequest("learner@colearnx.test", "Learner123!", "Learner", null),
+            new RegisterRequest("learner@colearnx.test", "Learner123!", "Learner", null, "Member"),
             ApiJson.Options);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);

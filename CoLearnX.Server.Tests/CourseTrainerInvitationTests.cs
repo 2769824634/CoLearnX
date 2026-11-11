@@ -28,6 +28,8 @@ public sealed class CourseTrainerInvitationTests
     private const int MemberOnly = 304;
     private const int InactiveTrainer = 305;
     private const int DualUser = 306;
+    private const int OtherSpecialtyTrainer = 307;
+    private const int UncertifiedTrainer = 308;
     private const int Course = 300;
     private const int OtherCourse = 301;
     private const int DualCourse = 302;
@@ -170,16 +172,18 @@ public sealed class CourseTrainerInvitationTests
     }
 
     [Fact]
-    public async Task A_creator_who_is_also_a_trainer_joins_their_own_roster_directly()
+    public async Task A_creator_cannot_invite_themselves_even_with_a_trainer_role()
     {
         using var factory = await RosterFactory.CreateAsync();
         using var dual = factory.UserClient(DualUser, AppRole.Creator, AppRole.Creator, AppRole.Trainer);
 
-        var self = await Read<CourseTrainerDto>(await dual.PostAsJsonAsync($"/api/creator/courses/{DualCourse}/trainers", new InviteTrainerRequest(DualUser)));
+        using var response = await dual.PostAsJsonAsync($"/api/creator/courses/{DualCourse}/trainers", new InviteTrainerRequest(DualUser));
 
-        Assert.Equal("Accepted", self.Status);
-        Assert.NotNull(self.RespondedAt);
-        Assert.Equal(0, await factory.ReadAsync(db => db.Notifications.CountAsync(n => n.UserId == DualUser)));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("CREATOR_CANNOT_TEACH", await response.Content.ReadAsStringAsync());
+        Assert.False(await factory.ReadAsync(db => db.CourseTrainers.AnyAsync(row => row.CourseId == DualCourse && row.TrainerId == DualUser)));
+        var candidates = await dual.GetFromJsonAsync<List<TrainerCandidateDto>>($"/api/creator/trainers?courseId={DualCourse}");
+        Assert.DoesNotContain(candidates!, item => item.Id == DualUser);
     }
 
     [Fact]
@@ -256,19 +260,6 @@ public sealed class CourseTrainerInvitationTests
     }
 
     [Fact]
-    public async Task A_creator_adding_themselves_is_audited_as_accepted()
-    {
-        using var factory = await RosterFactory.CreateAsync();
-        using var dual = factory.UserClient(DualUser, AppRole.Creator, AppRole.Creator, AppRole.Trainer);
-
-        await Read<CourseTrainerDto>(await dual.PostAsJsonAsync($"/api/creator/courses/{DualCourse}/trainers", new InviteTrainerRequest(DualUser)));
-
-        var entry = await factory.ReadAsync(db => db.AuditLogs.SingleAsync(log => log.EntityType == "CourseTrainer"));
-        Assert.Equal((DualUser, "CourseTrainerInvited", $"{DualCourse}/{DualUser}", "Accepted"),
-            (entry.UserId!.Value, entry.Action, entry.EntityId!, entry.Result));
-    }
-
-    [Fact]
     public async Task Importing_past_intake_trainers_writes_no_audit_entries()
     {
         using var factory = await RosterFactory.CreateAsync();
@@ -283,7 +274,7 @@ public sealed class CourseTrainerInvitationTests
         using var factory = await RosterFactory.CreateAsync();
         using var creator = factory.UserClient(Creator, AppRole.Creator);
 
-        using var response = await creator.GetAsync("/api/creator/trainers?search=ALEX");
+        using var response = await creator.GetAsync($"/api/creator/trainers?courseId={Course}&search=ALEX");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var alex = Assert.Single(body.RootElement.EnumerateArray());
@@ -292,13 +283,35 @@ public sealed class CourseTrainerInvitationTests
         Assert.Equal("Accessibility, Service design", alex.GetProperty("specialisations").GetString());
         Assert.False(alex.TryGetProperty("email", out _));
 
-        var everyone = await creator.GetFromJsonAsync<List<TrainerCandidateDto>>("/api/creator/trainers");
+        var everyone = await creator.GetFromJsonAsync<List<TrainerCandidateDto>>($"/api/creator/trainers?courseId={Course}");
         var names = everyone!.Select(item => item.FullName).ToList();
         Assert.Contains("Blair Ng", names);
         Assert.DoesNotContain("Casey Member", names);
         Assert.DoesNotContain("Drew Inactive", names);
+        Assert.DoesNotContain("Finn Ledger", names);
+        Assert.DoesNotContain("Gale Pending", names);
+        Assert.Contains("Digital Product Design", everyone!.Single(item => item.FullName == "Blair Ng").Specialties!);
         Assert.Equal(names.Order(StringComparer.OrdinalIgnoreCase), names);
         Assert.True(names.Count <= 20);
+    }
+
+    [Fact]
+    public async Task Invitations_only_reach_certified_trainers_in_the_course_specialty()
+    {
+        using var factory = await RosterFactory.CreateAsync();
+        using var creator = factory.UserClient(Creator, AppRole.Creator);
+
+        using var otherSpecialty = await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(OtherSpecialtyTrainer));
+        Assert.Equal(HttpStatusCode.Conflict, otherSpecialty.StatusCode);
+        Assert.Contains("TRAINER_SUBJECT_MISMATCH", await otherSpecialty.Content.ReadAsStringAsync());
+
+        using var uncertified = await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(UncertifiedTrainer));
+        Assert.Equal(HttpStatusCode.NotFound, uncertified.StatusCode);
+        Assert.Contains("TRAINER_NOT_FOUND", await uncertified.Content.ReadAsStringAsync());
+
+        using var foreignCourse = await creator.GetAsync($"/api/creator/trainers?courseId={OtherCourse}");
+        Assert.Equal(HttpStatusCode.NotFound, foreignCourse.StatusCode);
+        Assert.Contains("COURSE_NOT_FOUND", await foreignCourse.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -375,6 +388,9 @@ public sealed class CourseTrainerInvitationTests
             var factory = new RosterFactory();
             await factory.ReadAsync(async db =>
             {
+                var design = await db.CourseSubjects.Where(item => item.Name == "Digital Product Design").Select(item => item.Id).SingleAsync();
+                var finance = await db.CourseSubjects.Where(item => item.Name == "Accounting and Finance").Select(item => item.Id).SingleAsync();
+                List<UserSpecialty> Design() => [new UserSpecialty { CourseSubjectId = design }];
                 db.Users.AddRange(
                     new User { Id = Creator, Email = "roster-creator@example.com", FullName = "Roster Creator", Roles = [new UserRole { Role = AppRole.Creator }] },
                     new User { Id = OtherCreator, Email = "roster-other@example.com", FullName = "Other Creator", Roles = [new UserRole { Role = AppRole.Creator }] },
@@ -382,15 +398,20 @@ public sealed class CourseTrainerInvitationTests
                     {
                         Id = Alex, Email = "alex@example.com", FullName = "Alex Chen", Roles = [new UserRole { Role = AppRole.Trainer }],
                         TrainerProfile = new TrainerProfile { Headline = "Inclusive design coach", Specialisations = "Accessibility, Service design" },
+                        Specialties = Design(),
                     },
-                    new User { Id = Blair, Email = "blair@example.com", FullName = "Blair Ng", Roles = [new UserRole { Role = AppRole.Trainer }] },
+                    new User { Id = Blair, Email = "blair@example.com", FullName = "Blair Ng", Roles = [new UserRole { Role = AppRole.Trainer }], Specialties = Design() },
                     new User { Id = MemberOnly, Email = "casey@example.com", FullName = "Casey Member", Roles = [new UserRole { Role = AppRole.Member }] },
-                    new User { Id = InactiveTrainer, Email = "drew@example.com", FullName = "Drew Inactive", IsActive = false, Roles = [new UserRole { Role = AppRole.Trainer }] },
-                    new User { Id = DualUser, Email = "erin@example.com", FullName = "Erin Dual", Roles = [new UserRole { Role = AppRole.Creator }, new UserRole { Role = AppRole.Trainer }] });
+                    new User { Id = InactiveTrainer, Email = "drew@example.com", FullName = "Drew Inactive", IsActive = false, Roles = [new UserRole { Role = AppRole.Trainer }], Specialties = Design() },
+                    new User { Id = DualUser, Email = "erin@example.com", FullName = "Erin Dual", Roles = [new UserRole { Role = AppRole.Creator }, new UserRole { Role = AppRole.Trainer }], Specialties = Design() },
+                    new User { Id = OtherSpecialtyTrainer, Email = "finn@example.com", FullName = "Finn Ledger", Roles = [new UserRole { Role = AppRole.Trainer }],
+                        Specialties = [new UserSpecialty { CourseSubjectId = finance }] },
+                    new User { Id = UncertifiedTrainer, Email = "gale@example.com", FullName = "Gale Pending",
+                        Roles = [new UserRole { Role = AppRole.Trainer, CertifiedAt = null }], Specialties = Design() });
                 db.Courses.AddRange(
-                    new Course { Id = Course, Code = "ROS-300", Title = "Roster Basics", TrainerId = Creator, CreatorId = Creator, CreditCost = 10 },
-                    new Course { Id = OtherCourse, Code = "ROS-301", Title = "Other Course", TrainerId = OtherCreator, CreatorId = OtherCreator, CreditCost = 10 },
-                    new Course { Id = DualCourse, Code = "ROS-302", Title = "Dual Course", TrainerId = DualUser, CreatorId = DualUser, CreditCost = 10 });
+                    new Course { Id = Course, Code = "ROS-300", Title = "Roster Basics", TrainerId = Creator, CreatorId = Creator, CreditCost = 10, CourseSubjectId = design },
+                    new Course { Id = OtherCourse, Code = "ROS-301", Title = "Other Course", TrainerId = OtherCreator, CreatorId = OtherCreator, CreditCost = 10, CourseSubjectId = design },
+                    new Course { Id = DualCourse, Code = "ROS-302", Title = "Dual Course", TrainerId = DualUser, CreatorId = DualUser, CreditCost = 10, CourseSubjectId = design });
                 return await db.SaveChangesAsync();
             });
             return factory;

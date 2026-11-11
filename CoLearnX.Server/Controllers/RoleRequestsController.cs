@@ -16,6 +16,10 @@ public sealed class RoleRequestsController(IRoleRequestService roleRequests) : C
     public async Task<ActionResult<IReadOnlyList<RoleRequestDto>>> My(CancellationToken ct)
         => Ok(await roleRequests.ListMyAsync(User.GetUserId(), ct));
 
+    [HttpGet("specialties")]
+    public async Task<ActionResult<IReadOnlyList<SpecialtyOptionDto>>> Specialties(CancellationToken ct)
+        => Ok(await roleRequests.SpecialtyOptionsAsync(ct));
+
     [HttpPost]
     [Consumes("application/json")]
     public ActionResult CreateWithoutFiles()
@@ -31,11 +35,12 @@ public sealed class RoleRequestsController(IRoleRequestService roleRequests) : C
         [FromForm] string? statement,
         IFormFile? resume,
         IFormFile? idDocument,
+        [FromForm] List<int>? specialtyIds,
         CancellationToken ct)
     {
         try
         {
-            var created = await roleRequests.SubmitAsync(User.GetUserId(), requestedRole, resume, idDocument, statement, ct);
+            var created = await roleRequests.SubmitAsync(User.GetUserId(), requestedRole, resume, idDocument, statement, specialtyIds, ct);
             return Created($"/api/role-requests/{created.Id}", created);
         }
         catch (RoleRequestException ex)

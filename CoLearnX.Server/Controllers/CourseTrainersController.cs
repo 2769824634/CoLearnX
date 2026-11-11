@@ -25,8 +25,8 @@ public sealed class CreatorCourseTrainersController(ICourseTrainerService roster
         => Ok(await roster.RemoveAsync(User.GetUserId(), courseId, trainerId, ct));
 
     [HttpGet("trainers")]
-    public async Task<ActionResult<IReadOnlyList<TrainerCandidateDto>>> Candidates([FromQuery] string? search, CancellationToken ct)
-        => Ok(await roster.SearchCandidatesAsync(search, ct));
+    public async Task<ActionResult<IReadOnlyList<TrainerCandidateDto>>> Candidates([FromQuery] int courseId, [FromQuery] string? search, CancellationToken ct)
+        => Ok(await roster.SearchCandidatesAsync(User.GetUserId(), courseId, search, ct));
 }
 
 [ApiController]

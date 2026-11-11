@@ -75,7 +75,7 @@ export default function CourseTrainersCard({ courseId }) {
               </div>
             </li>)}</ul>}
     </div>
-    {inviting ? <InviteDialog roster={roster} onInvite={invite} busyId={busyId} onClose={() => setInviting(false)} /> : null}
+    {inviting ? <InviteDialog courseId={courseId} roster={roster} onInvite={invite} busyId={busyId} onClose={() => setInviting(false)} /> : null}
     <Modal open={Boolean(removing)} title={removing ? `Remove ${removing.fullName}?` : ''} onClose={() => setRemoving(null)}>
       <p style={{ marginTop: 0 }}>They will no longer be available for new Intakes of this Course. Intakes they already teach are not changed.</p>
       <div className="trainer-actions">
@@ -90,7 +90,7 @@ export default function CourseTrainersCard({ courseId }) {
   </div>;
 }
 
-function InviteDialog({ roster, onInvite, busyId, onClose }) {
+function InviteDialog({ courseId, roster, onInvite, busyId, onClose }) {
   const { token } = useAuth();
   const [term, setTerm] = useState('');
   const [results, setResults] = useState(null);
@@ -110,7 +110,7 @@ function InviteDialog({ roster, onInvite, busyId, onClose }) {
     const controller = new AbortController();
     pending.current = controller;
     setSearchError(null);
-    courseTrainersApi.searchTrainers(token, value, controller.signal).then(
+    courseTrainersApi.searchTrainers(token, courseId, value, controller.signal).then(
       (items) => { if (!controller.signal.aborted) setResults(Array.isArray(items) ? items : []); },
       (requestError) => { if (!controller.signal.aborted) setSearchError(requestError); },
     );
@@ -147,7 +147,7 @@ function InviteDialog({ roster, onInvite, busyId, onClose }) {
         const status = statusById.get(candidate.id);
         const onRoster = status === 'Invited' || status === 'Accepted';
         return <li key={candidate.id}>
-          <div><strong>{candidate.fullName}</strong><small>{[candidate.headline, candidate.specialisations].filter(Boolean).join(' · ') || 'No profile details yet'}</small></div>
+          <div><strong>{candidate.fullName}</strong><small>{[(candidate.specialties || []).join(', '), candidate.headline, candidate.specialisations].filter(Boolean).join(' · ') || 'No profile details yet'}</small></div>
           {onRoster ? <StatusPill status={status} />
             : <button type="button" className="btn btn-primary btn-sm" disabled={busyId === candidate.id} onClick={() => invite(candidate)}>Invite</button>}
         </li>;

@@ -36,6 +36,7 @@ import TrainerAttendancePage from '../pages/trainer/TrainerAttendancePage';
 import TrainerLearnersPage from '../pages/trainer/TrainerLearnersPage';
 import TrainerAccountPage from '../pages/trainer/TrainerAccountPage';
 import TrainerInvitationsPage from '../pages/trainer/TrainerInvitationsPage';
+import CertificationPage from '../pages/account/CertificationPage';
 import CreatorApprovalsPage from '../pages/creator/CreatorApprovalsPage';
 import CreatorHomePage from '../pages/creator/CreatorHomePage';
 import CreatorAccountPage from '../pages/creator/CreatorAccountPage';
@@ -148,6 +149,7 @@ export default function AppRouter() {
         </Route>
 
         <Route element={<RequireAuth role="trainer" />}>
+          <Route path="/trainer/certification" element={<CertificationPage role="Trainer" />} />
           <Route path="/trainer" element={<RoleShell role="trainer" />}>
             <Route path="home" element={<TrainerHomePage />} />
             <Route path="courses" element={<TrainerIntakesPage />} />
@@ -163,6 +165,7 @@ export default function AppRouter() {
         </Route>
 
         <Route element={<RequireAuth role="creator" />}>
+          <Route path="/creator/certification" element={<CertificationPage role="Creator" />} />
           <Route path="/creator" element={<RoleShell role="creator" />}>
             <Route path="home" element={<CreatorHomePage />} />
             <Route path="courses" element={<CreatorCoursesPage />} />

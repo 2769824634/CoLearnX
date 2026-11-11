@@ -46,7 +46,8 @@ public record AdminRoleRequestDto(
     int? ReviewedByAdminAccountId,
     DateTime CreatedAt,
     DateTime? ReviewedAt,
-    string? ApplicantStatement = null);
+    string? ApplicantStatement = null,
+    IReadOnlyList<string>? Specialties = null);
 
 public record AdminRoleRequestReviewResultDto(
     AdminRoleRequestDto RoleRequest,

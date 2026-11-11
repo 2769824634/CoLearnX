@@ -53,7 +53,31 @@ describe('Account registration', () => {
         email: 'new.learner@colearnx.test',
         password: 'Password123!',
         fullName: 'New Learner',
+        role: 'Member',
       });
+    });
+  });
+
+  it('submits the chosen Trainer role and explains certification', async () => {
+    auth.register.mockResolvedValue({ emailVerificationRequired: true, message: 'Check your email.' });
+    render(
+      <MemoryRouter initialEntries={['/register']}>
+        <AuthContext.Provider value={auth}>
+          <AppRouter />
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign up as Trainer' }));
+    expect(screen.getByText(/must be certified by an administrator/i)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'New Trainer' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'new.trainer@colearnx.test' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Password123!' } });
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'Password123!' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+
+    await waitFor(() => {
+      expect(auth.register).toHaveBeenCalledWith(expect.objectContaining({ email: 'new.trainer@colearnx.test', role: 'Trainer' }));
     });
   });
 

@@ -24,3 +24,35 @@ it('explains the role boundary when redirecting an authenticated user', () => {
   );
   expect(screen.getByText(/requires the Trainer workspace/i)).toBeTruthy();
 });
+
+it('keeps an uncertified Trainer on the certification page', () => {
+  render(
+    <MemoryRouter initialEntries={['/trainer/home']}>
+      <AuthContext.Provider value={{ booting: false, isAuthenticated: true, activeRole: 'trainer', user: { certifiedAt: null } }}>
+        <Routes>
+          <Route element={<RequireAuth role="trainer" />}>
+            <Route path="/trainer/home" element={<div>Trainer home</div>} />
+            <Route path="/trainer/certification" element={<div>Certification page</div>} />
+          </Route>
+        </Routes>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  );
+  expect(screen.getByText('Certification page')).toBeTruthy();
+  expect(screen.queryByText('Trainer home')).toBeNull();
+});
+
+it('lets a certified Trainer into the workspace', () => {
+  render(
+    <MemoryRouter initialEntries={['/trainer/home']}>
+      <AuthContext.Provider value={{ booting: false, isAuthenticated: true, activeRole: 'trainer', user: { certifiedAt: '2026-11-11T00:00:00Z' } }}>
+        <Routes>
+          <Route element={<RequireAuth role="trainer" />}>
+            <Route path="/trainer/home" element={<div>Trainer home</div>} />
+          </Route>
+        </Routes>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  );
+  expect(screen.getByText('Trainer home')).toBeTruthy();
+});

@@ -41,7 +41,8 @@ public sealed class AdminRoleRequestService(
             .ThenBy(roleRequest => roleRequest.CreatedAt)
             .ToListAsync(ct);
 
-        return roleRequests.Select(ToDto).ToList();
+        var names = await RoleRequestService.SpecialtyNamesAsync(db, ct);
+        return roleRequests.Select(item => ToDto(item, names)).ToList();
     }
 
     public async Task<AdminRoleRequestReviewResultDto> ReviewAsync(
@@ -73,7 +74,7 @@ public sealed class AdminRoleRequestService(
             if (roleRequest.Status != RoleRequestStatus.Pending)
             {
                 if (roleRequest.Status == targetStatus)
-                    return new AdminRoleRequestReviewResultDto(ToDto(roleRequest), true);
+                    return new AdminRoleRequestReviewResultDto(ToDto(roleRequest, await RoleRequestService.SpecialtyNamesAsync(db, ct)), true);
 
                 throw new AdminReviewConflictException(
                     "ROLE_REQUEST_ALREADY_REVIEWED",
@@ -93,18 +94,30 @@ public sealed class AdminRoleRequestService(
 
             if (decision == AdminReviewDecision.Approve)
             {
-                var alreadyHasRole = await db.UserRoles.AnyAsync(
+                var existingRole = await db.UserRoles.SingleOrDefaultAsync(
                     userRole => userRole.UserId == roleRequest.UserId
                         && userRole.Role == roleRequest.RequestedRole,
                     ct);
-                if (!alreadyHasRole)
+                if (existingRole is null)
                 {
                     db.UserRoles.Add(new UserRole
                     {
                         UserId = roleRequest.UserId,
                         Role = roleRequest.RequestedRole,
                         IsVisible = true,
+                        CertifiedAt = DateTime.UtcNow,
                     });
+                }
+                else
+                    existingRole.CertifiedAt = DateTime.UtcNow;
+
+                var specialtyIds = RoleRequestService.ParseSpecialtyIds(roleRequest.SpecialtyIds);
+                if (specialtyIds.Count > 0)
+                {
+                    db.UserSpecialties.RemoveRange(await db.UserSpecialties
+                        .Where(item => item.UserId == roleRequest.UserId).ToListAsync(ct));
+                    db.UserSpecialties.AddRange(specialtyIds.Select(id =>
+                        new UserSpecialty { UserId = roleRequest.UserId, CourseSubjectId = id }));
                 }
             }
 
@@ -140,11 +153,11 @@ public sealed class AdminRoleRequestService(
             if (realtime is not null)
                 await realtime.PublishAsync(notification, ct);
 
-            return new AdminRoleRequestReviewResultDto(ToDto(roleRequest), false);
+            return new AdminRoleRequestReviewResultDto(ToDto(roleRequest, await RoleRequestService.SpecialtyNamesAsync(db, ct)), false);
         });
     }
 
-    private static AdminRoleRequestDto ToDto(RoleRequest roleRequest)
+    private static AdminRoleRequestDto ToDto(RoleRequest roleRequest, IReadOnlyDictionary<int, string> names)
         => new(
             roleRequest.Id,
             roleRequest.UserId,
@@ -158,6 +171,7 @@ public sealed class AdminRoleRequestService(
             roleRequest.ReviewedByAdminAccountId,
             roleRequest.CreatedAt,
             roleRequest.ReviewedAt,
-            roleRequest.ApplicantStatement);
+            roleRequest.ApplicantStatement,
+            RoleRequestService.SpecialtyNames(roleRequest.SpecialtyIds, names));
 
 }

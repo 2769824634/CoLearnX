@@ -17,6 +17,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<UserPreference> UserPreferences => Set<UserPreference>();
     public DbSet<TrainerProfile> TrainerProfiles => Set<TrainerProfile>();
+    public DbSet<UserSpecialty> UserSpecialties => Set<UserSpecialty>();
     public DbSet<CreatorProfile> CreatorProfiles => Set<CreatorProfile>();
     public DbSet<Interest> Interests => Set<Interest>();
     public DbSet<UserInterest> UserInterests => Set<UserInterest>();
@@ -127,6 +128,13 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
         {
             e.HasKey(x => x.UserId);
             e.HasOne(x => x.User).WithOne(u => u.Preference).HasForeignKey<UserPreference>(x => x.UserId);
+        });
+
+        modelBuilder.Entity<UserSpecialty>(e =>
+        {
+            e.HasKey(x => new { x.UserId, x.CourseSubjectId });
+            e.HasOne(x => x.User).WithMany(u => u.Specialties).HasForeignKey(x => x.UserId);
+            e.HasOne(x => x.CourseSubject).WithMany().HasForeignKey(x => x.CourseSubjectId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<TrainerProfile>(e =>
