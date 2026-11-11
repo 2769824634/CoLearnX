@@ -2,6 +2,7 @@ using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
+using CoLearnX.Server.Storage;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using Microsoft.Data.Sqlite;
@@ -18,9 +19,10 @@ public interface ICertificateWorkflowService
     Task<CertificateRequestDto> TrainerReviewAsync(int trainerUserId, int requestId, WorkflowReviewRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<CertificateRequestDto>> ListForAdminAsync(string? status, CancellationToken ct = default);
     Task<CertificateRequestDto> AdminReviewAsync(int adminAccountId, int requestId, WorkflowReviewRequest request, CancellationToken ct = default);
+    Task<CertificateRequestDto> IssueAsync(int adminAccountId, int requestId, string? reason, IFormFile? file, CancellationToken ct = default);
 }
 
-public sealed class CertificateWorkflowService(CoLearnXDbContext db) : ICertificateWorkflowService
+public sealed class CertificateWorkflowService(CoLearnXDbContext db, IFileStorage files) : ICertificateWorkflowService
 {
     public async Task<IReadOnlyList<CertificateRequestDto>> ListForMemberAsync(int userId, CancellationToken ct = default)
     {
@@ -143,50 +145,119 @@ public sealed class CertificateWorkflowService(CoLearnXDbContext db) : ICertific
         }
         if (item.Status != CertificateRequestStatus.TrainerApproved)
             throw new LaterPhaseException("TRAINER_REVIEW_REQUIRED", "Trainer approval is required before Admin review.", 409);
+        if (approve)
+            throw new LaterPhaseException("CERTIFICATE_PDF_REQUIRED", "Upload a PDF certificate to issue it.", field: "file");
         item.AdminReviewedByAccountId = adminAccountId;
         item.AdminReviewedAt = DateTime.UtcNow;
         item.AdminReviewReason = reason;
-        if (approve)
-        {
-            var levelName = item.Enrollment.Course.CourseLevelId is int levelId
-                ? await db.CourseLevels.Where(level => level.Id == levelId).Select(level => level.Name).SingleOrDefaultAsync(ct)
-                : null;
-            if (string.IsNullOrWhiteSpace(levelName)) levelName = item.Enrollment.Course.Level;
-            var stage = CertificateStages.ForLevel(levelName);
-            var template = await db.CertificateTemplates.SingleOrDefaultAsync(candidate => candidate.StageNumber == stage, ct)
-                ?? await db.CertificateTemplates.OrderBy(candidate => candidate.StageNumber).FirstOrDefaultAsync(ct)
-                ?? throw new LaterPhaseException("CERTIFICATE_TEMPLATE_NOT_FOUND", "No certificate template is configured.", 409);
-            var certificate = new UserCertificate
-            {
-                UserId = item.Enrollment.UserId,
-                CertificateTemplateId = template.Id,
-                CourseId = item.Enrollment.CourseId,
-                VerificationCode = Guid.NewGuid().ToString("N").ToUpperInvariant(),
-                AdminApproved = true,
-                RequestedByTrainerId = item.TrainerReviewedByUserId,
-            };
-            db.UserCertificates.Add(certificate);
-            item.UserCertificate = certificate;
-            item.Status = CertificateRequestStatus.Issued;
-        }
-        else
-        {
-            item.Status = CertificateRequestStatus.AdminRejected;
-        }
+        item.Status = CertificateRequestStatus.AdminRejected;
         db.AuditLogs.Add(new AuditLog
         {
             AdminAccountId = adminAccountId,
-            Action = approve ? "CertificateIssued" : "CertificateRequestAdminRejected",
+            Action = "CertificateRequestAdminRejected",
             EntityType = nameof(CertificateRequest),
             EntityId = item.Id.ToString(),
             Result = "Succeeded",
             Reason = reason,
         });
-        AddNotification(item, item.Enrollment, approve ? "CertificateIssued" : "CertificateAdminRejected",
-            approve ? "Your certificate has been issued" : "Admin rejected your certificate request",
-            approve ? "Your certificate is available on Badges & Certificates." : reason!);
+        AddNotification(item, item.Enrollment, "CertificateAdminRejected",
+            "Admin rejected your certificate request", reason!);
         await db.SaveChangesAsync(ct);
         return await GetDtoAsync(item.Id, ct);
+    }
+
+    public async Task<CertificateRequestDto> IssueAsync(int adminAccountId, int requestId, string? reason, IFormFile? file,
+        CancellationToken ct = default)
+    {
+        var pdf = await CertificateFiles.ReadPdfAsync(file, ct);
+        var storedName = CertificateFiles.DownloadName(file!.FileName);
+        var key = $"certificates/{requestId}/{Guid.NewGuid():N}.pdf";
+        try
+        {
+            await files.SaveAsync(key, new MemoryStream(pdf), "application/pdf", ct);
+            var result = await InTransactionAsync(() => IssueCoreAsync(adminAccountId, requestId, reason, key, storedName, ct), ct);
+            var stored = result.CertificateId is int certificateId
+                ? await db.UserCertificates.AsNoTracking().Where(item => item.Id == certificateId).Select(item => item.FilePath).SingleOrDefaultAsync(ct)
+                : null;
+            if (!string.Equals(stored, key, StringComparison.Ordinal))
+                await DeleteUnreferencedAsync(key);
+            return result;
+        }
+        catch
+        {
+            await DeleteUnreferencedAsync(key);
+            throw;
+        }
+    }
+
+    private async Task<CertificateRequestDto> IssueCoreAsync(int adminAccountId, int requestId, string? reason, string filePath,
+        string fileName, CancellationToken ct)
+    {
+        var item = await RequestQuery().SingleOrDefaultAsync(candidate => candidate.Id == requestId, ct)
+            ?? throw new LaterPhaseException("CERTIFICATE_REQUEST_NOT_FOUND", "Certificate request was not found.", 404);
+        var note = ReviewReason(reason, approve: true);
+        if (item.Status is CertificateRequestStatus.Issued or CertificateRequestStatus.AdminRejected)
+        {
+            if (item.Status != CertificateRequestStatus.Issued || item.AdminReviewReason != note)
+                throw new LaterPhaseException("CERTIFICATE_REQUEST_ALREADY_REVIEWED", "The certificate request already has a different Admin decision.", 409);
+            return await GetDtoAsync(item.Id, ct);
+        }
+        if (item.Status != CertificateRequestStatus.TrainerApproved)
+            throw new LaterPhaseException("TRAINER_REVIEW_REQUIRED", "Trainer approval is required before Admin review.", 409);
+
+        var levelName = item.Enrollment.Course.CourseLevelId is int levelId
+            ? await db.CourseLevels.Where(level => level.Id == levelId).Select(level => level.Name).SingleOrDefaultAsync(ct)
+            : null;
+        if (string.IsNullOrWhiteSpace(levelName)) levelName = item.Enrollment.Course.Level;
+        var stage = CertificateStages.ForLevel(levelName);
+        var template = await db.CertificateTemplates.SingleOrDefaultAsync(candidate => candidate.StageNumber == stage, ct)
+            ?? await db.CertificateTemplates.OrderBy(candidate => candidate.StageNumber).FirstOrDefaultAsync(ct)
+            ?? throw new LaterPhaseException("CERTIFICATE_TEMPLATE_NOT_FOUND", "No certificate template is configured.", 409);
+        var certificate = new UserCertificate
+        {
+            UserId = item.Enrollment.UserId,
+            CertificateTemplateId = template.Id,
+            CourseId = item.Enrollment.CourseId,
+            VerificationCode = Guid.NewGuid().ToString("N").ToUpperInvariant(),
+            AdminApproved = true,
+            RequestedByTrainerId = item.TrainerReviewedByUserId,
+            FilePath = filePath,
+            OriginalFileName = fileName,
+        };
+        db.UserCertificates.Add(certificate);
+        item.UserCertificate = certificate;
+        item.Status = CertificateRequestStatus.Issued;
+        item.AdminReviewedByAccountId = adminAccountId;
+        item.AdminReviewedAt = DateTime.UtcNow;
+        item.AdminReviewReason = note;
+        db.AuditLogs.Add(new AuditLog
+        {
+            AdminAccountId = adminAccountId,
+            Action = "CertificateIssued",
+            EntityType = nameof(CertificateRequest),
+            EntityId = item.Id.ToString(),
+            Result = "Succeeded",
+            Reason = note,
+        });
+        AddNotification(item, item.Enrollment, "CertificateIssued",
+            "Your certificate has been issued",
+            "Your certificate is available on Badges & Certificates.");
+        await db.SaveChangesAsync(ct);
+        return await GetDtoAsync(item.Id, ct);
+    }
+
+    private async Task DeleteUnreferencedAsync(string key)
+    {
+        try
+        {
+            var referenced = await db.UserCertificates.AsNoTracking()
+                .AnyAsync(item => item.FilePath == key, CancellationToken.None);
+            if (!referenced) await files.DeleteAsync(key, CancellationToken.None);
+        }
+        catch (Exception)
+        {
+            /* A failed cleanup must not hide the issuance result or the original error. */
+        }
     }
 
     private IQueryable<Enrollment> EnrollmentQuery()

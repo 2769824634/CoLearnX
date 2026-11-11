@@ -404,6 +404,8 @@ public class UserCertificate
     public DateTime AwardedAt { get; set; } = DateTime.UtcNow;
     public bool AdminApproved { get; set; }
     public int? RequestedByTrainerId { get; set; }
+    public string? FilePath { get; set; }
+    public string? OriginalFileName { get; set; }
 
     public User User { get; set; } = null!;
     public CertificateTemplate CertificateTemplate { get; set; } = null!;

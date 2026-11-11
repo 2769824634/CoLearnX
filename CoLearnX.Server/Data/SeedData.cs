@@ -35,6 +35,7 @@ public static class SeedData
         await MaterialUsageSchema.EnsureAsync(db);
         await SessionMaterialSchema.EnsureAsync(db);
         await SessionRecordingFileSchema.EnsureAsync(db);
+        await CertificateFileSchema.EnsureAsync(db);
         await PricingSchema.EnsureAsync(db);
         await CourseTrainerSchema.EnsureAsync(db);
         await CourseSubjectSchema.EnsureAsync(db);
