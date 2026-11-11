@@ -1,0 +1,29 @@
+.learning-path-page { display: grid; gap: 18px; max-width: 1200px; }
+.learning-path-intro { display: flex; justify-content: space-between; align-items: end; gap: 20px; padding: 26px; border-radius: 16px; background: #f3efff; }
+.learning-path-intro h2 { margin: 4px 0 8px; font-size: 26px; }
+.learning-path-intro p { margin: 0; color: var(--slate); }
+.learning-path-eyebrow { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.learning-path-intro label { display: grid; gap: 5px; min-width: 220px; font-weight: 600; }
+.learning-path-intro select { padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: white; }
+.learning-path-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; padding: 16px 20px; border: 1px solid var(--border); border-radius: 12px; }
+.learning-path-summary span { flex: 1; color: var(--slate); }
+.learning-path-stages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.learning-path-stage { padding: 20px; background: white; border: 1px solid var(--border); border-radius: 14px; }
+.learning-path-stage-heading, .learning-path-stage-heading > div { display: flex; align-items: center; gap: 10px; }
+.learning-path-stage-heading { justify-content: space-between; flex-wrap: wrap; }
+.learning-path-stage-heading h3 { margin: 0; font-size: 18px; }
+.learning-path-number { color: var(--purple); font-weight: 700; }
+.learning-path-hint, .learning-path-empty { color: var(--slate); font-size: 13px; }
+.learning-path-courses { list-style: none; margin: 16px 0 0; padding: 0; }
+.learning-path-courses li { display: grid; gap: 5px; padding: 12px 0; border-top: 1px solid var(--border); }
+.learning-path-courses a { display: grid; gap: 4px; text-decoration: none; }
+.learning-path-courses a span, .learning-path-courses li > span { color: var(--slate); font-size: 12px; }
+.learning-path-admin { display: grid; gap: 16px; }
+.learning-path-admin h2 { margin-top: 0; font-size: 18px; }
+.learning-path-admin-stages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.learning-path-admin-stage label { display: block; font-weight: 700; }
+.learning-path-admin-stage label span { font-weight: 400; color: var(--slate); }
+.learning-path-admin-stage div { display: flex; gap: 8px; margin-top: 8px; }
+.learning-path-admin-stage input { width: 76px; padding: 7px; border: 1px solid var(--border); border-radius: 6px; }
+@media (max-width: 900px) { .learning-path-stages, .learning-path-admin-stages { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .learning-path-intro { align-items: stretch; flex-direction: column; } .learning-path-intro label { min-width: 0; } }

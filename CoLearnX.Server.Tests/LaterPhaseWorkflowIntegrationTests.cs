@@ -192,6 +192,37 @@ public sealed class LaterPhaseWorkflowIntegrationTests
         Assert.Contains("Intermediate", await mine.Content.ReadAsStringAsync());
     }
 
+    [Fact]
+    public async Task IssuingACourseCertificateImmediatelyAwardsItsLearningPathStage()
+    {
+        using var factory = new LaterPhaseApiFactory(useFileDatabase: true);
+        await factory.InitializeAsync();
+        await factory.MakeCertificateEligibleAsync();
+        var pathId = await factory.ReadAsync(async db =>
+        {
+            var subject = await db.CourseSubjects.SingleAsync(item => item.Name == "Software Development");
+            var path = await db.LearningPaths.SingleAsync(item => item.CourseSubjectId == subject.Id);
+            var course = await db.Courses.SingleAsync(item => item.Id == 200);
+            course.CourseSubjectId = subject.Id;
+            course.LearningPathId = path.Id;
+            course.CourseLevelId = await db.CourseLevels.Where(item => item.Name == "Beginner").Select(item => item.Id).SingleAsync();
+            await db.SaveChangesAsync();
+            return path.Id;
+        });
+        using var member = factory.UserClient(202, AppRole.Member);
+        using var trainer = factory.UserClient(200, AppRole.Trainer);
+        using var admin = factory.AdminClient();
+        using var submitted = await member.PostAsJsonAsync("/api/certificates/requests", new { enrollmentId = 200 });
+        var requestId = (await Body(submitted)).GetProperty("id").GetInt32();
+        using var reviewed = await trainer.PostAsJsonAsync($"/api/trainer/certificate-requests/{requestId}/review", new { decision = "Approve", reason = "Verified" });
+        Assert.Equal(HttpStatusCode.OK, reviewed.StatusCode);
+        var issues = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ =>
+            admin.PostAsync($"/api/admin/certificate-requests/{requestId}/issue", CertificatePdf("Verified"))));
+        foreach (var issued in issues) using (issued) Assert.Equal(HttpStatusCode.OK, issued.StatusCode);
+        Assert.Equal(1, await factory.ReadAsync(db => db.LearningPathCompletions.CountAsync(item => item.UserId == 202 && item.LearningPathId == pathId)));
+        Assert.Equal(1, await factory.ReadAsync(db => db.UserCertificates.CountAsync(item => item.UserId == 202 && item.LearningPathId == pathId)));
+    }
+
     [Theory]
     [InlineData(3, 60, false)]
     [InlineData(4, 59, false)]

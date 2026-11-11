@@ -69,7 +69,7 @@ export default function PublicCatalogPage() {
         <div className="g-segment" role="group" aria-label="Stage">
           {['', ...GUEST_LEVELS].map((value) => (
             <button key={value || 'all'} type="button" aria-pressed={level === value} onClick={() => setLevel(value)}>
-              {value || 'All stages'}
+              {value === 'Beginner' ? 'Foundation' : value || 'All stages'}
             </button>
           ))}
         </div>

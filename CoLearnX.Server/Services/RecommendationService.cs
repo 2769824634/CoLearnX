@@ -87,76 +87,88 @@ public sealed class RecommendationService(CoLearnXDbContext db)
     public async Task<RecommendationResponseDto> RecommendAsync(int userId, CancellationToken ct)
     {
         var now = DateTime.UtcNow;
-        var enrollments = await db.Enrollments.AsNoTracking()
-            .Include(e => e.CourseSession)
-            .Where(e => e.UserId == userId)
-            .OrderByDescending(e => e.CompletedAt ?? e.EnrolledAt)
-            .ToListAsync(ct);
-        var excluded = enrollments.Where(e => e.Status is EnrollmentStatus.Active or EnrollmentStatus.Completed or EnrollmentStatus.Reserved)
-            .Select(e => e.CourseId).ToHashSet();
-        var anchor = enrollments.FirstOrDefault(e => e.Status == EnrollmentStatus.Completed);
+        var completions = await db.LearningPathCompletions.AsNoTracking()
+            .Where(item => item.UserId == userId)
+            .OrderByDescending(item => item.CompletedAt).ToListAsync(ct);
+        var paths = await db.LearningPaths.AsNoTracking().Where(path => path.CourseSubjectId != null).ToListAsync(ct);
+        var pathBySubject = paths.ToDictionary(path => path.CourseSubjectId!.Value);
+        var highestByPath = completions.GroupBy(item => item.LearningPathId)
+            .ToDictionary(group => group.Key, group => group.Max(item => item.StageNumber));
+        var excluded = (await db.Enrollments.AsNoTracking().Where(item => item.UserId == userId)
+            .Select(item => item.CourseId).ToListAsync(ct)).ToHashSet();
+        var anchor = completions.FirstOrDefault();
         var target = anchor is null
-            ? (await db.UserInterests.AsNoTracking().Where(i => i.UserId == userId)
-                .Select(i => i.InterestId).ToListAsync(ct)).ToHashSet()
-            : (await db.CourseInterests.AsNoTracking().Where(i => i.CourseId == anchor.CourseId)
-                .Select(i => i.InterestId).ToListAsync(ct)).ToHashSet();
-        if (anchor is not null && target.Count == 0)
-            return new RecommendationResponseDto("sameLevel", [], anchor.CourseId);
-        var mode = "coldStart";
-        var desiredOrder = 1;
-        if (anchor is not null)
-        {
-            var level = await db.Courses.Where(c => c.Id == anchor.CourseId)
-                .Select(c => c.CourseLevel!.SortOrder).SingleAsync(ct);
-            var assessmentIds = await db.Assessments.Where(a => a.CourseIntakeId == anchor.CourseSession.CourseIntakeId)
-                .Select(a => new { a.Id, a.PassScore }).ToListAsync(ct);
-            var results = await db.AssessmentResults.Where(r => r.EnrollmentId == anchor.Id)
-                .Select(r => new { r.AssessmentId, r.Score }).ToListAsync(ct);
-            var qualified = anchor.ProgressPercent == 100 && assessmentIds.All(a =>
-                results.Any(r => r.AssessmentId == a.Id && r.Score >= a.PassScore));
-            desiredOrder = qualified ? Math.Min(level + 1, 3) : level;
-            mode = qualified ? (level >= 3 ? "mastery" : "nextLevel") : "sameLevel";
-        }
-        var courses = await db.Courses.AsNoTracking().AsSplitQuery()
-            .Include(c => c.CourseLevel).Include(c => c.Interests).ThenInclude(ci => ci.Interest)
-            .Include(c => c.Intakes).ThenInclude(i => i.Sessions)
-            .Where(c => c.Status == CourseStatus.Published && c.CourseLevel != null
-                && (c.CourseLevel.SortOrder == desiredOrder ||
-                    (mode == "nextLevel" && c.CourseLevel.SortOrder == desiredOrder - 1)))
+            ? (await db.UserInterests.AsNoTracking().Where(item => item.UserId == userId)
+                .Select(item => item.InterestId).ToListAsync(ct)).ToHashSet()
+            : (await db.CourseInterests.AsNoTracking().Where(item => item.CourseId == anchor.CourseId)
+                .Select(item => item.InterestId).ToListAsync(ct)).ToHashSet();
+        var selectedInterests = await db.Interests.AsNoTracking().Include(item => item.Parent)
+            .Where(item => target.Contains(item.Id)).ToListAsync(ct);
+        var areas = selectedInterests.Select(item => InterestSubjectMap.For(item.Parent?.Slug, item.Slug))
+            .Where(area => area != null).Select(area => area!.Value).ToHashSet();
+        var candidates = await db.Courses.AsNoTracking().AsSplitQuery()
+            .Include(course => course.CourseLevel).Include(course => course.CourseSubject)
+            .Include(course => course.Interests).ThenInclude(item => item.Interest)
+            .Include(course => course.Intakes).ThenInclude(intake => intake.Sessions)
+            .Where(course => course.Status == CourseStatus.Published && course.CourseLevelId != null && course.CourseSubjectId != null)
             .ToListAsync(ct);
-        bool IsEligible(Course c) => !excluded.Contains(c.Id) && c.Interests.Count is >= 1 and <= 4
-            && (target.Count == 0 || c.Interests.Any(ci => target.Contains(ci.InterestId)))
-            && c.Intakes.Any(i => i.Status == CourseIntakeStatus.Published
-                && i.RegistrationOpensAt <= now && i.RegistrationClosesAt > now
-                && i.Sessions.Any(s => s.PhysicalCapacity == 0 || (s.SeatsTaken < s.PhysicalCapacity
-                    && (s.PhysicalBookingDeadline == null || s.PhysicalBookingDeadline >= now))));
-        var eligible = courses.Where(c => c.CourseLevel!.SortOrder == desiredOrder && IsEligible(c)).ToList();
-        if (mode == "nextLevel" && eligible.Count == 0)
+        var eligible = candidates.Where(course =>
         {
-            mode = "mastery";
-            eligible = courses.Where(c => c.CourseLevel!.SortOrder == desiredOrder - 1 && IsEligible(c)).ToList();
-        }
-        var courseIds = eligible.Select(c => c.Id).ToArray();
-        var ratings = await db.ProgramRatings.AsNoTracking()
-            .Where(r => courseIds.Contains(r.Enrollment.CourseId))
-            .Select(r => new { r.Enrollment.CourseId, r.Stars }).ToListAsync(ct);
-        var byCourse = ratings.GroupBy(r => r.CourseId)
-            .ToDictionary(g => g.Key, g => new { Count = g.Count(), Average = g.Average(r => r.Stars) });
-        var items = eligible.Select(c =>
+            if (excluded.Contains(course.Id) || !pathBySubject.TryGetValue(course.CourseSubjectId!.Value, out var path)) return false;
+            if (anchor is not null)
+                return highestByPath.TryGetValue(path.Id, out var highest) && course.CourseLevel!.SortOrder >= highest;
+            return course.CourseLevel!.SortOrder == 1 &&
+                (target.Count == 0 || course.Interests.Any(item => target.Contains(item.InterestId)) || areas.Contains(course.CourseSubject!.Subject));
+        }).ToList();
+        var courseIds = eligible.Select(course => course.Id).ToArray();
+        var ratings = await db.ProgramRatings.AsNoTracking().Where(item => courseIds.Contains(item.Enrollment.CourseId))
+            .Select(item => new { item.Enrollment.CourseId, item.Stars }).ToListAsync(ct);
+        var byCourse = ratings.GroupBy(item => item.CourseId)
+            .ToDictionary(group => group.Key, group => new { Count = group.Count(), Average = group.Average(item => item.Stars) });
+        var stageRules = await db.LearningPathStages.AsNoTracking().ToListAsync(ct);
+        var awards = await db.UserCertificates.AsNoTracking()
+            .Where(item => item.UserId == userId && item.AdminApproved && item.LearningPathId != null)
+            .Select(item => new { PathId = item.LearningPathId!.Value, Stage = item.CertificateTemplate.StageNumber }).ToListAsync(ct);
+        var stageNames = new[] { "Foundation", "Intermediate", "Advanced" };
+        var items = eligible.Select(course =>
         {
-            var tags = c.Interests.Select(i => i.InterestId).ToHashSet();
-            var overlap = target.Intersect(tags).Count();
+            var path = pathBySubject[course.CourseSubjectId!.Value];
+            var level = course.CourseLevel!.SortOrder;
+            var highest = highestByPath.GetValueOrDefault(path.Id);
+            var rank = anchor is null ? 0 : level == Math.Min(highest + 1, 3) ? 0 : level == highest ? 1 : 2;
+            var missing = Enumerable.Range(1, Math.Clamp(level - 1, 0, 3)).Where(number =>
+            {
+                var rule = stageRules.FirstOrDefault(item => item.LearningPathId == path.Id && item.StageNumber == number);
+                return completions.Count(item => item.LearningPathId == path.Id && item.StageNumber == number) < (rule?.RequiredCourseCount ?? 1)
+                    && !awards.Any(item => item.PathId == path.Id && item.Stage == number);
+            }).Select(number => stageNames[number - 1]).ToArray();
+            var openIntakes = course.Intakes.Where(intake => intake.Status == CourseIntakeStatus.Published
+                && intake.RegistrationOpensAt <= now && intake.RegistrationClosesAt > now
+                && intake.Sessions.Any(session => session.StartsAt > now && (session.PhysicalCapacity == 0 || session.SeatsTaken < session.PhysicalCapacity))).ToList();
+            var open = openIntakes.Count > 0;
+            var nextClass = openIntakes.SelectMany(intake => intake.Sessions).Where(session => session.StartsAt > now)
+                .Select(session => (DateTime?)session.StartsAt).Min();
+            var tags = course.Interests.Select(item => item.InterestId).ToHashSet();
             var union = target.Union(tags).Count();
-            var jaccard = union == 0 ? 0d : (double)overlap / union;
-            byCourse.TryGetValue(c.Id, out var rating);
+            var similarity = union == 0 ? 0d : (double)target.Intersect(tags).Count() / union;
+            byCourse.TryGetValue(course.Id, out var rating);
             var count = rating?.Count ?? 0;
             var average = rating?.Average;
             var bayes = (count * (average ?? 3d) + 5 * 3d) / (count + 5);
-            var score = 0.55 * bayes / 5 + 0.30 * jaccard + 0.15;
-            return new RecommendationItemDto(c.Id, c.Code, c.Title, c.CourseLevel!.Name,
-                c.CreditCost, c.Interests.Select(i => new CourseInterestDto(i.InterestId,
-                    i.Interest.Slug, i.Interest.Name)).ToList(), average, count, score);
-        }).OrderByDescending(i => i.Score).ThenBy(i => i.CourseId).Take(8).ToList();
-        return new RecommendationResponseDto(mode, items, anchor?.CourseId);
+            var score = 0.55 * bayes / 5 + 0.30 * similarity + 0.15;
+            return new
+            {
+                Rank = rank, Missing = missing.Length, Open = open, NextClass = nextClass, Advanced = level > highest,
+                Item = new RecommendationItemDto(course.Id, course.Code, course.Title, course.CourseLevel.Name,
+                    course.CreditCost, course.Interests.Select(item => new CourseInterestDto(item.InterestId,
+                        item.Interest.Slug, item.Interest.Name)).ToList(), average, count, score,
+                    path.Name, missing.Length == 0 ? null : string.Join(", ", missing), open)
+            };
+        }).OrderBy(item => item.Rank).ThenBy(item => item.Missing).ThenByDescending(item => item.Open)
+          .ThenByDescending(item => item.Item.Score).ThenBy(item => item.NextClass).ThenBy(item => item.Item.CourseId)
+          .ToList();
+        var mode = anchor is null ? "coldStart" : items.Any(item => item.Advanced) ? "nextLevel" : "mastery";
+        return new RecommendationResponseDto(mode, items.Take(8).Select(item => item.Item).ToList(), anchor?.CourseId);
     }
+
 }

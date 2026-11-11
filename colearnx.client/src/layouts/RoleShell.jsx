@@ -37,6 +37,7 @@ const NAV = {
     { to: '/admin/class-dates', label: 'Class dates' },
     { to: '/admin/disputes', label: 'Disputes', pending: 'disputes' },
     { to: '/admin/pricing', label: 'Pricing' },
+    { to: '/admin/learning-paths', label: 'Learning paths' },
     { to: '/admin/audit', label: 'Audit Log' },
     { to: '/admin/account', label: 'My Account' },
   ],

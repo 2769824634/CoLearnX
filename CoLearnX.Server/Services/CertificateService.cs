@@ -26,12 +26,14 @@ public class CertificateService(CoLearnXDbContext db, IFileStorage files) : ICer
                 c.Id,
                 c.CertificateTemplate.StageName,
                 c.CertificateTemplate.StageNumber,
-                c.CertificateTemplate.Title,
+                c.CourseId == null ? c.CertificateTemplate.Title : "Course Certificate",
                 c.AwardedAt,
                 c.VerificationCode,
                 c.CourseId,
                 db.Courses.Where(course => course.Id == c.CourseId).Select(course => course.Code).FirstOrDefault(),
-                db.Courses.Where(course => course.Id == c.CourseId).Select(course => course.Title).FirstOrDefault()))
+                db.Courses.Where(course => course.Id == c.CourseId).Select(course => course.Title).FirstOrDefault(),
+                c.LearningPathId,
+                db.LearningPaths.Where(path => path.Id == c.LearningPathId).Select(path => path.Name).FirstOrDefault()))
             .ToListAsync(ct);
     }
 
@@ -55,10 +57,12 @@ public class CertificateService(CoLearnXDbContext db, IFileStorage files) : ICer
 
     private async Task<CertificateFile> RenderAsync(UserCertificate certificate, CancellationToken ct)
     {
-        var course = await CourseAsync(certificate.CourseId, ct);
+        var course = certificate.LearningPathId is int pathId
+            ? (Code: "", Title: await db.LearningPaths.Where(p => p.Id == pathId).Select(p => p.Name).SingleAsync(ct))
+            : await CourseAsync(certificate.CourseId, ct);
         var bytes = CertificatePdf.Create(certificate.User.FullName, course.Code, course.Title,
-            certificate.CertificateTemplate.StageName, certificate.AwardedAt, certificate.VerificationCode);
-        var stem = string.IsNullOrWhiteSpace(course.Code) ? "certificate" : course.Code;
+            certificate.CertificateTemplate.StageName, certificate.AwardedAt, certificate.VerificationCode, certificate.LearningPathId != null);
+        var stem = string.IsNullOrWhiteSpace(course.Code) ? course.Title : course.Code;
         var safe = new string(stem.Select(character => char.IsAsciiLetterOrDigit(character) ? character : '-').ToArray()).Trim('-');
         return new CertificateFile(bytes, $"{(safe.Length == 0 ? "certificate" : safe)}.pdf");
     }

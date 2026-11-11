@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
+using CoLearnX.Server.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -21,10 +22,17 @@ public class RecommendationWorkflowTests
         {
             var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
             var anchor = await db.Courses.SingleAsync(c => c.Code == "INFT 2002");
+            var subject = await db.CourseSubjects.SingleAsync(s => s.Name == "Software Development");
+            var path = await db.LearningPaths.SingleAsync(p => p.CourseSubjectId == subject.Id);
+            anchor.CourseSubjectId = subject.Id;
+            anchor.LearningPathId = path.Id;
+            await db.SaveChangesAsync();
+            var userId = await db.Users.Where(u => u.Email == SeedData.MemberEmail).Select(u => u.Id).SingleAsync();
+            await new LearningPathService(db).ReconcileUserAsync(userId);
             var leaf = await db.Interests.SingleAsync(i => i.Slug == "frontend-development");
             var course = new Course { Code = $"REC-{Guid.NewGuid():N}", Title = "Frontend Mastery",
                 TrainerId = anchor.TrainerId, CreatorId = anchor.CreatorId,
-                CreditCost = 20, CourseLevelId = anchor.CourseLevelId, LearningPathId = anchor.LearningPathId,
+                CreditCost = 20, CourseLevelId = anchor.CourseLevelId, LearningPathId = path.Id, CourseSubjectId = subject.Id,
                 Level = anchor.Level, Category = anchor.Category, Status = CourseStatus.Published };
             course.Interests.Add(new CourseInterest { InterestId = leaf.Id });
             db.Courses.Add(course);
@@ -39,7 +47,7 @@ public class RecommendationWorkflowTests
     }
 
     [Fact]
-    public async Task CompletedCourseUsesItsLeafTagsAndAssessmentGateForProgression()
+    public async Task CertifiedCourseDrivesProgressionEvenIfAssessmentsLaterChange()
     {
         using var factory = new CoLearnXApiFactory();
         using var member = await ApiClient.AsMemberAsync(factory);
@@ -49,11 +57,18 @@ public class RecommendationWorkflowTests
         {
             var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
             var anchor = await db.Courses.SingleAsync(c => c.Code == "INFT 2002");
+            var subject = await db.CourseSubjects.SingleAsync(s => s.Name == "Software Development");
+            var path = await db.LearningPaths.SingleAsync(p => p.CourseSubjectId == subject.Id);
+            anchor.CourseSubjectId = subject.Id;
+            anchor.LearningPathId = path.Id;
+            await db.SaveChangesAsync();
+            var userId = await db.Users.Where(u => u.Email == SeedData.MemberEmail).Select(u => u.Id).SingleAsync();
+            await new LearningPathService(db).ReconcileUserAsync(userId);
             var nextLevel = await db.CourseLevels.SingleAsync(l => l.Name == "Intermediate");
             var tag = await db.Interests.SingleAsync(i => i.Slug == "frontend-development");
             var course = new Course { Code = $"REC-{Guid.NewGuid():N}", Title = "Intermediate Frontend",
                 TrainerId = anchor.TrainerId, CreatorId = anchor.CreatorId,
-                CreditCost = 20, CourseLevelId = nextLevel.Id, LearningPathId = anchor.LearningPathId,
+                CreditCost = 20, CourseLevelId = nextLevel.Id, LearningPathId = path.Id, CourseSubjectId = subject.Id,
                 Level = nextLevel.Name, Category = "Programming", Status = CourseStatus.Published };
             course.Interests.Add(new CourseInterest { InterestId = tag.Id });
             db.Courses.Add(course);
@@ -77,9 +92,9 @@ public class RecommendationWorkflowTests
                 Title = "Progression gate", MaxScore = 100, PassScore = 60 });
             await db.SaveChangesAsync();
         }
-        var same = await member.GetFromJsonAsync<JsonObject>("/api/recommendations");
-        Assert.Equal("sameLevel", same!["mode"]!.GetValue<string>());
-        Assert.DoesNotContain(same["items"]!.AsArray(), item => item!["courseId"]!.GetValue<int>() == nextCourseId);
+        var afterAssessmentChange = await member.GetFromJsonAsync<JsonObject>("/api/recommendations");
+        Assert.Equal("nextLevel", afterAssessmentChange!["mode"]!.GetValue<string>());
+        Assert.Contains(afterAssessmentChange["items"]!.AsArray(), item => item!["courseId"]!.GetValue<int>() == nextCourseId);
     }
 
     [Fact]
@@ -94,7 +109,13 @@ public class RecommendationWorkflowTests
             var memberId = await db.Users.Where(u => u.Email == SeedData.MemberEmail).Select(u => u.Id).SingleAsync();
             var enrollments = await db.Enrollments.Where(e => e.UserId == memberId).ToListAsync();
             foreach (var enrollment in enrollments) enrollment.Status = EnrollmentStatus.Cancelled;
-            var beginner = await db.Courses.SingleAsync(c => c.Code == "INFT 2051");
+            var example = await db.Courses.SingleAsync(c => c.Code == "INFT 2051");
+            var subjectId = await db.CourseSubjects.Where(s => s.Name == "Software Development").Select(s => s.Id).SingleAsync();
+            var beginner = new Course { Code = $"REC-{Guid.NewGuid():N}", Title = "New beginner course", TrainerId = example.TrainerId,
+                CreatorId = example.CreatorId, CourseSubjectId = subjectId, CourseLevelId = example.CourseLevelId,
+                Level = "Beginner", CreditCost = 20, Status = CourseStatus.Published };
+            db.Courses.Add(beginner);
+            await db.SaveChangesAsync();
             beginnerId = beginner.Id;
             await OpenIntakeAsync(db, beginner);
             await db.SaveChangesAsync();

@@ -26,6 +26,8 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     public DbSet<CourseLevel> CourseLevels => Set<CourseLevel>();
     public DbSet<CourseSubject> CourseSubjects => Set<CourseSubject>();
     public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
+    public DbSet<LearningPathStage> LearningPathStages => Set<LearningPathStage>();
+    public DbSet<LearningPathCompletion> LearningPathCompletions => Set<LearningPathCompletion>();
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<CourseTrainer> CourseTrainers => Set<CourseTrainer>();
     public DbSet<CourseIntake> CourseIntakes => Set<CourseIntake>();
@@ -230,9 +232,27 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
         modelBuilder.Entity<LearningPath>(e =>
         {
             e.HasIndex(x => x.Name).IsUnique();
+            e.HasIndex(x => x.CourseSubjectId).IsUnique().HasFilter(sqlite ? "\"CourseSubjectId\" IS NOT NULL" : "[CourseSubjectId] IS NOT NULL");
+            e.HasOne(x => x.CourseSubject).WithMany().HasForeignKey(x => x.CourseSubjectId).OnDelete(DeleteBehavior.Restrict);
             var pathName = e.Property(x => x.Name).HasMaxLength(128);
             if (sqlite)
                 pathName.UseCollation("NOCASE");
+        });
+
+        modelBuilder.Entity<LearningPathStage>(e =>
+        {
+            e.HasIndex(x => new { x.LearningPathId, x.StageNumber }).IsUnique();
+            e.HasOne(x => x.LearningPath).WithMany().HasForeignKey(x => x.LearningPathId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<LearningPathCompletion>(e =>
+        {
+            e.HasIndex(x => new { x.UserId, x.CourseId }).IsUnique();
+            e.HasIndex(x => new { x.UserId, x.LearningPathId, x.StageNumber });
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Course>().WithMany().HasForeignKey(x => x.CourseId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<LearningPath>().WithMany().HasForeignKey(x => x.LearningPathId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<UserCertificate>().WithMany().HasForeignKey(x => x.CertificateId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<PriceTier>(e =>

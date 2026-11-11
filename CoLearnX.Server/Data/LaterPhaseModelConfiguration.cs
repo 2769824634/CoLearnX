@@ -9,6 +9,9 @@ internal static class LaterPhaseModelConfiguration
     {
         modelBuilder.Entity<UserCertificate>(entity =>
         {
+            entity.HasOne<LearningPath>().WithMany().HasForeignKey(item => item.LearningPathId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(item => new { item.UserId, item.LearningPathId, item.CertificateTemplateId }).IsUnique()
+                .HasFilter(sqlite ? "\"LearningPathId\" IS NOT NULL" : "[LearningPathId] IS NOT NULL");
             entity.Property(item => item.FilePath).HasMaxLength(512);
             entity.Property(item => item.OriginalFileName).HasMaxLength(260);
         });

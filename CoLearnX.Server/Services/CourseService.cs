@@ -97,7 +97,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         var creator = await RequireCreatorAsync(creatorUserId, ct);
 
         var input = await ValidateCourseInputAsync(
-            null, request.Code, request.CourseLevelId, request.LearningPathId, ct);
+            null, request.Code, request.CourseLevelId, request.LearningPathId, request.CourseSubjectId, ct);
         await RequireCreatorSpecialtyAsync(creatorUserId, request.CourseSubjectId, ct);
         var priced = await RequirePricedSubjectAsync(request.CourseSubjectId, input.Level, request.DurationHours, request.CreditCost, request.PriceExceptionReason, ct);
 
@@ -130,7 +130,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         EnsureEditable(course);
 
         var input = await ValidateCourseInputAsync(
-            courseId, request.Code, request.CourseLevelId, request.LearningPathId, ct);
+            courseId, request.Code, request.CourseLevelId, request.LearningPathId, request.CourseSubjectId, ct);
         await RequireCreatorSpecialtyAsync(creatorUserId, request.CourseSubjectId, ct);
         var priced = await RequirePricedSubjectAsync(request.CourseSubjectId, input.Level, request.DurationHours, request.CreditCost, request.PriceExceptionReason, ct);
         db.CourseLearningOutcomes.RemoveRange(course.LearningOutcomes);
@@ -212,7 +212,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
                 c.IsFeatured,
                 c.IsPlatformOwned ? PlatformIdentity.Name : c.Creator.FullName,
                 c.IsPlatformOwned,
-                c.LearningPath == null ? null : c.LearningPath.Name))
+                c.CourseSubject == null ? null : c.CourseSubject.Name))
             .ToListAsync(ct);
         if (courses.Count == 0) return [];
 
@@ -288,6 +288,9 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             .GroupBy(r => r.Enrollment.CourseId)
             .Select(g => new { Count = g.Count(), Average = (double?)g.Average(r => (double)r.Stars) })
             .FirstOrDefaultAsync(ct);
+        var suggestedPrerequisite = userId is int memberId
+            ? await new LearningPathService(db).GetSuggestedPrerequisiteAsync(memberId, course.CourseSubjectId, course.CourseLevelId, ct)
+            : null;
 
         return new CourseDetailDto(
             course.Id,
@@ -314,7 +317,8 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             course.Intakes.OrderBy(i => i.RegistrationClosesAt).FirstOrDefault()?.RegistrationOpensAt,
             course.Intakes.OrderBy(i => i.RegistrationClosesAt).FirstOrDefault()?.RegistrationClosesAt,
             course.IsPlatformOwned ? PlatformIdentity.Name : course.Creator.FullName,
-            PublicTrainerNames(course), course.LearningPath?.Name, course.IsPlatformOwned);
+            PublicTrainerNames(course), course.CourseSubjectId == null ? null : course.LearningPath?.Name, course.IsPlatformOwned,
+            suggestedPrerequisite);
     }
 
     private static string ContainsPattern(string search)
@@ -456,6 +460,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         string requestedCode,
         int courseLevelId,
         int learningPathId,
+        int courseSubjectId,
         CancellationToken ct)
     {
         var code = requestedCode.Trim();
@@ -468,7 +473,9 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
 
         var level = await db.CourseLevels.FindAsync([courseLevelId], ct)
             ?? throw new CourseException("COURSE_LEVEL_NOT_FOUND", "Select a valid Course level.", 400, "courseLevelId");
-        var path = await db.LearningPaths.FindAsync([learningPathId], ct)
+        if (learningPathId > 0 && !await db.LearningPaths.AnyAsync(path => path.Id == learningPathId, ct))
+            throw new CourseException("LEARNING_PATH_NOT_FOUND", "Select a valid Learning Path.", 400, "learningPathId");
+        var path = await db.LearningPaths.SingleOrDefaultAsync(candidate => candidate.CourseSubjectId == courseSubjectId, ct)
             ?? throw new CourseException("LEARNING_PATH_NOT_FOUND", "Select a valid Learning Path.", 400, "learningPathId");
         return (code, level, path);
     }

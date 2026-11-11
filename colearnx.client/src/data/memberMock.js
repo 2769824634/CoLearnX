@@ -2,6 +2,7 @@ export const MEMBER_NAV = [
   { id: 'home', label: 'Home' },
   { id: 'catalog', label: 'Courses' },
   { id: 'my-programs', label: 'My Programs' },
+  { id: 'learning-paths', label: 'Learning Paths' },
   { id: 'payment', label: 'Wallet' },
   { id: 'badges', label: 'Badges' },
   { id: 'profile', label: 'My Account' },

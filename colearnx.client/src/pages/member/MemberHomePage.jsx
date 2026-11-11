@@ -119,6 +119,8 @@ export default function MemberHomePage() {
                   <span className="cx-card-credits"><strong>{c.creditCost}</strong> Credits</span>
                 </div>
                 <h4 className="cx-card-title">{c.title}</h4>
+                {c.suggestedPrerequisite ? <p className="cx-card-people">Suggested first: {c.suggestedPrerequisite}</p> : null}
+                {c.hasOpenClass === false ? <p className="cx-card-people">No class currently open for registration</p> : null}
                 {c.interests?.length ? <p className="cx-card-people">{c.interests.map((item) => item.name).join(' · ')}</p> : null}
                 <p className="cx-card-rating">
                   {c.ratingCount > 0 && c.averageStars != null

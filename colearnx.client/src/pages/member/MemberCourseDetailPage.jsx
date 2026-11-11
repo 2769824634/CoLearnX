@@ -247,6 +247,7 @@ export default function MemberCourseDetailPage() {
                 ) : (
                   <button type="button" className="btn btn-primary btn-block cx-buy-cta" onClick={tryEnrol} disabled={!availability.canReserve}>{availability.canReserve ? 'Reserve place' : availability.label}</button>
                 )}
+                {course.suggestedPrerequisite ? <p className="callout">Suggested first: {course.suggestedPrerequisite}. You can still reserve a place in this course.</p> : null}
                 <button type="button" className={`btn btn-ghost btn-block cx-buy-wish${state.wishlist.includes(course.id) ? ' is-saved' : ''}`} onClick={() => toggleWish(course.id)}>
                   {state.wishlist.includes(course.id) ? '♥ Saved to Wishlist' : '+ Add to Wishlist'}
                 </button>

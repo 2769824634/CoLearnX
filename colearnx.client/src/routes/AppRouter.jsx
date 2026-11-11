@@ -15,6 +15,7 @@ import AdminAccountPage from '../pages/admin/AdminAccountPage';
 import AdminUsersPage from '../pages/admin/AdminUsersPage';
 import AdminDisputesPage from '../pages/admin/AdminDisputesPage';
 import AdminPricingPage from '../pages/admin/AdminPricingPage';
+import AdminLearningPathsPage from '../pages/admin/AdminLearningPathsPage';
 import AdminIntakeDatesPage from '../pages/admin/AdminIntakeDatesPage';
 import TrainerHomePage from '../pages/trainer/TrainerHomePage';
 import TrainerIntakesPage from '../pages/trainer/TrainerIntakesPage';
@@ -45,6 +46,7 @@ import MemberProgramsPage from '../pages/member/MemberProgramsPage';
 import MemberDisputesPage from '../pages/member/MemberDisputesPage';
 import MemberPaymentPage from '../pages/member/MemberPaymentPage';
 import MemberBadgesPage from '../pages/member/MemberBadgesPage';
+import MemberLearningPathsPage from '../pages/member/MemberLearningPathsPage';
 import MemberAccountPage from '../pages/member/MemberAccountPage';
 import CreatorUsagePage from '../pages/creator/CreatorUsagePage';
 import Modal from '../components/Modal';
@@ -102,6 +104,7 @@ function MemberArea() {
         <Route path="courses" element={<MemberCatalogPage />} />
         <Route path="courses/:courseId" element={<MemberCourseDetailPage />} />
         <Route path="programs" element={<MemberProgramsPage />} />
+        <Route path="learning-paths" element={<MemberLearningPathsPage />} />
         <Route path="disputes" element={<MemberDisputesPage />} />
         <Route path="payment" element={<MemberPaymentPage />} />
         <Route path="badges" element={<MemberBadgesPage />} />
@@ -178,6 +181,7 @@ export default function AppRouter() {
             <Route path="ledger" element={<LegacyLedgerRedirect />} />
             <Route path="disputes" element={<AdminDisputesPage />} />
             <Route path="pricing" element={<AdminPricingPage />} />
+            <Route path="learning-paths" element={<AdminLearningPathsPage />} />
             <Route path="audit" element={<AdminAuditLogsPage />} />
             <Route path="account" element={<AdminAccountPage />} />
             <Route index element={<Navigate to="home" replace />} />

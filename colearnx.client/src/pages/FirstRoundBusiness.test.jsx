@@ -74,6 +74,15 @@ it('blocks a legacy session with unknown dates before offering a balance top-up'
   expect(screen.queryByRole('heading', { name: 'Insufficient Credits' })).toBeNull();
 });
 
+it('shows a suggested earlier stage without disabling an open reservation', async () => {
+  const startsAt = new Date(Date.now() + 7 * 86400000).toISOString();
+  const endsAt = new Date(Date.now() + 7 * 86400000 + 7200000).toISOString();
+  mount(<MemberCourseDetailPage />, { loadCourseDetail: vi.fn().mockResolvedValue({ ...course, level: 'Advanced',
+    suggestedPrerequisite: 'Foundation, Intermediate', sessions: [{ id: 9, label: 'Class', startsAt, endsAt, capacity: 0, intakeStatus: 'Published' }] }) }, '/member/courses/1');
+  expect(await screen.findByText(/Suggested first: Foundation, Intermediate/)).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Reserve place' }).disabled).toBe(false);
+});
+
 it('retains completed tab and selected enrollment in the URL and confirms a resource refresh', async () => {
   const memberState = { ...state, enrolled: [{ enrollmentId: 3, id: 1, courseCode: 'ABC', courseTitle: 'ABC', status: 'completed', progress: 100 }, { enrollmentId: 4, id: 2, courseCode: 'XYZ', courseTitle: 'XYZ', status: 'completed', progress: 100 }] };
   mount(<MemberProgramsPage />, { state: memberState }, '/member/programs?tab=completed&enrollmentId=4');

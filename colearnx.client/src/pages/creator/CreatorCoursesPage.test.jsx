@@ -28,6 +28,13 @@ afterEach(() => {
 });
 
 describe('Creator Course workspace', () => {
+  it('assigns the learning path from the chosen subject instead of asking the creator', async () => {
+    stubCourseApi();
+    renderAt('/creator/courses/new');
+    await screen.findByRole('heading', { name: 'Create Course' });
+    expect(screen.getByLabelText('Subject')).toBeTruthy();
+    expect(screen.queryByLabelText('Learning path')).toBeNull();
+  });
   it('hides interests that cannot be selected for the chosen subject band', () => {
     render(<InterestPicker
       tree={[
@@ -89,7 +96,6 @@ describe('Creator Course workspace', () => {
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Inclusive Design' } });
     fireEvent.change(screen.getByLabelText('Course level'), { target: { value: '1' } });
     fireEvent.change(screen.getByLabelText('Subject'), { target: { value: '1' } });
-    fireEvent.change(screen.getByLabelText('Learning path'), { target: { value: '3' } });
     fireEvent.change(screen.getByLabelText('Duration (hours)'), { target: { value: '2' } });
     expect(screen.queryByRole('combobox', { name: 'Category (optional)' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -111,7 +117,7 @@ describe('Creator Course workspace', () => {
     expect(await screen.findByRole('heading', { name: 'Inclusive Design' })).toBeTruthy();
     const createRequest = globalThis.fetch.mock.calls.find(([path, options]) => path === '/api/creator/courses' && options?.method === 'POST');
     const payload = JSON.parse(createRequest[1].body);
-    expect(payload).toMatchObject({ code: 'CRT-44', title: 'Inclusive Design', courseLevelId: 1, courseSubjectId: 1, learningPathId: 3, durationHours: 2, creditCost: 40, interestIds: [5] });
+    expect(payload).toMatchObject({ code: 'CRT-44', title: 'Inclusive Design', courseLevelId: 1, courseSubjectId: 1, learningPathId: 0, durationHours: 2, creditCost: 40, interestIds: [5] });
     expect(payload.category).toBeUndefined();
     expect(globalThis.fetch.mock.calls.filter(([path, options]) => path === '/api/materials' && options?.method === 'POST')).toHaveLength(1);
   });

@@ -22,7 +22,7 @@ public interface ICertificateWorkflowService
     Task<CertificateRequestDto> IssueAsync(int adminAccountId, int requestId, string? reason, IFormFile? file, CancellationToken ct = default);
 }
 
-public sealed class CertificateWorkflowService(CoLearnXDbContext db, IFileStorage files) : ICertificateWorkflowService
+public sealed class CertificateWorkflowService(CoLearnXDbContext db, IFileStorage files, LearningPathService paths) : ICertificateWorkflowService
 {
     public async Task<IReadOnlyList<CertificateRequestDto>> ListForMemberAsync(int userId, CancellationToken ct = default)
     {
@@ -243,6 +243,7 @@ public sealed class CertificateWorkflowService(CoLearnXDbContext db, IFileStorag
             "Your certificate has been issued",
             "Your certificate is available on Badges & Certificates.");
         await db.SaveChangesAsync(ct);
+        await paths.ReconcileUserAsync(item.Enrollment.UserId, ct);
         return await GetDtoAsync(item.Id, ct);
     }
 

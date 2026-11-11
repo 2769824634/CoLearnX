@@ -56,8 +56,8 @@ export default function MemberBadgesPage() {
       </section>
       <section className="certificate-section" aria-labelledby="issued-heading"><h2 id="issued-heading">Issued certificates</h2>
         {!query.data.certificates.length ? <div className="card card-body"><p>No certificates yet. Complete a program and meet its attendance and assessment requirements to apply.</p><Link to="/member/programs">View my programs</Link></div> : <div className="certificate-grid">{query.data.certificates.map((certificate) => <article key={certificate.id} className="card certificate-card is-issued">
-          <AwardIcon /><span className="pill purple">Stage {certificate.stageNumber} · {certificate.stageName}</span><h3>{certificate.title}</h3>
-          {certificate.courseTitle ? <p>{certificate.courseCode} · {certificate.courseTitle}</p> : <p>Stage certificate</p>}
+          <AwardIcon /><span className="pill purple">{certificate.learningPathId ? certificate.stageName : 'Course'}</span><h3>{certificate.title}</h3>
+          {certificate.courseTitle ? <p>{certificate.courseCode} · {certificate.courseTitle}</p> : <p>{certificate.learningPathName || 'Stage certificate'}</p>}
           <p>Issued <DateLabel value={certificate.awardedAt} /></p><p className="certificate-verify-label">Verification number</p><code>{certificate.verificationCode}</code>
           <button type="button" className="btn btn-ghost" onClick={() => downloadFile(`/api/certificates/${certificate.id}/file`, `${certificate.courseCode || 'certificate'}.pdf`, query.token)}>Download PDF</button>
         </article>)}</div>}

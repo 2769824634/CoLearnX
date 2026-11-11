@@ -1,6 +1,7 @@
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
 using CoLearnX.Server.Domain;
+using CoLearnX.Server.Services;
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 
@@ -39,11 +40,13 @@ public static class SeedData
         await CourseTrainerSchema.EnsureAsync(db);
         await CourseSubjectSchema.EnsureAsync(db);
         await RoleCertificationSchema.EnsureAsync(db);
+        await LearningPathSchema.EnsureAsync(db);
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
         var verifiedAt = DateTime.UtcNow;
 
         await EnsureCourseTaxonomyAsync(db);
         await PricingSeed.EnsureAsync(db);
+        await LearningPathSchema.SeedPathsAsync(db);
         await RecommendationSeed.EnsureInterestsAsync(db);
 
         var adminAccount = await db.AdminAccounts.SingleOrDefaultAsync(
@@ -90,6 +93,7 @@ public static class SeedData
             await CourseTrainerSchema.BackfillAsync(db);
             await AlignFoundationCertificatesAsync(db);
             await EnsureDemoSpecialtiesAsync(db);
+            await new LearningPathService(db).ReconcileAllAsync();
             return;
         }
 
@@ -431,6 +435,7 @@ public static class SeedData
         await RecommendationSeed.EnsureCourseTagsAsync(db);
         await RecommendationSeed.EnsureDemoProfileAndRatingsAsync(db);
         await CourseTrainerSchema.BackfillAsync(db);
+        await new LearningPathService(db).ReconcileAllAsync();
     }
 
     private static async Task DisableStaffUsersAsync(CoLearnXDbContext db)

@@ -141,7 +141,8 @@ public record CourseDetailDto(
     string? CreatorName = null,
     IReadOnlyList<string>? TrainerNames = null,
     string? LearningPath = null,
-    bool IsPlatformOwned = false);
+    bool IsPlatformOwned = false,
+    string? SuggestedPrerequisite = null);
 
 public record WishlistResultDto(int CourseId, bool InWishlist);
 
@@ -233,7 +234,9 @@ public record CertificateDto(
     string VerificationCode,
     int? CourseId = null,
     string? CourseCode = null,
-    string? CourseTitle = null);
+    string? CourseTitle = null,
+    int? LearningPathId = null,
+    string? LearningPathName = null);
 
 public record MedalDto(string Area, string Name, string Material, string Requirement, string Progress);
 

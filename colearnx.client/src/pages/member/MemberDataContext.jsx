@@ -41,6 +41,7 @@ function mapCourseDetail(c) {
     outcomes: c.learningOutcomes || [],
     inWishlist: c.inWishlist,
     alreadyEnrolled: c.alreadyEnrolled,
+    suggestedPrerequisite: c.suggestedPrerequisite,
     interests: c.interests || [],
     averageStars: c.averageStars,
     ratingCount: c.ratingCount || 0,

@@ -125,7 +125,30 @@ public class LearningPath
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public int? CourseSubjectId { get; set; }
+    public CourseSubject? CourseSubject { get; set; }
     public ICollection<Course> Courses { get; set; } = new List<Course>();
+}
+
+public class LearningPathStage
+{
+    public int Id { get; set; }
+    public int LearningPathId { get; set; }
+    public int StageNumber { get; set; }
+    public int RequiredCourseCount { get; set; } = 1;
+    public LearningPath LearningPath { get; set; } = null!;
+}
+
+// Captures the path and stage at the time a course certificate is counted.
+public class LearningPathCompletion
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public int CourseId { get; set; }
+    public int LearningPathId { get; set; }
+    public int StageNumber { get; set; }
+    public int CertificateId { get; set; }
+    public DateTime CompletedAt { get; set; }
 }
 
 public class UserInterest
@@ -400,6 +423,7 @@ public class UserCertificate
     public int UserId { get; set; }
     public int CertificateTemplateId { get; set; }
     public int? CourseId { get; set; }
+    public int? LearningPathId { get; set; }
     public string VerificationCode { get; set; } = string.Empty;
     public DateTime AwardedAt { get; set; } = DateTime.UtcNow;
     public bool AdminApproved { get; set; }

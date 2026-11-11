@@ -60,9 +60,9 @@ export default function MemberCatalogPage() {
             <option value="">All learning paths</option>
             {learningPaths.map((path) => <option key={path}>{path}</option>)}
           </select>
-          <select value={level} onChange={(e) => setLevel(e.target.value)}>
-            <option value="">All Levels</option>
-            <option>Beginner</option>
+          <select aria-label="Stage" value={level} onChange={(e) => setLevel(e.target.value)}>
+            <option value="">All stages</option>
+            <option value="Beginner">Foundation</option>
             <option>Intermediate</option>
             <option>Advanced</option>
           </select>

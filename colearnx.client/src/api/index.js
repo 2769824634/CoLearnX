@@ -126,6 +126,14 @@ export const recommendationsApi = {
   my: () => apiRequest('/api/recommendations'),
 };
 
+export const learningPathsApi = {
+  my: (token, signal) => apiRequest('/api/learning-paths/my', { token, signal }),
+  adminList: (token, signal) => apiRequest('/api/admin/learning-paths', { token, signal }),
+  updateStage: (token, pathId, number, requiredCourseCount) => apiRequest(`/api/admin/learning-paths/${encodeURIComponent(pathId)}/stages/${encodeURIComponent(number)}`, {
+    method: 'PUT', token, body: { requiredCourseCount },
+  }),
+};
+
 export const creatorCoursesApi = {
   list: (token, signal) => apiRequest('/api/creator/courses', { token, signal }),
   options: (token, signal) => apiRequest('/api/creator/courses/options', { token, signal }),

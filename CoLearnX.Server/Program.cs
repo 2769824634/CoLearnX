@@ -89,6 +89,7 @@ builder.Services.AddScoped<IIntakeSettlementService, IntakeSettlementService>();
 if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService<IntakeSettlementWorker>();
 builder.Services.AddScoped<RecommendationService>();
+builder.Services.AddScoped<LearningPathService>();
 builder.Services.AddScoped<IMemberLearningHubService, MemberLearningHubService>();
 builder.Services.AddScoped<ICreditService, CreditService>();
 builder.Services.AddScoped<ICertificateService, CertificateService>();

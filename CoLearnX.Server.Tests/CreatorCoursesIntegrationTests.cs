@@ -45,7 +45,10 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
         Assert.Equal("Draft", course.GetProperty("status").GetString());
         Assert.Equal(SeedData.CreatorEmail, course.GetProperty("creatorEmail").GetString());
         Assert.Equal(1, course.GetProperty("courseLevelId").GetInt32());
-        Assert.Equal(1, course.GetProperty("learningPathId").GetInt32());
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        var expectedPathId = await db.LearningPaths.Where(path => path.CourseSubjectId == 1).Select(path => path.Id).SingleAsync();
+        Assert.Equal(expectedPathId, course.GetProperty("learningPathId").GetInt32());
         Assert.Equal(2, course.GetProperty("learningOutcomes").GetArrayLength());
         Assert.Equal($"/api/creator/courses/{course.GetProperty("id").GetInt32()}", response.Headers.Location?.OriginalString);
     }

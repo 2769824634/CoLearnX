@@ -109,7 +109,8 @@ public class FirstRoundPresentationRegressionTests
         Assert.True(detail.TryGetProperty("creatorName", out var creator));
         Assert.Equal(course.Creator.FullName, creator.GetString());
         Assert.True(detail.GetProperty("trainerNames").GetArrayLength() > 0);
-        Assert.Equal(course.LearningPath?.Name, detail.GetProperty("learningPath").GetString());
+        Assert.Null(course.CourseSubjectId);
+        Assert.Equal(JsonValueKind.Null, detail.GetProperty("learningPath").ValueKind);
         var reviews = await admin.GetFromJsonAsync<JsonElement>("/api/admin/courses?status=Published");
         var review = reviews.EnumerateArray().Single(x => x.GetProperty("id").GetInt32() == course.Id);
         Assert.Equal(course.CreatorId, review.GetProperty("submittedByUserId").GetInt32());
