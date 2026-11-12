@@ -11,12 +11,10 @@ const QUEUE_CARDS = [
   { key: 'roleRequests', number: '01 / Access', title: 'Role requests', to: '/admin/approvals?queue=roles',
     detail: 'Trainer and Creator applications awaiting a decision.', link: 'Open role requests' },
   { key: 'courses', number: '02 / Catalogue', title: 'Courses to review', to: '/admin/approvals?queue=courses',
-    detail: 'Submitted courses awaiting publication or feedback.', link: 'Open course reviews' },
-  { key: 'materialVersions', number: '03 / Materials', title: 'Material versions', to: '/admin/approvals?queue=materials',
-    detail: 'New material versions waiting before Trainers can use them.', link: 'Open material versions' },
-  { key: 'certificates', number: '04 / Certificates', title: 'Certificates', to: '/admin/approvals?queue=certificates',
+    detail: 'Submitted courses, and new files on published courses, awaiting a decision.', link: 'Open course reviews' },
+  { key: 'certificates', number: '03 / Certificates', title: 'Certificates', to: '/admin/approvals?queue=certificates',
     detail: 'Trainer-approved certificates awaiting final issue.', link: 'Open certificates' },
-  { key: 'disputes', number: '05 / Disputes', title: 'Disputes', to: '/admin/approvals?queue=disputes',
+  { key: 'disputes', number: '04 / Disputes', title: 'Disputes', to: '/admin/approvals?queue=disputes',
     detail: 'Open disputes awaiting a resolution.', link: 'Open disputes' },
 ];
 

@@ -113,6 +113,93 @@ public sealed class AdminCourseReviewTests : IClassFixture<CoLearnXApiFactory>
         Assert.Empty(secondNode["materialVersions"]!.AsArray());
     }
 
+    [Fact]
+    public async Task Publishing_a_course_approves_the_files_waiting_on_it()
+    {
+        using var creator = await ApiClient.AsCreatorAsync(_factory);
+        var course = await CreateCourseAsync(creator, $"With files {Guid.NewGuid():N}", await GetLeafInterestIdAsync());
+        var materialId = await UploadAsync(creator, course.Id, "with-course.pdf");
+        (await creator.PostAsync($"/api/creator/courses/{course.Id}/submit", null)).EnsureSuccessStatusCode();
+
+        using var admin = await ApiClient.AsOperationsAdminAsync(_factory);
+        var review = await admin.PostAsJsonAsync($"/api/admin/courses/{course.Id}/review", new { decision = "Approve" });
+        Assert.Equal(HttpStatusCode.OK, review.StatusCode);
+        var reviewed = JsonNode.Parse(await review.Content.ReadAsStringAsync())!["course"]!;
+        Assert.Equal(1, reviewed["materialVersionStatusCounts"]!["Approved"]!.GetValue<int>());
+        Assert.Equal(0, reviewed["materialVersionStatusCounts"]!["PendingApproval"]!.GetValue<int>());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        var version = await db.CourseMaterialVersions.Include(item => item.LearningMaterial)
+            .SingleAsync(item => item.LearningMaterialId == materialId);
+        Assert.Equal(MaterialVersionStatus.Approved, version.Status);
+        Assert.NotNull(version.ReviewedAt);
+        Assert.NotNull(version.ReviewedByAdminAccountId);
+        Assert.Equal(MaterialStatus.Approved, version.LearningMaterial.Status);
+        Assert.True(await db.AuditLogs.AnyAsync(log => log.Action == "MaterialVersionApproved"
+            && log.EntityId == version.Id.ToString()));
+    }
+
+    [Fact]
+    public async Task Rejecting_a_course_leaves_its_files_waiting()
+    {
+        using var creator = await ApiClient.AsCreatorAsync(_factory);
+        var course = await CreateCourseAsync(creator, $"Returned {Guid.NewGuid():N}", await GetLeafInterestIdAsync());
+        var materialId = await UploadAsync(creator, course.Id, "returned.pdf");
+        (await creator.PostAsync($"/api/creator/courses/{course.Id}/submit", null)).EnsureSuccessStatusCode();
+
+        using var admin = await ApiClient.AsOperationsAdminAsync(_factory);
+        (await admin.PostAsJsonAsync($"/api/admin/courses/{course.Id}/review",
+            new { decision = "Reject", reason = "Outline is incomplete." })).EnsureSuccessStatusCode();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        Assert.Equal(MaterialVersionStatus.PendingApproval,
+            (await db.CourseMaterialVersions.SingleAsync(item => item.LearningMaterialId == materialId)).Status);
+    }
+
+    [Fact]
+    public async Task Review_queue_lists_a_published_course_while_a_new_file_waits()
+    {
+        using var creator = await ApiClient.AsCreatorAsync(_factory);
+        var course = await CreateCourseAsync(creator, $"Live course {Guid.NewGuid():N}", await GetLeafInterestIdAsync());
+        (await creator.PostAsync($"/api/creator/courses/{course.Id}/submit", null)).EnsureSuccessStatusCode();
+        using var admin = await ApiClient.AsOperationsAdminAsync(_factory);
+        (await admin.PostAsJsonAsync($"/api/admin/courses/{course.Id}/review", new { decision = "Approve" })).EnsureSuccessStatusCode();
+        var before = await admin.GetFromJsonAsync<AdminPendingCountsDto>("/api/admin/pending-counts");
+
+        var materialId = await UploadAsync(creator, course.Id, "added-later.pdf");
+
+        var queue = JsonNode.Parse(await admin.GetStringAsync("/api/admin/courses?status=PendingApproval&includeNewMaterials=true"))!.AsArray();
+        var item = queue.Single(node => node!["id"]!.GetValue<int>() == course.Id)!;
+        Assert.Equal("Published", item["status"]!.GetValue<string>());
+        Assert.Equal(1, item["materialVersionStatusCounts"]!["PendingApproval"]!.GetValue<int>());
+        var plain = JsonNode.Parse(await admin.GetStringAsync("/api/admin/courses?status=PendingApproval"))!.AsArray();
+        Assert.DoesNotContain(plain, node => node!["id"]!.GetValue<int>() == course.Id);
+        var waiting = await admin.GetFromJsonAsync<AdminPendingCountsDto>("/api/admin/pending-counts");
+        Assert.Equal(before!.Courses + 1, waiting!.Courses);
+
+        int versionId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+            versionId = await db.CourseMaterialVersions.Where(v => v.LearningMaterialId == materialId).Select(v => v.Id).SingleAsync();
+        }
+        (await admin.PostAsJsonAsync($"/api/admin/material-versions/{versionId}/review", new { decision = "Approve" })).EnsureSuccessStatusCode();
+
+        queue = JsonNode.Parse(await admin.GetStringAsync("/api/admin/courses?status=PendingApproval&includeNewMaterials=true"))!.AsArray();
+        Assert.DoesNotContain(queue, node => node!["id"]!.GetValue<int>() == course.Id);
+        var cleared = await admin.GetFromJsonAsync<AdminPendingCountsDto>("/api/admin/pending-counts");
+        Assert.Equal(before.Courses, cleared!.Courses);
+    }
+
+    private static async Task<int> UploadAsync(HttpClient creator, int courseId, string fileName)
+    {
+        var upload = await creator.PostAsync("/api/materials", PdfForm($"File {Guid.NewGuid():N}", fileName, courseId));
+        upload.EnsureSuccessStatusCode();
+        return (await upload.Content.ReadFromJsonAsync<MaterialDto>(ApiJson.Options))!.Id;
+    }
+
     private async Task<int> GetLeafInterestIdAsync()
     {
         using var scope = _factory.Services.CreateScope();

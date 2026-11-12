@@ -15,7 +15,7 @@ vi.mock('./AdminRoleRequestsPage', () => ({ default: () => <div>Role queue</div>
 vi.mock('./AdminCourseReviewsPage', () => ({ default: () => <div>Course queue</div> }));
 vi.mock('./AdminLaterApprovalsPage', () => ({ default: () => <div>Later queue</div> }));
 
-const counts = (overrides = {}) => ({ roleRequests: 2, courses: 1, materialVersions: 0, certificates: 3, disputes: 4, ...overrides });
+const counts = (overrides = {}) => ({ roleRequests: 2, courses: 1, certificates: 3, disputes: 4, ...overrides });
 
 function renderPage(page, pending = null) {
   return render(
@@ -45,7 +45,6 @@ it('summarises every admin queue on the homepage with links to each queue', asyn
   expect(cards).toEqual([
     ['Role requests', '2', '/admin/approvals?queue=roles'],
     ['Courses to review', '1', '/admin/approvals?queue=courses'],
-    ['Material versions', '0', '/admin/approvals?queue=materials'],
     ['Certificates', '3', '/admin/approvals?queue=certificates'],
     ['Disputes', '4', '/admin/approvals?queue=disputes'],
   ]);
@@ -69,12 +68,11 @@ it('shows how many items wait in each approval queue tab', () => {
   expect(tabs.map((tab) => tab.getAttribute('aria-label'))).toEqual([
     'Role requests, 2 pending',
     'Course reviews, 1 pending',
-    null,
     'Certificates, 3 pending',
     'Disputes, 4 pending',
   ]);
-  expect(tabs[2].querySelector('.admin-approval-count')).toBeNull();
-  expect(tabs[3].querySelector('.admin-approval-count').textContent).toBe('3');
+  expect(tabs).toHaveLength(4);
+  expect(tabs[2].querySelector('.admin-approval-count').textContent).toBe('3');
 });
 
 it('offers the resources and outcomes that actually appear in the audit log', async () => {

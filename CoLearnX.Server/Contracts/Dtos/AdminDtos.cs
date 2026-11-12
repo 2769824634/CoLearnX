@@ -100,4 +100,4 @@ public record AdminCourseReviewResultDto(
 public record AdminUserSummaryDto(int Id, string FullName, string Email, int CreditBalance,
     int HeldCredits, bool IsActive, IReadOnlyList<string> Roles);
 
-public record AdminPendingCountsDto(int RoleRequests, int Courses, int MaterialVersions, int Certificates, int Disputes);
+public record AdminPendingCountsDto(int RoleRequests, int Courses, int Certificates, int Disputes);

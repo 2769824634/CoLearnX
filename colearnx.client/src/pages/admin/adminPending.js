@@ -6,7 +6,7 @@ export const AdminPendingContext = createContext(null);
 
 export function approvalTotal(counts) {
   if (!counts) return 0;
-  return counts.roleRequests + counts.courses + counts.materialVersions + counts.certificates;
+  return counts.roleRequests + counts.courses + counts.certificates;
 }
 
 export function pendingTotal(counts) {

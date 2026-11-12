@@ -13,7 +13,6 @@ export const adminLaterPhaseApi = {
   reviewDispute: (token, disputeId, body) => apiRequest(`/api/admin/disputes/${encodeURIComponent(disputeId)}/review`, {
     method: 'POST', token, body,
   }),
-  materialVersions: (token, status, signal) => apiRequest(`/api/admin/material-versions${status ? `?status=${encodeURIComponent(status)}` : ''}`, { token, signal }),
   reviewMaterial: (token, versionId, decision, reason) => apiRequest(`/api/admin/material-versions/${encodeURIComponent(versionId)}/review`, {
     method: 'POST', token, body: { decision, reason: reason || null },
   }),

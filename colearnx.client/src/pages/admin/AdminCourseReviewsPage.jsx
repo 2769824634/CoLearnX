@@ -20,6 +20,18 @@ function formatStatus(status) {
   return status === 'PendingApproval' ? 'Pending approval' : status;
 }
 
+const waitingFiles = (course) => course?.materialVersionStatusCounts?.PendingApproval ?? 0;
+// A published course returns to the queue only while a new file waits; then just the files are reviewed.
+const filesOnly = (course) => course?.status === 'Published' && waitingFiles(course) > 0;
+
+function withFileStatus(course, versionId, status) {
+  const materialVersions = (course.materialVersions || []).map((item) => item.versionId === versionId ? { ...item, status } : item);
+  const materialVersionStatusCounts = { ...(course.materialVersionStatusCounts || {}) };
+  for (const key of Object.keys(materialVersionStatusCounts)) materialVersionStatusCounts[key] = 0;
+  for (const item of materialVersions) materialVersionStatusCounts[item.status] = (materialVersionStatusCounts[item.status] ?? 0) + 1;
+  return { ...course, materialVersions, materialVersionStatusCounts };
+}
+
 function materialDownloadName(material) {
   const title = String(material.title || 'material')
     .replace(/[\\/:*?"<>|]+/g, '_')
@@ -44,12 +56,15 @@ export default function AdminCourseReviewsPage() {
   const [reviewing, setReviewing] = useState(false);
   const [materialDownloadId, setMaterialDownloadId] = useState(null);
   const [materialDownloadError, setMaterialDownloadError] = useState('');
+  const [fileBusyId, setFileBusyId] = useState(null);
+  const [fileError, setFileError] = useState('');
+  const [rejecting, setRejecting] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
 
-    adminCourseReviewsApi.list(token, filter === 'All' ? null : filter, controller.signal)
+    adminCourseReviewsApi.list(token, filter === 'All' ? null : filter, controller.signal, filter === 'PendingApproval')
       .then((items) => {
         if (!cancelled) {
           setCourses(items);
@@ -93,11 +108,41 @@ export default function AdminCourseReviewsPage() {
     setReviewError('');
     setReviewNotice('');
     setMaterialDownloadError('');
+    setFileError('');
+    setRejecting(null);
   }
 
   function closeReview() {
-    if (reviewing) return;
+    if (reviewing || fileBusyId !== null) return;
     setSelected(null);
+  }
+
+  // One file decided inside the course card. Publishing the course approves whatever is still waiting.
+  async function reviewFile(material, fileDecision, fileReason = '') {
+    if (fileBusyId !== null || reviewing) return;
+    setFileBusyId(material.versionId);
+    setFileError('');
+    try {
+      await adminLaterPhaseApi.reviewMaterial(token, material.versionId, fileDecision, fileReason.trim());
+      const updated = withFileStatus(selected, material.versionId, fileDecision === 'Approve' ? 'Approved' : 'Rejected');
+      const cleared = updated.status === 'Published' && waitingFiles(updated) === 0;
+      setCourses((items) => cleared && filter === 'PendingApproval'
+        ? items.filter((item) => item.id !== updated.id)
+        : items.map((item) => item.id === updated.id ? updated : item));
+      setRejecting(null);
+      if (cleared) {
+        setSelected(null);
+        setReviewNotice(`${updated.code} has no files waiting for review.`);
+      } else {
+        setSelected(updated);
+      }
+      pending?.refresh();
+    } catch (error) {
+      const reference = error?.traceId ? ` Reference: ${error.traceId}` : '';
+      setFileError(`The decision on this file could not be saved. Refresh the queue to check its status.${reference}`);
+    } finally {
+      setFileBusyId(null);
+    }
   }
 
   async function submitReview(event) {
@@ -154,7 +199,7 @@ export default function AdminCourseReviewsPage() {
         <div>
           <p className="admin-form-eyebrow">Catalogue review</p>
           <h1>Course reviews</h1>
-          <p>Publish only submitted courses that are ready for the learner catalogue.</p>
+          <p>Publish submitted courses together with their files. New files on a published course are reviewed here too.</p>
         </div>
         <div className="admin-review-count" aria-live="polite">
           <strong>{courses.length}</strong>
@@ -239,9 +284,14 @@ export default function AdminCourseReviewsPage() {
                       <span className={`admin-status ${course.status.toLowerCase()}`}>
                         {formatStatus(course.status)}
                       </span>
+                      {filesOnly(course) ? <span>{formatCount(waitingFiles(course), 'new file')}</span> : null}
                     </td>
                     <td className="admin-review-action">
-                      {course.status === 'PendingApproval' ? (
+                      {filesOnly(course) ? (
+                        <button type="button" className="btn btn-primary btn-sm" onClick={() => openReview(course)}>
+                          Review files
+                        </button>
+                      ) : course.status === 'PendingApproval' ? (
                         <button
                           type="button"
                           className="btn btn-primary btn-sm"
@@ -263,7 +313,7 @@ export default function AdminCourseReviewsPage() {
         ) : null}
       </section>
 
-      <Modal open={Boolean(selected)} title="Review course" onClose={closeReview} width={600}>
+      <Modal open={Boolean(selected)} title={filesOnly(selected) ? 'Review new files' : 'Review course'} onClose={closeReview} width={600}>
         {selected ? (
           <form onSubmit={submitReview}>
             <div className="admin-review-summary admin-course-summary">
@@ -291,7 +341,7 @@ export default function AdminCourseReviewsPage() {
               <h3>Learning outcomes</h3>
               {selected.learningOutcomes?.length ? <ul>{selected.learningOutcomes.map((outcome, index) => <li key={index}>{outcome}</li>)}</ul> : <p>No learning outcomes provided.</p>}
               <h3>Learning materials</h3>
-              <p>{formatCount(selected.materialVersionCount ?? selected.materialVersions?.length ?? 0, 'material version')}</p>
+              <p>{formatCount(selected.materialVersions?.length ?? selected.materialVersionCount ?? 0, 'file')}</p>
               {Object.entries(selected.materialVersionStatusCounts || {}).length ? (
                 <ul>
                   {Object.entries(selected.materialVersionStatusCounts).map(([status, count]) => (
@@ -315,13 +365,70 @@ export default function AdminCourseReviewsPage() {
                       >
                         {materialDownloadId === material.versionId ? 'Downloading…' : 'Download'}
                       </button>
+                      {material.status === 'PendingApproval' ? (
+                        <>
+                          {' '}
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            aria-label={`Approve ${material.title} v${material.versionNumber}`}
+                            onClick={() => reviewFile(material, 'Approve')}
+                            disabled={fileBusyId !== null || reviewing}
+                          >
+                            {fileBusyId === material.versionId && rejecting?.versionId !== material.versionId ? 'Saving…' : 'Approve file'}
+                          </button>
+                          {' '}
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            aria-label={`Reject ${material.title} v${material.versionNumber}`}
+                            onClick={() => { setRejecting({ versionId: material.versionId, reason: '' }); setFileError(''); }}
+                            disabled={fileBusyId !== null || reviewing}
+                          >
+                            Reject file
+                          </button>
+                          {rejecting?.versionId === material.versionId ? (
+                            <div className="form-group admin-review-reason">
+                              <label htmlFor={`file-reject-${material.versionId}`}>Reason for rejecting {material.title}</label>
+                              <textarea
+                                id={`file-reject-${material.versionId}`}
+                                maxLength={512}
+                                value={rejecting.reason}
+                                onChange={(event) => setRejecting({ versionId: material.versionId, reason: event.target.value })}
+                                placeholder="Tell the Creator what to change in this file."
+                              />
+                              <button
+                                type="button"
+                                className="btn admin-reject-button btn-sm"
+                                disabled={fileBusyId !== null || !rejecting.reason.trim()}
+                                onClick={() => reviewFile(material, 'Reject', rejecting.reason)}
+                              >
+                                {fileBusyId === material.versionId ? 'Saving…' : 'Confirm rejection'}
+                              </button>{' '}
+                              <button type="button" className="btn btn-ghost btn-sm" disabled={fileBusyId !== null} onClick={() => setRejecting(null)}>
+                                Keep file
+                              </button>
+                            </div>
+                          ) : null}
+                        </>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
               ) : <p>No learning materials linked.</p>}
               {materialDownloadError ? <p className="admin-review-inline-error" role="alert">{materialDownloadError}</p> : null}
+              {fileError ? <p className="admin-review-inline-error" role="alert">{fileError}</p> : null}
+              {!filesOnly(selected) && waitingFiles(selected) > 0 ? (
+                <p>Publishing the course also approves the {formatCount(waitingFiles(selected), 'file')} waiting for review. Reject a file here first if it should not be published.</p>
+              ) : null}
+              {filesOnly(selected) ? <p>This course is already published. Trainers and learners see a new file once you approve it.</p> : null}
             </div>
 
+            {filesOnly(selected) ? (
+              <div className="modal-actions">
+                <button type="button" className="btn btn-ghost" onClick={closeReview} disabled={fileBusyId !== null}>Close</button>
+              </div>
+            ) : <>
             <fieldset className="admin-decision-fieldset">
               <legend>Decision</legend>
               <div className="admin-decision-options">
@@ -380,6 +487,7 @@ export default function AdminCourseReviewsPage() {
                 {reviewing ? 'Saving…' : decision === 'Approve' ? 'Publish course' : 'Reject course'}
               </button>
             </div>
+            </>}
           </form>
         ) : null}
       </Modal>

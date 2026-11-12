@@ -7,8 +7,7 @@ import { useAdminPending } from './adminPending';
 
 const QUEUES = [
   { id: 'roles', label: 'Role requests', detail: 'Trainer & Creator', countKey: 'roleRequests' },
-  { id: 'courses', label: 'Course reviews', detail: 'Publish & reject', countKey: 'courses' },
-  { id: 'materials', label: 'Material versions', detail: 'Approve Trainer use', countKey: 'materialVersions' },
+  { id: 'courses', label: 'Course reviews', detail: 'Courses & their files', countKey: 'courses' },
   { id: 'certificates', label: 'Certificates', detail: 'Final issuance gate', countKey: 'certificates' },
   { id: 'disputes', label: 'Disputes', detail: 'Refund or reject', countKey: 'disputes' },
 ];
@@ -16,7 +15,8 @@ const QUEUES = [
 export default function AdminApprovalsPage() {
   const counts = useAdminPending()?.counts;
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedQueue = searchParams.get('queue');
+  // Files are reviewed with their course, so old links to the material queue land on course reviews.
+  const requestedQueue = searchParams.get('queue') === 'materials' ? 'courses' : searchParams.get('queue');
   const activeQueue = QUEUES.some((queue) => queue.id === requestedQueue) ? requestedQueue : 'roles';
 
   return (
@@ -55,8 +55,7 @@ export default function AdminApprovalsPage() {
       >
         {activeQueue === 'roles' ? <AdminRoleRequestsPage /> : null}
         {activeQueue === 'courses' ? <AdminCourseReviewsPage /> : null}
-        {activeQueue === 'materials' ? <AdminLaterApprovalsPage type="materials" /> : null}
-        {activeQueue === 'certificates' ? <AdminLaterApprovalsPage type="certificates" /> : null}
+        {activeQueue === 'certificates' ? <AdminLaterApprovalsPage /> : null}
         {activeQueue === 'disputes' ? <AdminDisputesPage /> : null}
       </div>
     </div>
