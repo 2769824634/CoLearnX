@@ -17,9 +17,6 @@
 a.creator-course-row { grid-template-columns: minmax(80px, 140px) minmax(0, 1fr) auto; color: inherit; text-decoration: none; transition: background-color .16s ease; }
 a.creator-course-row:hover { background: var(--chrome); }
 .creator-application-row + .creator-application-row { border-top: 1px solid var(--border); }
-.creator-course-item { display: flex; align-items: center; gap: 12px; padding-right: 20px; }
-.creator-course-item + .creator-course-item { border-top: 1px solid var(--border); }
-.creator-course-item > a.creator-course-row { flex: 1; min-width: 0; }
 .creator-next-step { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 .creator-field-label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
 .creator-field-value { margin: 0; padding: 9px 0; }

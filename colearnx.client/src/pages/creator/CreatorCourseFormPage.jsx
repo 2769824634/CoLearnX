@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { creatorCoursesApi, interestsApi, materialsApi } from '../../api';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import CourseMaterialsCard from './CourseMaterialsCard';
@@ -11,15 +11,12 @@ import { suggestInterests } from './suggestInterests';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 import { statusLabel } from '../trainer/intakeForm';
 
-// The key is a saved course id, "new", or "new:<id>" when a new course starts as a copy of that course.
-async function loadCourseForm(token, key, signal) {
-  const [courseId, copyFrom] = key.split(':');
-  const [options, interestTree, source] = await Promise.all([
+async function loadCourseForm(token, courseId, signal) {
+  const [options, interestTree] = await Promise.all([
     creatorCoursesApi.options(token, signal), interestsApi.tree(),
-    copyFrom ? creatorCoursesApi.get(token, copyFrom, signal) : null,
   ]);
   options.interestTree = Array.isArray(interestTree) ? interestTree : [];
-  if (courseId === 'new') return { course: null, source, options, materials: [] };
+  if (courseId === 'new') return { course: null, options, materials: [] };
   const [course, materials] = await Promise.all([
     creatorCoursesApi.get(token, courseId, signal),
     materialsApi.list(undefined, courseId, token, signal),
@@ -48,30 +45,26 @@ function titleFromFile(file) {
 
 export default function CreatorCourseFormPage() {
   const { courseId } = useParams();
-  const [searchParams] = useSearchParams();
-  const copyFrom = courseId ? '' : (searchParams.get('from') || '').replace(/\D/g, '');
-  const key = courseId || (copyFrom ? `new:${copyFrom}` : 'new');
+  const key = courseId || 'new';
   const query = useTrainerQuery(loadCourseForm, key);
 
   if (query.loading) return <section className="creator-page"><div className="creator-empty" role="status">Loading Course…</div></section>;
   if (query.error) return <section className="creator-page"><CreatorError error={query.error} onRetry={query.refresh} /></section>;
-  return <CourseEditor key={`${key}:${query.data.course?.status || 'new'}`} initialCourse={query.data.course} source={query.data.source} initialMaterials={query.data.materials} options={query.data.options} token={query.token} />;
+  return <CourseEditor key={`${key}:${query.data.course?.status || 'new'}`} initialCourse={query.data.course} initialMaterials={query.data.materials} options={query.data.options} token={query.token} />;
 }
 
-// A copy starts as a new draft: same definition, a new title, and a code the system assigns on save.
-function initialForm(initialCourse, source, options) {
-  const form = initialCourse ? toForm(initialCourse)
-    : source ? { ...toForm(source), code: '', title: `${source.title} (copy)` } : toForm(emptyCourse);
+function initialForm(initialCourse, options) {
+  const form = toForm(initialCourse || emptyCourse);
   const subjects = options.courseSubjects || [];
   return subjects.length === 1 && !form.courseSubjectId ? { ...form, courseSubjectId: String(subjects[0].id) } : form;
 }
 
-function CourseEditor({ initialCourse, source, initialMaterials, options, token }) {
+function CourseEditor({ initialCourse, initialMaterials, options, token }) {
   const navigate = useNavigate();
   const [course, setCourse] = useState(initialCourse);
   const [materials, setMaterials] = useState(initialMaterials || []);
   const [pendingFiles, setPendingFiles] = useState([]);
-  const [form, setForm] = useState(() => initialForm(initialCourse, source, options));
+  const [form, setForm] = useState(() => initialForm(initialCourse, options));
   const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(toPayload(toForm(initialCourse || emptyCourse))));
   const [roster, setRoster] = useState(null);
   const [classes, setClasses] = useState(null);
@@ -203,9 +196,7 @@ function CourseEditor({ initialCourse, source, initialMaterials, options, token 
   return <section className="creator-page">
     <Link className="creator-back" to="/creator/courses">← Courses</Link>
     <CreatorHeader eyebrow={course ? course.code : 'New Course'} title={title} action={course ? <div className="creator-header-actions"><span className={`creator-status ${course.status.toLowerCase()}`}>{statusLabel(course.status)}</span><button type="button" className="btn btn-primary" onClick={() => setUploadOpen(true)}>Upload materials</button></div> : null}>
-      {course ? null
-        : source ? `A copy of ${source.code} ${source.title}. Change what differs, then save it as a new draft. Materials are not copied.`
-          : 'Three steps: basic information, materials, then interests and price. The Course is saved when you finish the last step.'}
+      {course ? null : 'Three steps: basic information, materials, then interests and price. The Course is saved when you finish the last step.'}
     </CreatorHeader>
     {course ? <CourseNextStep step={nextStep(course, roster, classes)} onAction={onNextStep} disabled={busy} /> : null}
     <CreatorError error={error} />

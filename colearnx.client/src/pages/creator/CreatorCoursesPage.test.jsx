@@ -96,27 +96,15 @@ describe('Creator Course workspace', () => {
     expect('code' in payload).toBe(false);
   });
 
-  it('offers a Duplicate link for each course and opens the copy as a new draft', async () => {
+  it('opens a blank course form when an old duplicate link is used', async () => {
     stubCourseApi({ existing: course({ id: 12, code: 'SD-B-001', title: 'Inclusive Design', description: 'Design for everyone.', interestIds: [5], status: 'Published' }) });
     renderAt('/creator/courses/new?from=12');
 
     expect(await screen.findByRole('heading', { name: 'Create Course' })).toBeTruthy();
-    expect(screen.getByText(/A copy of SD-B-001 Inclusive Design\./)).toBeTruthy();
-    expect(screen.getByLabelText('Title').value).toBe('Inclusive Design (copy)');
-    expect(screen.getByLabelText('Description').value).toBe('Design for everyone.');
-    expect(screen.getByLabelText('Course level').value).toBe('1');
-    expect(screen.getByLabelText('Duration (hours)').value).toBe('2');
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByLabelText('Credit cost').value).toBe('40');
-    expect(screen.getByRole('button', { name: 'Remove Web Development' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
-
-    await vi.waitFor(() => expect(globalThis.fetch.mock.calls.some(([path, options]) => path === '/api/creator/courses' && options?.method === 'POST')).toBe(true));
-    const [, request] = globalThis.fetch.mock.calls.find(([path, options]) => path === '/api/creator/courses' && options?.method === 'POST');
-    expect(JSON.parse(request.body)).toMatchObject({ title: 'Inclusive Design (copy)', interestIds: [5] });
-    expect('code' in JSON.parse(request.body)).toBe(false);
-    expect(globalThis.fetch.mock.calls.some(([, options]) => options?.method === 'PUT')).toBe(false);
+    expect(screen.getByLabelText('Title').value).toBe('');
+    expect(screen.getByLabelText('Description').value).toBe('');
+    expect(screen.queryByText(/A copy of/)).toBeNull();
+    expect(globalThis.fetch.mock.calls.some(([path]) => path === '/api/creator/courses/12')).toBe(false);
   });
 
   it('shows creator-owned courses on one course workspace', async () => {
@@ -137,7 +125,7 @@ describe('Creator Course workspace', () => {
 
     expect(await screen.findByRole('heading', { name: 'Course workspace' })).toBeTruthy();
     expect(screen.getByRole('link', { name: /CRT-17/ }).getAttribute('href')).toBe('/creator/courses/17');
-    expect(screen.getByRole('link', { name: 'Duplicate Accessible Learning' }).getAttribute('href')).toBe('/creator/courses/new?from=17');
+    expect(screen.queryByRole('link', { name: /Duplicate/i })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Open →' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Classes' })).toBeNull();
     expect(screen.queryByRole('link', { name: /Open and publish classes/i })).toBeNull();
