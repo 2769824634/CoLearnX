@@ -152,3 +152,4 @@ a.creator-course-row:hover { background: var(--chrome); }
 /* Where the trainer stands on an Intake's schedule. */
 .creator-intake-trainer { margin: 16px 0; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: #fff; }
 .creator-intake-trainer .creator-section-heading { margin-top: 0; }
+.creator-row-statuses { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }

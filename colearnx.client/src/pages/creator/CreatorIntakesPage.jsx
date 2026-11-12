@@ -47,8 +47,11 @@ export default function CreatorIntakesPage({ course, onLoaded }) {
                 <h2><Link to={embedded ? `/creator/courses/${course.id}/intakes/${intake.id}` : `/creator/intakes/${intake.id}`}>{item?.title || item?.code || 'Course'}</Link></h2>
                 <p>{formatDate(intake.startsAt)} → {formatDate(intake.endsAt)}</p>
               </div>
-              <span className={`creator-status ${(intake.status || '').toLowerCase()}`}>{statusLabel(intake.status)}</span>
-              {isUnpublished(intake) ? <span className={`creator-status ${invitationOf(intake).tone}`}>{invitationOf(intake).label}</span> : null}
+              {/* One cell for both badges, so the row keeps its arrow on the same line. */}
+              <span className="creator-row-statuses">
+                <span className={`creator-status ${(intake.status || '').toLowerCase()}`}>{statusLabel(intake.status)}</span>
+                {isUnpublished(intake) ? <span className={`creator-status ${invitationOf(intake).tone}`}>{invitationOf(intake).label}</span> : null}
+              </span>
               <RowArrow />
             </article>;
           })}</div>}

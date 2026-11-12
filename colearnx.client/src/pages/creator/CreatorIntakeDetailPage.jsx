@@ -27,7 +27,7 @@ async function loadDetail(token, id, signal) {
 function invitationText(intake, name) {
   const state = intake.trainerInvitationStatus || 'NotSent';
   if (!isUnpublished(intake)) return `${name} accepted this schedule. You can still move a session that has not started; ${name} and booked learners are told.`;
-  if (intake.hasTrainer === false) return 'No trainer yet. Invite a certified trainer in this course’s specialty; they receive every session below.';
+  if (intake.hasTrainer === false) return 'Invite a certified trainer in this course’s specialty. They receive every session below and accept or decline the whole schedule.';
   if (state === 'Invited') return `Sent ${localDateTime(intake.trainerInvitedAt)}. ${name} is checking the dates. The schedule is locked until they reply.`;
   if (state === 'Accepted') return `${name} accepted the schedule ${localDateTime(intake.trainerRespondedAt)}, but the intake could not be published automatically. Publish it below, or withdraw the invitation to change the schedule.`;
   if (state === 'Declined') {
