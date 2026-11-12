@@ -58,6 +58,10 @@ export function IntakeWorkspace({ query, onOpenClass }) {
     minEnrollment: intake.minEnrollment ?? 10,
   };
   const sessions = [...(intake.sessions || [])].sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt));
+  // A class that was confirmed and has run is closed by the Creator once its last session has ended.
+  const completable = intake.status === 'InProgress' || (intake.status === 'Published' && Boolean(intake.confirmedToRunAt));
+  const lastSessionEnds = sessions.length ? Math.max(...sessions.map((session) => utcDate(session.endsAt).getTime())) : utcDate(intake.endsAt).getTime();
+  const finished = lastSessionEnds <= now;
 
   async function mutate(command, message) {
     if (busy) return;
@@ -110,6 +114,15 @@ export function IntakeWorkspace({ query, onOpenClass }) {
     {sessions.length ? <div className="creator-application-list creator-session-rows">{sessions.map((session) => <SessionCard key={session.id} session={session} editable={editable && !editor && !busy} onEdit={() => setEditor({ type: 'session', session })} onDelete={() => setEditor({ type: 'delete', session })} />)}</div> : <div className="creator-empty"><strong>No sessions yet</strong><p>Add a session before publishing.</p></div>}
     {editor?.type === 'delete' ? <div className="creator-confirm"><h2>Delete “{editor.session.label}”?</h2><button type="button" className="btn btn-primary" disabled={busy} onClick={() => mutate(() => creatorIntakesApi.deleteSession(query.token, intake.id, editor.session.id, intake.version), 'Session deleted.')}>Confirm deletion</button><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setEditor(null)}>Cancel</button></div> : null}
     {publishable ? <div className="creator-section-heading"><div><h2>Publish this class</h2><p>Publishing opens registration. It does not wait for a second approval.</p></div><button type="button" className="btn btn-primary" disabled={busy || !sessions.length} onClick={() => mutate(() => creatorIntakesApi.publish(query.token, intake.id, intake.version), 'Class published.')}>Publish</button></div> : null}
+    {intake.status === 'Completed' ? <p>This class is completed. The Trainer can still record attendance and final results, and learners can request their certificates.</p> : null}
+    {completable ? <div className="creator-section-heading"><div><h2>Complete this class</h2>
+      <p>{finished
+        ? 'Closes the class for everyone. The Trainer can still record attendance and final results. This cannot be undone.'
+        : `You can complete the class after the last session ends on ${localDateTime(new Date(lastSessionEnds))}.`}</p></div>
+      {editor?.type === 'complete'
+        ? <div className="trainer-actions"><button type="button" className="btn btn-primary" disabled={busy} onClick={() => mutate(() => creatorIntakesApi.complete(query.token, intake.id), 'Class completed.')}>Confirm completion</button><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setEditor(null)}>Keep class open</button></div>
+        : <button type="button" className="btn btn-primary" disabled={busy || !finished || Boolean(editor)} onClick={() => setEditor({ type: 'complete' })}>Complete class</button>}
+    </div> : null}
     {cancellable ? <div className="creator-section-heading"><div><h2>Cancel this class</h2><p>Reserved credits are released. Confirmed learners receive a full refund.</p></div>{editor?.type === 'cancel' ? <button type="button" className="btn btn-primary" disabled={busy} onClick={() => mutate(async () => { await creatorIntakesApi.cancel(query.token, intake.id); return creatorIntakesApi.get(query.token, intake.id); }, 'Class cancelled.')}>Confirm cancellation</button> : <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setEditor({ type: 'cancel' })}>Cancel class</button>}</div> : null}
   </>;
 }

@@ -38,6 +38,9 @@ public sealed class IntakeSettlementWorkerTests
 
         public Task FirstScan => _firstScan.Task;
 
+        public Task CompleteIntakeAsync(int creatorUserId, int intakeId, CancellationToken ct = default)
+            => throw new NotSupportedException();
+
         public Task ProcessDueAsync(CancellationToken ct = default)
         {
             _firstScan.TrySetResult();

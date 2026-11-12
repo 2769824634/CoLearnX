@@ -13,5 +13,6 @@ export const creatorIntakesApi = {
   deleteSession: (token, id, sessionId, version) => apiRequest(`${intakePath(id)}/sessions/${encodeURIComponent(sessionId)}?${new URLSearchParams({ version })}`, { method: 'DELETE', token }),
   publish: (token, id, version) => apiRequest(`${intakePath(id)}/publish`, { method: 'POST', token, body: { version } }),
   cancel: (token, id) => apiRequest(`${intakePath(id)}/cancel`, { method: 'POST', token }),
+  complete: (token, id) => apiRequest(`${intakePath(id)}/complete`, { method: 'POST', token }),
   postpone: (token, id, body) => apiRequest(`${intakePath(id)}/postpone`, { method: 'POST', token, body }),
 };

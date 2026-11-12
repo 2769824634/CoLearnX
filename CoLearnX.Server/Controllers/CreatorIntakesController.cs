@@ -64,6 +64,17 @@ public sealed class CreatorIntakesController(ICourseIntakeService intakes, IInta
         catch (CourseException error) { return StatusCode(error.StatusCode, new ApiError(error.Code, error.Message)); }
     }
 
+    [HttpPost("intakes/{courseIntakeId:int}/complete")]
+    public async Task<ActionResult<CourseIntakeDetailDto>> Complete(int courseIntakeId, CancellationToken ct)
+    {
+        try
+        {
+            await settlement.CompleteIntakeAsync(User.GetUserId(), courseIntakeId, ct);
+            return Ok(await intakes.GetForCreatorAsync(User.GetUserId(), courseIntakeId, ct));
+        }
+        catch (CourseException error) { return StatusCode(error.StatusCode, new ApiError(error.Code, error.Message)); }
+    }
+
     [HttpPost("intakes/{courseIntakeId:int}/postpone")]
     public async Task<ActionResult<CourseIntakeDetailDto>> Postpone(int courseIntakeId, [FromBody] CreateCourseIntakeRequest request, CancellationToken ct)
     {

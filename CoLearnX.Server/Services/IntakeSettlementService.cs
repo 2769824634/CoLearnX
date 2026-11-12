@@ -13,6 +13,7 @@ public interface IIntakeSettlementService
 {
     Task<IntakeSettlementResult> SettleIfDueAsync(int intakeId, CancellationToken ct = default);
     Task<IntakeSettlementResult> CancelIntakeAsync(int creatorUserId, int intakeId, CancellationToken ct = default);
+    Task CompleteIntakeAsync(int creatorUserId, int intakeId, CancellationToken ct = default);
     Task ProcessDueAsync(CancellationToken ct = default);
 }
 
@@ -71,6 +72,53 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db, IOptions<Earni
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
             return new IntakeSettlementResult(intakeId, false, enrollments.Count);
+        });
+    }
+
+    // The Creator closes a class once its last session has ended. Earnings were recorded when the class was
+    // confirmed, and the Trainer can still record attendance and final results afterwards.
+    public async Task CompleteIntakeAsync(int creatorUserId, int intakeId, CancellationToken ct = default)
+    {
+        await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            db.ChangeTracker.Clear();
+            await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+            var intake = await db.CourseIntakes.AsNoTracking().SingleOrDefaultAsync(i => i.Id == intakeId && i.Course.CreatorId == creatorUserId, ct)
+                ?? throw new CourseException("INTAKE_NOT_FOUND", "Owned Intake was not found.", 404);
+            if (intake.Status == CourseIntakeStatus.Completed)
+                return;
+            // A confirmed class may still read Published until the next minute tick moves it to In Progress.
+            var ran = intake.CancelledAt is null && (intake.Status == CourseIntakeStatus.InProgress
+                || (intake.Status == CourseIntakeStatus.Published && intake.ConfirmedToRunAt is not null));
+            if (!ran)
+                throw new CourseException("INTAKE_NOT_COMPLETABLE", "Only a class that was confirmed and has run can be completed.", 409);
+            var now = DateTime.UtcNow;
+            var lastSessionEnds = await db.CourseSessions.Where(s => s.CourseIntakeId == intakeId)
+                .MaxAsync(s => (DateTime?)s.EndsAt, ct) ?? intake.EndsAt;
+            if (lastSessionEnds > now)
+                throw new CourseException("CLASS_NOT_FINISHED",
+                    $"The last session ends {lastSessionEnds:u}. Complete the class after it has ended.", 409);
+            var changed = await db.CourseIntakes.Where(i => i.Id == intakeId && i.CancelledAt == null
+                    && (i.Status == CourseIntakeStatus.Published || i.Status == CourseIntakeStatus.InProgress))
+                .ExecuteUpdateAsync(setters => setters.SetProperty(i => i.Status, CourseIntakeStatus.Completed)
+                    .SetProperty(i => i.Version, Guid.NewGuid()), ct);
+            if (changed != 1)
+                return;
+            var course = await db.Courses.AsNoTracking().SingleAsync(c => c.Id == intake.CourseId, ct);
+            db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, EmailPending = true, Code = "N-intake-completed",
+                Title = "Class completed",
+                Body = $"{course.Code} Intake #{intakeId} was completed by the Creator. You can still record attendance and final results." });
+            var learnerIds = await db.Enrollments.Where(e => e.CourseSession.CourseIntakeId == intakeId
+                    && (e.Status == EnrollmentStatus.Active || e.Status == EnrollmentStatus.Completed))
+                .Select(e => new { e.UserId, e.Id }).ToListAsync(ct);
+            foreach (var learner in learnerIds)
+                db.Notifications.Add(new Notification { UserId = learner.UserId, IntakeId = intake.Id, EnrollmentId = learner.Id, EmailPending = true,
+                    Code = "N-class-completed", Title = "Class completed",
+                    Body = $"{course.Code} has finished. Once your Trainer records your final result, you can request your certificate." });
+            db.AuditLogs.Add(new AuditLog { UserId = creatorUserId, Action = "CourseIntakeCompleted",
+                EntityType = nameof(CourseIntake), EntityId = intakeId.ToString(), Result = "Succeeded" });
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
         });
     }
 
