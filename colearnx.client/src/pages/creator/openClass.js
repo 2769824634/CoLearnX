@@ -54,9 +54,8 @@ function invalid(field, message) {
   throw new ApiError('INVALID_FORM', message, 400, { [field]: [message] });
 }
 
-// Publishing waits for the Trainer to accept the schedule, so the form can only send it or keep a draft.
-export function openClassPayload(values, trainerId, sendToTrainer, now = new Date()) {
-  if (!trainerId) invalid('trainerId', 'Choose the Trainer who will teach this intake.');
+// The Intake is saved without a Trainer; the Creator invites one from the Intake afterwards.
+export function openClassPayload(values, now = new Date()) {
   const plan = planClass(values, now);
   if (plan.problem) invalid('sessionStarts', plan.problem);
   const meetingLink = String(values.meetingLink || '').trim() || null;
@@ -71,11 +70,10 @@ export function openClassPayload(values, trainerId, sendToTrainer, now = new Dat
     invalid('physicalCapacity', 'The room must hold at least the minimum number of learners.');
   }
   return {
-    trainerId: Number(trainerId),
     sessionStarts: plan.sessions.map((session) => session.start.toISOString()),
     sessionMinutes: Math.round(Number(values.sessionHours) * 60),
     registrationClosesDaysBefore: Number(values.closesDaysBefore),
-    meetingLink, physicalAddress, physicalCapacity, minEnrollment, publish: false, sendToTrainer: Boolean(sendToTrainer),
+    meetingLink, physicalAddress, physicalCapacity, minEnrollment, publish: false, sendToTrainer: false,
   };
 }
 

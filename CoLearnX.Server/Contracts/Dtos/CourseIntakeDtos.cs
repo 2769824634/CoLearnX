@@ -6,7 +6,7 @@ namespace CoLearnX.Server.Contracts.Dtos;
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record CreateCourseIntakeRequest([property: JsonRequired] DateTime RegistrationOpensAt,
     [property: JsonRequired] DateTime RegistrationClosesAt, [property: JsonRequired] DateTime StartsAt,
-    [property: JsonRequired] DateTime EndsAt, [property: JsonRequired] int TrainerId, int MinEnrollment = 10, int DaysBeforeTeaching = 0);
+    [property: JsonRequired] DateTime EndsAt, int? TrainerId, int MinEnrollment = 10, int DaysBeforeTeaching = 0);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public record UpdateCourseIntakeRequest([property: JsonRequired] DateTime RegistrationOpensAt,
     [property: JsonRequired] DateTime RegistrationClosesAt, [property: JsonRequired] DateTime StartsAt,
@@ -15,7 +15,7 @@ public record UpdateCourseIntakeRequest([property: JsonRequired] DateTime Regist
 // One step: the Creator says when the Intake meets; the registration window and every session are derived.
 // The Trainer must accept the schedule before the Intake can be published, so SendToTrainer replaces publishing here.
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public record OpenClassRequest([property: JsonRequired] int TrainerId,
+public record OpenClassRequest(int? TrainerId,
     [property: JsonRequired] IReadOnlyList<DateTime> SessionStarts, int SessionMinutes = 120,
     int RegistrationClosesDaysBefore = 2, DateTime? RegistrationOpensAt = null, string? MeetingLink = null,
     string? PhysicalAddress = null, int PhysicalCapacity = 0, int MinEnrollment = 3, bool Publish = false,
@@ -38,7 +38,7 @@ public record ProposedCourseSessionRequest(int? Id, [property: JsonRequired] str
     [property: JsonRequired] DateTime StartsAt, [property: JsonRequired] DateTime EndsAt,
     string? MeetingLink, string? PhysicalAddress, int PhysicalCapacity, DateTime? PhysicalBookingDeadline);
 public record CourseIntakeSummaryDto(int Id, int CourseId, int TrainerId, DateTime StartsAt, DateTime EndsAt, string Status, Guid Version,
-    string TrainerInvitationStatus = "NotSent");
+    string TrainerInvitationStatus = "NotSent", bool HasTrainer = true);
 public record CourseIntakeChangeDto(int ApplicationId, string Status, string RestoreStatus, DateTime SubmittedAt,
     string? ReviewNote, DateTime RegistrationOpensAt, DateTime RegistrationClosesAt, DateTime StartsAt,
     DateTime EndsAt, IReadOnlyList<ProposedCourseSessionRequest> Sessions);
@@ -51,7 +51,10 @@ public record CourseIntakeDetailDto(int Id, int CourseId, int TrainerId, DateTim
     DateTime? PostponementAvailableUntil = null, int ReservedEnrollmentCount = 0,
     int ActiveEnrollmentCount = 0, int RemainingToMinimum = 0, string? TrainerName = null,
     string TrainerInvitationStatus = "NotSent", DateTime? TrainerInvitedAt = null, DateTime? TrainerRespondedAt = null,
-    string? TrainerDeclineReason = null);
+    string? TrainerDeclineReason = null, bool HasTrainer = true);
+// The Creator picks a Trainer for one Intake and sends them its schedule in the same step.
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public record InviteIntakeTrainerRequest([property: JsonRequired] int TrainerId, [property: JsonRequired] Guid Version);
 public record TrainerReservationDto(int EnrollmentId, int CourseSessionId, string SessionLabel,
     string LearnerName, int CreditsHeld, DateTime ReservedAt);
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]

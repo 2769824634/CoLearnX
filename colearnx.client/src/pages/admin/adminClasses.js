@@ -85,8 +85,9 @@ export function filterClasses(rows, { status = '', trainerId = '', creatorId = '
     && (!creatorId || String(row.creatorId) === String(creatorId)));
 }
 
+// Rows without a name (an Intake that has no Trainer yet) are left out of the filter.
 export function peopleOptions(rows, idKey, nameKey) {
   const people = new Map();
-  rows.forEach((row) => people.set(row[idKey], row[nameKey]));
+  rows.forEach((row) => { if (row[nameKey]) people.set(row[idKey], row[nameKey]); });
   return [...people].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
 }

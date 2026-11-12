@@ -17,13 +17,10 @@ function Field({ name, label, error, children, hint, ...input }) {
 }
 
 // One screen: every session of the Intake, where it meets, and how long registration stays open.
-// The Trainer receives this whole schedule and must accept it before the Intake can be published.
-export default function OpenClassForm({ courses, trainers = [], onCourseChange, onSave, onCancel, busy, error, onError }) {
+// No Trainer is chosen here: the Creator invites one from the saved Intake, and they receive this whole schedule.
+export default function OpenClassForm({ courses, onSave, onCancel, busy, error, onError }) {
   const [values, setValues] = useState(() => defaultOpenClass());
   const [courseId, setCourseId] = useState('');
-  const [pickedTrainer, setPickedTrainer] = useState('');
-  // A single Trainer needs no choice.
-  const trainerId = pickedTrainer || (trainers.length === 1 ? String(trainers[0].trainerId) : '');
   const plan = planClass(values);
   const many = Number(values.sessionCount) > 1;
 
@@ -32,22 +29,18 @@ export default function OpenClassForm({ courses, trainers = [], onCourseChange, 
     setValues((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }));
     if (error) onError?.(null);
   };
-  function save(sendToTrainer) {
-    try { onSave(openClassPayload(values, trainerId, sendToTrainer), courseId); } catch (failure) { onError?.(failure); }
+  function save() {
+    try { onSave(openClassPayload(values), courseId); } catch (failure) { onError?.(failure); }
   }
 
-  return <form className="trainer-form" onSubmit={(event) => { event.preventDefault(); save(true); }}>
+  return <form className="trainer-form" onSubmit={(event) => { event.preventDefault(); save(); }}>
     <fieldset disabled={busy}><legend>Create an intake</legend>
-      <p>Enter every session of this intake. The trainer receives the whole schedule and accepts it before you publish, so the timetable stays fixed. Registration opens when you publish and closes before the first session. Times are in your local time zone ({localTimezone}).</p>
+      <p>Enter every session of this intake. After saving, invite a trainer from the intake; they receive the whole schedule, and the intake is published when they accept. Registration opens when you publish and closes before the first session. Times are in your local time zone ({localTimezone}).</p>
       {courses ? <Field name="courseId" label="Published course" value={courseId} required error={error}
-        onChange={(event) => { setCourseId(event.target.value); setPickedTrainer(''); onCourseChange?.(event.target.value); }}>
+        onChange={(event) => setCourseId(event.target.value)}>
         <option value="">Choose a published course</option>
         {courses.map((course) => <option key={course.id} value={course.id}>{course.code} — {course.title}</option>)}
       </Field> : null}
-      <Field name="trainerId" label="Trainer" value={trainerId} required error={error} onChange={(event) => setPickedTrainer(event.target.value)}>
-        <option value="">Choose a Trainer for this course</option>
-        {trainers.map((trainer) => <option key={trainer.trainerId} value={trainer.trainerId}>{trainer.fullName}</option>)}
-      </Field>
 
       <div className="trainer-form-grid">
         <Field name="firstDate" label="First session date" type="date" required min={dateInput(new Date())} value={values.firstDate} onChange={change} />
@@ -87,8 +80,7 @@ export default function OpenClassForm({ courses, trainers = [], onCourseChange, 
       </div>
     </fieldset>
     <div className="trainer-actions">
-      <button type="submit" className="btn btn-primary" disabled={busy || Boolean(plan.problem)}>{busy ? 'Saving…' : 'Send schedule to trainer'}</button>
-      <button type="button" className="btn btn-ghost" disabled={busy || Boolean(plan.problem)} onClick={() => save(false)}>Save as draft</button>
+      <button type="submit" className="btn btn-primary" disabled={busy || Boolean(plan.problem)}>{busy ? 'Saving…' : 'Save intake'}</button>
       {onCancel ? <button type="button" className="btn btn-ghost" disabled={busy} onClick={onCancel}>Cancel</button> : null}
     </div>
   </form>;

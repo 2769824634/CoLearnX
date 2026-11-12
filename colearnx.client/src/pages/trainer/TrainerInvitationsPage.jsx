@@ -73,13 +73,13 @@ export default function TrainerInvitationsPage() {
 
   return <section className="trainer-page">
     <TrainerHeader eyebrow="Course / Teaching invitations" title="Teaching invitations" action={<button type="button" className="btn btn-ghost" onClick={query.refresh} disabled={query.loading}>Refresh</button>}>
-      Review intake schedules Creators send you, or respond when a Creator invites you to a Course.
+      Review the intake schedules Creators send you. Accepting one adds you to that Course and publishes the intake.
     </TrainerHeader>
     <TrainerIntakeInvitations />
     {query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} />
       : <>
-        {!invitations.length ? <div className="trainer-empty"><h2>No teaching invitations yet</h2><p>Course invitations from Creators will appear here.</p></div> : null}
-        {GROUPS.map((group) => <InvitationGroup key={group.title} title={group.title} empty={group.empty} busyId={busyId} errors={errors} onAnswer={answer}
+        {/* Course invitations are no longer sent; one sent earlier still waits here until answered. */}
+        {GROUPS.filter((group) => group.title !== 'Waiting for you' || invitations.some((item) => item.status === 'Invited')).map((group) => <InvitationGroup key={group.title} title={group.title} empty={group.empty} busyId={busyId} errors={errors} onAnswer={answer}
           invitations={invitations.filter((item) => group.statuses.includes(item.status))} />)}
       </>}
   </section>;

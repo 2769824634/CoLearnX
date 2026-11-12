@@ -29,7 +29,6 @@ function SessionList({ sessions }) {
     <ol>{sessions.map((session) => <li key={session.id}>
       {session.label}: {localDateTime(session.startsAt)}–{timeLabel(utcDate(session.endsAt))}
       {session.physicalAddress ? ` · ${session.physicalAddress}` : session.meetingLink ? ' · online' : ''}
-      {session.clashes?.length ? <strong className="trainer-field-error"> Clashes with {session.clashes.map((clash) => `${clash.courseCode} ${clash.sessionLabel}`).join(', ')}</strong> : null}
     </li>)}</ol>
   </details>;
 }

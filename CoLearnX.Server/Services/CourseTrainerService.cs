@@ -10,7 +10,6 @@ public interface ICourseTrainerService
 {
     Task<IReadOnlyList<CourseTrainerDto>> ListAsync(int creatorId, int courseId, CancellationToken ct = default);
     Task<IReadOnlyList<TrainerCandidateDto>> SearchCandidatesAsync(int creatorId, int courseId, string? search, CancellationToken ct = default);
-    Task<CourseTrainerDto> InviteAsync(int creatorId, int courseId, int trainerId, CancellationToken ct = default);
     Task<CourseTrainerDto> RemoveAsync(int creatorId, int courseId, int trainerId, CancellationToken ct = default);
     Task<IReadOnlyList<CourseInvitationDto>> ListInvitationsAsync(int trainerId, CancellationToken ct = default);
     Task<CourseInvitationDto> RespondAsync(int trainerId, int invitationId, bool accept, CancellationToken ct = default);
@@ -56,47 +55,6 @@ public sealed class CourseTrainerService(CoLearnXDbContext db, INotificationReal
                 user.TrainerProfile == null ? null : user.TrainerProfile.Specialisations,
                 user.Specialties.OrderBy(item => item.CourseSubject.Name).Select(item => item.CourseSubject.Name).ToList()))
             .ToListAsync(ct);
-    }
-
-    public async Task<CourseTrainerDto> InviteAsync(int creatorId, int courseId, int trainerId, CancellationToken ct = default)
-    {
-        var course = await OwnedCourseAsync(creatorId, courseId, ct);
-        if (trainerId == creatorId)
-            throw new CourseException("CREATOR_CANNOT_TEACH", "A Creator cannot teach. Invite a Trainer account instead.", StatusCodes.Status400BadRequest);
-        var trainer = await ActiveTrainers().Include(user => user.TrainerProfile)
-            .SingleOrDefaultAsync(user => user.Id == trainerId, ct)
-            ?? throw new CourseException("TRAINER_NOT_FOUND", "This Trainer was not found or cannot teach right now.", StatusCodes.Status404NotFound);
-        if (course.CourseSubjectId is null
-            || !await db.UserSpecialties.AnyAsync(item => item.UserId == trainerId && item.CourseSubjectId == course.CourseSubjectId, ct))
-            throw new CourseException("TRAINER_SUBJECT_MISMATCH", "This Trainer is not certified in the specialty of this Course.", StatusCodes.Status409Conflict);
-        var row = await db.CourseTrainers.SingleOrDefaultAsync(item => item.CourseId == courseId && item.TrainerId == trainerId, ct);
-        if (row is { Status: CourseTrainerStatus.Invited or CourseTrainerStatus.Accepted })
-            throw new CourseException("TRAINER_ALREADY_INVITED", "This Trainer is already invited to or teaching this Course.", StatusCodes.Status409Conflict);
-
-        if (row is null)
-        {
-            row = new CourseTrainer { CourseId = courseId, TrainerId = trainerId };
-            db.CourseTrainers.Add(row);
-        }
-
-        row.Status = CourseTrainerStatus.Invited;
-        row.InvitedByUserId = creatorId;
-        row.InvitedAt = DateTime.UtcNow;
-        row.RespondedAt = null;
-        row.RemovedAt = null;
-        row.Trainer = trainer;
-
-        var notification = new Notification
-        {
-            UserId = trainerId, Code = "N-course-invitation", Title = "Teaching invitation", EmailPending = true,
-            Body = $"{course.Creator.FullName} invited you to teach {CourseName(course)}.",
-        };
-        db.Notifications.Add(notification);
-
-        await Audit(creatorId, "CourseTrainerInvited", row, ct);
-        await db.SaveChangesAsync(ct);
-        await PublishAsync(notification, ct);
-        return ToDto(row);
     }
 
     public async Task<CourseTrainerDto> RemoveAsync(int creatorId, int courseId, int trainerId, CancellationToken ct = default)

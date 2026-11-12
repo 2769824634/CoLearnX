@@ -3,13 +3,13 @@ import { defaultOpenClass, openClassPayload, planClass } from './openClass';
 
 const now = new Date(2026, 10, 12, 10, 0); // Thu 12 Nov 2026 10:00 local
 
-it('starts with values that can be sent to the trainer without touching a date', () => {
+it('starts with values that can be saved without touching a date', () => {
   const values = { ...defaultOpenClass(now), meetingLink: 'https://example.com/room' };
   expect(values.firstDate).toBe('2026-11-26');
   expect(values.firstTime).toBe('18:00');
   expect(planClass(values, now).problem).toBeNull();
-  const body = openClassPayload(values, 7, true, now);
-  expect(body).toMatchObject({ trainerId: 7, sessionMinutes: 120, registrationClosesDaysBefore: 2, minEnrollment: 3, publish: false, sendToTrainer: true, meetingLink: 'https://example.com/room' });
+  const body = openClassPayload(values, now);
+  expect(body).toMatchObject({ sessionMinutes: 120, registrationClosesDaysBefore: 2, minEnrollment: 3, publish: false, sendToTrainer: false, meetingLink: 'https://example.com/room' });
   expect(body.sessionStarts).toEqual([new Date(2026, 10, 26, 18, 0).toISOString()]);
 });
 
@@ -26,16 +26,15 @@ it('explains the earliest possible first session when the chosen one is too soon
   const plan = planClass({ ...defaultOpenClass(now), firstDate: '2026-11-13', firstTime: '09:00' }, now);
   expect(plan.problem).toMatch(/too soon/i);
   expect(plan.problem).toContain('14 Nov');
-  expect(() => openClassPayload({ ...defaultOpenClass(now), firstDate: '2026-11-13', firstTime: '09:00', meetingLink: 'https://example.com' }, 7, true, now)).toThrow(/too soon/i);
+  expect(() => openClassPayload({ ...defaultOpenClass(now), firstDate: '2026-11-13', firstTime: '09:00', meetingLink: 'https://example.com' }, now)).toThrow(/too soon/i);
 });
 
 it('requires a place to meet and a trainer', () => {
-  expect(() => openClassPayload(defaultOpenClass(now), 7, true, now)).toThrow(/meeting link or a physical location/i);
-  expect(() => openClassPayload({ ...defaultOpenClass(now), meetingLink: 'https://example.com' }, '', true, now)).toThrow(/trainer/i);
+  expect(() => openClassPayload(defaultOpenClass(now), now)).toThrow(/meeting link or a physical location/i);
 });
 
 it('sends a physical location only when one is included', () => {
-  const body = openClassPayload({ ...defaultOpenClass(now), physical: true, physicalAddress: ' Room 2 ', physicalCapacity: '12' }, 7, false, now);
+  const body = openClassPayload({ ...defaultOpenClass(now), physical: true, physicalAddress: ' Room 2 ', physicalCapacity: '12' }, now);
   expect(body).toMatchObject({ meetingLink: null, physicalAddress: 'Room 2', physicalCapacity: 12, publish: false, sendToTrainer: false });
 });
 

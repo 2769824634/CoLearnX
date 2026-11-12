@@ -6,7 +6,6 @@ const invitationPath = (id) => `/api/trainer/course-invitations/${encodeURICompo
 export const courseTrainersApi = {
   list: (token, courseId, signal) => apiRequest(rosterPath(courseId), { token, signal }),
   searchTrainers: (token, courseId, search, signal) => apiRequest(`/api/creator/trainers?courseId=${encodeURIComponent(courseId)}&search=${encodeURIComponent(search)}`, { token, signal }),
-  invite: (token, courseId, trainerId) => apiRequest(rosterPath(courseId), { method: 'POST', token, body: { trainerId } }),
   remove: (token, courseId, trainerId) => apiRequest(`${rosterPath(courseId)}/${encodeURIComponent(trainerId)}/remove`, { method: 'POST', token }),
   myInvitations: (token, signal) => apiRequest('/api/trainer/course-invitations', { token, signal }),
   accept: (token, id) => apiRequest(`${invitationPath(id)}/accept`, { method: 'POST', token }),

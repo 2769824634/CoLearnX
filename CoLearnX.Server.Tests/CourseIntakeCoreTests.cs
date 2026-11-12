@@ -504,7 +504,7 @@ public class CourseIntakeCoreTests
     }
 
     [Fact]
-    public async Task A_published_intake_keeps_every_session_the_trainer_accepted()
+    public async Task Editing_a_published_intake_cannot_reduce_its_duration_below_the_course_hours()
     {
         await using var f = await Fixture.CreateAsync();
         (await f.Db.Courses.SingleAsync()).DurationHours = 6;
@@ -514,7 +514,7 @@ public class CourseIntakeCoreTests
         opened = await f.Service.PublishAsync(1, opened.Id, opened.Version);
         var error = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.DeleteSessionAsync(
             1, opened.Id, opened.Sessions[0].Id, opened.Version));
-        Assert.Equal("SCHEDULE_LOCKED", error.Code);
+        Assert.Equal("SESSION_DURATION_INSUFFICIENT", error.Code);
         Assert.Equal(3, await f.Db.CourseSessions.CountAsync());
     }
 
@@ -688,10 +688,12 @@ public class CourseIntakeCoreTests
             var options = new DbContextOptionsBuilder<CoLearnXDbContext>().UseSqlite(connection).Options;
             var db = new CoLearnXDbContext(options);
             await db.Database.EnsureCreatedAsync();
+            db.CourseSubjects.Add(new CourseSubject { Id = 1, Name = "Design" });
             db.Users.AddRange(Enumerable.Range(1, 5).Select(id => new User { Id = id, Email = $"b1-{id}@example.com", FullName = $"User {id}",
                 CreditBalance = 100, IsActive = id != 4,
-                Roles = [new UserRole { Role = id switch { 1 => AppRole.Creator, 3 => AppRole.Member, _ => AppRole.Trainer } }] }));
-            db.Courses.Add(new Course { Id = 1, Code = "B1", Title = "B1 Test", TrainerId = Trainer, CreatorId = 1, Status = CourseStatus.Published, CreditCost = 20 });
+                Roles = [new UserRole { Role = id switch { 1 => AppRole.Creator, 3 => AppRole.Member, _ => AppRole.Trainer } }],
+                Specialties = id is 1 or 3 ? [] : [new UserSpecialty { CourseSubjectId = 1 }] }));
+            db.Courses.Add(new Course { Id = 1, Code = "B1", Title = "B1 Test", TrainerId = Trainer, CreatorId = 1, Status = CourseStatus.Published, CreditCost = 20, CourseSubjectId = 1 });
             db.CourseTrainers.Add(new CourseTrainer { CourseId = 1, TrainerId = Trainer, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 1, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow });
             await db.SaveChangesAsync();
             return new Fixture(connection, db, options);

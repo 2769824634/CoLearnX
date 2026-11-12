@@ -166,7 +166,7 @@ public sealed class AdminOverviewService(CoLearnXDbContext db, TimeProvider? clo
             {
                 i.Id, i.CourseId, i.Course.Code, i.Course.Title,
                 i.Course.CreatorId, CreatorName = i.Course.Creator.FullName,
-                i.TrainerId, TrainerName = i.Trainer.FullName,
+                i.TrainerId, TrainerName = i.TrainerId == i.Course.CreatorId ? null : i.Trainer.FullName,
                 i.StartsAt, i.EndsAt, i.Status, i.MinEnrollment,
             })
             .ToListAsync(ct);

@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { courseTrainersApi } from '../../api/courseTrainers';
-import { useAuth } from '../../auth/AuthContext';
 import Modal from '../../components/Modal';
 import { formatUtcDateTime } from '../businessPresentation';
 import useTrainerQuery from '../trainer/useTrainerQuery';
@@ -12,7 +11,6 @@ const STATUS = {
   Declined: { label: 'Declined', tone: 'rejected' },
   Removed: { label: 'Removed', tone: 'rejected' },
 };
-const SEARCH_DELAY_MS = 300;
 
 const loadRoster = (token, courseId, signal) => courseTrainersApi.list(token, courseId, signal);
 
@@ -27,62 +25,47 @@ function rowNote(row) {
   return `${row.status === 'Accepted' ? 'Joined' : 'Declined'} ${formatUtcDateTime(row.respondedAt || row.invitedAt)}`;
 }
 
-// The course page can open the invite dialog itself (inviteOpen / onInviteOpenChange); otherwise the card keeps that state.
-export default function CourseTrainersCard({ courseId, onLoaded, inviteOpen, onInviteOpenChange }) {
+// Who has taught or is teaching this Course. Trainers join it by accepting an Intake; they are invited from the Intake.
+export default function CourseTrainersCard({ courseId }) {
   const query = useTrainerQuery(loadRoster, String(courseId));
   const roster = Array.isArray(query.data) ? query.data : [];
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState(null);
-  const [ownInviting, setOwnInviting] = useState(false);
-  const inviting = inviteOpen ?? ownInviting;
-  const setInviting = onInviteOpenChange ?? setOwnInviting;
   const [removing, setRemoving] = useState(null);
 
-  // The course page reads the roster to tell the Creator what to do next.
-  useEffect(() => { if (Array.isArray(query.data)) onLoaded?.(query.data); }, [query.data, onLoaded]);
-
-  async function run(trainerId, action) {
+  async function remove(trainerId) {
     setBusyId(trainerId);
     setError(null);
     try {
-      const result = await action();
+      await courseTrainersApi.remove(query.token, courseId, trainerId);
       query.refresh();
-      return result;
     } catch (requestError) {
       setError(requestError);
-      return null;
     } finally {
       setBusyId(null);
     }
   }
 
-  const invite = (trainerId) => run(trainerId, () => courseTrainersApi.invite(query.token, courseId, trainerId));
-  const remove = (trainerId) => run(trainerId, () => courseTrainersApi.remove(query.token, courseId, trainerId));
-
   return <div className="card" id="course-trainers" style={{ marginTop: 16 }}>
-    <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-      <span>Trainers</span>
-      <button type="button" className="btn btn-primary btn-sm" onClick={() => setInviting(true)}>Invite trainer</button>
-    </div>
+    <div className="card-header"><span>Trainers</span></div>
     <div className="card-body">
-      <p className="page-sub" style={{ marginTop: 0 }}>Invite Trainers to teach this Course. Trainers who accept can be invited to teach an intake.</p>
+      <p className="page-sub" style={{ marginTop: 0 }}>Trainers join this Course when they accept an Intake.</p>
       <CreatorError error={error} />
       {query.loading ? <div className="creator-empty" role="status">Loading trainers…</div>
         : query.error ? <CreatorError error={query.error} onRetry={query.refresh} />
-          : !roster.length ? <div className="creator-empty">No trainers yet. Invite one to teach this course.</div>
+          : !roster.length ? <div className="creator-empty">No trainers yet. Invite one from an Intake.</div>
             : <ul className="later-resource-list">{roster.map((row) => <li key={row.trainerId}>
               <div><strong>{row.fullName}</strong><small>{row.headline || 'No headline yet'} · {rowNote(row)}</small></div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <StatusPill status={row.status} />
+                {/* An invitation sent before Intake invitations existed can still be withdrawn. */}
                 {row.status === 'Invited' ? <button type="button" className="btn btn-ghost btn-sm" disabled={busyId === row.trainerId} onClick={() => remove(row.trainerId)}>Withdraw</button> : null}
                 {row.status === 'Accepted' ? <button type="button" className="btn btn-ghost btn-sm" disabled={busyId === row.trainerId} onClick={() => setRemoving(row)}>Remove</button> : null}
-                {row.status === 'Declined' || row.status === 'Removed' ? <button type="button" className="btn btn-ghost btn-sm" disabled={busyId === row.trainerId} onClick={() => invite(row.trainerId)}>Invite again</button> : null}
               </div>
             </li>)}</ul>}
     </div>
-    {inviting ? <InviteDialog courseId={courseId} roster={roster} onInvite={invite} busyId={busyId} onClose={() => setInviting(false)} /> : null}
     <Modal open={Boolean(removing)} title={removing ? `Remove ${removing.fullName}?` : ''} onClose={() => setRemoving(null)}>
-      <p style={{ marginTop: 0 }}>They will no longer be available for new intakes of this Course. Intakes they already teach are not changed.</p>
+      <p style={{ marginTop: 0 }}>They leave this Course's list. Intakes they already teach are not changed, and they rejoin if they accept another Intake.</p>
       <div className="trainer-actions">
         <button type="button" className="btn btn-ghost" onClick={() => setRemoving(null)}>Cancel</button>
         <button type="button" className="btn btn-primary" disabled={busyId === removing?.trainerId} onClick={async () => {
@@ -93,73 +76,4 @@ export default function CourseTrainersCard({ courseId, onLoaded, inviteOpen, onI
       </div>
     </Modal>
   </div>;
-}
-
-function InviteDialog({ courseId, roster, onInvite, busyId, onClose }) {
-  const { token } = useAuth();
-  const [term, setTerm] = useState('');
-  const [results, setResults] = useState(null);
-  const [searchError, setSearchError] = useState(null);
-  const [sent, setSent] = useState('');
-  const timer = useRef(null);
-  const pending = useRef(null);
-  const statusById = new Map(roster.map((row) => [row.trainerId, row.status]));
-
-  const search = useCallback((value) => {
-    pending.current?.abort();
-    const controller = new AbortController();
-    pending.current = controller;
-    courseTrainersApi.searchTrainers(token, courseId, value, controller.signal).then(
-      (items) => {
-        if (controller.signal.aborted) return;
-        setSearchError(null);
-        setResults(Array.isArray(items) ? items : []);
-      },
-      (requestError) => { if (!controller.signal.aborted) setSearchError(requestError); },
-    );
-  }, [token, courseId]);
-
-  // The Creator may not know any Trainer by name, so matching trainers are listed as soon as the dialog opens.
-  useEffect(() => {
-    search('');
-    return () => {
-      clearTimeout(timer.current);
-      pending.current?.abort();
-    };
-  }, [search]);
-
-  function onChange(event) {
-    const value = event.target.value;
-    setTerm(value);
-    setSent('');
-    clearTimeout(timer.current);
-    pending.current?.abort();
-    timer.current = setTimeout(() => search(value.trim()), SEARCH_DELAY_MS);
-  }
-
-  async function invite(candidate) {
-    setSent('');
-    const result = await onInvite(candidate.id);
-    if (result) setSent(result.status === 'Accepted' ? `${candidate.fullName} was added to this Course.` : `Invitation sent to ${candidate.fullName}.`);
-  }
-
-  return <Modal open title="Invite a trainer" onClose={onClose}>
-    <div className="form-group">
-      <label htmlFor="course-trainer-search">Certified trainers in this specialty</label>
-      <input id="course-trainer-search" type="search" autoComplete="off" value={term} onChange={onChange} placeholder="Filter by name" data-modal-autofocus />
-    </div>
-    {sent ? <p role="status" style={{ color: 'var(--teal)' }}>{sent}</p> : null}
-    <CreatorError error={searchError} />
-    {results === null ? (searchError ? null : <p className="page-sub" role="status">Loading trainers…</p>)
-      : !results.length ? <p className="page-sub">{term.trim() ? `No trainers match “${term.trim()}”.` : 'No certified trainers in this specialty yet.'}</p>
-      : <ul className="later-resource-list">{results.map((candidate) => {
-        const status = statusById.get(candidate.id);
-        const onRoster = status === 'Invited' || status === 'Accepted';
-        return <li key={candidate.id}>
-          <div><strong>{candidate.fullName}</strong><small>{[(candidate.specialties || []).join(', '), candidate.headline, candidate.specialisations].filter(Boolean).join(' · ') || 'No profile details yet'}</small></div>
-          {onRoster ? <StatusPill status={status} />
-            : <button type="button" className="btn btn-primary btn-sm" disabled={busyId === candidate.id} onClick={() => invite(candidate)}>Invite</button>}
-        </li>;
-      })}</ul>}
-  </Modal>;
 }

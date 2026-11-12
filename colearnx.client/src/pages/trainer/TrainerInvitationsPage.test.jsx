@@ -62,7 +62,7 @@ it('moves an accepted invitation to My courses and a declined one to History', a
 
   fireEvent.click(within(within(waiting).getByText('Design 2').closest('article')).getByRole('button', { name: 'Decline' }));
   expect(await within(screen.getByRole('region', { name: 'History' })).findByText('Design 2')).toBeTruthy();
-  expect(within(waiting).getByText('No invitations are waiting for you.')).toBeTruthy();
+  expect(screen.queryByRole('region', { name: 'Waiting for you' })).toBeNull();
   expect(fetch.mock.calls.filter(([, init = {}]) => init.method === 'POST').map(([path]) => path))
     .toEqual(['/api/trainer/course-invitations/1/accept', '/api/trainer/course-invitations/2/decline']);
 });
@@ -76,7 +76,9 @@ it('keeps a failed answer in place and explains why', async () => {
   expect(within(waiting).getByText('Design 1')).toBeTruthy();
 });
 
-it('explains when there are no invitations yet', async () => {
+it('hides the course invitation group when nothing is waiting', async () => {
   renderPage([]);
-  expect(await screen.findByText('No teaching invitations yet')).toBeTruthy();
+  expect(await screen.findByText('No intake schedules are waiting for you.')).toBeTruthy();
+  expect(await screen.findByRole('region', { name: 'My courses' })).toBeTruthy();
+  expect(screen.queryByRole('region', { name: 'Waiting for you' })).toBeNull();
 });

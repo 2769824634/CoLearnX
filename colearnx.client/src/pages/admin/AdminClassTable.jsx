@@ -22,7 +22,7 @@ export default function AdminClassTable({ rows, onOpen, hideTrainer = false, hid
             <small>{row.courseCode} · Intake #{row.id}</small>
           </td>
           {hideCreator ? null : <td>{row.creatorName}</td>}
-          {hideTrainer ? null : <td>{row.trainerName}</td>}
+          {hideTrainer ? null : <td>{row.trainerName || 'No trainer yet'}</td>}
           <td className="admin-nowrap">{classDates(row).start}<small>to {classDates(row).end}</small></td>
           <td className="admin-nowrap">{timeLeftText(row)}</td>
           <td>{row.learners}<small className="admin-nowrap">min. {row.minEnrollment}</small></td>

@@ -9,7 +9,7 @@ public record AdminClassRowDto(
     int CreatorId,
     string CreatorName,
     int TrainerId,
-    string TrainerName,
+    string? TrainerName, // null while the Intake has no Trainer yet
     DateTime StartsAt,
     DateTime EndsAt,
     string Status,
