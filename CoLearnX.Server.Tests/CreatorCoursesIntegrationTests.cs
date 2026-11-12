@@ -381,6 +381,54 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
         Assert.Equal(HttpStatusCode.OK, enrol.StatusCode);
     }
 
+    [Fact]
+    public async Task Create_without_a_code_gets_the_next_system_code_for_the_subject_and_level()
+    {
+        using var client = await AsCreatorAsync();
+        object Request(string? code) => new
+        {
+            code,
+            title = "Generated Code Fixture",
+            courseLevelId = 1,
+            learningPathId = 1,
+            courseSubjectId = 1,
+            durationHours = 2,
+            creditCost = 40,
+        };
+
+        var first = await client.PostAsJsonAsync("/api/creator/courses", Request(null));
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        var firstCode = JsonNode.Parse(await first.Content.ReadAsStringAsync())!["code"]!.GetValue<string>();
+        Assert.Matches(@"^[A-Z]{2,4}-[BIA]-\d{3}$", firstCode);
+
+        var second = await client.PostAsJsonAsync("/api/creator/courses", Request(" "));
+        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
+        var secondNode = JsonNode.Parse(await second.Content.ReadAsStringAsync())!;
+        var secondCode = secondNode["code"]!.GetValue<string>();
+        Assert.Equal(firstCode[..^3], secondCode[..^3]);
+        Assert.Equal(int.Parse(firstCode[^3..]) + 1, int.Parse(secondCode[^3..]));
+
+        // Editing without sending a code keeps the one the course already has.
+        var update = await client.PutAsJsonAsync($"/api/creator/courses/{secondNode["id"]!.GetValue<int>()}", Request(null));
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        Assert.Equal(secondCode, JsonNode.Parse(await update.Content.ReadAsStringAsync())!["code"]!.GetValue<string>());
+
+        var own = $"CRT-{Guid.NewGuid():N}";
+        var chosen = await client.PostAsJsonAsync("/api/creator/courses", Request(own));
+        Assert.Equal(own, JsonNode.Parse(await chosen.Content.ReadAsStringAsync())!["code"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Interest_tree_names_the_subject_each_leaf_belongs_to()
+    {
+        using var client = await AsCreatorAsync();
+        var tree = await client.GetFromJsonAsync<JsonArray>("/api/interests");
+        var leaves = tree!.SelectMany(parent => parent!["children"]!.AsArray()).ToList();
+        var web = leaves.Single(leaf => leaf!["slug"]!.GetValue<string>() == "web-development");
+        Assert.Equal("Software Development", web!["subject"]!.GetValue<string>());
+        Assert.All(leaves, leaf => Assert.False(string.IsNullOrEmpty(leaf!["subject"]?.GetValue<string>())));
+    }
+
     private async Task<HttpClient> AsCreatorAsync()
         => await AsUserAsync(SeedData.CreatorEmail, "Creator");
 

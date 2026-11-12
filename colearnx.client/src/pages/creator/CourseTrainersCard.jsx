@@ -29,13 +29,16 @@ function rowNote(row) {
   return `${row.status === 'Accepted' ? 'Joined' : 'Declined'} ${formatUtcDateTime(row.respondedAt || row.invitedAt)}`;
 }
 
-export default function CourseTrainersCard({ courseId }) {
+export default function CourseTrainersCard({ courseId, onLoaded }) {
   const query = useTrainerQuery(loadRoster, String(courseId));
   const roster = Array.isArray(query.data) ? query.data : [];
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState(null);
   const [inviting, setInviting] = useState(false);
   const [removing, setRemoving] = useState(null);
+
+  // The course page reads the roster to tell the Creator what to do next.
+  useEffect(() => { if (Array.isArray(query.data)) onLoaded?.(query.data); }, [query.data, onLoaded]);
 
   async function run(trainerId, action) {
     setBusyId(trainerId);
@@ -56,13 +59,13 @@ export default function CourseTrainersCard({ courseId }) {
   const remove = (trainerId) => run(trainerId, () => courseTrainersApi.remove(query.token, courseId, trainerId));
   const review = (trainerId, accept) => run(trainerId, () => (accept ? courseTrainersApi.acceptRequest : courseTrainersApi.declineRequest)(query.token, courseId, trainerId));
 
-  return <div className="card" style={{ marginTop: 16 }}>
+  return <div className="card" id="course-trainers" style={{ marginTop: 16 }}>
     <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
       <span>Trainers</span>
       <button type="button" className="btn btn-primary btn-sm" onClick={() => setInviting(true)}>Invite trainer</button>
     </div>
     <div className="card-body">
-      <p className="page-sub" style={{ marginTop: 0 }}>Invite Trainers to teach this Course. Trainers who accept become available when you schedule an Intake.</p>
+      <p className="page-sub" style={{ marginTop: 0 }}>Invite Trainers to teach this Course. Trainers who accept become available when you open a class.</p>
       <CreatorError error={error} />
       {query.loading ? <div className="creator-empty" role="status">Loading trainers…</div>
         : query.error ? <CreatorError error={query.error} onRetry={query.refresh} />
@@ -83,7 +86,7 @@ export default function CourseTrainersCard({ courseId }) {
     </div>
     {inviting ? <InviteDialog courseId={courseId} roster={roster} onInvite={invite} busyId={busyId} onClose={() => setInviting(false)} /> : null}
     <Modal open={Boolean(removing)} title={removing ? `Remove ${removing.fullName}?` : ''} onClose={() => setRemoving(null)}>
-      <p style={{ marginTop: 0 }}>They will no longer be available for new Intakes of this Course. Intakes they already teach are not changed.</p>
+      <p style={{ marginTop: 0 }}>They will no longer be available for new classes of this Course. Classes they already teach are not changed.</p>
       <div className="trainer-actions">
         <button type="button" className="btn btn-ghost" onClick={() => setRemoving(null)}>Cancel</button>
         <button type="button" className="btn btn-primary" disabled={busyId === removing?.trainerId} onClick={async () => {
@@ -110,9 +113,12 @@ function InviteDialog({ courseId, roster, onInvite, busyId, onClose }) {
     pending.current?.abort();
     const controller = new AbortController();
     pending.current = controller;
-    setSearchError(null);
     courseTrainersApi.searchTrainers(token, courseId, value, controller.signal).then(
-      (items) => { if (!controller.signal.aborted) setResults(Array.isArray(items) ? items : []); },
+      (items) => {
+        if (controller.signal.aborted) return;
+        setSearchError(null);
+        setResults(Array.isArray(items) ? items : []);
+      },
       (requestError) => { if (!controller.signal.aborted) setSearchError(requestError); },
     );
   }, [token, courseId]);

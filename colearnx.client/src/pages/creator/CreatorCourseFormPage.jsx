@@ -1,17 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { creatorCoursesApi, interestsApi, materialsApi } from '../../api';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import CourseMaterialsCard from './CourseMaterialsCard';
 import CourseTrainersCard from './CourseTrainersCard';
 import CourseClassesSection from './CourseClassesSection';
+import CourseNextStep from './CourseNextStep';
+import { nextStep } from './courseNextStep';
+import { suggestInterests } from './suggestInterests';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 import { statusLabel } from '../trainer/intakeForm';
 
-async function loadCourseForm(token, courseId, signal) {
-  const [options, interestTree] = await Promise.all([creatorCoursesApi.options(token, signal), interestsApi.tree()]);
+// The key is a saved course id, "new", or "new:<id>" when a new course starts as a copy of that course.
+async function loadCourseForm(token, key, signal) {
+  const [courseId, copyFrom] = key.split(':');
+  const [options, interestTree, source] = await Promise.all([
+    creatorCoursesApi.options(token, signal), interestsApi.tree(),
+    copyFrom ? creatorCoursesApi.get(token, copyFrom, signal) : null,
+  ]);
   options.interestTree = Array.isArray(interestTree) ? interestTree : [];
-  if (courseId === 'new') return { course: null, options, materials: [] };
+  if (courseId === 'new') return { course: null, source, options, materials: [] };
   const [course, materials] = await Promise.all([
     creatorCoursesApi.get(token, courseId, signal),
     materialsApi.list(undefined, courseId, token, signal),
@@ -41,21 +49,33 @@ function titleFromFile(file) {
 
 export default function CreatorCourseFormPage() {
   const { courseId } = useParams();
-  const key = courseId || 'new';
+  const [searchParams] = useSearchParams();
+  const copyFrom = courseId ? '' : (searchParams.get('from') || '').replace(/\D/g, '');
+  const key = courseId || (copyFrom ? `new:${copyFrom}` : 'new');
   const query = useTrainerQuery(loadCourseForm, key);
 
   if (query.loading) return <section className="creator-page"><div className="creator-empty" role="status">Loading Course…</div></section>;
   if (query.error) return <section className="creator-page"><CreatorError error={query.error} onRetry={query.refresh} /></section>;
-  return <CourseEditor key={`${key}:${query.data.course?.status || 'new'}`} initialCourse={query.data.course} initialMaterials={query.data.materials} options={query.data.options} token={query.token} />;
+  return <CourseEditor key={`${key}:${query.data.course?.status || 'new'}`} initialCourse={query.data.course} source={query.data.source} initialMaterials={query.data.materials} options={query.data.options} token={query.token} />;
 }
 
-function CourseEditor({ initialCourse, initialMaterials, options, token }) {
+// A copy starts as a new draft: same definition, a new title, and a code the system assigns on save.
+function initialForm(initialCourse, source, options) {
+  const form = initialCourse ? toForm(initialCourse)
+    : source ? { ...toForm(source), code: '', title: `${source.title} (copy)` } : toForm(emptyCourse);
+  const subjects = options.courseSubjects || [];
+  return subjects.length === 1 && !form.courseSubjectId ? { ...form, courseSubjectId: String(subjects[0].id) } : form;
+}
+
+function CourseEditor({ initialCourse, source, initialMaterials, options, token }) {
   const navigate = useNavigate();
   const [course, setCourse] = useState(initialCourse);
   const [materials, setMaterials] = useState(initialMaterials || []);
   const [pendingFiles, setPendingFiles] = useState([]);
-  const [form, setForm] = useState(() => toForm(initialCourse || emptyCourse));
+  const [form, setForm] = useState(() => initialForm(initialCourse, source, options));
   const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(toPayload(toForm(initialCourse || emptyCourse))));
+  const [roster, setRoster] = useState(null);
+  const [classes, setClasses] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -75,6 +95,7 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
   // Moving forward only checks the fields on the current step; earlier steps were checked when they were left.
   function goTo(target) {
     if (target > step && !formRef.current?.reportValidity()) return;
+    if (target === lastStep) setForm(withSuggestions(options));
     movedRef.current = true;
     setStep(target);
     setReached((value) => Math.max(value, target));
@@ -169,17 +190,24 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
     }
   }
 
+  function onNextStep(action) {
+    if (action === 'submit') submitForApproval();
+    else if (action === 'edit') { goTo(0); formRef.current?.scrollIntoView?.({ block: 'start' }); }
+    else if (action === 'class') navigate(`/creator/courses/${course.id}/intakes/new`);
+    else document.getElementById(action === 'classes' ? 'course-classes' : 'course-trainers')?.scrollIntoView?.({ block: 'start' });
+  }
+
   const title = course ? course.title : 'Create Course';
   return <section className="creator-page">
     <Link className="creator-back" to="/creator/courses">← Courses</Link>
     <CreatorHeader eyebrow={course ? course.code : 'New Course'} title={title} action={course ? <div className="creator-header-actions"><span className={`creator-status ${course.status.toLowerCase()}`}>{statusLabel(course.status)}</span><button type="button" className="btn btn-primary" onClick={() => setUploadOpen(true)}>Upload materials</button></div> : null}>
-      {course
-        ? editable ? 'Review the course definition and submit it for Admin approval. After it is published, open a class from this page.'
-          : 'Upload materials, invite a Trainer, and open a class from this course.'
-        : 'Three steps: basic information, materials, then interests and price. The Course is saved when you finish the last step.'}
+      {course ? null
+        : source ? `A copy of ${source.code} ${source.title}. Change what differs, then save it as a new draft. Materials are not copied.`
+          : 'Three steps: basic information, materials, then interests and price. The Course is saved when you finish the last step.'}
     </CreatorHeader>
+    {course ? <CourseNextStep step={nextStep(course, roster, classes)} onAction={onNextStep} disabled={busy} /> : null}
     <CreatorError error={error} />
-    {course?.reviewReason ? <div className="creator-error"><strong>Admin feedback</strong><p>{course.reviewReason}</p></div> : null}
+    {course?.reviewReason && course.status !== 'Rejected' ? <div className="creator-error"><strong>Admin feedback</strong><p>{course.reviewReason}</p></div> : null}
     {!editable ? <CourseSummary course={course} options={options} /> : <>
       <ol className="creator-steps" aria-label="Course creation steps">
         {steps.map(([label], index) => <li key={label} data-state={index < step ? 'done' : index === step ? 'current' : 'todo'}>
@@ -211,8 +239,8 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
       </form>
     </>}
     {course ? <CourseMaterialsCard course={course} materials={materials} onMaterials={setMaterials} token={token} open={uploadOpen} onOpenChange={setUploadOpen} /> : null}
-    {course ? <CourseTrainersCard courseId={course.id} /> : null}
-    {course ? <CourseClassesSection course={course} /> : null}
+    {course ? <CourseTrainersCard courseId={course.id} onLoaded={setRoster} /> : null}
+    {course ? <CourseClassesSection course={course} onLoaded={setClasses} /> : null}
   </section>;
 }
 
@@ -279,17 +307,17 @@ function MaterialsStep({ pendingFiles, setPendingFiles, busy }) {
 
 const MAX_INTERESTS = 4;
 
-export function InterestPicker({ tree, selectedIds, onToggle, band }) {
+export function InterestPicker({ tree, selectedIds, onToggle, subjectName }) {
   const [query, setQuery] = useState('');
   const [activeId, setActiveId] = useState(null);
   const needle = query.trim().toLowerCase();
-  const allowed = (category, leaf) => !band || interestBand(category.slug, leaf.slug) === band;
+  const allowed = (leaf) => !subjectName || leaf.subject === subjectName;
   const selectedLeaves = tree.flatMap((category) => category.children || [])
     .filter((leaf) => selectedIds.includes(leaf.id));
   const atLimit = selectedIds.length >= MAX_INTERESTS;
   const groups = tree
     .map((category) => ({ category, leaves: (category.children || [])
-      .filter((leaf) => allowed(category, leaf) && leaf.name.toLowerCase().includes(needle)) }))
+      .filter((leaf) => allowed(leaf) && leaf.name.toLowerCase().includes(needle)) }))
     .filter((group) => group.leaves.length);
   const preferredId = groups.find((group) => group.leaves.some((leaf) => selectedIds.includes(leaf.id)))?.category.id
     ?? groups[0]?.category.id;
@@ -297,7 +325,7 @@ export function InterestPicker({ tree, selectedIds, onToggle, band }) {
 
   return <div className="creator-interests">
     <div className="creator-interest-status">
-      <p aria-live="polite">Selected {selectedIds.length} of {MAX_INTERESTS}{atLimit ? '. Uncheck one interest before choosing another.' : '.'}{band ? ' Only interests for the chosen subject are shown.' : ''}</p>
+      <p aria-live="polite">Selected {selectedIds.length} of {MAX_INTERESTS}{atLimit ? '. Uncheck one interest before choosing another.' : '.'}{subjectName ? ` Only interests for ${subjectName} are shown.` : ''}</p>
       <span className="creator-interest-meter" aria-hidden="true">
         {Array.from({ length: MAX_INTERESTS }, (_, index) => <span key={index} className={index < selectedIds.length ? 'filled' : ''} />)}
       </span>
@@ -330,51 +358,48 @@ export function InterestPicker({ tree, selectedIds, onToggle, band }) {
   </div>;
 }
 
-function interestBand(categorySlug, leafSlug) {
-  if (categorySlug === 'design') {
-    return ['user-experience-design', 'ui-visual-design', 'ux-research', 'web-design', 'design-systems'].includes(leafSlug)
-      ? 'DigitalTechnology'
-      : 'HumanitiesHealthCreative';
-  }
-  return {
-    development: 'DigitalTechnology',
-    'it-software': 'DigitalTechnology',
-    'data-ai': 'DigitalTechnology',
-    business: 'BusinessManagement',
-    'finance-accounting': 'BusinessManagement',
-    marketing: 'BusinessManagement',
-    'office-productivity': 'BusinessManagement',
-    art: 'HumanitiesHealthCreative',
-    'photography-video': 'HumanitiesHealthCreative',
-    'health-fitness': 'HumanitiesHealthCreative',
-    music: 'HumanitiesHealthCreative',
-    'language-learning': 'HumanitiesHealthCreative',
-    'personal-development': 'HumanitiesHealthCreative',
-    'teaching-academics': 'HumanitiesHealthCreative',
-  }[categorySlug] || null;
-}
-
 const fieldChanger = (setForm) => (field) => (event) => setForm((value) => ({ ...value, [field]: event.target.value }));
 
 function BasicFields({ form, options, setForm }) {
   const change = fieldChanger(setForm);
+  const onlySubject = (options.courseSubjects || []).length === 1 ? options.courseSubjects[0] : null;
   return <>
     <div className="creator-step-grid">
-      <div className="form-group"><label htmlFor="creator-course-code">Course code</label><input id="creator-course-code" required value={form.code} onChange={change('code')} /></div>
       <div className="form-group"><label htmlFor="creator-course-title">Title</label><input id="creator-course-title" required value={form.title} onChange={change('title')} /></div>
     </div>
     <div className="form-group"><label htmlFor="creator-course-description">Description</label><textarea id="creator-course-description" value={form.description} onChange={change('description')} /></div>
     <div className="creator-step-grid">
       <div className="form-group"><label htmlFor="creator-course-level">Course level</label><select id="creator-course-level" required value={form.courseLevelId} onChange={change('courseLevelId')}><option value="">Choose a level</option>{options.courseLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-      <div className="form-group"><label htmlFor="creator-course-subject">Subject</label><select id="creator-course-subject" required value={form.courseSubjectId} onChange={change('courseSubjectId')}><option value="">Choose a subject</option>{(options.courseSubjects || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
+      {onlySubject ? <div className="form-group"><span className="creator-field-label">Subject</span><p className="creator-field-value">{onlySubject.name} <small>(your certified specialty)</small></p></div>
+        : <div className="form-group"><label htmlFor="creator-course-subject">Subject</label><select id="creator-course-subject" required value={form.courseSubjectId} onChange={change('courseSubjectId')}><option value="">Choose a subject</option>{(options.courseSubjects || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>}
       <div className="form-group"><label htmlFor="creator-course-hours">Duration (hours)</label><input id="creator-course-hours" type="number" min="1" step="1" required value={form.durationHours} onChange={change('durationHours')} /></div>
     </div>
     <div className="form-group"><label htmlFor="creator-course-outcomes">Learning outcomes</label><textarea id="creator-course-outcomes" value={form.learningOutcomes} onChange={change('learningOutcomes')} placeholder="One outcome per line" /></div>
   </>;
 }
 
+// Filled in when the Creator reaches the last step, and only where they have not chosen anything yet.
+function withSuggestions(options) {
+  return (form) => {
+    const next = { ...form };
+    const cell = priceCell(form, options);
+    if (!form.creditCost && cell) next.creditCost = String(Math.round((cell.minCredits + cell.maxCredits) / 2 / 5) * 5);
+    if (!form.interestIds.length) {
+      const subject = subjectOf(form, options);
+      const leaves = (options.interestTree || []).flatMap((category) => category.children || [])
+        .filter((leaf) => subject && leaf.subject === subject.name);
+      next.interestIds = suggestInterests(form.title, leaves);
+    }
+    return next;
+  };
+}
+
+function subjectOf(form, options) {
+  return (options.courseSubjects || []).find((item) => String(item.id) === String(form.courseSubjectId));
+}
+
 function priceCell(form, options) {
-  const subject = (options.courseSubjects || []).find((item) => String(item.id) === String(form.courseSubjectId));
+  const subject = subjectOf(form, options);
   return (options.priceCells || []).find((item) => item.band === subject?.band && String(item.courseLevelId) === String(form.courseLevelId));
 }
 
@@ -382,16 +407,16 @@ function InterestPriceFields({ form, options, setForm }) {
   const change = fieldChanger(setForm);
   const cell = priceCell(form, options);
   const aboveRange = cell && Number(form.creditCost) > cell.maxCredits;
-  const subject = (options.courseSubjects || []).find((item) => String(item.id) === String(form.courseSubjectId));
+  const subject = subjectOf(form, options);
   const toggleInterest = (id) => setForm((value) => ({ ...value,
     interestIds: value.interestIds.includes(id) ? value.interestIds.filter((item) => item !== id)
       : value.interestIds.length < MAX_INTERESTS ? [...value.interestIds, id] : value.interestIds }));
   return <>
     <div className="form-group"><label htmlFor="creator-interest-search">Course interests (choose 1–4 leaves before submitting)</label>
-      <InterestPicker tree={options.interestTree || []} selectedIds={form.interestIds} onToggle={toggleInterest} band={subject?.band} />
+      <InterestPicker tree={options.interestTree || []} selectedIds={form.interestIds} onToggle={toggleInterest} subjectName={subject?.name} />
     </div>
     <div className="form-group creator-price-field"><label htmlFor="creator-course-cost">Credit cost</label><input id="creator-course-cost" type="number" min={cell ? cell.minCredits : undefined} max={cell ? cell.maxCredits * 2 : undefined} step="1" required value={form.creditCost} onChange={change('creditCost')} aria-describedby="creator-course-cost-hint" />
-      <small id="creator-course-cost-hint">{cell ? `Enter a whole number from ${cell.minCredits} to ${cell.maxCredits} credits. A higher price up to ${cell.maxCredits * 2} needs a reason.` : 'Choose a level and subject before setting the price.'}</small>
+      <small id="creator-course-cost-hint">{cell ? `Suggested from the standard range. You can change it. Enter a whole number from ${cell.minCredits} to ${cell.maxCredits} credits. A higher price up to ${cell.maxCredits * 2} needs a reason.` : 'Choose a level and subject before setting the price.'}</small>
     </div>
     {aboveRange ? <div className="form-group"><label htmlFor="creator-price-reason">Reason for a higher price</label><textarea id="creator-price-reason" required maxLength={500} value={form.priceExceptionReason} onChange={change('priceExceptionReason')} /></div> : null}
     <fieldset className="form-group">
@@ -425,6 +450,7 @@ function toForm(course) {
 function toPayload(form) {
   return {
     ...form,
+    code: form.code || undefined,
     courseLevelId: Number(form.courseLevelId),
     courseSubjectId: Number(form.courseSubjectId),
     learningPathId: Number(form.learningPathId),

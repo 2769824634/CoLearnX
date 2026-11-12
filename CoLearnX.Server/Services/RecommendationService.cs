@@ -15,7 +15,7 @@ public sealed class RecommendationService(CoLearnXDbContext db)
         return interests.Where(i => i.ParentId is null)
             .Select(parent => new InterestDto(parent.Id, parent.Slug, parent.Name,
                 interests.Where(i => i.ParentId == parent.Id)
-                    .Select(i => new InterestDto(i.Id, i.Slug, i.Name, [])).ToList()))
+                    .Select(i => new InterestDto(i.Id, i.Slug, i.Name, [], InterestSubjectMap.SubjectFor(parent.Slug, i.Slug))).ToList()))
             .ToList();
     }
 

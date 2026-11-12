@@ -131,7 +131,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         EnsureEditable(course);
 
         var input = await ValidateCourseInputAsync(
-            courseId, request.Code, request.CourseLevelId, request.LearningPathId, request.CourseSubjectId, ct);
+            courseId, request.Code, request.CourseLevelId, request.LearningPathId, request.CourseSubjectId, ct, course.Code);
         await RequireCreatorSpecialtyAsync(creatorUserId, request.CourseSubjectId, ct);
         var priced = await RequirePricedSubjectAsync(request.CourseSubjectId, input.Level, request.DurationHours, request.CreditCost, request.PriceExceptionReason, ct);
         db.CourseLearningOutcomes.RemoveRange(course.LearningOutcomes);
@@ -468,13 +468,18 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
 
     private async Task<(string Code, CourseLevel Level, LearningPath Path)> ValidateCourseInputAsync(
         int? currentCourseId,
-        string requestedCode,
+        string? requestedCode,
         int courseLevelId,
         int learningPathId,
         int courseSubjectId,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? currentCode = null)
     {
-        var code = requestedCode.Trim();
+        var level = await db.CourseLevels.FindAsync([courseLevelId], ct)
+            ?? throw new CourseException("COURSE_LEVEL_NOT_FOUND", "Select a valid Course level.", 400, "courseLevelId");
+        // The Creator no longer types a code: a saved course keeps its code, a new one gets the next free code.
+        var code = !string.IsNullOrWhiteSpace(requestedCode) ? requestedCode.Trim()
+            : currentCode ?? await NextCourseCodeAsync(courseSubjectId, level.Name, ct);
         if (await db.Courses.AnyAsync(course =>
                 (!currentCourseId.HasValue || course.Id != currentCourseId.Value)
                 && course.Code.ToUpper() == code.ToUpper(), ct))
@@ -482,13 +487,29 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             throw new CourseException("COURSE_CODE_EXISTS", "Course code is already in use.", 409, "code");
         }
 
-        var level = await db.CourseLevels.FindAsync([courseLevelId], ct)
-            ?? throw new CourseException("COURSE_LEVEL_NOT_FOUND", "Select a valid Course level.", 400, "courseLevelId");
         if (learningPathId > 0 && !await db.LearningPaths.AnyAsync(path => path.Id == learningPathId, ct))
             throw new CourseException("LEARNING_PATH_NOT_FOUND", "Select a valid Learning Path.", 400, "learningPathId");
         var path = await db.LearningPaths.SingleOrDefaultAsync(candidate => candidate.CourseSubjectId == courseSubjectId, ct)
             ?? throw new CourseException("LEARNING_PATH_NOT_FOUND", "Select a valid Learning Path.", 400, "learningPathId");
         return (code, level, path);
+    }
+
+    // SD-B-014: subject initials, level initial, then a running number within that prefix.
+    private async Task<string> NextCourseCodeAsync(int courseSubjectId, string levelName, CancellationToken ct)
+    {
+        var subjectName = await db.CourseSubjects.Where(subject => subject.Id == courseSubjectId)
+            .Select(subject => subject.Name).SingleOrDefaultAsync(ct) ?? "Course";
+        var initials = string.Concat(subjectName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(word => char.IsLetter(word[0]) && word.Length > 3).Select(word => char.ToUpperInvariant(word[0])));
+        if (initials.Length < 2)
+        {
+            var letters = string.Concat(subjectName.Where(char.IsLetter)).ToUpperInvariant();
+            initials = letters.Length >= 2 ? letters[..Math.Min(3, letters.Length)] : "CRS";
+        }
+        var prefix = $"{initials}-{char.ToUpperInvariant(levelName[0])}-";
+        var existing = await db.Courses.Where(course => course.Code.StartsWith(prefix)).Select(course => course.Code).ToListAsync(ct);
+        var next = existing.Select(code => int.TryParse(code[prefix.Length..], out var number) ? number : 0).DefaultIfEmpty(0).Max() + 1;
+        return $"{prefix}{next:000}";
     }
 
     private Task<(CourseSubject Subject, string? ExceptionReason)> RequirePricedSubjectAsync(
