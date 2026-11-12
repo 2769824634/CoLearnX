@@ -40,7 +40,7 @@ export default function MemberOnboardingModal({ dismissible = false }) {
         onboardingCompletedAt: saved.onboardingCompletedAt,
         onboardingSkippedAt: saved.onboardingSkippedAt,
       });
-      navigate('/', { replace: true });
+      navigate('/member/home', { replace: true });
     } catch (reason) {
       setError(reason.message || 'Could not save your interests.');
     } finally {
@@ -64,7 +64,7 @@ export default function MemberOnboardingModal({ dismissible = false }) {
       open
       title="Your learning interests"
       width={760}
-      onClose={dismissible ? () => navigate('/', { replace: true }) : undefined}
+      onClose={dismissible ? () => navigate('/member/home', { replace: true }) : undefined}
     >
       <p className="page-sub" style={{ marginTop: 0 }}>Step {step} of 3 · You can change this later in Account.</p>
       {loading ? <p role="status">Loading interests…</p> : null}
@@ -72,7 +72,7 @@ export default function MemberOnboardingModal({ dismissible = false }) {
       {!loading && step === 1 ? (
         <>
           <h2>What brings you here?</h2>
-          <p>Choose a learning goal. Recommendations follow your course progress, not this choice.</p>
+          <p>Choose a learning goal. It helps us understand what you are here for.</p>
           <label className="form-group"><input type="radio" name="goal" checked={goal === 'hobby'} onChange={() => setGoal('hobby')} /> Hobby</label>
           <label className="form-group"><input type="radio" name="goal" checked={goal === 'professional'} onChange={() => setGoal('professional')} /> Professional</label>
         </>
@@ -92,7 +92,7 @@ export default function MemberOnboardingModal({ dismissible = false }) {
       {!loading && step === 3 ? (
         <>
           <h2>Choose specific interests</h2>
-          <p>Choose up to 8. Your completed courses become the basis for later recommendations.</p>
+          <p>Choose up to 8. We show and recommend courses in these areas first.</p>
           {tree.filter((item) => categories.includes(item.id)).map((category) => (
             <fieldset key={category.id} className="form-group">
               <legend>{category.name}</legend>

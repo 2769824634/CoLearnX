@@ -53,7 +53,7 @@ it('lets a guest browse the public catalog without signing in', async () => {
   expect(screen.queryByRole('heading', { name: 'Login to your account' })).toBeNull();
 });
 
-it('sends an unfinished member from workspace home to the site homepage', () => {
+it('keeps an unfinished member on their dashboard and asks for interests there', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } })));
   mount('/member/home', {
     booting: false,
@@ -63,13 +63,20 @@ it('sends an unfinished member from workspace home to the site homepage', () => 
     token: 'token',
     logout: () => {},
   });
-  expect(screen.getByRole('heading', { name: 'CoLearnX' })).toBeTruthy();
-  expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
-  expect(screen.getByRole('button', { name: 'Log out' })).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'Courses' }).getAttribute('href')).toBe('/member/courses');
-  expect(screen.queryByRole('link', { name: 'Log in' })).toBeNull();
-  expect(screen.queryByText('Member Dashboard')).toBeNull();
+  expect(await screen.findByRole('dialog', { name: 'Your learning interests' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: /Welcome back/ })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Home' }).getAttribute('href')).toBe('/member/home');
+});
+
+it('sends a signed-in member from the site root to their dashboard', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (path) => new Response(JSON.stringify(path === '/api/recommendations' ? { items: [] } : []),
+    { status: 200, headers: { 'Content-Type': 'application/json' } })));
+  mount('/', {
+    booting: false, isAuthenticated: true, activeRole: 'member', token: 'token', logout: () => {},
+    user: { id: 1, fullName: 'Ada Member', roles: ['Member'], activeRole: 'Member', onboardingCompletedAt: '2026-01-01' },
+  });
+  expect(await screen.findByRole('heading', { name: /Welcome back/ })).toBeTruthy();
+  expect(screen.queryByRole('dialog', { name: 'Your learning interests' })).toBeNull();
 });
 
 it('keeps an explicit login URL on the sign-in page', () => {

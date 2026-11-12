@@ -38,7 +38,6 @@ import { MemberDataProvider } from '../pages/member/MemberDataContext';
 import { useMemberData } from '../pages/member/memberDataState';
 import MemberHomePage from '../pages/member/MemberHomePage';
 import MemberOnboardingPage from '../pages/member/MemberOnboardingPage';
-import { needsMemberOnboarding } from '../pages/member/needsMemberOnboarding';
 import { useAuth } from '../auth/AuthContext';
 import MemberCatalogPage from '../pages/member/MemberCatalogPage';
 import MemberCourseDetailPage from '../pages/member/MemberCourseDetailPage';
@@ -93,8 +92,6 @@ function MemberToastHost() {
 
 // Member routes under /member/*. Keep page component names below.
 function MemberArea() {
-  const { user } = useAuth();
-  if (needsMemberOnboarding(user)) return <Navigate to="/" replace />;
   return (
     <MemberDataProvider>
       <MemberNotificationsProvider>

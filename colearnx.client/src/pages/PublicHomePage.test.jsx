@@ -73,12 +73,15 @@ function stubCourses(detail, list = courseList()) {
   }));
 }
 
-function mountHome(auth = guestAuth, list = courseList()) {
+function mountHome(auth = guestAuth, list = courseList(), onboardingMode) {
   stubCourses(undefined, list);
   return render(
     <MemoryRouter>
       <AuthContext.Provider value={auth}>
-        <PublicHomePage />
+        <Routes>
+          <Route path="/" element={<PublicHomePage onboardingMode={onboardingMode} />} />
+          <Route path="/member/home" element={<h1>Member dashboard</h1>} />
+        </Routes>
       </AuthContext.Provider>
     </MemoryRouter>,
   );
@@ -112,7 +115,20 @@ it('shows the public homepage courses and Log in / Sign up without member APIs',
   expect(paths.some((path) => path.includes('/api/notifications'))).toBe(false);
 });
 
-it('shows a signed-in member as signed in on the homepage, including Courses', async () => {
+it('sends a signed-in member to their dashboard instead of the visitor homepage', () => {
+  mountHome({
+    booting: false,
+    isAuthenticated: true,
+    activeRole: 'member',
+    token: 'token',
+    logout: () => {},
+    user: { fullName: 'Huang Yousheng', roles: ['Member'], activeRole: 'Member', creditBalance: 0, heldCredits: 0 },
+  });
+  expect(screen.getByRole('heading', { name: 'Member dashboard' })).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'CoLearnX' })).toBeNull();
+});
+
+it('shows a member as signed in behind the edit-interests dialog, including Courses', async () => {
   const logout = vi.fn();
   mountHome({
     booting: false,
@@ -121,7 +137,7 @@ it('shows a signed-in member as signed in on the homepage, including Courses', a
     token: 'token',
     logout,
     user: { fullName: 'Huang Yousheng', roles: ['Member'], activeRole: 'Member', creditBalance: 0, heldCredits: 0 },
-  });
+  }, courseList(), 'edit');
   expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
   fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
@@ -129,7 +145,6 @@ it('shows a signed-in member as signed in on the homepage, including Courses', a
   expect(screen.getByText('Huang Yousheng')).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Courses' }).getAttribute('href')).toBe('/member/courses');
   expect(screen.getByRole('link', { name: 'Wallet' }).getAttribute('href')).toBe('/member/payment');
-  expect(screen.queryByRole('link', { name: 'Sign up free' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Log in' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Sign up' })).toBeNull();
   expect(await screen.findByRole('heading', { name: 'Frontend React Bootcamp' })).toBeTruthy();
@@ -151,7 +166,7 @@ it('places published CoLearnX courses above the general member catalogue', async
     token: 'token',
     logout: () => {},
     user: { fullName: 'Huang Yousheng', roles: ['Member'], activeRole: 'Member', onboardingSkippedAt: new Date().toISOString() },
-  }, [platformCourse, ...courseList()]);
+  }, [platformCourse, ...courseList()], 'edit');
 
   expect(await screen.findByRole('heading', { name: 'CoLearnX courses' })).toBeTruthy();
   expect(screen.getByRole('link', { name: 'View all platform courses' }).getAttribute('href')).toBe('/courses');
