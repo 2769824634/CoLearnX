@@ -165,6 +165,13 @@ export const enrollmentsApi = {
   downloadMaterial: (id, versionId, title, token) => downloadFile(`/api/enrollments/${encodeURIComponent(id)}/materials/${encodeURIComponent(versionId)}/file`, title, token),
   downloadSessionMaterial: (id, materialId, title, token) => downloadFile(`/api/enrollments/${encodeURIComponent(id)}/session-materials/${encodeURIComponent(materialId)}/file`, title, token),
   downloadRecording: (id, recordingId, title, token) => downloadFile(`/api/enrollments/${encodeURIComponent(id)}/recordings/${encodeURIComponent(recordingId)}/file`, title, token),
+  submitAssessment: (id, assessmentId, files, token) => {
+    const body = new FormData();
+    files.forEach((file) => body.append('files', file));
+    return apiRequest(`/api/enrollments/${encodeURIComponent(id)}/assessments/${encodeURIComponent(assessmentId)}/submission`, { method: 'POST', token, body, asForm: true });
+  },
+  downloadAssessmentSubmission: (id, assessmentId, fileId, fileName, token) => downloadFile(
+    `/api/enrollments/${encodeURIComponent(id)}/assessments/${encodeURIComponent(assessmentId)}/submission/files/${encodeURIComponent(fileId)}`, fileName, token),
   enrol: (courseId, courseSessionId, deliveryChoices) =>
     apiRequest('/api/enrollments', {
       method: 'POST',

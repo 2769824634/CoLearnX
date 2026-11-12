@@ -113,7 +113,17 @@ public record AssessmentDto(
     int PassScore,
     DateTime? DueAt,
     DateTime CreatedAt,
-    IReadOnlyList<AssessmentResultDto> Results);
+    IReadOnlyList<AssessmentResultDto> Results,
+    IReadOnlyList<LearnerSubmissionDto>? Submissions = null);
+
+public record AssessmentSubmissionFileDto(int Id, string FileName, string Format, long SizeBytes, DateTime SubmittedAt);
+
+public record LearnerSubmissionDto(
+    int EnrollmentId,
+    int UserId,
+    string LearnerName,
+    DateTime SubmittedAt,
+    IReadOnlyList<AssessmentSubmissionFileDto> Files);
 
 public record SubmitCertificateRequest([Range(1, int.MaxValue)] int EnrollmentId);
 

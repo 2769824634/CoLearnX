@@ -87,6 +87,19 @@ internal static class LaterPhaseModelConfiguration
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<AssessmentSubmissionFile>(entity =>
+        {
+            entity.ToTable("AssessmentSubmissionFiles");
+            entity.HasIndex(item => new { item.AssessmentId, item.EnrollmentId });
+            entity.Property(item => item.OriginalFileName).HasMaxLength(260);
+            entity.Property(item => item.FilePath).HasMaxLength(512);
+            entity.Property(item => item.Format).HasMaxLength(32);
+            entity.HasOne(item => item.Assessment).WithMany(item => item.SubmissionFiles).HasForeignKey(item => item.AssessmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.Enrollment).WithMany().HasForeignKey(item => item.EnrollmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<CertificateRequest>(entity =>
         {
             entity.ToTable("CertificateRequests", table =>

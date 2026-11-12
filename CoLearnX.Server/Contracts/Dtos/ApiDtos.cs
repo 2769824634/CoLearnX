@@ -203,7 +203,10 @@ public record MemberAssessmentDto(
     string Status,
     int? Score,
     string? Feedback,
-    DateTime? GradedAt);
+    DateTime? GradedAt,
+    DateTime? SubmittedAt = null,
+    IReadOnlyList<AssessmentSubmissionFileDto>? Files = null,
+    bool CanSubmit = false);
 
 public record CreditPackageDto(
     int Id,

@@ -98,6 +98,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
 builder.Services.AddScoped<RecommendationService>();
 builder.Services.AddScoped<LearningPathService>();
 builder.Services.AddScoped<IMemberLearningHubService, MemberLearningHubService>();
+builder.Services.AddScoped<IAssessmentSubmissionService, AssessmentSubmissionService>();
 builder.Services.AddScoped<ICreditService, CreditService>();
 builder.Services.AddScoped<ICertificateService, CertificateService>();
 builder.Services.AddScoped<IMedalService, MedalService>();
@@ -111,7 +112,7 @@ builder.Services.AddScoped<IAdminOverviewService, AdminOverviewService>();
 builder.Services.AddScoped<IAdminPricingService, AdminPricingService>();
 builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection(StorageOptions.SectionName));
 builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = Math.Max(
-    MaterialFiles.MaxRequestBytes,
+    Math.Max(MaterialFiles.MaxRequestBytes, AssignmentFiles.MaxRequestBytes),
     RoleRequestFiles.MaxRequestBytes));
 builder.Services.AddSingleton<IFileStorage>(sp =>
 {

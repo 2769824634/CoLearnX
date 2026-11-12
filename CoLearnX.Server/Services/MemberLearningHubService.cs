@@ -65,23 +65,27 @@ public sealed class MemberLearningHubService(CoLearnXDbContext db, IFileStorage 
         CancellationToken ct = default)
     {
         var enrollment = await RequireEnrollmentAsync(userId, enrollmentId, ct);
-        return await (from assessment in db.Assessments.AsNoTracking()
-            join result in db.AssessmentResults.AsNoTracking().Where(item => item.EnrollmentId == enrollmentId)
-                on assessment.Id equals result.AssessmentId into learnerResults
-            from result in learnerResults.DefaultIfEmpty()
-            where assessment.CourseIntakeId == enrollment.CourseSession.CourseIntakeId
-            orderby assessment.DueAt == null, assessment.DueAt, assessment.CreatedAt
-            select new MemberAssessmentDto(
-                assessment.Id,
-                assessment.Title,
-                assessment.MaxScore,
-                assessment.PassScore,
-                assessment.DueAt,
-                result == null ? "Not graded" : result.Score >= assessment.PassScore ? "Passed" : "Not passed",
-                result == null ? null : result.Score,
-                result == null ? null : result.Feedback,
-                result == null ? null : result.GradedAt))
+        var assessments = await db.Assessments.AsNoTracking()
+            .Where(item => item.CourseIntakeId == enrollment.CourseSession.CourseIntakeId)
             .ToListAsync(ct);
+        var assessmentIds = assessments.Select(item => item.Id).ToList();
+        var results = await db.AssessmentResults.AsNoTracking()
+            .Where(item => item.EnrollmentId == enrollmentId && assessmentIds.Contains(item.AssessmentId))
+            .ToDictionaryAsync(item => item.AssessmentId, ct);
+        var submitted = (await db.AssessmentSubmissionFiles.AsNoTracking()
+            .Where(item => item.EnrollmentId == enrollmentId && assessmentIds.Contains(item.AssessmentId))
+            .ToListAsync(ct)).ToLookup(item => item.AssessmentId);
+        var now = DateTime.UtcNow;
+        return assessments
+            .OrderBy(item => item.DueAt == null).ThenBy(item => item.DueAt).ThenBy(item => item.CreatedAt)
+            .Select(item =>
+            {
+                var result = results.GetValueOrDefault(item.Id);
+                var canSubmit = enrollment.Status == EnrollmentStatus.Active && result is null
+                    && !AssessmentSubmissionService.IsPastDue(item.DueAt, now);
+                return AssessmentSubmissionService.ToMemberDto(item, result, submitted[item.Id].ToList(), canSubmit);
+            })
+            .ToList();
     }
 
     public async Task<MaterialFileResult> OpenMaterialAsync(int userId, int enrollmentId, int versionId, CancellationToken ct = default)

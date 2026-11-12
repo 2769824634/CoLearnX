@@ -76,6 +76,8 @@ public sealed partial class TrainerLaterPhaseService
     {
         await RequireOwnedIntakeAsync(trainerUserId, intakeId, ct);
         var items = await db.Assessments.AsNoTracking().Include(item => item.Results).ThenInclude(item => item.Enrollment).ThenInclude(item => item.User)
+            .Include(item => item.SubmissionFiles).ThenInclude(item => item.Enrollment).ThenInclude(item => item.User)
+            .AsSplitQuery()
             .Where(item => item.CourseIntakeId == intakeId).OrderByDescending(item => item.CreatedAt).ToListAsync(ct);
         return items.Select(ToDto).ToList();
     }
@@ -139,6 +141,11 @@ public sealed partial class TrainerLaterPhaseService
     private static AssessmentDto ToDto(Assessment item)
         => new(item.Id, item.CourseIntakeId, item.Title, item.MaxScore, item.PassScore, item.DueAt, item.CreatedAt,
             item.Results.Select(result => new AssessmentResultDto(result.EnrollmentId, result.Enrollment.UserId,
-                result.Enrollment.User.FullName, result.Score, result.Score >= item.PassScore, result.Feedback, result.GradedAt)).ToList());
+                result.Enrollment.User.FullName, result.Score, result.Score >= item.PassScore, result.Feedback, result.GradedAt)).ToList(),
+            item.SubmissionFiles.GroupBy(file => file.EnrollmentId)
+                .Select(group => new LearnerSubmissionDto(group.Key, group.First().Enrollment.UserId,
+                    group.First().Enrollment.User.FullName, group.Max(file => file.SubmittedAt),
+                    group.OrderBy(file => file.Id).Select(AssessmentSubmissionService.ToFileDto).ToList()))
+                .OrderBy(submission => submission.LearnerName).ToList());
 
 }

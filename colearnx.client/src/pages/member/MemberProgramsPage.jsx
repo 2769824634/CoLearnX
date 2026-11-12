@@ -7,6 +7,7 @@ import { CourseArt } from '../guest/GuestCourseCard';
 import { enrollmentsApi } from '../../api';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { formatCount, formatUtcDate, formatUtcDateTime, userFacingError } from '../businessPresentation';
+import MemberAssessmentCard from './MemberAssessmentCard';
 
 const tabForEnrollmentStatus = (status) => ({
   reserved: 'reserved', active: 'active', completed: 'completed', cancelled: 'history', refunded: 'history',
@@ -217,12 +218,8 @@ export default function MemberProgramsPage() {
                 ? <button key={item.id} type="button" className="btn btn-ghost btn-block" onClick={() => downloadRecording(item)}>{item.title}</button>
                 : <a key={item.id} className="btn btn-ghost btn-block" href={item.recordingUrl} target="_blank" rel="noopener noreferrer">{item.title}</a>) : <p>No recordings added yet.</p>}
               <h3>Assessments</h3>
-              {query.data.assessments.length ? <div className="later-resource-list">{query.data.assessments.map((item) => <article key={item.id} className="card card-body">
-                <strong>{item.title}</strong>
-                <p>{item.score == null ? `Not graded · Pass score ${item.passScore}/${item.maxScore}` : `${item.score}/${item.maxScore} · ${item.status}`}</p>
-                {item.dueAt ? <small>Due {formatUtcDateTime(item.dueAt)}</small> : <small>No due date</small>}
-                {item.feedback ? <p>{item.feedback}</p> : null}
-              </article>)}</div> : <p>No assessments created yet.</p>}
+              {query.data.assessments.length ? <div className="cx-assess-list">{query.data.assessments.map((item) => <MemberAssessmentCard key={item.id}
+                item={item} enrollmentId={hub.enrollmentId} token={query.token} showToast={showToast} onSubmitted={query.refresh} />)}</div> : <p>No assessments created yet.</p>}
               {hub.meetingLink && !hub.deliveryChoices?.length ? <a className="btn btn-primary btn-block" href={hub.meetingLink} target="_blank" rel="noopener noreferrer">Join Live Session</a> : null}
             </> : null}
             {hub ? <><p>For an enrollment issue or refund review, ask Admin through My Disputes.</p><button type="button" className="btn btn-ghost btn-block" onClick={() => navigate(`/member/disputes?enrollmentId=${hub.enrollmentId}`)}>View or submit a dispute</button></> : null}

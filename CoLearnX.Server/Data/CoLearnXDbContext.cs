@@ -62,6 +62,7 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     public DbSet<PricePool> PricePools => Set<PricePool>();
     public DbSet<Assessment> Assessments => Set<Assessment>();
     public DbSet<AssessmentResult> AssessmentResults => Set<AssessmentResult>();
+    public DbSet<AssessmentSubmissionFile> AssessmentSubmissionFiles => Set<AssessmentSubmissionFile>();
     public DbSet<CertificateRequest> CertificateRequests => Set<CertificateRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -59,6 +59,11 @@ function createLaterPhaseApi(scope) {
   }),
   assessments: (token, intakeId, signal) => apiRequest(`${intakePath(intakeId)}/assessments`, { token, signal }),
   createAssessment: (token, intakeId, body) => apiRequest(`${intakePath(intakeId)}/assessments`, { method: 'POST', token, body }),
+  downloadSubmission: (token, assessmentId, fileId, fileName) => downloadFile(
+    `/api/${scope}/assessments/${encodeURIComponent(assessmentId)}/submissions/files/${encodeURIComponent(fileId)}`,
+    fileName,
+    token,
+  ),
   grade: (token, assessmentId, enrollmentId, body) => apiRequest(`/api/${scope}/assessments/${encodeURIComponent(assessmentId)}/grades/${encodeURIComponent(enrollmentId)}`, {
     method: 'PUT', token, body,
   }),

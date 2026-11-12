@@ -70,6 +70,24 @@ public sealed class Assessment
 
     public CourseIntake CourseIntake { get; set; } = null!;
     public ICollection<AssessmentResult> Results { get; set; } = new List<AssessmentResult>();
+    public ICollection<AssessmentSubmissionFile> SubmissionFiles { get; set; } = new List<AssessmentSubmissionFile>();
+}
+
+// One document a Member handed in for an Assessment. A Member's submission is every row for
+// (AssessmentId, EnrollmentId); submitting again before the deadline replaces the whole set.
+public sealed class AssessmentSubmissionFile
+{
+    public int Id { get; set; }
+    public int AssessmentId { get; set; }
+    public int EnrollmentId { get; set; }
+    public string OriginalFileName { get; set; } = string.Empty;
+    public string FilePath { get; set; } = string.Empty;
+    public string Format { get; set; } = "PDF";
+    public long SizeBytes { get; set; }
+    public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
+
+    public Assessment Assessment { get; set; } = null!;
+    public Enrollment Enrollment { get; set; } = null!;
 }
 
 public sealed class AssessmentResult
