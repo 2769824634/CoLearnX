@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import CourseNextStep from './CourseNextStep';
-import { nextStep } from './courseNextStep';
+import { nextStep } from './nextStepRules';
 
 afterEach(cleanup);
 

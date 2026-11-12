@@ -6,7 +6,7 @@ import CourseMaterialsCard from './CourseMaterialsCard';
 import CourseTrainersCard from './CourseTrainersCard';
 import CourseClassesSection from './CourseClassesSection';
 import CourseNextStep from './CourseNextStep';
-import { nextStep } from './courseNextStep';
+import { nextStep } from './nextStepRules';
 import { suggestInterests } from './suggestInterests';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 import { statusLabel } from '../trainer/intakeForm';
