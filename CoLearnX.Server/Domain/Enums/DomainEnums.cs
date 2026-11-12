@@ -28,6 +28,15 @@ public enum CourseIntakeStatus
     Cancelled = 6
 }
 
+// Whether the Intake's Trainer has seen and agreed to the fixed session schedule.
+public enum TrainerInvitationStatus
+{
+    NotSent = 0,
+    Invited = 1,
+    Accepted = 2,
+    Declined = 3
+}
+
 public enum CourseIntakeApplicationKind
 {
     Initial = 0,

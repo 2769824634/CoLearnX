@@ -100,9 +100,9 @@ export function SessionForm({ session, intake, onSave, onCancel, busy, blocked, 
       <p>One session stays on a single day in {localTimezone}. Choose the date and start time. It lasts 2 hours unless this session already has another length. If it falls outside the current teaching dates, the teaching dates stretch to include it.</p>
       <TrainerField name="label" label="Session label" maxLength={128} value={values.label} onChange={change} required error={error} />
       <div className="trainer-form-grid">
-        <WhenField name="sessionDate" label="Class date" kind="date" value={values.sessionDate} min={earliestDate} onChange={changeClassTime} required error={error} />
+        <WhenField name="sessionDate" label="Session date" kind="date" value={values.sessionDate} min={earliestDate} onChange={changeClassTime} required error={error} />
         <div className="form-group">
-          <label htmlFor="trainer-startTime">Class starts</label>
+          <label htmlFor="trainer-startTime">Session starts</label>
           <input id="trainer-startTime" name="startTime" type="time" step="60" required value={values.startTime} onChange={changeClassTime} />
         </div>
       </div>

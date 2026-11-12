@@ -66,6 +66,7 @@ public class TrainerIntakesIntegrationTests
         d = await Detail(await client.DeleteAsync(Intake(d.Id) + $"/sessions/{sid}?version={d.Version}"));
         Assert.Empty(d.Sessions);
         d = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/sessions", Session(d.Version)));
+        await TrainerAccepts(f, d.Id);
         d = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/publish", new SubmitCourseIntakeRequest(d.Version)));
         Assert.Equal("Published", d.Status);
         Assert.NotNull(d.SubmittedAt);
@@ -182,7 +183,7 @@ public class TrainerIntakesIntegrationTests
         var d = await Detail(await client.PostAsJsonAsync(CreatePath, Draft), HttpStatusCode.Created);
         var update = JsonSerializer.SerializeToNode(new UpdateCourseIntakeRequest(Draft.RegistrationOpensAt,
             Draft.RegistrationClosesAt, Start, Start.AddDays(3), d.Version), Json)!.AsObject();
-        update["trainerId"] = 101;
+        update["courseId"] = 101;
         await Error(await client.PutAsJsonAsync(Intake(d.Id), update), 400, "INVALID_REQUEST", true);
         var session = JsonSerializer.SerializeToNode(Session(d.Version), Json)!.AsObject();
         session["courseIntakeId"] = 999;
@@ -239,6 +240,7 @@ public class TrainerIntakesIntegrationTests
         using var client = f.UserClient(103);
         var d = await Detail(await client.PostAsJsonAsync(CreatePath, Draft), HttpStatusCode.Created);
         d = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/sessions", Session(d.Version)));
+        await TrainerAccepts(f, d.Id);
         d = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/publish", new SubmitCourseIntakeRequest(d.Version)));
         var replay = await Detail(await client.PostAsJsonAsync(Intake(d.Id) + "/publish", new SubmitCourseIntakeRequest(d.Version)));
         Assert.Equal(d.Version, replay.Version);
@@ -316,6 +318,11 @@ public class TrainerIntakesIntegrationTests
             if (hasFields) Assert.NotEmpty(error.FieldErrors);
         }
     }
+
+    // State fixture: the assigned Trainer accepted the schedule. The reply itself is covered by IntakeTrainerInvitationTests.
+    private static Task<int> TrainerAccepts(TrainerApiFactory f, int intakeId)
+        => f.ReadAsync(db => db.CourseIntakes.Where(i => i.Id == intakeId)
+            .ExecuteUpdateAsync(set => set.SetProperty(i => i.TrainerInvitation, TrainerInvitationStatus.Accepted)));
 
     private sealed class TrainerApiFactory : WebApplicationFactory<Program>
     {

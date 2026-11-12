@@ -78,7 +78,7 @@ it('opens a Trainer on the Teaching tab with current classes and folds finished 
   expect(within(dialog).queryByRole('button', { name: 'Learning' })).toBeNull();
   expect(within(dialog).getByText('Not certified')).toBeTruthy();
   expect(within(dialog).getByText('Specialties: UI/UX Design')).toBeTruthy();
-  expect(within(dialog).getByText('Finished and cancelled classes (1)')).toBeTruthy();
+  expect(within(dialog).getByText('Finished and cancelled intakes (1)')).toBeTruthy();
   expect(within(dialog).getByText('Old class').closest('details').open).toBe(false);
 });
 

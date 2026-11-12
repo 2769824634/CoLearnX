@@ -3,7 +3,7 @@ import {
 } from './adminClasses';
 
 // Shared by the Classes page and the Trainer / Creator tabs of a user's details.
-export default function AdminClassTable({ rows, onOpen, hideTrainer = false, hideCreator = false, emptyText = 'No classes match these filters.' }) {
+export default function AdminClassTable({ rows, onOpen, hideTrainer = false, hideCreator = false, emptyText = 'No intakes match these filters.' }) {
   return <div className="later-table-wrap admin-class-table">
     <table className="later-table">
       <thead><tr>
@@ -19,7 +19,7 @@ export default function AdminClassTable({ rows, onOpen, hideTrainer = false, hid
             {onOpen
               ? <button type="button" className="account-name-button" onClick={() => onOpen(row.id)}>{row.courseTitle}</button>
               : <strong>{row.courseTitle}</strong>}
-            <small>{row.courseCode} · Class #{row.id}</small>
+            <small>{row.courseCode} · Intake #{row.id}</small>
           </td>
           {hideCreator ? null : <td>{row.creatorName}</td>}
           {hideTrainer ? null : <td>{row.trainerName}</td>}

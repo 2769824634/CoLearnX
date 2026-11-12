@@ -37,12 +37,12 @@ export default function AdminClassDetail({ classId, onChanged }) {
   }
 
   return <div className="account-details admin-class-detail">
-    {query.error?.status === 404 ? <p role="alert">Class was not found.</p> : <AdminDataState loading={query.loading} error={query.error} onRetry={query.refresh} />}
+    {query.error?.status === 404 ? <p role="alert">Intake was not found.</p> : <AdminDataState loading={query.loading} error={query.error} onRetry={query.refresh} />}
     {row ? <>
       <div className="admin-user-summary">
         <div>
           <h3>{row.courseTitle}</h3>
-          <p>{row.courseCode} · Class #{row.id} · Creator {row.creatorName} · Trainer {row.trainerName}</p>
+          <p>{row.courseCode} · Intake #{row.id} · Creator {row.creatorName} · Trainer {row.trainerName}</p>
         </div>
         <span className={classStatusPill(row.status)}>{classStatusLabel(row.status)}</span>
       </div>
@@ -53,7 +53,7 @@ export default function AdminClassDetail({ classId, onChanged }) {
         <div><dt>Attendance</dt><dd className={isLowAttendance(row.attendanceRate) ? 'later-negative' : undefined}>{attendanceText(row.attendanceRate)}</dd></div>
       </dl>
       {canEditTeachingDates(row.status)
-        ? <div className="later-actions"><span>Need to move the class? Sessions stay where they are.</span><button type="button" className="btn btn-ghost btn-sm" onClick={openDates}>Edit teaching dates</button></div>
+        ? <div className="later-actions"><span>Need to move the intake? Sessions stay where they are.</span><button type="button" className="btn btn-ghost btn-sm" onClick={openDates}>Edit teaching dates</button></div>
         : null}
       {error ? <div className="callout warn" role="alert">{error.message}</div> : null}
       {message ? <p role="status">{message}</p> : null}

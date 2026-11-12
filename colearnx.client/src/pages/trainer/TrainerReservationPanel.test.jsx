@@ -38,6 +38,6 @@ it('keeps the progress visible and offers a retry when the reservation list cann
 
 it('does not present a confirmed class as needing more learners', () => {
   mount({ ...intake, confirmedToRunAt: '2026-10-04T12:00:00Z', reservedEnrollmentCount: 0, remainingToMinimum: 2 });
-  expect(screen.getByText('Class confirmed to run')).toBeTruthy();
+  expect(screen.getByText('Intake confirmed to run')).toBeTruthy();
   expect(screen.queryByText('2 more learners needed')).toBeNull();
 });

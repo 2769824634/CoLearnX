@@ -13,7 +13,7 @@ export default function CreatorCoursesPage() {
 
   return <section className="creator-page">
     <CreatorHeader eyebrow="Course management" title="Course workspace" action={<div className="trainer-actions"><button type="button" className="btn btn-ghost" onClick={query.refresh} disabled={query.loading}>Refresh</button><Link className="btn btn-primary" to="/creator/courses/new">Create Course</Link></div>}>
-      Create a course, then open it to upload materials, invite a Trainer, create a class, and add sessions.
+      Create a course, then open it to upload materials, invite a Trainer, create an intake, and add sessions.
     </CreatorHeader>
     <div className="creator-section-heading"><div><p className="creator-eyebrow">Your catalogue</p><h2>Courses</h2></div></div>
     {query.loading ? <div className="creator-empty" role="status">Loading Courses…</div>

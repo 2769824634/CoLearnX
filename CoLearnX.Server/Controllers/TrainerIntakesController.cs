@@ -3,6 +3,7 @@ using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace CoLearnX.Server.Controllers;
 
@@ -10,8 +11,22 @@ namespace CoLearnX.Server.Controllers;
 [Route("api/trainer")]
 [Authorize(Policy = TrainerAuthorization.PolicyName)]
 [TrainerApiErrors]
-public sealed class TrainerIntakesController(ICourseIntakeService intakes, ITrainerDeliveryService delivery) : ControllerBase
+public sealed class TrainerIntakesController(ICourseIntakeService intakes, ITrainerDeliveryService delivery,
+    IIntakeInvitationService invitations) : ControllerBase
 {
+    [HttpGet("intake-invitations")]
+    public async Task<ActionResult<IReadOnlyList<IntakeInvitationDto>>> ListInvitations(CancellationToken ct)
+        => Ok(await invitations.ListForTrainerAsync(User.GetUserId(), ct));
+
+    [HttpPost("intake-invitations/{courseIntakeId:int}/accept")]
+    public async Task<ActionResult<IntakeInvitationDto>> AcceptInvitation(int courseIntakeId, CancellationToken ct)
+        => Ok(await invitations.RespondAsync(User.GetUserId(), courseIntakeId, accept: true, reason: null, ct));
+
+    [HttpPost("intake-invitations/{courseIntakeId:int}/decline")]
+    public async Task<ActionResult<IntakeInvitationDto>> DeclineInvitation(int courseIntakeId,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] RespondIntakeInvitationRequest? request, CancellationToken ct)
+        => Ok(await invitations.RespondAsync(User.GetUserId(), courseIntakeId, accept: false, request?.Reason, ct));
+
     [HttpGet("intakes")]
     public async Task<ActionResult<IReadOnlyList<CourseIntakeSummaryDto>>> List(CancellationToken ct)
         => Ok(await intakes.ListOwnedAsync(User.GetUserId(), ct));

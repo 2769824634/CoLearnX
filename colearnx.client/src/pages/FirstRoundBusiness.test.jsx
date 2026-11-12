@@ -127,8 +127,8 @@ it('shows an empty class list on the course without an approval queue', async ()
         : String(url).includes('/trainers') ? [{ trainerId: 2, fullName: 'Trainer One', status: 'Accepted', headline: 'Design' }]
           : { ...course, creditCost: 20, courseLevelId: 1, learningPathId: 2, learningOutcomes: ['Build a portfolio'], status: 'Published' },
   ));
-  expect(await screen.findByText('No classes yet')).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'Open a class' }).getAttribute('href')).toBe('/creator/courses/1/intakes/new');
+  expect(await screen.findByText('No intakes yet')).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Create an intake' }).getAttribute('href')).toBe('/creator/courses/1/intakes/new');
   expect(screen.queryByText('Action required')).toBeNull();
 });
 

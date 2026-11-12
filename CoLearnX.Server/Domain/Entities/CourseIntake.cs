@@ -23,6 +23,10 @@ public class CourseIntake
     public int? ConfirmedByCreatorId { get; set; }
     public DateTime? ConfirmedAt { get; set; }
     public string? ConfirmationNote { get; set; }
+    public TrainerInvitationStatus TrainerInvitation { get; set; } = TrainerInvitationStatus.NotSent;
+    public DateTime? TrainerInvitedAt { get; set; }
+    public DateTime? TrainerRespondedAt { get; set; }
+    public string? TrainerDeclineReason { get; set; }
     // One concurrency token protects the whole Intake, including Session structure.
     public Guid Version { get; set; } = Guid.NewGuid();
     public Course Course { get; set; } = null!;

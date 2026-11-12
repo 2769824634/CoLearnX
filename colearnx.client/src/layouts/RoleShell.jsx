@@ -35,7 +35,7 @@ const NAV = {
     { to: '/admin/home', label: 'Home' },
     { to: '/admin/approvals', label: 'Approvals', pending: 'approvals' },
     { to: '/admin/users', label: 'Users' },
-    { to: '/admin/classes', label: 'Classes' },
+    { to: '/admin/classes', label: 'Intakes' },
     { to: '/admin/pricing', label: 'Pricing' },
     { to: '/admin/learning-paths', label: 'Learning paths' },
     { to: '/admin/audit', label: 'Audit Log' },

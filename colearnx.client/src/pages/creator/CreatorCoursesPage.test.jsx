@@ -372,7 +372,7 @@ describe('Creator Course workspace', () => {
   it('tells the Creator the next step on a saved course and submits a Draft from that line', async () => {
     stubCourseApi({ existing: course({ id: 44 }) });
     renderAt('/creator/courses/44');
-    const line = (await screen.findByText('Step 1 of 4 · Finish and submit your course for approval')).closest('[role="status"]');
+    const line = (await screen.findByText('Step 1 of 5 · Finish and submit your course for approval')).closest('[role="status"]');
     fireEvent.click(within(line).getByRole('button', { name: 'Submit for approval' }));
     await vi.waitFor(() => expect(globalThis.fetch.mock.calls.some(([path]) => path === '/api/creator/courses/44/submit')).toBe(true));
   });
@@ -380,7 +380,7 @@ describe('Creator Course workspace', () => {
   it('points a published course without a trainer to the invite step', async () => {
     stubCourseApi({ existing: course({ id: 44, status: 'Published' }) });
     renderAt('/creator/courses/44');
-    const line = (await screen.findByText('Step 3 of 4 · Find a Trainer')).closest('[role="status"]');
+    const line = (await screen.findByText('Step 3 of 5 · Find trainers for this course')).closest('[role="status"]');
     fireEvent.click(within(line).getByRole('button', { name: 'Invite trainer' }));
     expect(screen.getByRole('dialog', { name: 'Invite a trainer' })).toBeTruthy();
   });

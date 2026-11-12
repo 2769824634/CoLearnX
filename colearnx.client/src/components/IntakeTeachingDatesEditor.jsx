@@ -38,7 +38,7 @@ export default function IntakeTeachingDatesEditor({ intake, onSave, onClose, onR
     <form onSubmit={submit}>
       <p>Choose the first and last teaching dates in {localTimezone}. The last date includes the whole day.</p>
       <p>Existing sessions must fit within these dates.</p>
-      {!editable ? <p role="alert">This class no longer allows date changes.</p> : null}
+      {!editable ? <p role="alert">This intake no longer allows date changes.</p> : null}
       <div className="grid-2">
         {[
           { key: 'deliveryStartDate', field: 'startsAt', label: 'First teaching date' },
@@ -55,7 +55,7 @@ export default function IntakeTeachingDatesEditor({ intake, onSave, onClose, onR
         })}
       </div>
       {error ? <div className="callout warn" role="alert">{error.message}
-        {error.code === 'INTAKE_VERSION_CONFLICT' ? <button type="button" className="btn btn-ghost btn-sm" onClick={reload} disabled={busy}>Reload class</button> : null}
+        {error.code === 'INTAKE_VERSION_CONFLICT' ? <button type="button" className="btn btn-ghost btn-sm" onClick={reload} disabled={busy}>Reload intake</button> : null}
       </div> : null}
       <div className="modal-actions">
         <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => onClose(false)}>Cancel</button>

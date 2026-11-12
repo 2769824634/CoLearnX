@@ -82,6 +82,7 @@ builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, TrainerAuth
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<ICourseIntakeService, CourseIntakeService>();
+builder.Services.AddScoped<IIntakeInvitationService, IntakeInvitationService>();
 builder.Services.AddScoped<ICourseTrainerService, CourseTrainerService>();
 builder.Services.AddScoped<ITrainerDeliveryService, TrainerDeliveryService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();

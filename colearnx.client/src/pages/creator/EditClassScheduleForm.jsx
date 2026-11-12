@@ -30,7 +30,7 @@ export default function EditClassScheduleForm({ intake, onSave, onCancel, busy, 
       </div>
       {closeErrors.length ? <span className="trainer-field-error">{closeErrors.join(' ')}</span> : null}
       <div className="form-group">
-        <label htmlFor="edit-class-minEnrollment">Minimum learners for the class to run</label>
+        <label htmlFor="edit-class-minEnrollment">Minimum learners for the intake to run</label>
         <input id="edit-class-minEnrollment" name="minEnrollment" type="number" min="2" max="200" step="1" required value={values.minEnrollment} onChange={change} aria-invalid={minimumErrors.length ? true : undefined} />
         {minimumErrors.length ? <span className="trainer-field-error">{minimumErrors.join(' ')}</span> : null}
       </div>

@@ -112,5 +112,5 @@ export default function TrainerSessionDetailPage({
 }) {
   const { courseIntakeId, courseSessionId } = useParams();
   const query = useTrainerQuery(loadWorkspace, `${courseIntakeId}:${courseSessionId}`, token);
-  return <section className="trainer-page later-page"><div className="trainer-detail-nav"><Link className="trainer-back" to={backPath || `/trainer/courses/intakes/${courseIntakeId}`}>← Back to class</Link></div>{query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <SessionWorkspace query={query} api={laterPhaseApi} deliveryApi={deliveryApi} />}</section>;
+  return <section className="trainer-page later-page"><div className="trainer-detail-nav"><Link className="trainer-back" to={backPath || `/trainer/courses/intakes/${courseIntakeId}`}>← Back to intake</Link></div>{query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <SessionWorkspace query={query} api={laterPhaseApi} deliveryApi={deliveryApi} />}</section>;
 }

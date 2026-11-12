@@ -37,13 +37,13 @@ it('completes a running class after its last session, with a confirmation step',
   intakesApi.complete.mockResolvedValue(intake({ status: 'Completed', version: 'v2' }));
   const query = renderWorkspace(intake());
 
-  fireEvent.click(screen.getByRole('button', { name: 'Complete class' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Complete intake' }));
   expect(intakesApi.complete).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Confirm completion' }));
 
   await waitFor(() => expect(intakesApi.complete).toHaveBeenCalledWith('creator-token', 9));
   await waitFor(() => expect(query.setData).toHaveBeenCalledWith(expect.objectContaining({ intake: expect.objectContaining({ status: 'Completed' }) })));
-  expect((await screen.findByRole('status')).textContent).toMatch(/Class completed/);
+  expect((await screen.findByRole('status')).textContent).toMatch(/Intake completed/);
 });
 
 it('keeps the button disabled and says why while a session is still to come', () => {
@@ -52,17 +52,17 @@ it('keeps the button disabled and says why while a session is still to come', ()
   upcoming.sessions[1].endsAt = new Date(Date.now() + 26 * hour).toISOString();
   renderWorkspace(upcoming);
 
-  expect(screen.getByRole('button', { name: 'Complete class' }).disabled).toBe(true);
-  expect(screen.getByText(/You can complete the class after the last session ends/)).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Complete intake' }).disabled).toBe(true);
+  expect(screen.getByText(/You can complete the intake after the last session ends/)).toBeTruthy();
 });
 
 it.each(['Draft', 'Completed', 'Cancelled'])('offers no completion for a %s class', (status) => {
   renderWorkspace(intake({ status, confirmedToRunAt: status === 'Draft' ? null : intake().confirmedToRunAt }));
-  expect(screen.queryByRole('button', { name: 'Complete class' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Complete intake' })).toBeNull();
 });
 
 it('tells the Creator what a completed class means', () => {
   renderWorkspace(intake({ status: 'Completed' }));
-  expect(screen.getByText(/This class is completed/)).toBeTruthy();
+  expect(screen.getByText(/This intake is completed/)).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Cancel class' })).toBeNull();
 });

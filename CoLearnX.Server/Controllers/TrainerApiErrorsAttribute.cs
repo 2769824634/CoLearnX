@@ -31,7 +31,7 @@ public sealed class TrainerApiErrorsAttribute : ActionFilterAttribute, IExceptio
         {
             context.HttpContext.RequestServices.GetRequiredService<ILogger<TrainerApiErrorsAttribute>>()
                 .LogError(context.Exception, "Trainer Intake operation failed; traceId={TraceId}", context.HttpContext.TraceIdentifier);
-            context.Result = new ObjectResult(new ApiError("INTAKE_SAVE_FAILED", "The Intake result could not be confirmed. Reload your classes before trying again.",
+            context.Result = new ObjectResult(new ApiError("INTAKE_SAVE_FAILED", "The Intake result could not be confirmed. Reload your intakes before trying again.",
                 new Dictionary<string, string[]>(), context.HttpContext.TraceIdentifier)) { StatusCode = StatusCodes.Status500InternalServerError };
             context.ExceptionHandled = true;
         }

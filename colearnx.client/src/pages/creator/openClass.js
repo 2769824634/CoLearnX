@@ -1,7 +1,7 @@
 import { ApiError } from '../../api/client.js';
 import { utcDate } from '../../utils/utcDates.js';
 
-// The Creator says when the class meets. Registration opens on publishing and closes a number of days
+// The Creator says when the Intake meets. Registration opens on publishing and closes a number of days
 // before the first session, so the dates can never contradict each other.
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -54,8 +54,9 @@ function invalid(field, message) {
   throw new ApiError('INVALID_FORM', message, 400, { [field]: [message] });
 }
 
-export function openClassPayload(values, trainerId, publish, now = new Date()) {
-  if (!trainerId) invalid('trainerId', 'Choose the Trainer who will teach this class.');
+// Publishing waits for the Trainer to accept the schedule, so the form can only send it or keep a draft.
+export function openClassPayload(values, trainerId, sendToTrainer, now = new Date()) {
+  if (!trainerId) invalid('trainerId', 'Choose the Trainer who will teach this intake.');
   const plan = planClass(values, now);
   if (plan.problem) invalid('sessionStarts', plan.problem);
   const meetingLink = String(values.meetingLink || '').trim() || null;
@@ -74,11 +75,11 @@ export function openClassPayload(values, trainerId, publish, now = new Date()) {
     sessionStarts: plan.sessions.map((session) => session.start.toISOString()),
     sessionMinutes: Math.round(Number(values.sessionHours) * 60),
     registrationClosesDaysBefore: Number(values.closesDaysBefore),
-    meetingLink, physicalAddress, physicalCapacity, minEnrollment, publish: Boolean(publish),
+    meetingLink, physicalAddress, physicalCapacity, minEnrollment, publish: false, sendToTrainer: Boolean(sendToTrainer),
   };
 }
 
-// Class times are shown the way the Creator entered them: in the local time zone.
+// Intake times are shown the way the Creator entered them: in the local time zone.
 export function localDateTime(value) {
   if (!value) return 'Date unavailable';
   const date = value instanceof Date ? value : utcDate(value);
@@ -86,7 +87,7 @@ export function localDateTime(value) {
   return `${dayLabel(date)} ${date.getFullYear()}, ${timeLabel(date)}`;
 }
 
-// After a class exists, only the registration close time and the minimum are edited here.
+// After an Intake exists, only the registration close time and the minimum are edited here.
 // Teaching dates follow the sessions.
 export function initialEditSchedule(intake) {
   const closes = utcDate(intake.registrationClosesAt);
@@ -99,7 +100,7 @@ export function editSchedulePayload(intake, values, now = new Date()) {
   if (![year, month, day, hour, minute].every(Number.isInteger)) invalid('registrationClosesAt', 'Choose when registration closes.');
   const closes = new Date(year, month - 1, day, hour, minute);
   if (closes.getTime() <= now.getTime()) invalid('registrationClosesAt', 'Registration must close in the future.');
-  // Teaching starts with the first session, or earlier when the class was given explicit teaching dates.
+  // Teaching starts with the first session, or earlier when the Intake was given explicit teaching dates.
   const first = [utcDate(intake.startsAt), ...(intake.sessions || []).map((session) => utcDate(session.startsAt))]
     .sort((left, right) => left.getTime() - right.getTime())[0];
   if (closes.getTime() > first.getTime()) {

@@ -4,7 +4,7 @@ export default function CourseNextStep({ step, onAction, disabled }) {
   return (
     <div className="callout creator-next-step" role="status">
       <strong>{step.text}</strong>
-      {step.action ? <button type="button" className="btn btn-primary btn-sm" disabled={disabled} onClick={() => onAction(step.action)}>{step.label}</button> : null}
+      {step.action ? <button type="button" className="btn btn-primary btn-sm" disabled={disabled} onClick={() => onAction(step.action, step)}>{step.label}</button> : null}
     </div>
   );
 }

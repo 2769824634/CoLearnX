@@ -41,6 +41,7 @@ public static class SeedData
         await CertificateFileSchema.EnsureAsync(db);
         await PricingSchema.EnsureAsync(db);
         await CourseTrainerSchema.EnsureAsync(db);
+        await IntakeTrainerInvitationSchema.EnsureAsync(db);
         await CourseSubjectSchema.EnsureAsync(db);
         await CourseRecruitmentSchema.EnsureAsync(db);
         await RoleCertificationSchema.EnsureAsync(db);
@@ -256,6 +257,7 @@ public static class SeedData
             StartsAt = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),
             EndsAt = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc),
             Status = CourseIntakeStatus.Published,
+            TrainerInvitation = TrainerInvitationStatus.Accepted,
             ConfirmationNote = "Legacy Member demo fixture; not a Creator workflow result",
         }).ToArray();
         db.CourseIntakes.AddRange(demoIntakes);

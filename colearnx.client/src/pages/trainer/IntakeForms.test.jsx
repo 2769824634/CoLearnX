@@ -68,7 +68,7 @@ it('clears a matching nested Session error while preserving other field errors',
     onSave={vi.fn()}
   />);
 
-  fireEvent.change(screen.getByLabelText('Class date'), { target: { value: '2026-10-09' } });
+  fireEvent.change(screen.getByLabelText('Session date'), { target: { value: '2026-10-09' } });
   expect(onError).toHaveBeenCalledWith({
     code: 'INVALID_INPUT',
     message: 'Please correct the remaining fields: Provide a valid meeting link.',
@@ -95,7 +95,7 @@ it('updates the parent TrainerError banner when a nested field is corrected', ()
   }
 
   render(<Harness />);
-  fireEvent.change(screen.getByLabelText('Class date'), { target: { value: '2026-10-09' } });
+  fireEvent.change(screen.getByLabelText('Session date'), { target: { value: '2026-10-09' } });
   const banner = screen.getByRole('alert');
   expect(banner.textContent).toMatch(/Provide a valid meeting link/);
   expect(banner.textContent).not.toMatch(/Check the session|Session start is invalid/);
@@ -116,7 +116,7 @@ it('does not dismiss authentication or version conflict banners while editing', 
     onSave={vi.fn()}
   />);
 
-  fireEvent.change(screen.getByLabelText('Class date'), { target: { value: '2026-10-09' } });
+  fireEvent.change(screen.getByLabelText('Session date'), { target: { value: '2026-10-09' } });
   expect(onError).not.toHaveBeenCalled();
 });
 
@@ -164,7 +164,7 @@ it('lets a new Session fall after the last teaching date but not before registra
   };
   render(<SessionForm intake={intake} onError={vi.fn()} onSave={vi.fn()} />);
 
-  const date = screen.getByLabelText('Class date');
+  const date = screen.getByLabelText('Session date');
   expect(date.getAttribute('max')).toBeNull();
   expect(date.getAttribute('min')).toBe('2026-09-20');
   expect(screen.getByText(/teaching dates stretch to include it/i)).toBeTruthy();

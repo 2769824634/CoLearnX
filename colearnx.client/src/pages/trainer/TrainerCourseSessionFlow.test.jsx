@@ -44,7 +44,7 @@ it('lists accepted teaching courses before their Intakes', async () => {
   expect(await screen.findByRole('heading', { name: 'My courses' })).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Accepted course' }).getAttribute('href')).toBe('/trainer/courses/20');
   expect(screen.queryByText('Waiting course')).toBeNull();
-  expect(screen.getByText('1 class')).toBeTruthy();
+  expect(screen.getByText('1 intake')).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Attendance' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Learner List' })).toBeNull();
 });

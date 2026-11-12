@@ -32,7 +32,7 @@ export default function TrainerReservationPanel({ intake, token = null, api = tr
   return <section className="later-panel" aria-label="Reservation progress">
     <h2>Reservation progress</h2>
     <p><span>{reserved == null ? 'Reservation count unavailable' : `${reserved} reserved`}</span> · <span>{formatCount(minimum, 'learner')} minimum</span> · <span>{intake.activeEnrollmentCount ?? '—'} active</span></p>
-    <p>{intake.confirmedToRunAt ? 'Class confirmed to run' : remaining == null ? 'Refresh the Intake to load the current count.' : remaining > 0 ? `${formatCount(remaining, 'more learner', 'more learners')} needed` : 'Minimum reached; confirmation occurs at the registration deadline.'}</p>
+    <p>{intake.confirmedToRunAt ? 'Intake confirmed to run' : remaining == null ? 'Refresh the Intake to load the current count.' : remaining > 0 ? `${formatCount(remaining, 'more learner', 'more learners')} needed` : 'Minimum reached; confirmation occurs at the registration deadline.'}</p>
     <p className="trainer-help">Reserved places hold credits. Attendance, assessment and completion become available after confirmation.</p>
     <button type="button" className="btn btn-ghost" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Hide reserved places' : 'View reserved places'}</button>
     {open ? <ReservationList intakeId={intake.id} token={token} api={api} /> : null}

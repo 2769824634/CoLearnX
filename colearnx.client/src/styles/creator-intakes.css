@@ -151,3 +151,7 @@ a.creator-course-row:hover { background: var(--chrome); }
 @media (max-width: 650px) { .creator-interests { padding: 14px; } .creator-interest-status { align-items: flex-start; flex-direction: column; gap: 8px; } }
 @media (max-width: 850px) { .creator-review-layout { grid-template-columns: 1fr; } .creator-review-desk { position: static; } }
 @media (max-width: 650px) { .creator-header { align-items: flex-start; flex-direction: column; } .creator-application-row, a.creator-course-row { grid-template-columns: minmax(70px, 110px) minmax(0, 1fr); } .creator-application-row .creator-status, .creator-application-row > a, .creator-application-row > time { grid-column: 2; justify-self: start; } .creator-schedule { padding: 16px; } .creator-schedule dl { grid-template-columns: 1fr; } }
+
+/* Where the trainer stands on an Intake's schedule. */
+.creator-intake-trainer { margin: 16px 0; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: #fff; }
+.creator-intake-trainer .creator-section-heading { margin-top: 0; }

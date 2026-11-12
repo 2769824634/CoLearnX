@@ -92,7 +92,7 @@ export default function TrainerLearnersPage({
   return <section className={embedded ? "later-panel" : "trainer-page later-page"}>
     <TrainerHeader title="Learner list">Monitor progress, attendance, assessment results and certificate readiness by Intake.</TrainerHeader>
     {query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <>
-      <div className="trainer-toolbar"><div className="form-group"><label htmlFor="learner-intake">Class</label><select id="learner-intake" value={cohort?.id || ''} onChange={(event) => setChoice(event.target.value)}>{query.data.cohorts.map((item) => <option key={item.id} value={item.id}>{[item.trainerName, `${formatDate(item.startsAt)} → ${formatDate(item.endsAt)}`, statusLabel(item.status)].filter(Boolean).join(' · ')}</option>)}</select></div></div>
+      <div className="trainer-toolbar"><div className="form-group"><label htmlFor="learner-intake">Intake</label><select id="learner-intake" value={cohort?.id || ''} onChange={(event) => setChoice(event.target.value)}>{query.data.cohorts.map((item) => <option key={item.id} value={item.id}>{[item.trainerName, `${formatDate(item.startsAt)} → ${formatDate(item.endsAt)}`, statusLabel(item.status)].filter(Boolean).join(' · ')}</option>)}</select></div></div>
       {notice ? <p className="trainer-notice" role="status">{notice}</p> : null}<TrainerError error={mutationError} />
       {!cohort ? <div className="trainer-empty">No owned Intakes are available.</div> : <>
         <TrainerReservationPanel key={cohort.id} intake={cohort} token={token} api={laterPhaseApi} />

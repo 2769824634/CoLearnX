@@ -44,14 +44,14 @@ it('blocks stale saves and lets the user reload the class', async () => {
   const onReload = vi.fn().mockResolvedValue({});
   render(<IntakeTeachingDatesEditor intake={intake} onSave={onSave} onClose={vi.fn()} onReload={onReload} />);
   fireEvent.submit(screen.getByRole('button', { name: 'Save dates' }).closest('form'));
-  expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'The class has changed.Reload class');
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'The class has changed.Reload intake');
   expect(screen.getByRole('button', { name: 'Save dates' }).disabled).toBe(true);
-  fireEvent.click(screen.getByRole('button', { name: 'Reload class' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Reload intake' }));
   await waitFor(() => expect(onReload).toHaveBeenCalledOnce());
 });
 
 it('disables saving after the class becomes closed', () => {
   render(<IntakeTeachingDatesEditor intake={{ ...intake, status: 'Completed' }} onSave={vi.fn()} onClose={vi.fn()} />);
   expect(screen.getByRole('button', { name: 'Save dates' }).disabled).toBe(true);
-  expect(screen.getByRole('alert').textContent).toBe('This class no longer allows date changes.');
+  expect(screen.getByRole('alert').textContent).toBe('This intake no longer allows date changes.');
 });
