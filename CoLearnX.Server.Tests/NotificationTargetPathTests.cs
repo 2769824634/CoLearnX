@@ -26,7 +26,16 @@ public class NotificationTargetPathTests
     [InlineData("N-course-trainer-removed", null, "/trainer/invitations")]
     [InlineData("N-course-invitation-accepted", null, "/creator/courses")]
     [InlineData("N-course-invitation-declined", null, "/creator/courses")]
+    [InlineData("N-intake-completed", null, "/trainer/courses")]
+    [InlineData("N-class-completed", null, "/member/programs?tab=completed")]
+    [InlineData("N-earnings-pending", null, "/trainer/earnings")]
+    [InlineData("N-earnings-pending-creator", null, "/creator/earnings")]
+    [InlineData("N-earnings-pending", 12, "/trainer/earnings")]
+    [InlineData("N-intake-invitation-accepted", null, "/creator/courses")]
+    [InlineData("N-intake-invitation-declined", null, "/creator/courses")]
     [InlineData("N-role-approved", null, null)]
+    [InlineData("N-payout-paid", null, null)]
+    [InlineData("N-payout-rejected", null, null)]
     [InlineData("N-role-rejected", null, null)]
     [InlineData("https://example.com", null, null)]
     public void Code_maps_to_the_inbox_path(string code, int? intakeId, string? path)
@@ -37,6 +46,12 @@ public class NotificationTargetPathTests
     [InlineData("N-intake-cancelled-creator", 12, "/creator/intakes/12")]
     [InlineData("N-learner-withdrew", 12, "/trainer/courses/intakes/12")]
     [InlineData("N-intake-published", 12, "/trainer/courses/intakes/12")]
+    [InlineData("N-intake-completed", 12, "/trainer/courses/intakes/12")]
+    [InlineData("N-intake-invitation-accepted", 12, "/creator/intakes/12")]
     public void Intake_codes_include_the_owned_resource(string code, int intakeId, string path)
         => Assert.Equal(path, NotificationTargetPath.For(code, intakeId));
+
+    [Fact]
+    public void Class_completed_selects_the_enrollment()
+        => Assert.Equal("/member/programs?tab=completed&enrollmentId=7", NotificationTargetPath.For("N-class-completed", 12, 7));
 }

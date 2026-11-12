@@ -76,8 +76,8 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db, IOptions<Earni
         });
     }
 
-    // The Creator closes a class once its last session has ended. Earnings were recorded when the class was
-    // confirmed, and the Trainer can still record attendance and final results afterwards.
+    // The Creator closes a class once its last session has ended. Earnings are recorded here, as they are when
+    // the class completes on its own, and the Trainer can still record attendance and final results afterwards.
     public async Task CompleteIntakeAsync(int creatorUserId, int intakeId, CancellationToken ct = default)
     {
         await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
@@ -109,10 +109,13 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db, IOptions<Earni
             db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, EmailPending = true, Code = "N-intake-completed",
                 Title = "Intake completed",
                 Body = $"{course.Code} Intake #{intakeId} was completed by the Creator. You can still record attendance and final results." });
-            var learnerIds = await db.Enrollments.Where(e => e.CourseSession.CourseIntakeId == intakeId
+            var enrollments = await db.Enrollments
+                .Where(e => e.CourseSession.CourseIntakeId == intakeId
                     && (e.Status == EnrollmentStatus.Active || e.Status == EnrollmentStatus.Completed))
-                .Select(e => new { e.UserId, e.Id }).ToListAsync(ct);
-            foreach (var learner in learnerIds)
+                .ToListAsync(ct);
+            await EarningsLedger.RecordCompletionAsync(db, intake, course, enrollments,
+                earnings?.Value ?? new EarningsOptions(), now, ct);
+            foreach (var learner in enrollments)
                 db.Notifications.Add(new Notification { UserId = learner.UserId, IntakeId = intake.Id, EnrollmentId = learner.Id, EmailPending = true,
                     Code = "N-class-completed", Title = "Class completed",
                     Body = $"{course.Code} has finished. Once your Trainer records your final result, you can request your certificate." });

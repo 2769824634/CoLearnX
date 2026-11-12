@@ -36,6 +36,44 @@ public class EarningsFlowTests
     }
 
     [Fact]
+    public async Task Creator_completing_a_class_manually_creates_role_specific_earnings_once()
+    {
+        using var factory = new CoLearnXApiFactory();
+        using var initializer = factory.CreateClient();
+        var intakeId = await SeedClassAsync(factory, count: 3, cost: 60, minimum: 3);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+            Assert.True((await scope.ServiceProvider.GetRequiredService<IIntakeSettlementService>().SettleIfDueAsync(intakeId)).Confirmed);
+            await CompleteAsync(scope, intakeId);
+            var session = await db.CourseSessions.SingleAsync(s => s.CourseIntakeId == intakeId);
+            session.StartsAt = DateTime.UtcNow.AddHours(-2);
+            session.EndsAt = DateTime.UtcNow.AddHours(-1);
+            await db.SaveChangesAsync();
+            Assert.Empty(await db.Earnings.ToListAsync());
+        }
+        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");
+        using var creator = await ApiClient.AsRoleAsync(factory, SeedData.CreatorEmail, "Creator");
+
+        (await creator.PostAsync($"/api/creator/intakes/{intakeId}/complete", null)).EnsureSuccessStatusCode();
+        (await creator.PostAsync($"/api/creator/intakes/{intakeId}/complete", null)).EnsureSuccessStatusCode();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<IIntakeSettlementService>().ProcessDueAsync();
+            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+            Assert.Equal(CourseIntakeStatus.Completed, (await db.CourseIntakes.AsNoTracking().SingleAsync(i => i.Id == intakeId)).Status);
+            var rows = await db.Earnings.AsNoTracking().Where(x => x.CourseIntakeId == intakeId).ToListAsync();
+            Assert.Equal(6, rows.Count);
+            Assert.Equal(3, rows.Count(x => x.Role == EarningRole.Trainer));
+            Assert.Equal(3, rows.Count(x => x.Role == EarningRole.Creator));
+            Assert.All(rows, row => Assert.Equal(EarningStatus.Pending, row.Status));
+        }
+        Assert.Equal(45, (await trainer.GetFromJsonAsync<JsonObject>("/api/trainer/earnings"))!["totalCredits"]!.GetValue<int>());
+        Assert.Equal(45, (await creator.GetFromJsonAsync<JsonObject>("/api/creator/earnings"))!["totalCredits"]!.GetValue<int>());
+    }
+
+    [Fact]
     public async Task Failed_class_creates_no_earnings()
     {
         using var factory = new CoLearnXApiFactory();
