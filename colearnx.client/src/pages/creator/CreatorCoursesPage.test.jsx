@@ -380,7 +380,9 @@ describe('Creator Course workspace', () => {
   it('points a published course without a trainer to the invite step', async () => {
     stubCourseApi({ existing: course({ id: 44, status: 'Published' }) });
     renderAt('/creator/courses/44');
-    expect(await screen.findByText('Step 3 of 4 · Find a Trainer')).toBeTruthy();
+    const line = (await screen.findByText('Step 3 of 4 · Find a Trainer')).closest('[role="status"]');
+    fireEvent.click(within(line).getByRole('button', { name: 'Invite trainer' }));
+    expect(screen.getByRole('dialog', { name: 'Invite a trainer' })).toBeTruthy();
   });
 
   it('redirects the old upload page to the course list', async () => {

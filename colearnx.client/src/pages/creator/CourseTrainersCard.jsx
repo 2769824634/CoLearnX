@@ -29,12 +29,15 @@ function rowNote(row) {
   return `${row.status === 'Accepted' ? 'Joined' : 'Declined'} ${formatUtcDateTime(row.respondedAt || row.invitedAt)}`;
 }
 
-export default function CourseTrainersCard({ courseId, onLoaded }) {
+// The course page can open the invite dialog itself (inviteOpen / onInviteOpenChange); otherwise the card keeps that state.
+export default function CourseTrainersCard({ courseId, onLoaded, inviteOpen, onInviteOpenChange }) {
   const query = useTrainerQuery(loadRoster, String(courseId));
   const roster = Array.isArray(query.data) ? query.data : [];
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState(null);
-  const [inviting, setInviting] = useState(false);
+  const [ownInviting, setOwnInviting] = useState(false);
+  const inviting = inviteOpen ?? ownInviting;
+  const setInviting = onInviteOpenChange ?? setOwnInviting;
   const [removing, setRemoving] = useState(null);
 
   // The course page reads the roster to tell the Creator what to do next.

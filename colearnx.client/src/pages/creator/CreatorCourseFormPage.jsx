@@ -76,6 +76,7 @@ function CourseEditor({ initialCourse, source, initialMaterials, options, token 
   const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(toPayload(toForm(initialCourse || emptyCourse))));
   const [roster, setRoster] = useState(null);
   const [classes, setClasses] = useState(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -193,6 +194,7 @@ function CourseEditor({ initialCourse, source, initialMaterials, options, token 
   function onNextStep(action) {
     if (action === 'submit') submitForApproval();
     else if (action === 'edit') { goTo(0); formRef.current?.scrollIntoView?.({ block: 'start' }); }
+    else if (action === 'invite') setInviteOpen(true);
     else if (action === 'class') navigate(`/creator/courses/${course.id}/intakes/new`);
     else document.getElementById(action === 'classes' ? 'course-classes' : 'course-trainers')?.scrollIntoView?.({ block: 'start' });
   }
@@ -239,7 +241,7 @@ function CourseEditor({ initialCourse, source, initialMaterials, options, token 
       </form>
     </>}
     {course ? <CourseMaterialsCard course={course} materials={materials} onMaterials={setMaterials} token={token} open={uploadOpen} onOpenChange={setUploadOpen} /> : null}
-    {course ? <CourseTrainersCard courseId={course.id} onLoaded={setRoster} /> : null}
+    {course ? <CourseTrainersCard courseId={course.id} onLoaded={setRoster} inviteOpen={inviteOpen} onInviteOpenChange={setInviteOpen} /> : null}
     {course ? <CourseClassesSection course={course} onLoaded={setClasses} /> : null}
   </section>;
 }
@@ -364,9 +366,7 @@ function BasicFields({ form, options, setForm }) {
   const change = fieldChanger(setForm);
   const onlySubject = (options.courseSubjects || []).length === 1 ? options.courseSubjects[0] : null;
   return <>
-    <div className="creator-step-grid">
-      <div className="form-group"><label htmlFor="creator-course-title">Title</label><input id="creator-course-title" required value={form.title} onChange={change('title')} /></div>
-    </div>
+    <div className="form-group"><label htmlFor="creator-course-title">Title</label><input id="creator-course-title" required value={form.title} onChange={change('title')} /></div>
     <div className="form-group"><label htmlFor="creator-course-description">Description</label><textarea id="creator-course-description" value={form.description} onChange={change('description')} /></div>
     <div className="creator-step-grid">
       <div className="form-group"><label htmlFor="creator-course-level">Course level</label><select id="creator-course-level" required value={form.courseLevelId} onChange={change('courseLevelId')}><option value="">Choose a level</option>{options.courseLevels.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
