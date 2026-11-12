@@ -107,8 +107,8 @@ export default function PublicSiteShell({ title, children }) {
           </div>
           <div>
             <h2>Teach</h2>
-            <Link to="/register">Become a Trainer</Link>
-            <Link to="/register">Publish as a Creator</Link>
+            <Link to="/register?role=Trainer">Become a Trainer</Link>
+            <Link to="/register?role=Creator">Publish as a Creator</Link>
           </div>
           <div>
             <h2>Account</h2>

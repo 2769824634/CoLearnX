@@ -4,7 +4,6 @@ import Logo from '../components/Logo';
 import SkipToContent, { MAIN_CONTENT_ID } from '../components/SkipToContent';
 import useActiveNavInView from '../components/useActiveNavInView';
 import UserAvatar from '../components/UserAvatar';
-import { AccessNotice } from './shellAccessNotice';
 import '../styles/account-menu.css';
 
 function AccountMenu({ role, identityName, avatarUrl, token, logout }) {
@@ -63,8 +62,6 @@ export function ShellChrome({
   children,
   title,
   subtitle,
-  accessNotice,
-  onDismissAccessNotice,
 }) {
   const navRef = useActiveNavInView();
 
@@ -96,7 +93,6 @@ export function ShellChrome({
         </nav>
         <p id={navHintId} className="nav-scroll-hint">More navigation → Swipe or scroll sideways</p>
         <main id={MAIN_CONTENT_ID} className="content" tabIndex={-1}>
-          <AccessNotice notice={accessNotice} onDismiss={onDismissAccessNotice} />
           {title ? <h1 className="page-title">{title}</h1> : null}
           {subtitle ? <p className="page-sub">{subtitle}</p> : null}
           {children}

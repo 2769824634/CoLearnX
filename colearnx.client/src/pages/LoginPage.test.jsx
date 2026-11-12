@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuthContext } from '../auth/AuthContext';
 import { authApi } from '../api';
 import LoginPage from './LoginPage';
@@ -66,4 +66,45 @@ it('signs in with the first returned role without showing a chooser', async () =
   fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
   await waitFor(() => expect(auth.login).toHaveBeenCalledWith('multi@example.test', 'StrongPass123!', 'Creator'));
   expect(screen.queryByRole('dialog', { name: 'Continue as' })).toBeNull();
+});
+
+it('ignores a return path that belongs to another role and opens the account\'s own home', async () => {
+  const auth = { booting: false, isAuthenticated: false, activeRole: null, login: vi.fn().mockResolvedValue({ activeRole: 'Creator' }) };
+  authApi.availableRoles.mockResolvedValue({ roles: ['Creator'] });
+  const view = render(
+    <MemoryRouter initialEntries={[{ pathname: '/login', state: { from: { pathname: '/member/programs', search: '' } } }]}>
+      <AuthContext.Provider value={auth}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/creator/home" element={<div>Creator home</div>} />
+          <Route path="/member/programs" element={<div>Member programs</div>} />
+        </Routes>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  );
+  fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'creator@example.test' } });
+  fireEvent.change(view.container.querySelector('input[type="password"]'), { target: { value: 'StrongPass123!' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+  expect(await screen.findByText('Creator home')).toBeTruthy();
+  expect(screen.queryByText('Member programs')).toBeNull();
+});
+
+it('still returns a Member to the page they were on before signing in', async () => {
+  const auth = { booting: false, isAuthenticated: false, activeRole: null, login: vi.fn().mockResolvedValue({ activeRole: 'Member' }) };
+  authApi.availableRoles.mockResolvedValue({ roles: ['Member'] });
+  const view = render(
+    <MemoryRouter initialEntries={[{ pathname: '/login', state: { from: { pathname: '/member/programs', search: '' } } }]}>
+      <AuthContext.Provider value={auth}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/member/home" element={<div>Member home</div>} />
+          <Route path="/member/programs" element={<div>Member programs</div>} />
+        </Routes>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  );
+  fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'member@example.test' } });
+  fireEvent.change(view.container.querySelector('input[type="password"]'), { target: { value: 'StrongPass123!' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+  expect(await screen.findByText('Member programs')).toBeTruthy();
 });

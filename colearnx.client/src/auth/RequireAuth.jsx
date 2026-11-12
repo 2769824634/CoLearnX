@@ -20,16 +20,9 @@ export function RequireAuth({ role }) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
+  // An account has one role, so a page of another role simply leads to the account's own home.
   if (role && activeRole !== role) {
-    const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
-    const activeLabel = activeRole ? activeRole.charAt(0).toUpperCase() + activeRole.slice(1) : 'active';
-    return (
-      <Navigate
-        to={`/${activeRole}/home`}
-        replace
-        state={{ accessNotice: `This page requires the ${roleLabel} workspace. You were returned to your ${activeLabel} workspace.` }}
-      />
-    );
+    return <Navigate to={`/${activeRole}/home`} replace />;
   }
 
   // Uncertified Trainer and Creator accounts stay on their certification page. The server enforces it too.

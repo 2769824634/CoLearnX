@@ -3,7 +3,6 @@ import MemberNotifications from './MemberNotifications';
 import { MEMBER_NAV } from '../data/memberMock';
 import { useAuth } from '../auth/AuthContext';
 import { ShellChrome, ShellNavLink } from '../layouts/ShellChrome';
-import { useAccessNotice } from '../layouts/useAccessNotice';
 
 export default function MemberShell({
   title,
@@ -12,7 +11,6 @@ export default function MemberShell({
   children,
 }) {
   const { user, token, logout } = useAuth();
-  const { notice: accessNotice, dismiss: dismissAccessNotice } = useAccessNotice();
 
   return (
     <ShellChrome
@@ -57,8 +55,6 @@ export default function MemberShell({
       ))}
       title={title}
       subtitle={subtitle}
-      accessNotice={accessNotice}
-      onDismissAccessNotice={dismissAccessNotice}
     >
       {children}
     </ShellChrome>

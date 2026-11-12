@@ -6,7 +6,6 @@ import useAdminAuth from '../auth/useAdminAuth';
 import { AdminPendingProvider } from '../pages/admin/AdminPendingProvider';
 import { pendingTotal, useAdminPending } from '../pages/admin/adminPending';
 import { ShellChrome, ShellNavLink } from './ShellChrome';
-import { useAccessNotice } from './useAccessNotice';
 import '../styles/admin.css';
 import '../styles/admin-operations.css';
 import '../styles/later-phase.css';
@@ -56,7 +55,7 @@ function pendingCount(kind, counts) {
   return kind === 'approvals' ? pendingTotal(counts) : 0;
 }
 
-function ShellFrame({ identityName, avatarUrl, token, role, logout, identityLabel = 'Administrator', title, subtitle, accessNotice, onDismissAccessNotice }) {
+function ShellFrame({ identityName, avatarUrl, token, role, logout, identityLabel = 'Administrator', title, subtitle }) {
   const location = useLocation();
   const items = NAV[role] || [];
   const pendingCounts = useAdminPending()?.counts;
@@ -90,8 +89,6 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, identityLabe
       })}
       title={title}
       subtitle={subtitle}
-      accessNotice={accessNotice}
-      onDismissAccessNotice={onDismissAccessNotice}
     >
       <Outlet />
     </ShellChrome>
@@ -100,7 +97,6 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, identityLabe
 
 export default function RoleShell({ role, title, subtitle }) {
   const { user, token, logout } = useAuth();
-  const { notice: accessNotice, dismiss: dismissAccessNotice } = useAccessNotice();
   return (
     <MemberNotificationsProvider>
     <ShellFrame
@@ -112,8 +108,6 @@ export default function RoleShell({ role, title, subtitle }) {
       identityLabel={role.charAt(0).toUpperCase() + role.slice(1)}
       title={title}
       subtitle={subtitle}
-      accessNotice={accessNotice}
-      onDismissAccessNotice={dismissAccessNotice}
     />
     </MemberNotificationsProvider>
   );

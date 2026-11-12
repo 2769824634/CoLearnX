@@ -511,6 +511,23 @@
   margin-top: 32px;
 }
 
+.g-hero-note {
+  margin: 16px 0 0;
+  color: var(--g-mute);
+  font-size: 14px;
+}
+
+.g-hero-note a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.g-hero-note a:hover {
+  color: var(--g-ink, inherit);
+}
+
 .g-hero-panel {
   padding: 20px;
   border: 1px solid var(--g-line);

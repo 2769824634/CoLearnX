@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import Logo from '../components/Logo';
 import PasswordInput from '../components/PasswordInput';
 import { authApi } from '../api';
@@ -8,16 +8,23 @@ import { useNoCredentialAutofill } from '../auth/noCredentialAutofill';
 import { maskEmail } from '../data/memberMock';
 import { PASSWORD_RULES, passwordIssues } from './passwordRules';
 
-const SIGNUP_ROLES = ['Member', 'Trainer', 'Creator'];
+const SIGNUP_ROLES = [
+  { role: 'Member', hint: 'Join classes and earn certificates' },
+  { role: 'Trainer', hint: 'Teach scheduled classes' },
+  { role: 'Creator', hint: 'Design and publish courses' },
+];
+// Links such as /register?role=Trainer open the form on that account type.
+const roleFromQuery = (value) => SIGNUP_ROLES.find((item) => item.role.toLowerCase() === String(value || '').toLowerCase())?.role || 'Member';
 
 export default function RegisterPage() {
   const { register, isAuthenticated, activeRole, booting } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [role, setRole] = useState('Member');
+  const [role, setRole] = useState(() => roleFromQuery(searchParams.get('role')));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -96,21 +103,26 @@ export default function RegisterPage() {
           </div>
         ) : <form className="auth-body" onSubmit={onSubmit} autoComplete="off">
           <h2>Create your account</h2>
-          <div className="form-group" role="group" aria-label="Account type" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {SIGNUP_ROLES.map((item) => (
-              <button
-                key={item}
-                type="button"
-                className={`btn btn-sm ${role === item ? 'btn-primary' : 'btn-ghost'}`}
-                aria-pressed={role === item}
-                onClick={() => { setRole(item); setError(''); }}
-              >
-                Sign up as {item}
-              </button>
-            ))}
+          <div className="form-group">
+            <span className="auth-role-label" id="register-role-label">Account type</span>
+            <div className="auth-role-picker" role="group" aria-labelledby="register-role-label">
+              {SIGNUP_ROLES.map((item) => (
+                <button
+                  key={item.role}
+                  type="button"
+                  className={`auth-role-option${role === item.role ? ' is-selected' : ''}`}
+                  aria-pressed={role === item.role}
+                  aria-label={`Sign up as ${item.role}`}
+                  onClick={() => { setRole(item.role); setError(''); }}
+                >
+                  <strong>{item.role}</strong>
+                  <small>{item.hint}</small>
+                </button>
+              ))}
+            </div>
           </div>
           {role !== 'Member' ? (
-            <p className="auth-lead">{role} accounts must be certified by an administrator before the workspace opens. You will choose your specialties during certification.</p>
+            <p className="auth-lead auth-role-note" role="note">{role} accounts must be certified by an administrator before the workspace opens. You will choose your specialties during certification.</p>
           ) : null}
           <div className="form-group">
             <label htmlFor="register-name">Full name</label>

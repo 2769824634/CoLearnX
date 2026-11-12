@@ -6,12 +6,12 @@ import { RequireAuth } from './RequireAuth';
 
 function Notice() {
   const location = useLocation();
-  return <div>{location.state?.accessNotice || 'missing notice'}</div>;
+  return <div>{location.state ? 'unexpected state' : 'own home, no state'}</div>;
 }
 
 afterEach(() => cleanup());
 
-it('explains the role boundary when redirecting an authenticated user', () => {
+it('takes an account that opens another role\'s page to its own home without a notice', () => {
   render(
     <MemoryRouter initialEntries={['/trainer/home']}>
       <AuthContext.Provider value={{ booting: false, isAuthenticated: true, activeRole: 'member' }}>
@@ -22,7 +22,7 @@ it('explains the role boundary when redirecting an authenticated user', () => {
       </AuthContext.Provider>
     </MemoryRouter>,
   );
-  expect(screen.getByText(/requires the Trainer workspace/i)).toBeTruthy();
+  expect(screen.getByText('own home, no state')).toBeTruthy();
 });
 
 it('keeps an uncertified Trainer on the certification page', () => {

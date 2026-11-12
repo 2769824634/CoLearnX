@@ -19,6 +19,14 @@ function memberReturnPath(from) {
   return path;
 }
 
+// The page someone was on before signing in is reopened only when it belongs to the role they sign in with.
+const WORKSPACES = ['member', 'trainer', 'creator'];
+function returnPathFor(path, role) {
+  if (!path) return null;
+  const area = path.split(/[/?#]/)[1];
+  return WORKSPACES.includes(area) && area !== String(role || '').toLowerCase() ? null : path;
+}
+
 export default function LoginPage() {
   const { login, isAuthenticated, activeRole, booting } = useAuth();
   const navigate = useNavigate();
@@ -43,7 +51,7 @@ export default function LoginPage() {
   }, [booting]);
 
   if (!booting && isAuthenticated && activeRole) {
-    return <Navigate to={returnPath || `/${activeRole}/home`} replace />;
+    return <Navigate to={returnPathFor(returnPath, activeRole) || `/${activeRole}/home`} replace />;
   }
 
   async function onSubmit(e) {
@@ -58,7 +66,7 @@ export default function LoginPage() {
         return;
       }
       const user = await login(email, password, roles[0]);
-      navigate(returnPath || `/${user.activeRole.toLowerCase()}/home`);
+      navigate(returnPathFor(returnPath, user.activeRole) || `/${user.activeRole.toLowerCase()}/home`);
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {

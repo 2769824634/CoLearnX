@@ -90,6 +90,9 @@ export default function GuestHome({ courses, loading, error, onWishlist }) {
             <Link className="g-btn g-btn-primary g-btn-lg" to="/register">Sign up free <Arrow /></Link>
             <Link className="g-btn g-btn-outline g-btn-lg" to="/courses">Browse courses</Link>
           </div>
+          <p className="g-hero-note g-load" style={{ '--i': 4 }}>
+            Here to teach? <Link to="/register?role=Trainer">Sign up as a Trainer</Link> or <Link to="/register?role=Creator">sign up as a Creator</Link>.
+          </p>
         </div>
         <HeroPanel courses={courses} loading={loading} />
       </section>
@@ -158,13 +161,13 @@ export default function GuestHome({ courses, loading, error, onWishlist }) {
             <span className="g-chip g-chip-purple">Trainer</span>
             <h3>Run the class</h3>
             <p>Lead scheduled sessions, guide hands-on practice and sign off the skills your learners earn.</p>
-            <Link className="g-link-arrow" to="/register">Apply to teach <Arrow /></Link>
+            <Link className="g-link-arrow" to="/register?role=Trainer">Apply to teach <Arrow /></Link>
           </Reveal>
           <Reveal className="g-teach-card" delay={80}>
             <span className="g-chip g-chip-teal">Creator</span>
             <h3>Shape the course</h3>
             <p>Write the outline and publish materials once. Every time a Trainer uses them, it is on your record.</p>
-            <Link className="g-link-arrow" to="/register">Become a Creator <Arrow /></Link>
+            <Link className="g-link-arrow" to="/register?role=Creator">Become a Creator <Arrow /></Link>
           </Reveal>
         </div>
       </section>
