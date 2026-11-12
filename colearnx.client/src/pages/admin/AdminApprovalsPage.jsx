@@ -3,6 +3,7 @@ import AdminCourseReviewsPage from './AdminCourseReviewsPage';
 import AdminRoleRequestsPage from './AdminRoleRequestsPage';
 import AdminLaterApprovalsPage from './AdminLaterApprovalsPage';
 import AdminDisputesPage from './AdminDisputesPage';
+import AdminPayoutsPage from './AdminPayoutsPage';
 import { useAdminPending } from './adminPending';
 
 const QUEUES = [
@@ -10,6 +11,7 @@ const QUEUES = [
   { id: 'courses', label: 'Course reviews', detail: 'Courses & their files', countKey: 'courses' },
   { id: 'certificates', label: 'Certificates', detail: 'Final issuance gate', countKey: 'certificates' },
   { id: 'disputes', label: 'Disputes', detail: 'Refund or reject', countKey: 'disputes' },
+  { id: 'payouts', label: 'Payouts', detail: 'Pay Trainers & Creators', countKey: 'payouts' },
 ];
 
 export default function AdminApprovalsPage() {
@@ -57,6 +59,7 @@ export default function AdminApprovalsPage() {
         {activeQueue === 'courses' ? <AdminCourseReviewsPage /> : null}
         {activeQueue === 'certificates' ? <AdminLaterApprovalsPage /> : null}
         {activeQueue === 'disputes' ? <AdminDisputesPage /> : null}
+        {activeQueue === 'payouts' ? <AdminPayoutsPage /> : null}
       </div>
     </div>
   );

@@ -115,6 +115,28 @@ public enum PaymentStatus
     Failed = 2
 }
 
+public enum EarningRole
+{
+    Creator = 1,
+    Trainer = 2
+}
+
+public enum EarningStatus
+{
+    Pending = 0,
+    Available = 1,
+    Requested = 2,
+    Paid = 3,
+    Voided = 4
+}
+
+public enum PayoutStatus
+{
+    Requested = 0,
+    Paid = 1,
+    Rejected = 2
+}
+
 public enum CourseType
 {
     Theory = 0,

@@ -14,8 +14,9 @@ vi.mock('../../api', () => ({ adminOverviewApi: overviewApi, adminAuditApi: audi
 vi.mock('./AdminRoleRequestsPage', () => ({ default: () => <div>Role queue</div> }));
 vi.mock('./AdminCourseReviewsPage', () => ({ default: () => <div>Course queue</div> }));
 vi.mock('./AdminLaterApprovalsPage', () => ({ default: () => <div>Later queue</div> }));
+vi.mock('./AdminPayoutsPage', () => ({ default: () => <div>Payout queue</div> }));
 
-const counts = (overrides = {}) => ({ roleRequests: 2, courses: 1, certificates: 3, disputes: 4, ...overrides });
+const counts = (overrides = {}) => ({ roleRequests: 2, courses: 1, certificates: 3, disputes: 4, payouts: 5, ...overrides });
 
 function renderPage(page, pending = null) {
   return render(
@@ -47,13 +48,14 @@ it('summarises every admin queue on the homepage with links to each queue', asyn
     ['Courses to review', '1', '/admin/approvals?queue=courses'],
     ['Certificates', '3', '/admin/approvals?queue=certificates'],
     ['Disputes', '4', '/admin/approvals?queue=disputes'],
+    ['Payouts', '5', '/admin/approvals?queue=payouts'],
   ]);
   expect(screen.queryByText(/All caught up/)).toBeNull();
   expect(auditApi.list).toHaveBeenCalledWith('admin-token', 5, expect.anything());
 });
 
 it('tells the admin when nothing is waiting', async () => {
-  overviewApi.pendingCounts.mockResolvedValue(counts({ roleRequests: 0, courses: 0, certificates: 0, disputes: 0 }));
+  overviewApi.pendingCounts.mockResolvedValue(counts({ roleRequests: 0, courses: 0, certificates: 0, disputes: 0, payouts: 0 }));
   overviewApi.classes.mockResolvedValue([]);
   auditApi.list.mockResolvedValue([]);
   renderPage(<AdminHomePage />);
@@ -70,8 +72,9 @@ it('shows how many items wait in each approval queue tab', () => {
     'Course reviews, 1 pending',
     'Certificates, 3 pending',
     'Disputes, 4 pending',
+    'Payouts, 5 pending',
   ]);
-  expect(tabs).toHaveLength(4);
+  expect(tabs).toHaveLength(5);
   expect(tabs[2].querySelector('.admin-approval-count').textContent).toBe('3');
 });
 

@@ -208,7 +208,8 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
             new EnrollmentCreditTransitions(db).Refund(user, enrollment, refund,
                 $"Withdrawal refund: {enrollment.Course.Code}",
                 forfeited > 0 ? $"{forfeited} credits retained after withdrawal from {enrollment.Course.Code}" : null);
-            await EarningsLedger.ReverseAsync(db, enrollment.Id, refund, ct);
+            await EarningsLedger.VoidRefundableAsync(db, enrollment.Id, "Member withdrawal refund", ct,
+                userId: userId);
             db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "EnrollmentWithdrawn",
                 EntityType = nameof(Enrollment), EntityId = enrollment.Id.ToString(), Result = "Succeeded",
                 Reason = $"Refunded {refund}; forfeited {forfeited} credits" });

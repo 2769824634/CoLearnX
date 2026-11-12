@@ -2,40 +2,47 @@ using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 
 namespace CoLearnX.Server.Services;
 
-public sealed class EarningsService(CoLearnXDbContext db, IOptions<EarningsOptions> options)
+public interface IEarningsService
+{
+    Task<EarningsSummaryDto> GetAsync(int userId, AppRole role, CancellationToken ct = default);
+}
+
+public sealed class EarningsService(CoLearnXDbContext db) : IEarningsService
 {
     public async Task<EarningsSummaryDto> GetAsync(int userId, AppRole role, CancellationToken ct = default)
     {
-        var entries = await db.IntakeEarnings.AsNoTracking().Where(row => row.UserId == userId && row.Role == role)
-            .Select(row => new { row.CourseIntakeId, row.CourseIntake.Course.Code, row.CourseIntake.Course.Title,
-                row.CourseIntake.StartsAt, row.EnrollmentId, row.Credits, row.GrossCredits, row.IsReversal, row.CreatedAt,
-                row.CourseIntake.Course.CourseLevelId, Subject = row.CourseIntake.Course.CourseSubject == null
-                    ? (SubjectArea?)null : row.CourseIntake.Course.CourseSubject.Subject })
+        var earningRole = role == AppRole.Creator ? EarningRole.Creator : EarningRole.Trainer;
+        await EarningsLedger.ReleaseDueAsync(db, DateTime.UtcNow, ct);
+        var entries = await db.Earnings.AsNoTracking().Where(x => x.UserId == userId && x.Role == earningRole)
+            .Select(x => new { x.CourseIntakeId, x.Course.Code, x.Course.Title, x.CourseIntake.StartsAt,
+                x.CourseIntake.EndsAt, x.EnrollmentId, x.Credits, x.SharePercent, x.Status, x.AvailableAt, x.CreatedAt })
             .ToListAsync(ct);
-        var pools = await db.PricePools.AsNoTracking().Where(row => row.Subject != null)
-            .Select(row => new { row.Subject, row.CourseLevelId, row.ContentSharePercent, row.DeliverySharePercent })
-            .ToListAsync(ct);
-        var rates = entries.Where(row => !row.IsReversal).Select(row =>
+        var payouts = await db.PayoutRequests.AsNoTracking().Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.RequestedAt).Select(x => new PayoutRequestDto(x.Id, x.Credits,
+                x.PayoutMethod, x.Status.ToString(), x.RequestedAt, x.ReviewedAt, x.Reference)).ToListAsync(ct);
+        var active = entries.Where(x => x.Status != EarningStatus.Voided).ToList();
+        var classes = entries.GroupBy(x => x.CourseIntakeId).Select(group =>
         {
-            var pool = pools.SingleOrDefault(item => item.Subject == row.Subject && item.CourseLevelId == row.CourseLevelId);
-            return pool is null ? (role == AppRole.Trainer ? options.Value.TrainerPercent : options.Value.CreatorPercent)
-                : (role == AppRole.Trainer ? pool.DeliverySharePercent : pool.ContentSharePercent);
-        }).Distinct().ToList();
-        var classes = entries.Where(row => !row.IsReversal).GroupBy(row => row.CourseIntakeId)
-            .Select(group => new EarningRowDto(group.Key, group.First().Code, group.First().Title, group.First().StartsAt,
-                group.Count(), group.Sum(row => (long)row.GrossCredits), group.Sum(row => (long)row.Credits), false,
-                group.Min(row => row.CreatedAt)));
-        var refunds = entries.Where(row => row.IsReversal).Select(row => new EarningRowDto(row.CourseIntakeId,
-            row.Code, row.Title, row.StartsAt, 0, row.GrossCredits, row.Credits, true, row.CreatedAt));
+            var statuses = group.Select(x => x.Status).Distinct().ToList();
+            return new EarningClassDto(group.Key, group.First().Code, group.First().Title, group.First().EndsAt,
+                group.Select(x => x.EnrollmentId).Distinct().Count(), group.Sum(x => (long)x.Credits),
+                group.Select(x => x.SharePercent).Distinct().Count() == 1 ? group.First().SharePercent : null,
+                statuses.Count == 1 ? statuses[0].ToString() : "Mixed", group.Max(x => x.AvailableAt));
+        }).OrderByDescending(x => x.EndsAt).ToList();
+        var rows = classes.Select(x => new EarningRowDto(x.CourseIntakeId, x.CourseCode, x.CourseTitle, x.EndsAt,
+            x.Learners, x.Credits, x.Credits, false, x.EndsAt)).ToList();
         var month = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        return new EarningsSummaryDto(entries.Sum(row => (long)row.Credits),
-            entries.Where(row => row.CreatedAt >= month).Sum(row => (long)row.Credits),
-            entries.Where(row => !row.IsReversal).Select(row => row.CourseIntakeId).Distinct().Count(),
-            rates.Count == 1 ? rates[0] : null,
-            classes.Concat(refunds).OrderByDescending(row => row.CreatedAt).ToList());
+        return new EarningsSummaryDto(active.Sum(x => (long)x.Credits),
+            active.Where(x => x.Status == EarningStatus.Pending).Sum(x => (long)x.Credits),
+            active.Where(x => x.Status == EarningStatus.Available).Sum(x => (long)x.Credits),
+            active.Where(x => x.Status == EarningStatus.Requested).Sum(x => (long)x.Credits),
+            active.Where(x => x.Status == EarningStatus.Paid).Sum(x => (long)x.Credits),
+            EarningsRules.MinimumPayoutCredits, EarningsRules.CashPerCredit, classes, payouts,
+            active.Where(x => x.CreatedAt >= month).Sum(x => (long)x.Credits), classes.Count,
+            active.Count > 0 && active.Select(x => x.SharePercent).Distinct().Count() == 1 ? active[0].SharePercent : null,
+            rows);
     }
 }

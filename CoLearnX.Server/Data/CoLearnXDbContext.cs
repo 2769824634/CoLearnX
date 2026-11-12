@@ -40,7 +40,8 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
     public DbSet<MaterialUsageLog> MaterialUsageLogs => Set<MaterialUsageLog>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<EnrollmentSessionChoice> EnrollmentSessionChoices => Set<EnrollmentSessionChoice>();
-    public DbSet<IntakeEarning> IntakeEarnings => Set<IntakeEarning>();
+    public DbSet<Earning> Earnings => Set<Earning>();
+    public DbSet<PayoutRequest> PayoutRequests => Set<PayoutRequest>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
     public DbSet<ProgramRating> ProgramRatings => Set<ProgramRating>();
     public DbSet<CreditPackage> CreditPackages => Set<CreditPackage>();
@@ -291,14 +292,25 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
             e.HasOne(x => x.CourseSession).WithMany(s => s.Enrollments).HasForeignKey(x => x.CourseSessionId).OnDelete(DeleteBehavior.Restrict);
         });
 
-        modelBuilder.Entity<IntakeEarning>(e =>
+        modelBuilder.Entity<Earning>(e =>
         {
-            e.HasIndex(x => new { x.UserId, x.CreatedAt });
-            e.HasIndex(x => new { x.EnrollmentId, x.Role }).IsUnique()
-                .HasDatabaseName("IX_IntakeEarnings_EnrollmentId_Role_Accrual").HasFilter("IsReversal = 0");
+            e.HasIndex(x => new { x.EnrollmentId, x.Role }).IsUnique();
+            e.HasIndex(x => new { x.UserId, x.Status });
+            e.HasIndex(x => new { x.UserId, x.Status, x.AvailableAt });
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Course).WithMany().HasForeignKey(x => x.CourseId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.CourseIntake).WithMany().HasForeignKey(x => x.CourseIntakeId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Enrollment).WithMany().HasForeignKey(x => x.EnrollmentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.PayoutRequest).WithMany(x => x.Earnings).HasForeignKey(x => x.PayoutRequestId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PayoutRequest>(e =>
+        {
+            e.Property(x => x.PayoutMethod).HasMaxLength(256).IsRequired();
+            e.Property(x => x.Reference).HasMaxLength(256);
+            e.HasIndex(x => new { x.UserId, x.Status });
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ReviewedByAdminAccount).WithMany().HasForeignKey(x => x.ReviewedByAdminAccountId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<EnrollmentSessionChoice>(e =>

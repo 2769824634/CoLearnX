@@ -288,7 +288,8 @@ public sealed class AdminFinanceService(CoLearnXDbContext db, ILogger<AdminFinan
                             IdempotencyKey = request.IdempotencyKey,
                         });
                     }
-                    await EarningsLedger.ReverseAsync(db, dispute.EnrollmentId.Value, credits, ct);
+                    await EarningsLedger.VoidRefundableAsync(db, dispute.EnrollmentId.Value,
+                        $"Dispute #{dispute.Id} refunded: {reason}", ct, adminAccountId: adminAccountId);
                     db.Notifications.Add(new Notification
                     {
                         UserId = dispute.RaisedByUserId,

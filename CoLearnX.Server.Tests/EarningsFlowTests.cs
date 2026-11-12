@@ -5,43 +5,34 @@ using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
 using CoLearnX.Server.Services;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Data.Sqlite;
 
 namespace CoLearnX.Server.Tests;
 
 public class EarningsFlowTests
 {
     [Fact]
-    public async Task Confirmed_class_creates_role_specific_earnings_once_and_cancellation_reverses_them()
+    public async Task Confirmation_creates_no_earnings_but_completion_creates_role_specific_earnings_once()
     {
         using var factory = new CoLearnXApiFactory();
         using var initializer = factory.CreateClient();
-        var (intakeId, creatorId) = await SeedClassAsync(factory, count: 3, cost: 60, minimum: 3);
+        var intakeId = await SeedClassAsync(factory, count: 3, cost: 60, minimum: 3);
         using (var scope = factory.Services.CreateScope())
         {
             var service = scope.ServiceProvider.GetRequiredService<IIntakeSettlementService>();
             Assert.True((await service.SettleIfDueAsync(intakeId)).Confirmed);
-            Assert.Equal(0, (await service.SettleIfDueAsync(intakeId)).ProcessedCount);
+            Assert.Empty(await scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>().Earnings.ToListAsync());
+            await CompleteAsync(scope, intakeId);
+            await service.ProcessDueAsync();
+            await service.ProcessDueAsync();
         }
         using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");
         using var creator = await ApiClient.AsRoleAsync(factory, SeedData.CreatorEmail, "Creator");
-        var trainerSummary = await trainer.GetFromJsonAsync<JsonObject>("/api/trainer/earnings");
-        var creatorSummary = await creator.GetFromJsonAsync<JsonObject>("/api/creator/earnings");
-        Assert.Equal(45, trainerSummary!["totalCredits"]!.GetValue<int>());
-        Assert.Equal(45, creatorSummary!["totalCredits"]!.GetValue<int>());
-        Assert.Equal(1, trainerSummary["confirmedClasses"]!.GetValue<int>());
+        Assert.Equal(45, (await trainer.GetFromJsonAsync<JsonObject>("/api/trainer/earnings"))!["totalCredits"]!.GetValue<int>());
+        Assert.Equal(45, (await creator.GetFromJsonAsync<JsonObject>("/api/creator/earnings"))!["totalCredits"]!.GetValue<int>());
         Assert.Equal(HttpStatusCode.Forbidden, (await creator.GetAsync("/api/trainer/earnings")).StatusCode);
-
-        using (var scope = factory.Services.CreateScope())
-        {
-            var service = scope.ServiceProvider.GetRequiredService<IIntakeSettlementService>();
-            await service.CancelIntakeAsync(creatorId, intakeId);
-            await service.CancelIntakeAsync(creatorId, intakeId);
-        }
-        Assert.Equal(0, (await trainer.GetFromJsonAsync<JsonObject>("/api/trainer/earnings"))!["totalCredits"]!.GetValue<int>());
-        Assert.Equal(0, (await creator.GetFromJsonAsync<JsonObject>("/api/creator/earnings"))!["totalCredits"]!.GetValue<int>());
     }
 
     [Fact]
@@ -49,44 +40,18 @@ public class EarningsFlowTests
     {
         using var factory = new CoLearnXApiFactory();
         using var initializer = factory.CreateClient();
-        var (intakeId, _) = await SeedClassAsync(factory, count: 2, cost: 60, minimum: 3);
-        using (var scope = factory.Services.CreateScope())
-            Assert.False((await scope.ServiceProvider.GetRequiredService<IIntakeSettlementService>().SettleIfDueAsync(intakeId)).Confirmed);
-        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");
-        var summary = await trainer.GetFromJsonAsync<JsonObject>("/api/trainer/earnings");
-        Assert.Equal(0, summary!["totalCredits"]!.GetValue<int>());
-        Assert.Empty(summary["rows"]!.AsArray());
+        var intakeId = await SeedClassAsync(factory, count: 2, cost: 60, minimum: 3);
+        using var scope = factory.Services.CreateScope();
+        Assert.False((await scope.ServiceProvider.GetRequiredService<IIntakeSettlementService>().SettleIfDueAsync(intakeId)).Confirmed);
+        Assert.Empty(await scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>().Earnings.ToListAsync());
     }
 
     [Fact]
-    public async Task Partial_withdrawal_reverses_only_the_refunded_share()
+    public async Task Completion_uses_the_course_price_pool_distribution_and_refund_voids_unpaid_rows()
     {
         using var factory = new CoLearnXApiFactory();
         using var initializer = factory.CreateClient();
-        var (intakeId, _) = await SeedClassAsync(factory, count: 3, cost: 60, minimum: 3);
-        using (var scope = factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-            await scope.ServiceProvider.GetRequiredService<IIntakeSettlementService>().SettleIfDueAsync(intakeId);
-            var intake = await db.CourseIntakes.SingleAsync(i => i.Id == intakeId);
-            intake.StartsAt = DateTime.UtcNow.AddDays(8);
-            await db.SaveChangesAsync();
-            var enrollment = await db.Enrollments.Include(e => e.CourseSession)
-                .FirstAsync(e => e.CourseSession.CourseIntakeId == intakeId);
-            await scope.ServiceProvider.GetRequiredService<IEnrollmentService>().WithdrawAsync(enrollment.UserId, enrollment.Id);
-        }
-        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");
-        using var creator = await ApiClient.AsRoleAsync(factory, SeedData.CreatorEmail, "Creator");
-        Assert.Equal(35, (await trainer.GetFromJsonAsync<JsonObject>("/api/trainer/earnings"))!["totalCredits"]!.GetValue<int>());
-        Assert.Equal(35, (await creator.GetFromJsonAsync<JsonObject>("/api/creator/earnings"))!["totalCredits"]!.GetValue<int>());
-    }
-
-    [Fact]
-    public async Task Confirmed_class_uses_its_existing_price_pool_distribution()
-    {
-        using var factory = new CoLearnXApiFactory();
-        using var initializer = factory.CreateClient();
-        var (intakeId, _) = await SeedClassAsync(factory, count: 3, cost: 60, minimum: 3);
+        var intakeId = await SeedClassAsync(factory, count: 3, cost: 60, minimum: 3);
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
@@ -94,48 +59,46 @@ public class EarningsFlowTests
             var subject = await db.CourseSubjects.SingleAsync(s => s.Name == "Digital Product Design");
             course.CourseSubjectId = subject.Id;
             var pool = await db.PricePools.SingleAsync(p => p.Subject == subject.Subject && p.CourseLevelId == course.CourseLevelId);
-            pool.ContentSharePercent = 35;
-            pool.DeliverySharePercent = 40;
-            pool.PlatformSharePercent = 25;
+            pool.ContentSharePercent = 35; pool.DeliverySharePercent = 40; pool.PlatformSharePercent = 25;
             await db.SaveChangesAsync();
-            await scope.ServiceProvider.GetRequiredService<IIntakeSettlementService>().SettleIfDueAsync(intakeId);
+            var service = scope.ServiceProvider.GetRequiredService<IIntakeSettlementService>();
+            await service.SettleIfDueAsync(intakeId);
+            await CompleteAsync(scope, intakeId);
+            await service.ProcessDueAsync();
+            var enrollment = await db.Enrollments.Where(e => e.CourseSession.CourseIntakeId == intakeId)
+                .Select(e => new { e.Id, e.UserId }).FirstAsync();
+            await EarningsLedger.VoidRefundableAsync(db, enrollment.Id, "Test refund", default, userId: enrollment.UserId);
+            await db.SaveChangesAsync();
         }
         using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");
         using var creator = await ApiClient.AsRoleAsync(factory, SeedData.CreatorEmail, "Creator");
-        Assert.Equal(72, (await trainer.GetFromJsonAsync<JsonObject>("/api/trainer/earnings"))!["totalCredits"]!.GetValue<int>());
-        Assert.Equal(63, (await creator.GetFromJsonAsync<JsonObject>("/api/creator/earnings"))!["totalCredits"]!.GetValue<int>());
+        Assert.Equal(48, (await trainer.GetFromJsonAsync<JsonObject>("/api/trainer/earnings"))!["totalCredits"]!.GetValue<int>());
+        Assert.Equal(42, (await creator.GetFromJsonAsync<JsonObject>("/api/creator/earnings"))!["totalCredits"]!.GetValue<int>());
     }
 
     [Fact]
-    public async Task Full_refunds_reverse_class_rounding_without_residual_credits()
-    {
-        using var factory = new CoLearnXApiFactory();
-        using var initializer = factory.CreateClient();
-        var (intakeId, creatorId) = await SeedClassAsync(factory, count: 2, cost: 1, minimum: 2);
-        using (var scope = factory.Services.CreateScope())
-        {
-            var service = scope.ServiceProvider.GetRequiredService<IIntakeSettlementService>();
-            await service.SettleIfDueAsync(intakeId);
-            await service.CancelIntakeAsync(creatorId, intakeId);
-        }
-        using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");
-        var summary = await trainer.GetFromJsonAsync<JsonObject>("/api/trainer/earnings");
-        Assert.Equal(0, summary!["totalCredits"]!.GetValue<int>());
-    }
-
-    [Fact]
-    public async Task Earnings_table_upgrade_is_idempotent_for_an_existing_sqlite_database()
+    public async Task Earnings_schema_upgrade_is_idempotent_for_an_existing_sqlite_database()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");
         await connection.OpenAsync();
         await using var db = new CoLearnXDbContext(new DbContextOptionsBuilder<CoLearnXDbContext>().UseSqlite(connection).Options);
-        await db.Database.ExecuteSqlRawAsync("CREATE TABLE CourseIntakes (Id INTEGER PRIMARY KEY); CREATE TABLE Users (Id INTEGER PRIMARY KEY); CREATE TABLE Enrollments (Id INTEGER PRIMARY KEY);");
-        await IntakeEarningSchema.EnsureAsync(db);
-        await IntakeEarningSchema.EnsureAsync(db);
-        Assert.Equal(1, await db.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'IntakeEarnings'").SingleAsync());
+        await db.Database.ExecuteSqlRawAsync("CREATE TABLE CourseIntakes (Id INTEGER PRIMARY KEY); CREATE TABLE Courses (Id INTEGER PRIMARY KEY); CREATE TABLE Users (Id INTEGER PRIMARY KEY); CREATE TABLE Enrollments (Id INTEGER PRIMARY KEY); CREATE TABLE AdminAccounts (Id INTEGER PRIMARY KEY);");
+        await EarningsPayoutSchema.EnsureAsync(db); await EarningsPayoutSchema.EnsureAsync(db);
+        Assert.Equal(1, await db.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'Earnings'").SingleAsync());
+        Assert.Equal(1, await db.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = 'PayoutRequests'").SingleAsync());
     }
 
-    private static async Task<(int IntakeId, int CreatorId)> SeedClassAsync(CoLearnXApiFactory factory, int count, int cost, int minimum)
+    private static async Task CompleteAsync(IServiceScope scope, int intakeId)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        var intake = await db.CourseIntakes.SingleAsync(i => i.Id == intakeId);
+        intake.Status = CourseIntakeStatus.InProgress;
+        intake.StartsAt = DateTime.UtcNow.AddHours(-2);
+        intake.EndsAt = DateTime.UtcNow.AddHours(-1);
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task<int> SeedClassAsync(CoLearnXApiFactory factory, int count, int cost, int minimum)
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
@@ -154,7 +117,6 @@ public class EarningsFlowTests
             db.Enrollments.Add(new Enrollment { User = user, CourseId = course.Id, CourseSession = session,
                 Status = EnrollmentStatus.Reserved, CreditsSpent = cost });
         }
-        await db.SaveChangesAsync();
-        return (intake.Id, course.CreatorId);
+        await db.SaveChangesAsync(); return intake.Id;
     }
 }

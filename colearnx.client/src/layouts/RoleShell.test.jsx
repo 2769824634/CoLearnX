@@ -30,6 +30,24 @@ const auth = {
 
 afterEach(() => cleanup());
 
+it.each([
+  ['trainer', '/trainer/home', '/trainer/earnings'],
+  ['creator', '/creator/home', '/creator/earnings'],
+])('shows the Earnings navigation entry in the %s workspace', (role, path, href) => {
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <AuthContext.Provider value={{ ...auth, user: { ...auth.user, roles: [role], activeRole: role } }}>
+        <Routes>
+          <Route element={<RoleShell role={role} />}>
+            <Route path="*" element={<div>Page</div>} />
+          </Route>
+        </Routes>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  );
+  expect(screen.getByRole('link', { name: 'Earnings' }).getAttribute('href')).toBe(href);
+});
+
 function renderRoleShell(role, initialPath, nextPath) {
   return render(
     <MemoryRouter initialEntries={[{ pathname: initialPath, state: { accessNotice: 'This page requires the Trainer workspace.' } }]}>

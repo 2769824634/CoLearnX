@@ -56,7 +56,8 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db, IOptions<Earni
                 else
                 {
                     credits.Refund(enrollment.User, enrollment, enrollment.CreditsSpent, description);
-                    await EarningsLedger.ReverseAsync(db, enrollment.Id, enrollment.CreditsSpent, ct);
+                    await EarningsLedger.VoidRefundableAsync(db, enrollment.Id, "Class cancelled and refunded", ct,
+                        userId: creatorUserId);
                 }
                 db.Notifications.Add(new Notification { UserId = enrollment.UserId, IntakeId = intake.Id, EnrollmentId = enrollment.Id, EmailPending = true,
                     Code = reserved ? "N-hold-released" : "N-class-cancelled",
@@ -138,6 +139,41 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db, IOptions<Earni
             && i.CancelledAt == null && i.StartsAt <= now)
             .ExecuteUpdateAsync(setters => setters.SetProperty(i => i.Status, CourseIntakeStatus.InProgress)
                 .SetProperty(i => i.Version, Guid.NewGuid()), ct);
+        await CompleteDueIntakesAsync(now, ct);
+        await EarningsLedger.ReleaseDueAsync(db, now, ct);
+    }
+
+    private async Task CompleteDueIntakesAsync(DateTime now, CancellationToken ct)
+    {
+        var dueIds = await db.CourseIntakes.AsNoTracking()
+            .Where(i => i.Status == CourseIntakeStatus.InProgress && i.EndsAt <= now && i.CancelledAt == null)
+            .Select(i => i.Id).ToListAsync(ct);
+        foreach (var id in dueIds)
+        {
+            await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+            {
+                await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+                var intake = await db.CourseIntakes.Include(i => i.Course).SingleAsync(i => i.Id == id, ct);
+                if (intake.Status != CourseIntakeStatus.InProgress || intake.EndsAt > now)
+                    return;
+                var enrollments = await db.Enrollments
+                    .Where(e => e.CourseSession.CourseIntakeId == id
+                        && (e.Status == EnrollmentStatus.Active || e.Status == EnrollmentStatus.Completed))
+                    .ToListAsync(ct);
+                await EarningsLedger.RecordCompletionAsync(db, intake, intake.Course, enrollments,
+                    earnings?.Value ?? new EarningsOptions(), now, ct);
+                intake.Status = CourseIntakeStatus.Completed;
+                intake.Version = Guid.NewGuid();
+                db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = id, EmailPending = true,
+                    Code = "N-earnings-pending", Title = "Class earnings recorded",
+                    Body = $"Earnings for {intake.Course.Code} Intake #{id} are pending for {EarningsRules.CooldownDays} days." });
+                db.Notifications.Add(new Notification { UserId = intake.Course.CreatorId, IntakeId = id, EmailPending = true,
+                    Code = "N-earnings-pending-creator", Title = "Class earnings recorded",
+                    Body = $"Earnings for {intake.Course.Code} Intake #{id} are pending for {EarningsRules.CooldownDays} days." });
+                await db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+            });
+        }
     }
 
     private async Task SendScheduledNotificationsAsync(DateTime now, CancellationToken ct)
@@ -240,11 +276,6 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db, IOptions<Earni
                             + "If one is published, open My Programs to choose a session and reserve again using your available credits. A replacement is not guaranteed; your credits remain available until you reserve again." });
             }
             var course = await db.Courses.AsNoTracking().SingleAsync(c => c.Id == intake.CourseId, ct);
-            if (confirmed)
-            {
-                var allocation = await EarningsLedger.AllocationAsync(db, course, earnings?.Value ?? new EarningsOptions(), ct);
-                EarningsLedger.RecordSettlement(db, intake, course, reservations, allocation);
-            }
             var code = confirmed ? "N-intake-confirmed" : "N-intake-cancelled";
             var title = confirmed ? "Class confirmed" : "Class cancelled";
             var body = $"{course.Code} Intake #{intakeId} {(confirmed ? "will run" : "did not meet minimum enrollment")}.";

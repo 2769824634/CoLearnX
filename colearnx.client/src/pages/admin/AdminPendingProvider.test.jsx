@@ -9,7 +9,7 @@ vi.mock('../../api', async (importOriginal) => ({ ...(await importOriginal()), a
 vi.mock('../../components/Logo', () => ({ default: () => <span>Logo</span> }));
 vi.mock('../../components/UserAvatar', () => ({ default: () => <span>Avatar</span> }));
 
-const counts = (overrides = {}) => ({ roleRequests: 1, courses: 2, certificates: 1, disputes: 2, ...overrides });
+const counts = (overrides = {}) => ({ roleRequests: 1, courses: 2, certificates: 1, disputes: 2, payouts: 1, ...overrides });
 
 function setHidden(hidden) {
   Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
@@ -52,7 +52,7 @@ it('shows pending approvals and open disputes as navigation badges', async () =>
 
   expect(overviewApi.pendingCounts).toHaveBeenCalledWith('admin-token');
   // Disputes now live inside Approvals, so the one badge counts both.
-  expect(screen.getByRole('link', { name: 'Approvals, 6 pending' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Approvals, 7 pending' })).toBeTruthy();
   expect(screen.queryByRole('link', { name: /Disputes/ })).toBeNull();
 });
 
@@ -61,7 +61,7 @@ it('hides a badge at zero and caps large numbers at 99+', async () => {
   renderShell();
   await settle();
 
-  expect(screen.getByRole('link', { name: 'Approvals, 123 pending' }).textContent).toContain('99+');
+  expect(screen.getByRole('link', { name: 'Approvals, 124 pending' }).textContent).toContain('99+');
   expect(screen.getByRole('link', { name: 'Classes' }).textContent).toBe('Classes');
 });
 
@@ -126,6 +126,6 @@ it('keeps the last counts when a refresh fails', async () => {
   await settle();
 
   await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
-  expect(screen.getByRole('link', { name: 'Approvals, 6 pending' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Approvals, 7 pending' })).toBeTruthy();
   expect(screen.queryByRole('alert')).toBeNull();
 });

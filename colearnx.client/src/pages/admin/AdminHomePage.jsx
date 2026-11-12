@@ -16,6 +16,8 @@ const QUEUE_CARDS = [
     detail: 'Trainer-approved certificates awaiting final issue.', link: 'Open certificates' },
   { key: 'disputes', number: '04 / Disputes', title: 'Disputes', to: '/admin/approvals?queue=disputes',
     detail: 'Open disputes awaiting a resolution.', link: 'Open disputes' },
+  { key: 'payouts', number: '05 / Finance', title: 'Payouts', to: '/admin/approvals?queue=payouts',
+    detail: 'Offline Trainer and Creator payouts awaiting review.', link: 'Open payouts' },
 ];
 
 async function loadOverview(token, _queryKey, signal) {
