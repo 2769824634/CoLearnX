@@ -82,6 +82,8 @@ public sealed class AdminRoleRequestService(
             }
 
             var reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
+            string? specialtyChange = null;
+            IReadOnlyList<string> certifiedNames = [];
             if (decision == AdminReviewDecision.Reject && reason is null)
                 throw new AdminReviewValidationException(
                     "REJECTION_REASON_REQUIRED",
@@ -111,8 +113,23 @@ public sealed class AdminRoleRequestService(
                 existingRole.CertifiedAt = DateTime.UtcNow;
 
                 var specialtyIds = RoleRequestService.ParseSpecialtyIds(roleRequest.SpecialtyIds);
+                // The admin may correct the applicant's choice. The corrected set is what gets certified and stored.
+                if (request.SpecialtyIds is not null)
+                {
+                    var corrected = await ValidateCorrectionAsync(request.SpecialtyIds, ct);
+                    if (!corrected.OrderBy(id => id).SequenceEqual(specialtyIds.OrderBy(id => id)))
+                    {
+                        var names = await RoleRequestService.SpecialtyNamesAsync(db, ct);
+                        string List(IEnumerable<int> ids) => string.Join(", ", ids.Where(names.ContainsKey).Select(id => names[id]));
+                        specialtyChange = $"Specialties changed from [{List(specialtyIds)}] to [{List(corrected)}].";
+                        roleRequest.SpecialtyIds = string.Join(',', corrected);
+                        specialtyIds = corrected;
+                    }
+                }
                 if (specialtyIds.Count > 0)
                 {
+                    certifiedNames = RoleRequestService.SpecialtyNames(string.Join(',', specialtyIds),
+                        await RoleRequestService.SpecialtyNamesAsync(db, ct)) ?? [];
                     db.UserSpecialties.RemoveRange(await db.UserSpecialties
                         .Where(item => item.UserId == roleRequest.UserId).ToListAsync(ct));
                     db.UserSpecialties.AddRange(specialtyIds.Select(id =>
@@ -129,7 +146,9 @@ public sealed class AdminRoleRequestService(
                 ? new Notification
                 {
                     UserId = roleRequest.UserId, Code = "N-role-approved", Title = "Role request approved",
-                    Body = $"Your {role} certification is approved. Your workspace is now open.",
+                    Body = certifiedNames.Count == 0
+                        ? $"Your {role} certification is approved. Your workspace is now open."
+                        : $"Your {role} certification is approved for {string.Join(", ", certifiedNames)}. Your workspace is now open.",
                 }
                 : new Notification
                 {
@@ -146,7 +165,7 @@ public sealed class AdminRoleRequestService(
                 nameof(RoleRequest),
                 roleRequest.Id.ToString(),
                 targetStatus.ToString(),
-                reason,
+                AuditReason(reason, specialtyChange),
                 ct);
             await transaction.CommitAsync(ct);
             if (realtime is not null)
@@ -154,6 +173,27 @@ public sealed class AdminRoleRequestService(
 
             return new AdminRoleRequestReviewResultDto(ToDto(roleRequest, await RoleRequestService.SpecialtyNamesAsync(db, ct)), false);
         });
+    }
+
+    private async Task<IReadOnlyList<int>> ValidateCorrectionAsync(IReadOnlyList<int> ids, CancellationToken ct)
+    {
+        var chosen = ids.Distinct().ToList();
+        if (chosen.Count == 0)
+            throw new AdminReviewValidationException("SPECIALTIES_REQUIRED", "Choose at least one specialty to certify.");
+        if (chosen.Count > RoleRequestService.MaxSpecialties)
+            throw new AdminReviewValidationException("TOO_MANY_SPECIALTIES",
+                $"Certify at most {RoleRequestService.MaxSpecialties} specialties.");
+        var known = await db.CourseSubjects.CountAsync(subject => chosen.Contains(subject.Id), ct);
+        if (known != chosen.Count)
+            throw new AdminReviewValidationException("SPECIALTY_NOT_FOUND", "One of the chosen specialties does not exist.");
+        return chosen;
+    }
+
+    // The audit reason holds 512 characters, so a long specialty change is shortened rather than rejected.
+    private static string? AuditReason(string? reason, string? specialtyChange)
+    {
+        var text = specialtyChange is null ? reason : reason is null ? specialtyChange : $"{reason} {specialtyChange}";
+        return text is { Length: > 512 } ? text[..512] : text;
     }
 
     private static AdminRoleRequestDto ToDto(RoleRequest roleRequest, IReadOnlyDictionary<int, string> names)
@@ -171,6 +211,7 @@ public sealed class AdminRoleRequestService(
             roleRequest.CreatedAt,
             roleRequest.ReviewedAt,
             roleRequest.ApplicantStatement,
-            RoleRequestService.SpecialtyNames(roleRequest.SpecialtyIds, names));
+            RoleRequestService.SpecialtyNames(roleRequest.SpecialtyIds, names),
+            RoleRequestService.ParseSpecialtyIds(roleRequest.SpecialtyIds));
 
 }

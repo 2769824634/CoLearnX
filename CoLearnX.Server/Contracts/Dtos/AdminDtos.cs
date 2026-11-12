@@ -28,9 +28,11 @@ public record AuditLogDto(
 
 public record AuditLogFilterOptionsDto(IReadOnlyList<string> EntityTypes, IReadOnlyList<string> Results);
 
+// SpecialtyIds applies to role requests only: the specialties the admin certifies in place of the applicant's choice.
 public record AdminReviewRequest(
     [Required] string Decision,
-    [MaxLength(512)] string? Reason);
+    [MaxLength(512)] string? Reason,
+    IReadOnlyList<int>? SpecialtyIds = null);
 
 public record AdminRoleRequestDto(
     int Id,
@@ -46,7 +48,8 @@ public record AdminRoleRequestDto(
     DateTime CreatedAt,
     DateTime? ReviewedAt,
     string? ApplicantStatement = null,
-    IReadOnlyList<string>? Specialties = null);
+    IReadOnlyList<string>? Specialties = null,
+    IReadOnlyList<int>? SpecialtyIds = null);
 
 public record AdminRoleRequestReviewResultDto(
     AdminRoleRequestDto RoleRequest,

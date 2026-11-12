@@ -6,12 +6,13 @@ import AdminRoleRequestsPage from './AdminRoleRequestsPage';
 import AdminLaterApprovalsPage from './AdminLaterApprovalsPage';
 
 vi.mock('../../auth/useAdminAuth', () => ({ default: () => ({ token: 'admin-token', logout: vi.fn() }) }));
-vi.mock('../../api', () => ({ adminRoleRequestsApi: { list: vi.fn(), review: vi.fn(), downloadResume: vi.fn(), downloadIdDocument: vi.fn() } }));
+vi.mock('../../api', () => ({ adminRoleRequestsApi: { list: vi.fn(), review: vi.fn(), specialties: vi.fn(), downloadResume: vi.fn(), downloadIdDocument: vi.fn() } }));
 vi.mock('../../api/adminLaterPhase', () => ({ adminLaterPhaseApi: { certificateRequests: vi.fn(), reviewCertificate: vi.fn(), issueCertificate: vi.fn() } }));
 
 const applicant = { id: 3, userFullName: 'Trainer Applicant', userEmail: 'applicant@example.test', requestedRole: 'Trainer', status: 'Pending', createdAt: '2026-09-30T17:30:00', degreeOrResumePath: 'private/resume.pdf', idDocumentPath: null };
 beforeEach(() => {
   adminRoleRequestsApi.list.mockResolvedValue([applicant]);
+  adminRoleRequestsApi.specialties.mockResolvedValue([]);
   adminRoleRequestsApi.downloadResume.mockResolvedValue(undefined);
   adminRoleRequestsApi.downloadIdDocument.mockResolvedValue(undefined);
   adminLaterPhaseApi.certificateRequests.mockResolvedValue([]);

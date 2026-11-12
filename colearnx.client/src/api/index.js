@@ -62,12 +62,14 @@ export const adminRoleRequestsApi = {
     const query = status ? `?status=${encodeURIComponent(status)}` : '';
     return apiRequest(`/api/admin/role-requests${query}`, { token, signal });
   },
-  review: (token, roleRequestId, decision, reason) =>
+  // specialtyIds is sent only when the admin corrected the applicant's choice.
+  review: (token, roleRequestId, decision, reason, specialtyIds = null) =>
     apiRequest(`/api/admin/role-requests/${roleRequestId}/review`, {
       method: 'POST',
       token,
-      body: { decision, reason: reason || null },
+      body: { decision, reason: reason || null, ...(specialtyIds ? { specialtyIds } : {}) },
     }),
+  specialties: (token, signal) => apiRequest('/api/admin/role-requests/specialties', { token, signal }),
   downloadResume: (token, roleRequestId) =>
     downloadFile(`/api/admin/role-requests/${roleRequestId}/resume`, 'role-request-resume', token),
   downloadIdDocument: (token, roleRequestId) =>

@@ -204,6 +204,137 @@ public class AdminRoleRequestIntegrationTests
     }
 
     [Fact]
+    public async Task Approve_certifies_the_specialties_the_admin_corrected()
+    {
+        var factory = new RoleRequestApiFactory();
+        try
+        {
+            using var client = await CreateAdminClientAsync(factory);
+            var (chosen, corrected, names) = await AddCertificationWithSpecialtiesAsync(factory, AppRole.Trainer);
+            var roleRequest = await FindPendingAsync(client, "Trainer");
+            Assert.Equal(chosen, roleRequest.SpecialtyIds);
+
+            var options = await client.GetFromJsonAsync<List<SpecialtyOptionDto>>("/api/admin/role-requests/specialties");
+            Assert.Contains(options!, option => option.Id == corrected[0]);
+
+            var response = await client.PostAsJsonAsync($"/api/admin/role-requests/{roleRequest.Id}/review",
+                new AdminReviewRequest("Approve", "Evidence supports two of the three areas.", corrected));
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync<AdminRoleRequestReviewResultDto>();
+            Assert.Equal(corrected, result!.RoleRequest.SpecialtyIds);
+
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+            var certified = await db.UserSpecialties.Where(item => item.UserId == roleRequest.UserId)
+                .Select(item => item.CourseSubjectId).OrderBy(id => id).ToListAsync();
+            Assert.Equal(corrected.OrderBy(id => id), certified);
+            var notification = Assert.Single(await db.Notifications
+                .Where(item => item.UserId == roleRequest.UserId && item.Code == "N-role-approved").ToListAsync());
+            foreach (var id in corrected) Assert.Contains(names[id], notification.Body);
+            var audit = await db.AuditLogs.SingleAsync(log => log.Action == "RoleRequestApproved" && log.EntityId == roleRequest.Id.ToString());
+            Assert.Contains("Specialties changed", audit.Reason);
+        }
+        finally
+        {
+            factory.Dispose();
+            factory.DeleteDatabase();
+        }
+    }
+
+    [Fact]
+    public async Task Approve_without_a_correction_keeps_the_applicants_specialties()
+    {
+        var factory = new RoleRequestApiFactory();
+        try
+        {
+            using var client = await CreateAdminClientAsync(factory);
+            var (chosen, _, _) = await AddCertificationWithSpecialtiesAsync(factory, AppRole.Creator);
+            var roleRequest = await FindPendingAsync(client, "Creator");
+
+            (await client.PostAsJsonAsync($"/api/admin/role-requests/{roleRequest.Id}/review",
+                new AdminReviewRequest("Approve", null))).EnsureSuccessStatusCode();
+
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+            var certified = await db.UserSpecialties.Where(item => item.UserId == roleRequest.UserId)
+                .Select(item => item.CourseSubjectId).OrderBy(id => id).ToListAsync();
+            Assert.Equal(chosen.OrderBy(id => id), certified);
+            var audit = await db.AuditLogs.SingleAsync(log => log.Action == "RoleRequestApproved" && log.EntityId == roleRequest.Id.ToString());
+            Assert.DoesNotContain("Specialties changed", audit.Reason ?? string.Empty);
+        }
+        finally
+        {
+            factory.Dispose();
+            factory.DeleteDatabase();
+        }
+    }
+
+    [Theory]
+    [InlineData("none", "SPECIALTIES_REQUIRED")]
+    [InlineData("six", "TOO_MANY_SPECIALTIES")]
+    [InlineData("unknown", "SPECIALTY_NOT_FOUND")]
+    public async Task Approve_rejects_an_invalid_correction_and_leaves_the_request_pending(string scenario, string code)
+    {
+        var factory = new RoleRequestApiFactory();
+        try
+        {
+            using var client = await CreateAdminClientAsync(factory);
+            var (chosen, _, names) = await AddCertificationWithSpecialtiesAsync(factory, AppRole.Trainer);
+            var roleRequest = await FindPendingAsync(client, "Trainer");
+            var all = names.Keys.OrderBy(id => id).ToList();
+            int[] correction = scenario switch
+            {
+                "none" => [],
+                "six" => all.Take(6).ToArray(),
+                _ => [all[0], 999999],
+            };
+
+            var response = await client.PostAsJsonAsync($"/api/admin/role-requests/{roleRequest.Id}/review",
+                new AdminReviewRequest("Approve", null, correction));
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal(code, (await response.Content.ReadFromJsonAsync<ApiError>())?.Code);
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+            Assert.Equal(RoleRequestStatus.Pending, (await db.RoleRequests.SingleAsync(item => item.Id == roleRequest.Id)).Status);
+            Assert.False(await db.UserSpecialties.AnyAsync(item => item.UserId == roleRequest.UserId));
+            Assert.Equal(chosen, RoleRequestSpecialtyIds(await db.RoleRequests.SingleAsync(item => item.Id == roleRequest.Id)));
+        }
+        finally
+        {
+            factory.Dispose();
+            factory.DeleteDatabase();
+        }
+    }
+
+    private static IReadOnlyList<int> RoleRequestSpecialtyIds(RoleRequest request)
+        => string.IsNullOrWhiteSpace(request.SpecialtyIds) ? [] : request.SpecialtyIds.Split(',').Select(int.Parse).ToList();
+
+    private static async Task<(IReadOnlyList<int> Chosen, IReadOnlyList<int> Corrected, IReadOnlyDictionary<int, string> Names)>
+        AddCertificationWithSpecialtiesAsync(RoleRequestApiFactory factory, AppRole role)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        var names = await db.CourseSubjects.ToDictionaryAsync(item => item.Id, item => item.Name);
+        var ids = names.Keys.OrderBy(id => id).ToList();
+        var chosen = ids.Take(3).ToList();
+        var corrected = new List<int> { ids[1], ids[4] };
+        var applicant = new User
+        {
+            Email = $"specialty.{Guid.NewGuid():N}@colearnx.test",
+            PasswordHash = "hash",
+            FullName = "Specialty Applicant",
+            DisplayName = "Applicant",
+        };
+        db.Users.Add(applicant);
+        await db.SaveChangesAsync();
+        db.UserRoles.Add(new UserRole { UserId = applicant.Id, Role = role, CertifiedAt = null });
+        db.RoleRequests.Add(new RoleRequest { UserId = applicant.Id, RequestedRole = role, SpecialtyIds = string.Join(',', chosen) });
+        await db.SaveChangesAsync();
+        return (chosen, corrected, names);
+    }
+
+    [Fact]
     public async Task Review_RejectsUnknownDecision()
     {
         var factory = new RoleRequestApiFactory();

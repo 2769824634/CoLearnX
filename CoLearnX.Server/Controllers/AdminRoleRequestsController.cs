@@ -20,6 +20,10 @@ public class AdminRoleRequestsController(
         CancellationToken ct)
         => Ok(await roleRequests.ListAsync(status, ct));
 
+    [HttpGet("specialties")]
+    public async Task<ActionResult<IReadOnlyList<SpecialtyOptionDto>>> Specialties(CancellationToken ct)
+        => Ok(await applicantRequests.SpecialtyOptionsAsync(ct));
+
     [HttpGet("{roleRequestId:int}/resume")]
     public Task<IActionResult> DownloadResume(int roleRequestId, CancellationToken ct)
         => Download(roleRequestId, RoleRequestDocument.Resume, ct);

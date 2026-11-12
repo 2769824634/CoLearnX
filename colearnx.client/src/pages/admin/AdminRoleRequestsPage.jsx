@@ -6,6 +6,13 @@ import { formatUtcDateTime, userFacingError } from '../businessPresentation';
 import { useAdminPending } from './adminPending';
 
 const FILTERS = ['Pending', 'Approved', 'Rejected', 'All'];
+const MAX_SPECIALTIES = 5;
+const AREA_LABELS = {
+  DigitalTechnology: 'Digital Technology',
+  BusinessManagement: 'Business and Management',
+  HumanitiesHealthCreative: 'Humanities, Health and Creative',
+};
+const sameIds = (left, right) => left.length === right.length && [...left].sort((a, b) => a - b).every((id, index) => id === [...right].sort((a, b) => a - b)[index]);
 function hasCredentials(roleRequest) {
   return Boolean(roleRequest.degreeOrResumePath || roleRequest.idDocumentPath);
 }
@@ -26,6 +33,27 @@ export default function AdminRoleRequestsPage() {
   const [reviewing, setReviewing] = useState(false);
   const [download, setDownload] = useState(null);
   const downloadBusy = Boolean(download?.busy);
+  // The admin certifies specialties and may correct what the applicant ticked.
+  const [specialtyOptions, setSpecialtyOptions] = useState([]);
+  const [picked, setPicked] = useState([]);
+  const chosen = selected?.specialtyIds || [];
+  const canCorrect = selected?.status === 'Pending' && specialtyOptions.length > 0 && chosen.length > 0;
+  const corrected = canCorrect && !sameIds(picked, chosen);
+
+  useEffect(() => {
+    let cancelled = false;
+    adminRoleRequestsApi.specialties(token).then(
+      (items) => { if (!cancelled) setSpecialtyOptions(Array.isArray(items) ? items : []); },
+      () => { if (!cancelled) setSpecialtyOptions([]); },
+    );
+    return () => { cancelled = true; };
+  }, [token]);
+
+  function toggleSpecialty(id) {
+    setPicked((current) => (current.includes(id) ? current.filter((item) => item !== id)
+      : current.length >= MAX_SPECIALTIES ? current : [...current, id]));
+    setReviewError('');
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -72,6 +100,7 @@ export default function AdminRoleRequestsPage() {
   function openReview(roleRequest) {
     if (reviewing || downloadBusy) return;
     setSelected(roleRequest);
+    setPicked(roleRequest.specialtyIds || []);
     setDecision('Approve');
     setReason('');
     setReviewError('');
@@ -91,6 +120,10 @@ export default function AdminRoleRequestsPage() {
       setReviewError('Add a reason before rejecting this request.');
       return;
     }
+    if (decision === 'Approve' && canCorrect && picked.length === 0) {
+      setReviewError('Choose at least one specialty to certify.');
+      return;
+    }
 
     setReviewing(true);
     setReviewError('');
@@ -100,6 +133,7 @@ export default function AdminRoleRequestsPage() {
         selected.id,
         decision,
         reason.trim(),
+        decision === 'Approve' && corrected ? picked : null,
       );
       const reviewed = result.roleRequest;
       setRoleRequests((items) => {
@@ -261,7 +295,39 @@ export default function AdminRoleRequestsPage() {
             )}
             {downloadBusy ? <p role="status">Downloading {download.kind === 'resume' ? 'resume' : 'ID document'}…</p> : download?.message ? <p role="status">{download.message}</p> : null}
             {download?.error ? <p role="alert" className="admin-review-inline-error">{download.error}</p> : null}
-            {selected.specialties?.length ? (
+            {canCorrect ? (
+              <fieldset className="form-group" style={{ border: 0, padding: 0, margin: '0 0 16px' }} disabled={reviewing || downloadBusy || decision === 'Reject'}>
+                <legend style={{ fontWeight: 600, fontSize: 13 }}>Specialties to certify ({picked.length}/{MAX_SPECIALTIES})</legend>
+                <p style={{ margin: '4px 0 8px', fontSize: 12, color: 'var(--slate)' }}>
+                  Applicant chose: {(selected.specialties || []).join(', ')}. Untick any the evidence does not support, or add one it does.
+                </p>
+                {Object.keys(AREA_LABELS).map((area) => {
+                  const items = specialtyOptions.filter((item) => item.area === area);
+                  return items.length ? (
+                    <div key={area} style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 12, color: 'var(--slate)' }}>{AREA_LABELS[area]}</div>
+                      {items.map((item) => (
+                        <label key={item.id} style={{ display: 'inline-flex', gap: 4, marginRight: 12, fontSize: 13 }}>
+                          <input
+                            type="checkbox"
+                            checked={picked.includes(item.id)}
+                            disabled={!picked.includes(item.id) && picked.length >= MAX_SPECIALTIES}
+                            onChange={() => toggleSpecialty(item.id)}
+                          />
+                          {item.name}
+                        </label>
+                      ))}
+                    </div>
+                  ) : null;
+                })}
+                {corrected ? (
+                  <p style={{ margin: '4px 0 0', fontSize: 12 }}>
+                    You changed the applicant&apos;s choice. They are told which specialties were certified.{' '}
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPicked(chosen); setReviewError(''); }}>Restore applicant&apos;s choice</button>
+                  </p>
+                ) : null}
+              </fieldset>
+            ) : selected.specialties?.length ? (
               <div className="form-group">
                 <label>Specialties</label>
                 <p style={{ margin: '6px 0 16px', fontSize: 13 }}>{selected.specialties.join(', ')}</p>
