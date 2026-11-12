@@ -1,22 +1,21 @@
 /* UI v10 · day 11: Creator workspace.
    Same data, links and actions as before: only appearance changes, plus whole-row
-   click targets on the class and approval lists. Scoped to the Creator shell, and
-   (day 12) to the Staff shell, which reuses these pages and class names. */
+   click targets on the class and approval lists. Scoped to the Creator shell. */
 
 /* ---------- Page headings ---------- */
-:is(.creator-shell, .staff-shell) .creator-header {
+.creator-shell .creator-header {
   align-items: flex-end;
   gap: 20px;
   padding: 4px 0 24px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-eyebrow {
+.creator-shell .creator-eyebrow {
   margin-bottom: 6px;
   font-size: 11px;
   letter-spacing: .08em;
 }
 
-:is(.creator-shell, .staff-shell) .creator-header h1 {
+.creator-shell .creator-header h1 {
   font-family: var(--font-display);
   font-size: 30px;
   font-weight: 700;
@@ -24,19 +23,19 @@
   line-height: 1.15;
 }
 
-:is(.creator-shell, .staff-shell) .creator-header > div > p:last-child {
+.creator-shell .creator-header > div > p:last-child {
   margin: 8px 0 0;
   font-size: 14.5px;
   line-height: 1.5;
 }
 
-:is(.creator-shell, .staff-shell) :is(.creator-section-heading, .creator-home-heading) h2 {
+.creator-shell :is(.creator-section-heading, .creator-home-heading) h2 {
   font-family: var(--font-display);
   font-size: 17px;
   font-weight: 700;
 }
 
-:is(.creator-shell, .staff-shell) .creator-section-heading {
+.creator-shell .creator-section-heading {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -45,106 +44,106 @@
   margin: 28px 0 12px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-section-heading p:not(.creator-eyebrow) {
+.creator-shell .creator-section-heading p:not(.creator-eyebrow) {
   margin: 4px 0 0;
   color: var(--slate);
   font-size: 13px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-back {
+.creator-shell .creator-back {
   margin: 0 0 12px;
   color: var(--slate);
   font-size: 13px;
   text-decoration: none;
 }
 
-:is(.creator-shell, .staff-shell) .creator-back:hover {
+.creator-shell .creator-back:hover {
   color: var(--purple);
 }
 
 /* ---------- Cards ---------- */
-:is(.creator-shell, .staff-shell) :is(.creator-application-list, .creator-pipeline, .creator-review-card, .creator-course-definition, .card) {
+.creator-shell :is(.creator-application-list, .creator-pipeline, .creator-review-card, .creator-course-definition, .card) {
   border-color: var(--border);
   border-radius: 12px;
   background: var(--white);
   box-shadow: var(--shadow-card);
 }
 
-:is(.creator-shell, .staff-shell) .creator-quick-actions {
+.creator-shell .creator-quick-actions {
   border-radius: 12px;
   background: var(--white);
   box-shadow: var(--shadow-card);
 }
 
-:is(.creator-shell, .staff-shell) .creator-quick-actions a {
+.creator-shell .creator-quick-actions a {
   border-radius: 10px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-quick-actions a:hover {
+.creator-shell .creator-quick-actions a:hover {
   transform: none;
   background: var(--purple-tint);
   box-shadow: none;
 }
 
-:is(.creator-shell, .staff-shell) .creator-review-card {
+.creator-shell .creator-review-card {
   max-width: none;
   padding: 18px 22px;
   border-left: 1px solid var(--border);
 }
 
-:is(.creator-shell, .staff-shell) .creator-review-card strong {
+.creator-shell .creator-review-card strong {
   margin: 4px 0;
   font-family: var(--font-display);
   font-size: 17px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-review-card p {
+.creator-shell .creator-review-card p {
   margin: 0 0 8px;
   font-size: 13.5px;
   line-height: 1.5;
 }
 
-:is(.creator-shell, .staff-shell) .creator-review-card > span:last-child {
+.creator-shell .creator-review-card > span:last-child {
   color: var(--purple);
   font-size: 13px;
   font-weight: 600;
 }
 
-:is(.creator-shell, .staff-shell) .creator-review-card:hover {
+.creator-shell .creator-review-card:hover {
   background: var(--purple-tint);
 }
 
 /* ---------- Home: pipeline counts ---------- */
-:is(.creator-shell, .staff-shell) .creator-pipeline li {
+.creator-shell .creator-pipeline li {
   padding: 20px 22px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-stage-count {
+.creator-shell .creator-stage-count {
   font-family: var(--font-display);
   font-size: 28px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-pipeline strong {
+.creator-shell .creator-pipeline strong {
   margin-top: 6px;
 }
 
 /* ---------- Lists ---------- */
-:is(.creator-shell, .staff-shell) .creator-application-row {
+.creator-shell .creator-application-row {
   grid-template-columns: minmax(72px, auto) minmax(0, 1fr) auto auto;
   gap: 16px;
   padding: 14px 20px;
 }
 
-:is(.creator-shell, .staff-shell) a.creator-course-row {
+.creator-shell a.creator-course-row {
   grid-template-columns: minmax(72px, auto) minmax(0, 1fr) auto;
 }
 
-:is(.creator-shell, .staff-shell) .creator-application-row h2 {
+.creator-shell .creator-application-row h2 {
   margin: 2px 0 3px;
   font-size: 15px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-application-index {
+.creator-shell .creator-application-index {
   display: grid;
   place-items: center;
   justify-self: start;
@@ -159,56 +158,56 @@
   text-align: center;
 }
 
-:is(.creator-shell, .staff-shell) .creator-application-row .creator-eyebrow {
+.creator-shell .creator-application-row .creator-eyebrow {
   margin-bottom: 2px;
   color: var(--slate);
   font-size: 11px;
   letter-spacing: .04em;
 }
 
-:is(.creator-shell, .staff-shell) .creator-application-row p:last-child,
-:is(.creator-shell, .staff-shell) .creator-application-row > time {
+.creator-shell .creator-application-row p:last-child,
+.creator-shell .creator-application-row > time {
   color: var(--slate);
   font-size: 12.5px;
 }
 
-:is(.creator-shell, .staff-shell) a.creator-course-row:hover {
+.creator-shell a.creator-course-row:hover {
   background: var(--purple-tint);
 }
 
-:is(.creator-shell, .staff-shell) a.creator-course-row:hover h2 {
+.creator-shell a.creator-course-row:hover h2 {
   color: var(--purple);
 }
 
 /* Class and approval rows: the row's own link stretches over the whole row. */
-:is(.creator-shell, .staff-shell) .creator-row-link {
+.creator-shell .creator-row-link {
   position: relative;
   cursor: pointer;
   transition: background-color .12s ease;
 }
 
-:is(.creator-shell, .staff-shell) .creator-row-link:hover {
+.creator-shell .creator-row-link:hover {
   background: var(--purple-tint);
 }
 
-:is(.creator-shell, .staff-shell) .creator-row-link h2 a::after,
-:is(.creator-shell, .staff-shell) .creator-row-link > a::after {
+.creator-shell .creator-row-link h2 a::after,
+.creator-shell .creator-row-link > a::after {
   content: '';
   position: absolute;
   inset: 0;
 }
 
-:is(.creator-shell, .staff-shell) .creator-row-link h2 a {
+.creator-shell .creator-row-link h2 a {
   color: inherit;
   text-decoration: none;
 }
 
-:is(.creator-shell, .staff-shell) .creator-row-link:hover h2,
-:is(.creator-shell, .staff-shell) .creator-row-link:hover h2 a {
+.creator-shell .creator-row-link:hover h2,
+.creator-shell .creator-row-link:hover h2 a {
   color: var(--purple);
 }
 
-:is(.creator-shell, .staff-shell) .creator-row-link > a {
+.creator-shell .creator-row-link > a {
   color: var(--purple);
   font-size: 13px;
   font-weight: 600;
@@ -216,26 +215,26 @@
   white-space: nowrap;
 }
 
-:is(.creator-shell, .staff-shell) .creator-row-link:has(a:focus-visible) {
+.creator-shell .creator-row-link:has(a:focus-visible) {
   outline: 3px solid var(--purple);
   outline-offset: -3px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-row-link a:focus-visible {
+.creator-shell .creator-row-link a:focus-visible {
   outline: none;
 }
 
-:is(.creator-shell, .staff-shell) .creator-row-link:hover .trainer-row-arrow {
+.creator-shell .creator-row-link:hover .trainer-row-arrow {
   color: var(--purple);
 }
 
-:is(.creator-shell, .staff-shell) .creator-application-row .creator-feedback {
+.creator-shell .creator-application-row .creator-feedback {
   border-radius: 0 8px 8px 0;
   background: var(--warn-soft);
 }
 
 /* ---------- Status pills ---------- */
-:is(.creator-shell, .staff-shell) .creator-status {
+.creator-shell .creator-status {
   padding: 3px 10px;
   border: 0;
   border-radius: 12px;
@@ -244,41 +243,41 @@
   font-size: 12px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-status:is(.published, .completed, .accepted) {
+.creator-shell .creator-status:is(.published, .completed, .accepted) {
   background: var(--teal-soft);
   color: var(--teal-text);
 }
 
-:is(.creator-shell, .staff-shell) .creator-status.inprogress {
+.creator-shell .creator-status.inprogress {
   background: var(--info-soft);
   color: var(--info-text);
 }
 
-:is(.creator-shell, .staff-shell) .creator-status:is(.pendingapproval, .pending, .invited) {
+.creator-shell .creator-status:is(.pendingapproval, .pending, .invited) {
   background: var(--warn-soft);
   color: var(--warn-text);
 }
 
-:is(.creator-shell, .staff-shell) .creator-status:is(.rejected, .cancelled, .removed) {
+.creator-shell .creator-status:is(.rejected, .cancelled, .removed) {
   background: var(--danger-soft);
   color: var(--danger-text);
 }
 
-:is(.creator-shell, .staff-shell) .creator-group-count {
+.creator-shell .creator-group-count {
   background: var(--purple-soft);
   color: var(--purple);
 }
 
 /* ---------- Empty, locked and error states ---------- */
-:is(.creator-shell, .staff-shell) :is(.creator-empty, .creator-group-empty) {
+.creator-shell :is(.creator-empty, .creator-group-empty) {
   border-radius: 12px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-group-empty {
+.creator-shell .creator-group-empty {
   background: var(--white);
 }
 
-:is(.creator-shell, .staff-shell) .creator-empty.creator-locked {
+.creator-shell .creator-empty.creator-locked {
   margin-bottom: 16px;
   padding: 14px 18px;
   border: 1px solid #e0d6ff;
@@ -287,50 +286,50 @@
   text-align: left;
 }
 
-:is(.creator-shell, .staff-shell) .creator-locked p {
+.creator-shell .creator-locked p {
   margin: 4px 0 0;
   color: var(--slate);
   font-size: 13.5px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-error {
+.creator-shell .creator-error {
   border-radius: 12px;
   background: var(--danger-soft);
 }
 
 /* ---------- Course form ---------- */
-:is(.creator-shell, .staff-shell) .creator-course-definition {
+.creator-shell .creator-course-definition {
   padding: 22px 24px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-course-brief {
+.creator-shell .creator-course-brief {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px 28px;
   margin: 0;
 }
 
-:is(.creator-shell, .staff-shell) .creator-course-brief .wide { grid-column: 1 / -1; }
+.creator-shell .creator-course-brief .wide { grid-column: 1 / -1; }
 
-:is(.creator-shell, .staff-shell) .creator-course-brief dt {
+.creator-shell .creator-course-brief dt {
   margin: 0 0 4px;
   color: var(--slate);
   font-size: 12px;
   font-weight: 700;
 }
 
-:is(.creator-shell, .staff-shell) .creator-course-brief dd {
+.creator-shell .creator-course-brief dd {
   margin: 0;
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
 
-:is(.creator-shell, .staff-shell) .creator-course-brief ul {
+.creator-shell .creator-course-brief ul {
   margin: 0;
   padding-left: 18px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-steps {
+.creator-shell .creator-steps {
   padding: 4px 8px 0;
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -338,21 +337,21 @@
   box-shadow: var(--shadow-card);
 }
 
-:is(.creator-shell, .staff-shell) .creator-step-heading p {
+.creator-shell .creator-step-heading p {
   letter-spacing: .06em;
 }
 
-:is(.creator-shell, .staff-shell) .creator-step-heading h2 {
+.creator-shell .creator-step-heading h2 {
   font-family: var(--font-display);
   font-size: 18px;
 }
 
-:is(.creator-shell, .staff-shell) .card-header {
+.creator-shell .card-header {
   font-family: var(--font-display);
 }
 
 /* ---------- Class detail ---------- */
-:is(.creator-shell, .staff-shell) .creator-schedule-line {
+.creator-shell .creator-schedule-line {
   margin: 0;
   padding: 14px 18px;
   border: 1px solid var(--border);
@@ -362,17 +361,17 @@
   line-height: 1.6;
 }
 
-:is(.creator-shell, .staff-shell) .creator-session-rows .creator-application-row {
+.creator-shell .creator-session-rows .creator-application-row {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-:is(.creator-shell, .staff-shell) .creator-session-rows .creator-application-row > div:first-child p {
+.creator-shell .creator-session-rows .creator-application-row > div:first-child p {
   margin: 0;
   color: var(--slate);
   font-size: 12.5px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-confirm {
+.creator-shell .creator-confirm {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -384,25 +383,25 @@
   background: var(--danger-soft);
 }
 
-:is(.creator-shell, .staff-shell) .creator-confirm h2 {
+.creator-shell .creator-confirm h2 {
   flex: 1 1 100%;
   margin: 0;
   font-size: 15px;
 }
 
 /* ---------- Usage filters: one row instead of a tall stack ---------- */
-:is(.creator-shell, .staff-shell) .creator-page > .card .card-body {
+.creator-shell .creator-page > .card .card-body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   align-items: end;
   gap: 12px;
 }
 
-:is(.creator-shell, .staff-shell) .creator-page > .card .card-body .form-group {
+.creator-shell .creator-page > .card .card-body .form-group {
   margin: 0;
 }
 
-:is(.creator-shell, .staff-shell) .creator-page > .card .card-body :is(input, select) {
+.creator-shell .creator-page > .card .card-body :is(input, select) {
   min-height: 40px;
   border-color: var(--border-strong);
   border-radius: 8px;
@@ -410,10 +409,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :is(.creator-shell, .staff-shell) .creator-row-link { transition: none; }
+  .creator-shell .creator-row-link { transition: none; }
 }
 
 @media (max-width: 700px) {
-  :is(.creator-shell, .staff-shell) .creator-header { align-items: flex-start; }
-  :is(.creator-shell, .staff-shell) .creator-application-row { padding: 14px 16px; }
+  .creator-shell .creator-header { align-items: flex-start; }
+  .creator-shell .creator-application-row { padding: 14px 16px; }
 }

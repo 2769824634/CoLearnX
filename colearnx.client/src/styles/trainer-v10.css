@@ -1,22 +1,21 @@
 /* UI v10 · day 10: Trainer workspace.
    Same data, links and actions as before: only appearance changes, plus whole-row
-   click targets on the class and course lists. Scoped to the Trainer shell, and
-   (day 12) to the Staff shell, which reuses the Trainer session and learner pages. */
+   click targets on the class and course lists. Scoped to the Trainer shell. */
 
 /* ---------- Page headings ---------- */
-:is(.trainer-shell, .staff-shell) .trainer-header {
+.trainer-shell .trainer-header {
   align-items: flex-end;
   gap: 20px;
   padding: 4px 0 24px;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-eyebrow {
+.trainer-shell .trainer-eyebrow {
   margin-bottom: 6px;
   color: var(--purple);
   letter-spacing: .08em;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-header h1 {
+.trainer-shell .trainer-header h1 {
   font-family: var(--font-display);
   font-size: 30px;
   font-weight: 700;
@@ -24,71 +23,71 @@
   line-height: 1.15;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-header p:last-child {
+.trainer-shell .trainer-header p:last-child {
   margin-top: 8px;
   font-size: 14.5px;
   line-height: 1.5;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-section-heading h2,
-:is(.trainer-shell, .staff-shell) .trainer-section-heading h3 {
+.trainer-shell .trainer-section-heading h2,
+.trainer-shell .trainer-section-heading h3 {
   font-family: var(--font-display);
   font-size: 17px;
   font-weight: 700;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-section-heading .trainer-eyebrow {
+.trainer-shell .trainer-section-heading .trainer-eyebrow {
   margin-bottom: 4px;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-back {
+.trainer-shell .trainer-back {
   margin: 0 0 12px;
   color: var(--slate);
   font-size: 13px;
   text-decoration: none;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-back:hover {
+.trainer-shell .trainer-back:hover {
   color: var(--purple);
 }
 
 /* ---------- Cards ---------- */
-:is(.trainer-shell, .staff-shell) :is(.trainer-intake-list, .later-panel, .trainer-session-card, .trainer-next, .trainer-pipeline, .trainer-delivery-path, .trainer-schedule-summary) {
+.trainer-shell :is(.trainer-intake-list, .later-panel, .trainer-session-card, .trainer-next, .trainer-pipeline, .trainer-delivery-path, .trainer-schedule-summary) {
   border-color: var(--border);
   border-radius: 12px;
   background: var(--white);
   box-shadow: var(--shadow-card);
 }
 
-:is(.trainer-shell, .staff-shell) .later-panel {
+.trainer-shell .later-panel {
   padding: 20px 22px;
 }
 
-:is(.trainer-shell, .staff-shell) .later-panel > .trainer-section-heading:first-child {
+.trainer-shell .later-panel > .trainer-section-heading:first-child {
   margin-top: 0;
 }
 
 /* ---------- Teaching next ---------- */
-:is(.trainer-shell, .staff-shell) .trainer-next:not(.trainer-next-empty) {
+.trainer-shell .trainer-next:not(.trainer-next-empty) {
   grid-template-columns: 170px minmax(0, 1fr);
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-next-date {
+.trainer-shell .trainer-next-date {
   color: var(--white);
   background: linear-gradient(135deg, var(--purple), color-mix(in srgb, var(--purple), var(--teal)));
   border-right: 0;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-next-date span {
+.trainer-shell .trainer-next-date span {
   color: color-mix(in srgb, var(--white) 85%, transparent);
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-next-body h2 {
+.trainer-shell .trainer-next-body h2 {
   font-family: var(--font-display);
   font-size: 20px;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-next-body .trainer-eyebrow {
+.trainer-shell .trainer-next-body .trainer-eyebrow {
   justify-self: start;
   padding: 3px 10px;
   border-radius: 999px;
@@ -97,98 +96,98 @@
   letter-spacing: .04em;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-next-empty {
+.trainer-shell .trainer-next-empty {
   border-style: dashed;
   background: var(--chrome);
   box-shadow: none;
 }
 
 /* ---------- Pipeline counts ---------- */
-:is(.trainer-shell, .staff-shell) .trainer-pipeline a {
+.trainer-shell .trainer-pipeline a {
   box-shadow: none;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-pipeline a:hover {
+.trainer-shell .trainer-pipeline a:hover {
   background: var(--purple-tint);
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-stage-count {
+.trainer-shell .trainer-stage-count {
   font-family: var(--font-display);
   font-size: 28px;
 }
 
 /* ---------- Side column ---------- */
-:is(.trainer-shell, .staff-shell) .trainer-quick-actions {
+.trainer-shell .trainer-quick-actions {
   border-radius: 12px;
   background: var(--white);
   box-shadow: var(--shadow-card);
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-quick-actions a {
+.trainer-shell .trainer-quick-actions a {
   border-radius: 10px;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-quick-actions a:hover {
+.trainer-shell .trainer-quick-actions a:hover {
   transform: none;
   background: var(--purple-tint);
   box-shadow: none;
 }
 
 /* ---------- Lists: whole row is the link ---------- */
-:is(.trainer-shell, .staff-shell) .trainer-intake-row {
+.trainer-shell .trainer-intake-row {
   gap: 16px;
   padding: 14px 20px;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-date-tile {
+.trainer-shell .trainer-date-tile {
   min-width: 60px;
   padding: 8px 6px;
   border-radius: 10px;
   background: var(--purple-tint);
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-date-tile strong {
+.trainer-shell .trainer-date-tile strong {
   color: var(--purple);
   font-family: var(--font-display);
   font-size: 22px;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-intake-title h3 {
+.trainer-shell .trainer-intake-title h3 {
   margin: 3px 0;
   font-size: 15px;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-row-link {
+.trainer-shell .trainer-row-link {
   position: relative;
   cursor: pointer;
   transition: background-color .12s ease;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-row-link:hover {
+.trainer-shell .trainer-row-link:hover {
   background: var(--purple-tint);
 }
 
 /* The title link stretches over the whole row, so anywhere on the row opens it. */
-:is(.trainer-shell, .staff-shell) .trainer-row-link h3 a::after {
+.trainer-shell .trainer-row-link h3 a::after {
   content: '';
   position: absolute;
   inset: 0;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-row-link h3 a:hover {
+.trainer-shell .trainer-row-link h3 a:hover {
   text-decoration: none;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-row-link:hover h3 a {
+.trainer-shell .trainer-row-link:hover h3 a {
   color: var(--purple);
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-row-link:has(h3 a:focus-visible) {
+.trainer-shell .trainer-row-link:has(h3 a:focus-visible) {
   outline: 3px solid var(--purple);
   outline-offset: -3px;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-row-link h3 a:focus-visible {
+.trainer-shell .trainer-row-link h3 a:focus-visible {
   outline: none;
 }
 
@@ -197,101 +196,101 @@
   color: var(--muted);
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-row-link:hover .trainer-row-arrow {
+.trainer-shell .trainer-row-link:hover .trainer-row-arrow {
   color: var(--purple);
 }
 
 /* ---------- Status pills ---------- */
-:is(.trainer-shell, .staff-shell) .trainer-status {
+.trainer-shell .trainer-status {
   padding: 3px 10px;
   border: 0;
   border-radius: 12px;
   font-size: 12px;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-status.published,
-:is(.trainer-shell, .staff-shell) .trainer-status.completed {
+.trainer-shell .trainer-status.published,
+.trainer-shell .trainer-status.completed {
   background: var(--teal-soft);
   color: var(--teal-text);
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-status.inprogress {
+.trainer-shell .trainer-status.inprogress {
   background: var(--info-soft);
   color: var(--info-text);
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-status:is(.pendingapproval, .rejected) {
+.trainer-shell .trainer-status:is(.pendingapproval, .rejected) {
   background: var(--warn-soft);
   color: var(--warn-text);
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-status.cancelled {
+.trainer-shell .trainer-status.cancelled {
   background: var(--danger-soft);
   color: var(--danger-text);
 }
 
 /* ---------- Toolbar ---------- */
-:is(.trainer-shell, .staff-shell) .trainer-toolbar {
+.trainer-shell .trainer-toolbar {
   gap: 12px;
   padding: 14px 16px;
   border-radius: 12px;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-toolbar :is(input, select) {
+.trainer-shell .trainer-toolbar :is(input, select) {
   min-height: 40px;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   font-size: 13.5px;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-toolbar .btn {
+.trainer-shell .trainer-toolbar .btn {
   min-height: 40px;
 }
 
 /* ---------- Class and Session cards ---------- */
-:is(.trainer-shell, .staff-shell) .trainer-session-card {
+.trainer-shell .trainer-session-card {
   border-left: 1px solid var(--border);
   padding: 18px 22px;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-session-card h3 {
+.trainer-shell .trainer-session-card h3 {
   font-family: var(--font-display);
   font-size: 16px;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-session-card h3 a {
+.trainer-shell .trainer-session-card h3 a {
   color: var(--purple);
   text-decoration: none;
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-session-card h3 a:hover {
+.trainer-shell .trainer-session-card h3 a:hover {
   text-decoration: underline;
 }
 
-:is(.trainer-shell, .staff-shell) .later-resource-list strong a {
+.trainer-shell .later-resource-list strong a {
   color: var(--charcoal);
   text-decoration: none;
 }
 
-:is(.trainer-shell, .staff-shell) .later-resource-list strong a:hover {
+.trainer-shell .later-resource-list strong a:hover {
   color: var(--purple);
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-schedule-summary {
+.trainer-shell .trainer-schedule-summary {
   overflow: hidden;
   background: var(--chrome);
 }
 
 /* ---------- Tables (learners, attendance) ---------- */
-:is(.trainer-shell, .staff-shell) .later-table-wrap {
+.trainer-shell .later-table-wrap {
   border-radius: 12px;
 }
 
-:is(.trainer-shell, .staff-shell) .later-table {
+.trainer-shell .later-table {
   font-size: 13.5px;
 }
 
-:is(.trainer-shell, .staff-shell) .later-table th {
+.trainer-shell .later-table th {
   padding: 10px 14px;
   font-size: 12px;
   font-weight: 700;
@@ -300,46 +299,46 @@
   white-space: nowrap;
 }
 
-:is(.trainer-shell, .staff-shell) .later-table td {
+.trainer-shell .later-table td {
   padding: 12px 14px;
   vertical-align: middle;
 }
 
-:is(.trainer-shell, .staff-shell) .later-table tbody tr:hover {
+.trainer-shell .later-table tbody tr:hover {
   background: var(--purple-tint);
 }
 
-:is(.trainer-shell, .staff-shell) .later-table select {
+.trainer-shell .later-table select {
   min-height: 36px;
   border-color: var(--border-strong);
   border-radius: 8px;
 }
 
-:is(.trainer-shell, .staff-shell) .later-table-wrap + .btn {
+.trainer-shell .later-table-wrap + .btn {
   margin-top: 14px;
 }
 
 /* ---------- Invitations ---------- */
-:is(.trainer-shell, .staff-shell) .trainer-group-count {
+.trainer-shell .trainer-group-count {
   background: var(--purple-soft);
   color: var(--purple);
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-group-empty {
+.trainer-shell .trainer-group-empty {
   border-radius: 12px;
   background: var(--white);
 }
 
-:is(.trainer-shell, .staff-shell) .trainer-empty {
+.trainer-shell .trainer-empty {
   border-radius: 12px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :is(.trainer-shell, .staff-shell) .trainer-row-link { transition: none; }
+  .trainer-shell .trainer-row-link { transition: none; }
 }
 
 @media (max-width: 700px) {
-  :is(.trainer-shell, .staff-shell) .trainer-next:not(.trainer-next-empty) { grid-template-columns: 1fr; }
-  :is(.trainer-shell, .staff-shell) .trainer-intake-row { padding: 14px 16px; }
-  :is(.trainer-shell, .staff-shell) .trainer-header { align-items: flex-start; }
+  .trainer-shell .trainer-next:not(.trainer-next-empty) { grid-template-columns: 1fr; }
+  .trainer-shell .trainer-intake-row { padding: 14px 16px; }
+  .trainer-shell .trainer-header { align-items: flex-start; }
 }
