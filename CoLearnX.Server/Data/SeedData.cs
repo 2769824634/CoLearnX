@@ -132,7 +132,7 @@ public static class SeedData
             DisplayName = "Ruiqi",
             Phone = "11223344",
             Bio = "Learning materials creator",
-            CreditBalance = 40,
+            CreditBalance = 0,
             EmailVerifiedAt = verifiedAt,
         };
         db.Users.AddRange(member, trainer, creator);

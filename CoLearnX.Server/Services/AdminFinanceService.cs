@@ -78,8 +78,11 @@ public sealed class AdminFinanceService(CoLearnXDbContext db, ILogger<AdminFinan
                     return ToMutation(replay, true);
                 }
 
-                var user = await db.Users.SingleOrDefaultAsync(item => item.Id == request.UserId, ct)
+                var user = await db.Users.Include(item => item.Roles).SingleOrDefaultAsync(item => item.Id == request.UserId, ct)
                     ?? throw new LaterPhaseException("USER_NOT_FOUND", "User was not found.", 404);
+                // Only Members top up and spend credits. Trainers and Creators see earnings, not a credit balance.
+                if (user.Roles.All(role => role.Role != AppRole.Member))
+                    throw new LaterPhaseException("CREDITS_MEMBER_ONLY", "Credits can be adjusted for Member accounts only.", 409, "userId");
                 if (user.CreditBalance + request.Delta < 0)
                     throw new LaterPhaseException("NEGATIVE_BALANCE", "The adjustment cannot make the credit balance negative.", 409, "delta");
                 user.CreditBalance += request.Delta;

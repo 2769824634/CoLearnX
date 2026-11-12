@@ -571,6 +571,25 @@ public sealed class LaterPhaseWorkflowIntegrationTests
         Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
     }
 
+    [Theory]
+    [InlineData(200)] // Trainer
+    [InlineData(203)] // Creator
+    public async Task AdminCreditAdjustment_IsOnlyForMemberAccounts(int userId)
+    {
+        // Trainers and Creators neither top up nor spend credits, so there is no balance to correct.
+        using var factory = new LaterPhaseApiFactory();
+        await factory.InitializeAsync();
+        using var admin = factory.AdminClient();
+
+        using var response = await admin.PostAsJsonAsync("/api/admin/credits/adjustments",
+            new { userId, delta = 10, reason = "Should not apply", idempotencyKey = Guid.NewGuid() });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("CREDITS_MEMBER_ONLY", (await Body(response)).GetProperty("code").GetString());
+        Assert.Equal(0, await factory.ReadAsync(db => db.Users.Where(u => u.Id == userId).Select(u => u.CreditBalance).SingleAsync()));
+        Assert.Equal(0, await factory.ReadAsync(db => db.CreditTransactions.CountAsync(t => t.UserId == userId)));
+    }
+
     [Fact]
     public async Task DisputeRefund_ChangesBalanceOnceAndClosesCase()
     {

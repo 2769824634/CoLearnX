@@ -81,3 +81,17 @@ it('opens a Trainer on the Teaching tab with current classes and folds finished 
   expect(within(dialog).getByText('Finished and cancelled classes (1)')).toBeTruthy();
   expect(within(dialog).getByText('Old class').closest('details').open).toBe(false);
 });
+
+it.each(['Trainer', 'Creator'])('offers no credit adjustment for a %s account', async (role) => {
+  const holder = { ...user, id: 43, fullName: `Example ${role}`, roles: [role], creditBalance: 0, heldCredits: 0 };
+  api.users.mockResolvedValue([holder]);
+  api.user.mockResolvedValue(holder);
+  api.ledger.mockResolvedValue([]);
+  render(<MemoryRouter><AdminUsersPage /></MemoryRouter>);
+  fireEvent.click((await screen.findByText(`Example ${role}`)).closest('tr'));
+  const dialog = await screen.findByRole('dialog', { name: 'User details' });
+  fireEvent.click(await within(dialog).findByRole('button', { name: 'Credits' }));
+  expect(await within(dialog).findByText(/Credit adjustments apply to Member accounts only/)).toBeTruthy();
+  expect(within(dialog).queryByRole('button', { name: 'Apply adjustment' })).toBeNull();
+  expect(within(dialog).queryByLabelText('Credit delta')).toBeNull();
+});
