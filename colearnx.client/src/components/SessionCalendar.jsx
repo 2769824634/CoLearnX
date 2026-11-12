@@ -9,6 +9,8 @@ const time = (date) => `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 const dayKey = (date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 const monthIndex = (date) => date.getFullYear() * 12 + date.getMonth();
 const toDate = (value) => (value instanceof Date ? value : utcDate(value));
+// Same English date style as the rest of the app, whatever the browser locale is.
+const dateLabel = (date) => `${date.getDate()} ${MONTHS[date.getMonth()].slice(0, 3)} ${date.getFullYear()}`;
 
 function hoursLabel(totalMinutes) {
   const hours = Math.round((totalMinutes / 60) * 10) / 10;
@@ -59,7 +61,7 @@ export default function SessionCalendar({ sessions = [], caption }) {
     </div>
     <p className="session-calendar-summary">
       {caption ? <>{caption} · </> : null}
-      {items.length} session{items.length === 1 ? '' : 's'} · {hoursLabel(totalMinutes)} in total · {items[0].start.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} to {items[items.length - 1].start.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+      {items.length} session{items.length === 1 ? '' : 's'} · {hoursLabel(totalMinutes)} in total · {dateLabel(items[0].start)} to {dateLabel(items[items.length - 1].start)}
     </p>
     {clashing ? <p className="session-calendar-warning" role="alert">
       {clashing} session{clashing === 1 ? ' clashes' : 's clash'} with teaching you already have. They are marked in red.
