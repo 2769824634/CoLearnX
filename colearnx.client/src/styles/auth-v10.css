@@ -21,7 +21,10 @@
 html .auth-screen,
 html .auth-screen.admin-auth-screen {
   position: relative;
-  overflow: hidden;
+  /* The screen is exactly one window tall, so a form taller than the window must scroll inside it.
+     Hiding the overflow cut off the top and the submit button on laptop-sized windows. */
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 32px 16px;
   color: var(--charcoal);
   background: var(--login-glow);
@@ -37,6 +40,15 @@ html .admin-auth-screen::before {
   background-image: var(--login-grid);
   background-size: 36px 36px;
   mask-image: radial-gradient(70% 70% at 50% 50%, #000, transparent 80%);
+}
+
+/* A card shorter than the window stays centred; a taller one starts at the top so nothing sits above the scroll area. */
+html .auth-screen:not(.admin-console-screen) {
+  align-items: flex-start;
+}
+
+html .auth-screen:not(.admin-console-screen):not(.login-screen) > * {
+  margin-block: auto;
 }
 
 /* ---------- register, forgot / reset password, email check: same card finish ---------- */

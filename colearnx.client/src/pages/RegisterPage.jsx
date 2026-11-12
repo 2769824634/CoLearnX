@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Logo from '../components/Logo';
 import PasswordInput from '../components/PasswordInput';
 import { authApi } from '../api';
@@ -17,7 +17,7 @@ const SIGNUP_ROLES = [
 const roleFromQuery = (value) => SIGNUP_ROLES.find((item) => item.role.toLowerCase() === String(value || '').toLowerCase())?.role || 'Member';
 
 export default function RegisterPage() {
-  const { register, isAuthenticated, activeRole, booting } = useAuth();
+  const { register, isAuthenticated, activeRole, booting, user, logout } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [fullName, setFullName] = useState('');
@@ -34,8 +34,28 @@ export default function RegisterPage() {
   const passwordAutofill = useNoCredentialAutofill();
   const confirmAutofill = useNoCredentialAutofill();
 
-  if (!booting && isAuthenticated && activeRole) {
-    return <Navigate to={`/${activeRole}/home`} replace />;
+  // A browser that is still signed in cannot create a second account. Say so here: sending the person to
+  // their workspace made an uncertified Trainer or Creator land on the certification page without warning.
+  if (!booting && isAuthenticated && activeRole && !busy) {
+    const roleName = activeRole.charAt(0).toUpperCase() + activeRole.slice(1);
+    return (
+      <div className="auth-screen">
+        <div className="auth-card">
+          <div className="auth-header"><Logo /></div>
+          <div className="auth-body">
+            <h2>You are already signed in</h2>
+            <p className="auth-lead">
+              This browser is signed in as {user?.fullName || user?.email || 'an existing account'}, a {roleName} account.
+              One account has one role, so sign out first to create another account.
+            </p>
+            <Link className="btn btn-primary btn-block" to={`/${activeRole}/home`}>Go to my workspace</Link>
+            <button type="button" className="btn btn-ghost btn-block" style={{ marginTop: 10 }} onClick={logout}>
+              Sign out and create another account
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   async function onSubmit(e) {

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import '../styles/guest.css';
 import '../styles/landing-v10.css';
 import Logo from './Logo';
 import { SITE_TITLE } from '../siteTitle';
+import { AuthContext } from '../auth/AuthContext';
 
 const GUEST_NAV = [
   { to: '/', label: 'Home', end: true },
@@ -13,6 +14,10 @@ const GUEST_NAV = [
 export default function PublicSiteShell({ title, children }) {
   const navigate = useNavigate();
   const location = useLocation();
+  // Members get their own shell on public pages. A signed-in Trainer or Creator sees this one, so it must not
+  // offer Log in and Sign up as if nobody were signed in.
+  const auth = useContext(AuthContext);
+  const signedInRole = auth?.isAuthenticated && auth.activeRole ? auth.activeRole : null;
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPath, setMenuPath] = useState(location.pathname);
@@ -73,10 +78,17 @@ export default function PublicSiteShell({ title, children }) {
               <input type="search" name="q" placeholder="Search training programs..." aria-label="Search training programs" />
             </form>
           )}
-          <div className="g-auth">
-            <Link className="g-btn g-btn-quiet" to="/login">Log in</Link>
-            <Link className="g-btn g-btn-primary" to="/register">Sign up</Link>
-          </div>
+          {signedInRole ? (
+            <div className="g-auth">
+              <button type="button" className="g-btn g-btn-quiet" onClick={auth.logout}>Sign out</button>
+              <Link className="g-btn g-btn-primary" to={`/${signedInRole}/home`}>My workspace</Link>
+            </div>
+          ) : (
+            <div className="g-auth">
+              <Link className="g-btn g-btn-quiet" to="/login">Log in</Link>
+              <Link className="g-btn g-btn-primary" to="/register">Sign up</Link>
+            </div>
+          )}
         </div>
       </header>
       {menuOpen ? <div className="g-scrim" aria-hidden="true" onClick={() => setMenuOpen(false)} /> : null}
