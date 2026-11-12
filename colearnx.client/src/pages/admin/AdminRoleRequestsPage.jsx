@@ -13,6 +13,14 @@ const AREA_LABELS = {
   HumanitiesHealthCreative: 'Humanities, Health and Creative',
 };
 const sameIds = (left, right) => left.length === right.length && [...left].sort((a, b) => a - b).every((id, index) => id === [...right].sort((a, b) => a - b)[index]);
+// Older requests have no file counts; a stored path then means one file.
+function fileCount(roleRequest, kind) {
+  const [count, path] = kind === 'resume'
+    ? [roleRequest.resumeFileCount, roleRequest.degreeOrResumePath]
+    : [roleRequest.idDocumentFileCount, roleRequest.idDocumentPath];
+  return count || (path ? 1 : 0);
+}
+
 function hasCredentials(roleRequest) {
   return Boolean(roleRequest.degreeOrResumePath || roleRequest.idDocumentPath);
 }
@@ -151,14 +159,14 @@ export default function AdminRoleRequestsPage() {
     }
   }
 
-  async function downloadEvidence(kind) {
+  async function downloadEvidence(kind, index = 0) {
     if (!selected || reviewing || downloadBusy) return;
     const isResume = kind === 'resume';
-    if (!(isResume ? selected.degreeOrResumePath : selected.idDocumentPath)) return;
+    if (index >= fileCount(selected, kind)) return;
     const label = isResume ? 'Resume' : 'ID document';
     setDownload({ kind, busy: true });
     try {
-      await (isResume ? adminRoleRequestsApi.downloadResume(token, selected.id) : adminRoleRequestsApi.downloadIdDocument(token, selected.id));
+      await (isResume ? adminRoleRequestsApi.downloadResume(token, selected.id, index) : adminRoleRequestsApi.downloadIdDocument(token, selected.id, index));
       setDownload({ kind, message: `${label} download started. Check your browser downloads.` });
     } catch (error) {
       setDownload({ kind, error: userFacingError(error, `Could not download the ${label.toLowerCase()}. Retry or contact the applicant about this attachment.`) });
@@ -283,12 +291,14 @@ export default function AdminRoleRequestsPage() {
             </div>
             {hasCredentials(selected) ? (
               <div className="trainer-actions" style={{ margin: '0 0 16px' }}>
-                {selected.degreeOrResumePath ? <button type="button" className="btn btn-ghost btn-sm" disabled={reviewing || downloadBusy} onClick={() => downloadEvidence('resume')}>
-                  {downloadBusy && download.kind === 'resume' ? 'Downloading…' : 'Download resume'}
-                </button> : null}
-                {selected.idDocumentPath ? <button type="button" className="btn btn-ghost btn-sm" disabled={reviewing || downloadBusy} onClick={() => downloadEvidence('id')}>
-                  {downloadBusy && download.kind === 'id' ? 'Downloading…' : 'Download ID document'}
-                </button> : null}
+                {[['resume', 'Download resume'], ['id', 'Download ID document']].map(([kind, label]) => {
+                  const count = fileCount(selected, kind);
+                  return Array.from({ length: count }, (_, index) => (
+                    <button key={`${kind}-${index}`} type="button" className="btn btn-ghost btn-sm" disabled={reviewing || downloadBusy} onClick={() => downloadEvidence(kind, index)}>
+                      {downloadBusy && download.kind === kind ? 'Downloading…' : count > 1 ? `${label} ${index + 1}` : label}
+                    </button>
+                  ));
+                })}
               </div>
             ) : (
               <p className="page-sub">No files were uploaded with this request.</p>

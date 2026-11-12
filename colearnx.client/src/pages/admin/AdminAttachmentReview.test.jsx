@@ -32,6 +32,16 @@ it('offers only the role evidence file that the request actually declares', asyn
   expect(screen.queryByRole('button', { name: 'Download ID document' })).toBeNull();
 });
 
+it('offers one download per file when a field has several files', async () => {
+  adminRoleRequestsApi.list.mockResolvedValue([{ ...applicant, resumeFileCount: 2, idDocumentPath: 'private/id.pdf', idDocumentFileCount: 1 }]);
+  render(<AdminRoleRequestsPage />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Review' }));
+  expect(screen.getByRole('button', { name: 'Download resume 1' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Download resume 2' }));
+  await waitFor(() => expect(adminRoleRequestsApi.downloadResume).toHaveBeenCalledWith('admin-token', 3, 1));
+  expect(screen.getByRole('button', { name: 'Download ID document' })).toBeTruthy();
+});
+
 it('awaits a role download, prevents repeat requests and reports only browser download startup', async () => {
   let finish;
   adminRoleRequestsApi.downloadResume.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));

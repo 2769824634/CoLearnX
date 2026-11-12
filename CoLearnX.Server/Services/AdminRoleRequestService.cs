@@ -2,6 +2,7 @@ using CoLearnX.Server.Contracts.Dtos;
 using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
+using CoLearnX.Server.Storage;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoLearnX.Server.Services;
@@ -212,6 +213,8 @@ public sealed class AdminRoleRequestService(
             roleRequest.ReviewedAt,
             roleRequest.ApplicantStatement,
             RoleRequestService.SpecialtyNames(roleRequest.SpecialtyIds, names),
-            RoleRequestService.ParseSpecialtyIds(roleRequest.SpecialtyIds));
+            RoleRequestService.ParseSpecialtyIds(roleRequest.SpecialtyIds),
+            RoleRequestFiles.SplitKeys(roleRequest.DegreeOrResumePath).Count,
+            RoleRequestFiles.SplitKeys(roleRequest.IdDocumentPath).Count);
 
 }

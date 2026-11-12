@@ -52,3 +52,31 @@ it('shows the rejection reason and allows a new application', async () => {
   expect(await screen.findByText(/Unreadable ID/)).toBeTruthy();
   await waitFor(() => expect(screen.getByRole('button', { name: 'Submit for certification' })).toBeTruthy());
 });
+
+it('sends every chosen file and lets the applicant remove one before submitting', async () => {
+  const fetch = mount();
+  fireEvent.click((await screen.findAllByRole('checkbox'))[0]);
+  const pdf = (name) => new File(['%PDF-1.4'], name, { type: 'application/pdf' });
+  fireEvent.change(screen.getByLabelText('Resume / degree'), { target: { files: [pdf('cv.pdf'), pdf('degree.pdf')] } });
+  fireEvent.change(screen.getByLabelText('Identity document'), { target: { files: [pdf('id-front.pdf')] } });
+  fireEvent.change(screen.getByLabelText('Identity document'), { target: { files: [pdf('id-back.pdf'), pdf('extra.pdf')] } });
+  expect(screen.getByText('degree.pdf')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Remove extra.pdf' }));
+  expect(screen.queryByText('extra.pdf')).toBeNull();
+  fireEvent.change(screen.getByLabelText('Application statement'), { target: { value: 'I teach.' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Submit for certification' }));
+
+  await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/role-requests', expect.objectContaining({ method: 'POST' })));
+  const body = fetch.mock.calls.find(([path, init]) => path === '/api/role-requests' && init.method === 'POST')[1].body;
+  expect(body.getAll('resume').map((file) => file.name)).toEqual(['cv.pdf', 'degree.pdf']);
+  expect(body.getAll('idDocument').map((file) => file.name)).toEqual(['id-front.pdf', 'id-back.pdf']);
+});
+
+it('keeps at most five files per field and says why', async () => {
+  mount();
+  const files = Array.from({ length: 6 }, (_, i) => new File(['x'], `page-${i + 1}.png`, { type: 'image/png' }));
+  fireEvent.change(await screen.findByLabelText('Resume / degree'), { target: { files } });
+  expect(screen.getByText('page-5.png')).toBeTruthy();
+  expect(screen.queryByText('page-6.png')).toBeNull();
+  expect(screen.getByText(/at most 5 files/)).toBeTruthy();
+});

@@ -25,12 +25,12 @@ public class AdminRoleRequestsController(
         => Ok(await applicantRequests.SpecialtyOptionsAsync(ct));
 
     [HttpGet("{roleRequestId:int}/resume")]
-    public Task<IActionResult> DownloadResume(int roleRequestId, CancellationToken ct)
-        => Download(roleRequestId, RoleRequestDocument.Resume, ct);
+    public Task<IActionResult> DownloadResume(int roleRequestId, [FromQuery] int index, CancellationToken ct)
+        => Download(roleRequestId, RoleRequestDocument.Resume, index, ct);
 
     [HttpGet("{roleRequestId:int}/id-document")]
-    public Task<IActionResult> DownloadIdDocument(int roleRequestId, CancellationToken ct)
-        => Download(roleRequestId, RoleRequestDocument.IdDocument, ct);
+    public Task<IActionResult> DownloadIdDocument(int roleRequestId, [FromQuery] int index, CancellationToken ct)
+        => Download(roleRequestId, RoleRequestDocument.IdDocument, index, ct);
 
     [HttpPost("{roleRequestId:int}/review")]
     public async Task<ActionResult<AdminRoleRequestReviewResultDto>> Review(
@@ -60,11 +60,11 @@ public class AdminRoleRequestsController(
         }
     }
 
-    private async Task<IActionResult> Download(int roleRequestId, RoleRequestDocument document, CancellationToken ct)
+    private async Task<IActionResult> Download(int roleRequestId, RoleRequestDocument document, int index, CancellationToken ct)
     {
         try
         {
-            var file = await applicantRequests.OpenDocumentAsync(roleRequestId, document, ct);
+            var file = await applicantRequests.OpenDocumentAsync(roleRequestId, document, index, ct);
             return File(file.Stream, file.ContentType, file.DownloadName);
         }
         catch (FileNotFoundException)

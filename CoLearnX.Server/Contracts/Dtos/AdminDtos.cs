@@ -49,7 +49,9 @@ public record AdminRoleRequestDto(
     DateTime? ReviewedAt,
     string? ApplicantStatement = null,
     IReadOnlyList<string>? Specialties = null,
-    IReadOnlyList<int>? SpecialtyIds = null);
+    IReadOnlyList<int>? SpecialtyIds = null,
+    int ResumeFileCount = 0,
+    int IdDocumentFileCount = 0);
 
 public record AdminRoleRequestReviewResultDto(
     AdminRoleRequestDto RoleRequest,

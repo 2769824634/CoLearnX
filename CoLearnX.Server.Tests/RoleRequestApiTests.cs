@@ -238,7 +238,63 @@ public class RoleRequestApiTests : IClassFixture<CoLearnXApiFactory>
         return await ApiClient.AsRoleAsync(_factory, email, role);
     }
 
-    private MultipartFormDataContent ApplicationForm(string requestedRole, string statement = "I run inclusive workshops.")
+    [Fact]
+    public async Task Applicant_can_upload_several_files_per_field_and_admin_downloads_each()
+    {
+        var applicant = await RegisterApplicantAsync($"multi.{Guid.NewGuid():N}@colearnx.test", "Trainer");
+        using var content = ApplicationForm("Trainer", resumeCount: 2, idDocumentCount: 3);
+        var created = await applicant.PostAsync("/api/role-requests", content);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var body = await created.Content.ReadFromJsonAsync<RoleRequestDto>(ApiJson.Options);
+        Assert.NotNull(body);
+
+        var admin = await ApiClient.AsOperationsAdminAsync(_factory);
+        var queue = await admin.GetFromJsonAsync<List<AdminRoleRequestDto>>("/api/admin/role-requests", ApiJson.Options);
+        var item = Assert.Single(queue!, request => request.Id == body.Id);
+        Assert.Equal(2, item.ResumeFileCount);
+        Assert.Equal(3, item.IdDocumentFileCount);
+
+        var second = await admin.GetAsync($"/api/admin/role-requests/{body.Id}/resume?index=1");
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Equal("resume-2.pdf", second.Content.Headers.ContentDisposition?.FileName?.Trim('"'));
+        var third = await admin.GetAsync($"/api/admin/role-requests/{body.Id}/id-document?index=2");
+        Assert.Equal(HttpStatusCode.OK, third.StatusCode);
+        var missing = await admin.GetAsync($"/api/admin/role-requests/{body.Id}/id-document?index=3");
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+    }
+
+    [Fact]
+    public async Task More_than_five_files_in_one_field_returns_TOO_MANY_FILES()
+    {
+        var applicant = await RegisterApplicantAsync($"toomany.{Guid.NewGuid():N}@colearnx.test", "Trainer");
+        using var content = ApplicationForm("Trainer", resumeCount: 6);
+        var response = await applicant.PostAsync("/api/role-requests", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("TOO_MANY_FILES", (await ApiClient.ReadErrorAsync(response))?.Code);
+    }
+
+    [Fact]
+    public async Task A_bad_file_type_in_the_second_field_saves_no_files()
+    {
+        var applicant = await RegisterApplicantAsync($"badtype.{Guid.NewGuid():N}@colearnx.test", "Trainer");
+        var me = await applicant.GetFromJsonAsync<UserMeDto>("/api/auth/me", ApiJson.Options);
+        using var content = ApplicationForm("Trainer", idDocumentName: "id.txt");
+        var response = await applicant.PostAsync("/api/role-requests", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("INVALID_FILE_TYPE", (await ApiClient.ReadErrorAsync(response))?.Code);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
+        Assert.False(await db.RoleRequests.AnyAsync(item => item.UserId == me!.Id));
+    }
+
+    private MultipartFormDataContent ApplicationForm(
+        string requestedRole,
+        string statement = "I run inclusive workshops.",
+        int resumeCount = 1,
+        int idDocumentCount = 1,
+        string idDocumentName = "id.pdf")
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
@@ -247,8 +303,10 @@ public class RoleRequestApiTests : IClassFixture<CoLearnXApiFactory>
         content.Add(new StringContent(requestedRole), "requestedRole");
         content.Add(new StringContent(statement), "statement");
         content.Add(new StringContent(specialtyId.ToString()), "specialtyIds");
-        content.Add(PdfPart(), "resume", "resume.pdf");
-        content.Add(PdfPart(), "idDocument", "id.pdf");
+        for (var i = 0; i < resumeCount; i++)
+            content.Add(PdfPart(), "resume", $"resume-{i}.pdf");
+        for (var i = 0; i < idDocumentCount; i++)
+            content.Add(PdfPart(), "idDocument", idDocumentName);
         return content;
     }
 

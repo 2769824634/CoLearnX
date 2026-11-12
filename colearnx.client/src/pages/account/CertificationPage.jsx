@@ -7,11 +7,60 @@ import '../../styles/certification.css';
 
 const MAX_STATEMENT_WORDS = 300;
 const MAX_SPECIALTIES = 5;
+const MAX_FILES = 5;
+const MAX_FILE_MB = 10;
+const MAX_TOTAL_MB = 25;
+const ACCEPT = '.pdf,.docx,.png,.jpg,.jpeg';
 const AREA_LABELS = {
   DigitalTechnology: 'Digital Technology',
   BusinessManagement: 'Business and Management',
   HumanitiesHealthCreative: 'Humanities, Health and Creative',
 };
+
+// Adds newly picked files to a field, keeping the 5-file and 10 MB limits the server checks.
+function addFiles(current, picked) {
+  const tooBig = picked.filter((file) => file.size > MAX_FILE_MB * 1024 * 1024);
+  const next = [...current, ...picked.filter((file) => !tooBig.includes(file))];
+  const problems = [];
+  if (tooBig.length) problems.push(`${tooBig.map((file) => file.name).join(', ')} is larger than ${MAX_FILE_MB} MB.`);
+  if (next.length > MAX_FILES) problems.push(`You can upload at most ${MAX_FILES} files here.`);
+  return { files: next.slice(0, MAX_FILES), problem: problems.join(' ') };
+}
+
+function FilePicker({ id, label, files, problem, onChange }) {
+  function pick(event) {
+    const picked = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (picked.length) onChange(addFiles(files, picked));
+  }
+  return (
+    <div className="form-group">
+      <label htmlFor={id}>{label}</label>
+      <input id={id} type="file" multiple accept={ACCEPT} onChange={pick} disabled={files.length >= MAX_FILES} />
+      <div className="certification-file-hint">
+        Up to {MAX_FILES} files ({files.length}/{MAX_FILES}). PDF, DOCX, PNG or JPG, {MAX_FILE_MB} MB each.
+      </div>
+      {files.length ? (
+        <ul className="certification-file-list">
+          {files.map((file, index) => (
+            <li key={`${file.name}-${index}`}>
+              <span>{file.name}</span>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                aria-label={`Remove ${file.name}`}
+                onClick={() => onChange({ files: files.filter((_, i) => i !== index), problem: '' })}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {problem ? <p className="trainer-error" role="alert">{problem}</p> : null}
+    </div>
+  );
+}
 
 // Trainers and Creators submit and check their certification from their workspace.
 export default function CertificationPage({ role }) {
@@ -20,14 +69,16 @@ export default function CertificationPage({ role }) {
   const [requests, setRequests] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [resume, setResume] = useState(null);
-  const [idDocument, setIdDocument] = useState(null);
+  const [resume, setResume] = useState({ files: [], problem: '' });
+  const [idDocument, setIdDocument] = useState({ files: [], problem: '' });
   const [statement, setStatement] = useState('');
   const [notice, setNotice] = useState('');
   const [options, setOptions] = useState([]);
   const [picked, setPicked] = useState([]);
   const wordCount = countStatementWords(statement);
-  const canSubmit = Boolean(resume && idDocument && statement.trim() && wordCount > 0 && wordCount <= MAX_STATEMENT_WORDS
+  const totalBytes = [...resume.files, ...idDocument.files].reduce((sum, file) => sum + file.size, 0);
+  const tooLarge = totalBytes > MAX_TOTAL_MB * 1024 * 1024;
+  const canSubmit = Boolean(resume.files.length && idDocument.files.length && !tooLarge && statement.trim() && wordCount > 0 && wordCount <= MAX_STATEMENT_WORDS
     && picked.length > 0 && picked.length <= MAX_SPECIALTIES);
   const areas = Object.keys(AREA_LABELS).map((area) => ({ area, items: options.filter((item) => item.area === area) }))
     .filter((group) => group.items.length);
@@ -60,10 +111,10 @@ export default function CertificationPage({ role }) {
     setBusy(true);
     setError('');
     try {
-      const created = await roleRequestsApi.create(role, resume, idDocument, statement.trim(), picked);
+      const created = await roleRequestsApi.create(role, resume.files, idDocument.files, statement.trim(), picked);
       setRequests((current) => [created, ...(current || []).filter((item) => item.id !== created.id)]);
-      setResume(null);
-      setIdDocument(null);
+      setResume({ files: [], problem: '' });
+      setIdDocument({ files: [], problem: '' });
       setStatement('');
       setPicked([]);
     } catch (err) {
@@ -134,14 +185,9 @@ export default function CertificationPage({ role }) {
                   </div>
                 ))}
               </fieldset>
-              <div className="form-group">
-                <label htmlFor="cert-resume">Resume / degree</label>
-                <input id="cert-resume" type="file" accept=".pdf,.docx,.png,.jpg,.jpeg" onChange={(e) => setResume(e.target.files?.[0] || null)} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="cert-id-document">Identity document</label>
-                <input id="cert-id-document" type="file" accept=".pdf,.docx,.png,.jpg,.jpeg" onChange={(e) => setIdDocument(e.target.files?.[0] || null)} />
-              </div>
+              <FilePicker id="cert-resume" label="Resume / degree" {...resume} onChange={setResume} />
+              <FilePicker id="cert-id-document" label="Identity document" {...idDocument} onChange={setIdDocument} />
+              {tooLarge ? <p className="trainer-error" role="alert">All files together must be {MAX_TOTAL_MB} MB or smaller.</p> : null}
               <div className="form-group">
                 <label htmlFor="cert-statement">Application statement</label>
                 <textarea id="cert-statement" rows={5} value={statement} onChange={(e) => setStatement(e.target.value)} placeholder="Briefly explain your experience." />

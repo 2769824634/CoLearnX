@@ -21,13 +21,13 @@ public interface IRoleRequestService
     Task<RoleRequestDto> SubmitAsync(
         int userId,
         string requestedRole,
-        IFormFile? resume,
-        IFormFile? idDocument,
+        IReadOnlyList<IFormFile>? resume,
+        IReadOnlyList<IFormFile>? idDocument,
         string? statement,
         IReadOnlyList<int>? specialtyIds,
         CancellationToken ct = default);
     Task<IReadOnlyList<SpecialtyOptionDto>> SpecialtyOptionsAsync(CancellationToken ct = default);
-    Task<MaterialFileResult> OpenDocumentAsync(int roleRequestId, RoleRequestDocument document, CancellationToken ct = default);
+    Task<MaterialFileResult> OpenDocumentAsync(int roleRequestId, RoleRequestDocument document, int index = 0, CancellationToken ct = default);
 }
 
 public sealed class RoleRequestException(string code, string message, int statusCode) : Exception(message)
@@ -51,8 +51,8 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
     public async Task<RoleRequestDto> SubmitAsync(
         int userId,
         string requestedRole,
-        IFormFile? resume,
-        IFormFile? idDocument,
+        IReadOnlyList<IFormFile>? resume,
+        IReadOnlyList<IFormFile>? idDocument,
         string? statement,
         IReadOnlyList<int>? specialtyIds,
         CancellationToken ct = default)
@@ -135,8 +135,21 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
         // Certification requires 1 to 5 specialties for an existing role.
         var specialties = await ValidateSpecialtiesAsync(specialtyIds, required: awaitingCertification is not null, ct);
 
-        var resumeKey = await SaveRequiredFileAsync(userId, resume, "resume", ct);
-        var idKey = await SaveRequiredFileAsync(userId, idDocument, "identity document", ct);
+        // Check every file before saving any, so a rejected upload leaves nothing behind.
+        var resumeFiles = RequireFiles(resume);
+        var idFiles = RequireFiles(idDocument);
+        var resumeExts = ValidateFiles(resumeFiles, "resume");
+        var idExts = ValidateFiles(idFiles, "identity document");
+        if (resumeFiles.Concat(idFiles).Sum(file => file.Length) > RoleRequestFiles.MaxTotalBytes)
+        {
+            throw new RoleRequestException(
+                "FILES_TOO_LARGE",
+                $"All files together must be {RoleRequestFiles.MaxTotalBytes / (1024 * 1024)} MB or smaller.",
+                StatusCodes.Status400BadRequest);
+        }
+
+        var resumeKey = await SaveFilesAsync(userId, resumeFiles, resumeExts, ct);
+        var idKey = await SaveFilesAsync(userId, idFiles, idExts, ct);
 
         var entity = new RoleRequest
         {
@@ -200,55 +213,86 @@ public sealed class RoleRequestService(CoLearnXDbContext db, IRoleRequestFileSto
     public async Task<MaterialFileResult> OpenDocumentAsync(
         int roleRequestId,
         RoleRequestDocument document,
+        int index = 0,
         CancellationToken ct = default)
     {
         var item = await db.RoleRequests.AsNoTracking()
             .FirstOrDefaultAsync(request => request.Id == roleRequestId, ct)
             ?? throw new FileNotFoundException("Role request was not found.");
 
-        var key = document == RoleRequestDocument.Resume ? item.DegreeOrResumePath : item.IdDocumentPath;
-        if (string.IsNullOrWhiteSpace(key))
+        var keys = RoleRequestFiles.SplitKeys(document == RoleRequestDocument.Resume ? item.DegreeOrResumePath : item.IdDocumentPath);
+        if (index < 0 || index >= keys.Count)
             throw new FileNotFoundException("Role request file was not found.");
+        var key = keys[index];
 
         var stream = await files.OpenAsync(key, ct)
             ?? throw new FileNotFoundException("Role request file was not found.");
         var ext = Path.GetExtension(key);
         var label = document == RoleRequestDocument.Resume ? "resume" : "id-document";
+        if (keys.Count > 1) label += $"-{index + 1}";
         return new MaterialFileResult(stream, RoleRequestFiles.ContentType(ext), RoleRequestFiles.DownloadName(label, key));
     }
 
-    private async Task<string> SaveRequiredFileAsync(int userId, IFormFile? file, string label, CancellationToken ct)
+    private static IReadOnlyList<IFormFile> RequireFiles(IReadOnlyList<IFormFile>? files)
     {
-        if (file is null || file.Length <= 0)
+        if (files is null || files.Count == 0 || files.Any(file => file.Length <= 0))
         {
             throw new RoleRequestException(
                 "FILES_REQUIRED",
                 "Upload a resume and an identity document with the application.",
                 StatusCodes.Status400BadRequest);
         }
+        return files;
+    }
 
-        if (file.Length > RoleRequestFiles.MaxBytes)
+    private static IReadOnlyList<string> ValidateFiles(IReadOnlyList<IFormFile> files, string label)
+    {
+        if (files.Count > RoleRequestFiles.MaxFilesPerField)
         {
             throw new RoleRequestException(
-                "FILE_TOO_LARGE",
-                $"The {label} must be 10 MB or smaller.",
+                "TOO_MANY_FILES",
+                $"Upload at most {RoleRequestFiles.MaxFilesPerField} files for the {label}.",
                 StatusCodes.Status400BadRequest);
         }
 
-        string ext;
-        try
+        var extensions = new List<string>(files.Count);
+        foreach (var file in files)
         {
-            ext = RoleRequestFiles.RequireSafeExtension(file.FileName);
-        }
-        catch (InvalidOperationException ex)
-        {
-            throw new RoleRequestException("INVALID_FILE_TYPE", ex.Message, StatusCodes.Status400BadRequest);
-        }
+            if (file.Length > RoleRequestFiles.MaxBytes)
+            {
+                throw new RoleRequestException(
+                    "FILE_TOO_LARGE",
+                    $"Each {label} file must be 10 MB or smaller.",
+                    StatusCodes.Status400BadRequest);
+            }
 
-        var key = $"{userId}/{Guid.NewGuid():N}{ext}";
-        await using var stream = file.OpenReadStream();
-        await files.SaveAsync(key, stream, RoleRequestFiles.ContentType(ext), ct);
-        return key;
+            try
+            {
+                extensions.Add(RoleRequestFiles.RequireSafeExtension(file.FileName));
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new RoleRequestException("INVALID_FILE_TYPE", ex.Message, StatusCodes.Status400BadRequest);
+            }
+        }
+        return extensions;
+    }
+
+    private async Task<string> SaveFilesAsync(
+        int userId,
+        IReadOnlyList<IFormFile> uploads,
+        IReadOnlyList<string> extensions,
+        CancellationToken ct)
+    {
+        var keys = new List<string>(uploads.Count);
+        for (var i = 0; i < uploads.Count; i++)
+        {
+            var key = $"{userId}/{Guid.NewGuid():N}{extensions[i]}";
+            await using var stream = uploads[i].OpenReadStream();
+            await files.SaveAsync(key, stream, RoleRequestFiles.ContentType(extensions[i]), ct);
+            keys.Add(key);
+        }
+        return RoleRequestFiles.JoinKeys(keys);
     }
 
     private static RoleRequestDto ToDto(RoleRequest item, IReadOnlyDictionary<int, string> names)
