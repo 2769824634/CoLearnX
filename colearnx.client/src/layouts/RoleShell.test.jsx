@@ -232,3 +232,34 @@ it.each([
     expect(screen.getByRole('link', { name }).className).not.toMatch(/active/);
   }
 });
+
+it.each([
+  ['trainer', 'Trainer'],
+  ['creator', 'Creator'],
+])('shows the single role of a %s account and offers no workspace switch', (role, label) => {
+  const { container } = render(
+    <MemoryRouter initialEntries={[`/${role}/home`]}>
+      <AuthContext.Provider value={{ ...auth, user: { fullName: 'Demo User', roles: ['Member', label], activeRole: label } }}>
+        <Routes>
+          <Route element={<RoleShell role={role} />}>
+            <Route path="*" element={<div>Page</div>} />
+          </Route>
+        </Routes>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  );
+  expect(container.querySelector('.user-chip .role').textContent).toBe(label);
+  expect(container.querySelector('[aria-haspopup="listbox"]')).toBeNull();
+});
+
+it('shows Member as the role in the Member shell and offers no workspace switch', () => {
+  const { container } = render(
+    <MemoryRouter initialEntries={['/member/home']}>
+      <AuthContext.Provider value={{ ...auth, user: { fullName: 'Demo User', roles: ['Member', 'Trainer'], activeRole: 'Member' } }}>
+        <MemberShell title="Member home"><div>Page</div></MemberShell>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  );
+  expect(container.querySelector('.user-chip .role').textContent).toBe('Member');
+  expect(container.querySelector('[aria-haspopup="listbox"]')).toBeNull();
+});

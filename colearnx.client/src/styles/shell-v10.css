@@ -70,22 +70,6 @@
   font-size: 13px;
 }
 
-.workspace-switcher-menu {
-  border-radius: 10px;
-  box-shadow: 0 12px 32px -12px rgba(30, 20, 70, 0.28);
-  animation: none;
-}
-
-.workspace-switcher-title {
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 12px;
-}
-
-.workspace-switcher-caret {
-  transition: none;
-}
-
 .account-menu-panel {
   border-radius: 10px;
   box-shadow: 0 12px 32px -12px rgba(30, 20, 70, 0.28);

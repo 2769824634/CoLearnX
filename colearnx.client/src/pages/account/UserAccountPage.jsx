@@ -62,7 +62,7 @@ export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summ
                 <div className="grid-2">
                   <div className="masked-field"><div className="label">Full Name</div><div className="value">{user?.fullName || '—'}</div></div>
                   <div className="masked-field"><div className="label">Display name</div><div className="value">{user?.displayName || '—'}</div></div>
-                  <div className="masked-field"><div className="label">Active identities</div><div className="value">{(user?.roles || []).join(' · ') || '—'}</div></div>
+                  <div className="masked-field"><div className="label">Role</div><div className="value">{(user?.roles || []).join(' · ') || '—'}</div></div>
                   <div className="masked-field"><div className="label">Email</div><div className="value">{user?.email || '—'}</div></div>
                   <div className="masked-field"><div className="label">Phone</div><div className="value">{user?.phone || '—'}</div></div>
                 </div>

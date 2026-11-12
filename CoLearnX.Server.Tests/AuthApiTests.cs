@@ -67,6 +67,15 @@ public class AuthApiTests : IClassFixture<CoLearnXApiFactory>
     }
 
     [Fact]
+    public async Task Switching_role_is_no_longer_offered()
+    {
+        // One account has one role, so there is nothing to switch to.
+        var client = await ApiClient.AsMemberAsync(_factory);
+        var response = await client.PostAsJsonAsync("/api/auth/switch-role", new { activeRole = "Member" });
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Available_roles_for_member_returns_member_only()
     {
         var client = ApiClient.Anonymous(_factory);
