@@ -9,4 +9,4 @@ public record UpdateIntakeTeachingDatesRequest(
     [property: JsonRequired] Guid Version);
 
 public record AdminIntakeDatesDto(int Id, int CourseId, string CourseCode, string CourseTitle,
-    string TrainerName, DateTime StartsAt, DateTime EndsAt, string Status);
+    string? TrainerName, DateTime StartsAt, DateTime EndsAt, string Status);

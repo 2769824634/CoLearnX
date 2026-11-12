@@ -42,7 +42,7 @@ export default function AdminClassDetail({ classId, onChanged }) {
       <div className="admin-user-summary">
         <div>
           <h3>{row.courseTitle}</h3>
-          <p>{row.courseCode} · Intake #{row.id} · Creator {row.creatorName} · Trainer {row.trainerName}</p>
+          <p>{row.courseCode} · Intake #{row.id} · Creator {row.creatorName} · {row.trainerName ? `Trainer ${row.trainerName}` : 'No trainer yet'}</p>
         </div>
         <span className={classStatusPill(row.status)}>{classStatusLabel(row.status)}</span>
       </div>

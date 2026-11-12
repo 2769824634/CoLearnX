@@ -66,9 +66,7 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
   const [pendingFiles, setPendingFiles] = useState([]);
   const [form, setForm] = useState(() => initialForm(initialCourse, options));
   const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(toPayload(toForm(initialCourse || emptyCourse))));
-  const [roster, setRoster] = useState(null);
   const [classes, setClasses] = useState(null);
-  const [inviteOpen, setInviteOpen] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -186,10 +184,9 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
   function onNextStep(action, step) {
     if (action === 'submit') submitForApproval();
     else if (action === 'edit') { goTo(0); formRef.current?.scrollIntoView?.({ block: 'start' }); }
-    else if (action === 'invite') setInviteOpen(true);
     else if (action === 'class') navigate(`/creator/courses/${course.id}/intakes/new`);
     else if (action === 'intake') navigate(`/creator/courses/${course.id}/intakes/${step.intakeId}`);
-    else document.getElementById(action === 'classes' ? 'course-classes' : 'course-trainers')?.scrollIntoView?.({ block: 'start' });
+    else if (action === 'classes') document.getElementById('course-classes')?.scrollIntoView?.({ block: 'start' });
   }
 
   const title = course ? course.title : 'Create Course';
@@ -198,7 +195,7 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
     <CreatorHeader eyebrow={course ? course.code : 'New Course'} title={title} action={course ? <div className="creator-header-actions"><span className={`creator-status ${course.status.toLowerCase()}`}>{statusLabel(course.status)}</span><button type="button" className="btn btn-primary" onClick={() => setUploadOpen(true)}>Upload materials</button></div> : null}>
       {course ? null : 'Three steps: basic information, materials, then interests and price. The Course is saved when you finish the last step.'}
     </CreatorHeader>
-    {course ? <CourseNextStep step={nextStep(course, roster, classes)} onAction={onNextStep} disabled={busy} /> : null}
+    {course ? <CourseNextStep step={nextStep(course, classes)} onAction={onNextStep} disabled={busy} /> : null}
     <CreatorError error={error} />
     {course?.reviewReason && course.status !== 'Rejected' ? <div className="creator-error"><strong>Admin feedback</strong><p>{course.reviewReason}</p></div> : null}
     {!editable ? <CourseSummary course={course} options={options} /> : <>
@@ -232,7 +229,7 @@ function CourseEditor({ initialCourse, initialMaterials, options, token }) {
       </form>
     </>}
     {course ? <CourseMaterialsCard course={course} materials={materials} onMaterials={setMaterials} token={token} open={uploadOpen} onOpenChange={setUploadOpen} /> : null}
-    {course ? <CourseTrainersCard courseId={course.id} onLoaded={setRoster} inviteOpen={inviteOpen} onInviteOpenChange={setInviteOpen} /> : null}
+    {course ? <CourseTrainersCard courseId={course.id} /> : null}
     {/* Intakes can only be created after an Admin approves the course. */}
     {course?.status === 'Published' ? <CourseClassesSection course={course} onLoaded={setClasses} /> : null}
   </section>;

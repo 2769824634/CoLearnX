@@ -12,6 +12,7 @@ export const creatorIntakesApi = {
   updateSession: (token, id, sessionId, body) => apiRequest(`${intakePath(id)}/sessions/${encodeURIComponent(sessionId)}`, { method: 'PUT', token, body }),
   deleteSession: (token, id, sessionId, version) => apiRequest(`${intakePath(id)}/sessions/${encodeURIComponent(sessionId)}?${new URLSearchParams({ version })}`, { method: 'DELETE', token }),
   sendToTrainer: (token, id, version) => apiRequest(`${intakePath(id)}/send-to-trainer`, { method: 'POST', token, body: { version } }),
+  inviteTrainer: (token, id, trainerId, version) => apiRequest(`${intakePath(id)}/invite-trainer`, { method: 'POST', token, body: { trainerId, version } }),
   withdrawInvitation: (token, id, version) => apiRequest(`${intakePath(id)}/withdraw-invitation`, { method: 'POST', token, body: { version } }),
   publish: (token, id, version) => apiRequest(`${intakePath(id)}/publish`, { method: 'POST', token, body: { version } }),
   cancel: (token, id) => apiRequest(`${intakePath(id)}/cancel`, { method: 'POST', token }),

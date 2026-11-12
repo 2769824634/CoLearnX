@@ -48,13 +48,14 @@ it('shows each intake schedule on a calendar with the creator and the session co
   expect(within(card).getByText(/2 sessions · 4 hours in total/)).toBeTruthy();
 });
 
-it('warns about sessions that clash with teaching the trainer already has', async () => {
+it('lists the session dates without clash warnings', async () => {
   const clash = { intakeId: 3, courseCode: 'INFT 3030', sessionLabel: 'Session 5', startsAt: at(4, 17), endsAt: at(4, 19) };
   renderPage([invitation(7, 'Invited', { sessions: [session(1, 4, [clash]), session(2, 11)] })]);
 
   const card = (await screen.findByText('UI/UX Design Fundamentals')).closest('article');
-  expect(within(card).getByRole('alert').textContent).toContain('1 session clashes');
-  expect(within(card).getByText(/INFT 3030 Session 5/)).toBeTruthy();
+  expect(within(card).queryByRole('alert')).toBeNull();
+  expect(within(card).queryByText(/INFT 3030/)).toBeNull();
+  expect(within(card).getByText(/Session 1:/)).toBeTruthy();
 });
 
 it('accepts a schedule, which publishes the intake and moves it off this page', async () => {

@@ -19,10 +19,6 @@ function mount(handler = () => null) {
     const custom = await handler(path, init);
     if (custom) return custom;
     if (path === '/api/creator/courses/9/trainers' && isGet(init)) return json(roster);
-    if (path.startsWith('/api/creator/trainers?courseId=9&search=')) return json([
-      { id: 2, fullName: 'Alex Chen', headline: 'Coach', specialisations: 'Accessibility' },
-      { id: 6, fullName: 'Erin Dual', headline: 'Facilitator', specialisations: 'Workshops' },
-    ]);
     return json(null);
   });
   vi.stubGlobal('fetch', fetch);
@@ -30,72 +26,41 @@ function mount(handler = () => null) {
   return fetch;
 }
 
-const calls = (fetch, predicate) => fetch.mock.calls.filter(([path, init = {}]) => predicate(path, init));
+const posts = (fetch) => fetch.mock.calls.filter(([, init = {}]) => init.method === 'POST').map(([path]) => path);
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-it('shows each roster status with the action the Creator can take', async () => {
+it('lists the course trainers without a course-level invite', async () => {
   mount();
   const alex = (await screen.findByText('Alex Chen')).closest('li');
   expect(within(alex).getByText('Available')).toBeTruthy();
   expect(within(alex).getByRole('button', { name: 'Remove' })).toBeTruthy();
-  const blair = screen.getByText('Blair Ng').closest('li');
-  expect(within(blair).getByText('Invited')).toBeTruthy();
-  expect(within(blair).getByRole('button', { name: 'Withdraw' })).toBeTruthy();
-  expect(within(screen.getByText('Casey Lee').closest('li')).getByRole('button', { name: 'Invite again' })).toBeTruthy();
-  expect(within(screen.getByText('Drew Park').closest('li')).getByRole('button', { name: 'Invite again' })).toBeTruthy();
+  expect(within(screen.getByText('Blair Ng').closest('li')).getByRole('button', { name: 'Withdraw' })).toBeTruthy();
+  expect(within(screen.getByText('Casey Lee').closest('li')).queryByRole('button')).toBeNull();
+  expect(within(screen.getByText('Drew Park').closest('li')).queryByRole('button')).toBeNull();
+  expect(screen.queryByRole('button', { name: /Invite/ })).toBeNull();
+  expect(screen.getByText('Trainers join this Course when they accept an Intake.')).toBeTruthy();
 });
 
 it('explains an empty roster', async () => {
   mount((path, init) => path === '/api/creator/courses/9/trainers' && isGet(init) ? json([]) : null);
-  expect(await screen.findByText('No trainers yet. Invite one to teach this course.')).toBeTruthy();
-});
-
-it('lists matching trainers as soon as the dialog opens, filters as the Creator types, and refreshes the roster after an invitation', async () => {
-  const fetch = mount((path, init) => init.method === 'POST' ? json(row(6, 'Erin Dual', 'Invited')) : null);
-  fireEvent.click(await screen.findByRole('button', { name: 'Invite trainer' }));
-  const dialog = screen.getByRole('dialog', { name: 'Invite a trainer' });
-  const search = within(dialog).getByLabelText('Certified trainers in this specialty');
-
-  expect(await within(dialog).findByText('Erin Dual')).toBeTruthy();
-  expect(calls(fetch, (path) => path.startsWith('/api/creator/trainers'))).toEqual([['/api/creator/trainers?courseId=9&search=', expect.anything()]]);
-
-  fireEvent.change(search, { target: { value: 'er' } });
-  await vi.waitFor(() => expect(calls(fetch, (path) => path.startsWith('/api/creator/trainers')).map(([path]) => path))
-    .toEqual(['/api/creator/trainers?courseId=9&search=', '/api/creator/trainers?courseId=9&search=er']));
-  const erin = (await within(dialog).findByText('Erin Dual')).closest('li');
-  const alex = within(dialog).getByText('Alex Chen').closest('li');
-  expect(within(alex).queryByRole('button', { name: 'Invite' })).toBeNull();
-  expect(within(alex).getByText('Available')).toBeTruthy();
-
-  fireEvent.click(within(erin).getByRole('button', { name: 'Invite' }));
-  expect(await within(dialog).findByText('Invitation sent to Erin Dual.')).toBeTruthy();
-  const [, invite] = calls(fetch, (path, init) => init.method === 'POST')[0];
-  expect(JSON.parse(invite.body)).toEqual({ trainerId: 6 });
-  expect(calls(fetch, (path, init) => path === '/api/creator/courses/9/trainers' && isGet(init))).toHaveLength(2);
-});
-
-it('says so when no certified trainer has this specialty yet', async () => {
-  mount((path) => path.startsWith('/api/creator/trainers?') ? json([]) : null);
-  fireEvent.click(await screen.findByRole('button', { name: 'Invite trainer' }));
-  expect(await screen.findByText('No certified trainers in this specialty yet.')).toBeTruthy();
+  expect(await screen.findByText('No trainers yet. Invite one from an Intake.')).toBeTruthy();
 });
 
 it('asks before removing an available trainer', async () => {
   const fetch = mount((path, init) => init.method === 'POST' ? json(row(2, 'Alex Chen', 'Removed')) : null);
   fireEvent.click(within((await screen.findByText('Alex Chen')).closest('li')).getByRole('button', { name: 'Remove' }));
   const dialog = screen.getByRole('dialog', { name: 'Remove Alex Chen?' });
-  expect(calls(fetch, (path, init) => init.method === 'POST')).toHaveLength(0);
+  expect(posts(fetch)).toHaveLength(0);
 
   fireEvent.click(within(dialog).getByRole('button', { name: 'Remove trainer' }));
-  await screen.findByRole('button', { name: 'Invite trainer' });
-  await vi.waitFor(() => expect(calls(fetch, (path, init) => init.method === 'POST').map(([path]) => path)).toEqual(['/api/creator/courses/9/trainers/2/remove']));
+  await vi.waitFor(() => expect(posts(fetch)).toEqual(['/api/creator/courses/9/trainers/2/remove']));
   expect(screen.queryByRole('dialog')).toBeNull();
 });
 
 it('shows why an action failed', async () => {
   mount((path, init) => init.method === 'POST'
-    ? json({ code: 'TRAINER_ALREADY_INVITED', message: 'This Trainer is already invited to or teaching this Course.' }, 409) : null);
-  fireEvent.click(within((await screen.findByText('Casey Lee')).closest('li')).getByRole('button', { name: 'Invite again' }));
-  expect((await screen.findByRole('alert')).textContent).toContain('This Trainer is already invited to or teaching this Course.');
+    ? json({ code: 'COURSE_TRAINER_NOT_FOUND', message: 'This Trainer is not on the Course roster.' }, 404) : null);
+  fireEvent.click(within((await screen.findByText('Blair Ng')).closest('li')).getByRole('button', { name: 'Withdraw' }));
+  expect((await screen.findByRole('alert')).textContent).toContain('This Trainer is not on the Course roster.');
 });

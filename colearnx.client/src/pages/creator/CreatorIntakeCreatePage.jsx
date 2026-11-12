@@ -2,22 +2,16 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { creatorCoursesApi } from '../../api';
 import { creatorIntakesApi } from '../../api/creatorIntakes';
-import { courseTrainersApi } from '../../api/courseTrainers';
+import { useAuth } from '../../auth/AuthContext';
 import OpenClassForm from './OpenClassForm';
 import useTrainerQuery from '../trainer/useTrainerQuery';
 import { CreatorError, CreatorHeader } from './CreatorUi';
 
 const loadCourses = (token, key, signal) => creatorCoursesApi.list(token, signal);
 const loadCourse = (token, courseId, signal) => creatorCoursesApi.get(token, courseId, signal);
-const loadAccepted = (token, courseId, signal) => courseTrainersApi.list(token, courseId, signal);
-
-// Only Trainers who joined the course can be invited to an Intake.
-const invitable = (roster) => (Array.isArray(roster) ? roster : [])
-  .filter((trainer) => trainer.status === 'Accepted');
 
 function CourseClassForm({ course, onCancel, onCreated }) {
-  const query = useTrainerQuery(loadAccepted, String(course.id));
-  const trainers = invitable(query.data);
+  const { token } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -26,7 +20,7 @@ function CourseClassForm({ course, onCancel, onCreated }) {
     setBusy(true);
     setError(null);
     try {
-      const intake = await creatorIntakesApi.openClass(query.token, course.id, body);
+      const intake = await creatorIntakesApi.openClass(token, course.id, body);
       onCreated(intake);
     } catch (failure) { setError(failure); }
     finally { setBusy(false); }
@@ -37,14 +31,10 @@ function CourseClassForm({ course, onCancel, onCreated }) {
   }
   return <>
     <CreatorHeader eyebrow="Intakes / New" title="Create an intake.">
-      Enter every session of this intake and choose who teaches it. The trainer receives the whole schedule and accepts it before you publish.
+      Enter every session of this intake and save it. Then invite a trainer from the intake page; they receive the whole schedule.
     </CreatorHeader>
-    {query.loading ? <div className="creator-empty" role="status">Loading trainers…</div>
-      : query.error ? <CreatorError error={query.error} onRetry={query.refresh} />
-        : trainers.length ? <>
-          <CreatorError error={error} />
-          <OpenClassForm trainers={trainers} onSave={create} onCancel={onCancel} busy={busy} error={error} onError={setError} />
-        </> : <div className="creator-empty"><strong>No trainer for this course yet</strong><p>Invite a Trainer to the course first.</p></div>}
+    <CreatorError error={error} />
+    <OpenClassForm onSave={create} onCancel={onCancel} busy={busy} error={error} onError={setError} />
   </>;
 }
 
@@ -53,17 +43,7 @@ function StandaloneCreate() {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [trainers, setTrainers] = useState([]);
   const published = (query.data || []).filter((course) => course.status === 'Published');
-
-  async function onCourseChange(courseId) {
-    setTrainers([]);
-    if (!courseId) return;
-    try {
-      const roster = await courseTrainersApi.list(query.token, courseId);
-      setTrainers(invitable(roster));
-    } catch (failure) { setError(failure); }
-  }
 
   async function create(body, courseId) {
     if (busy) return;
@@ -79,13 +59,13 @@ function StandaloneCreate() {
   return <section className="creator-page">
     <Link className="creator-back" to="/creator/intakes">← All intakes</Link>
     <CreatorHeader eyebrow="Intakes / New" title="Create an intake.">
-      Choose a published course, enter every session and who teaches it. The trainer accepts the schedule before you publish.
+      Choose a published course and enter every session. Then invite a trainer from the intake page.
     </CreatorHeader>
     {query.loading ? <div className="creator-empty" role="status">Loading courses…</div>
       : query.error ? <CreatorError error={query.error} onRetry={query.refresh} />
         : published.length ? <>
           <CreatorError error={error} />
-          <OpenClassForm courses={published} trainers={trainers} onCourseChange={onCourseChange} onSave={create} onCancel={() => navigate('/creator/intakes')} busy={busy} error={error} onError={setError} />
+          <OpenClassForm courses={published} onSave={create} onCancel={() => navigate('/creator/intakes')} busy={busy} error={error} onError={setError} />
         </> : <div className="creator-empty"><strong>No published courses</strong><p>An Admin must approve a course before you create an intake.</p></div>}
     </section>;
 }

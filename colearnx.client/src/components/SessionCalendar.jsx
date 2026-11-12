@@ -29,14 +29,10 @@ function monthCells(index) {
   return Array.from({ length: cells.length / 7 }, (_, week) => cells.slice(week * 7, week * 7 + 7));
 }
 
-function clashText(clashes) {
-  return clashes.map((clash) => `${clash.courseCode} ${clash.sessionLabel} ${time(toDate(clash.startsAt))}–${time(toDate(clash.endsAt))}`).join('; ');
-}
-
 // A month view of an Intake's sessions in the viewer's local time, so a Trainer can check the dates at a glance.
 export default function SessionCalendar({ sessions = [], caption }) {
   const items = sessions
-    .map((session) => ({ ...session, start: toDate(session.startsAt), end: toDate(session.endsAt), clashes: session.clashes || [] }))
+    .map((session) => ({ ...session, start: toDate(session.startsAt), end: toDate(session.endsAt) }))
     .filter((session) => Number.isFinite(session.start.getTime()))
     .sort((left, right) => left.start - right.start);
   const first = items.length ? monthIndex(items[0].start) : null;
@@ -49,7 +45,6 @@ export default function SessionCalendar({ sessions = [], caption }) {
   const byDay = new Map();
   for (const item of items) byDay.set(dayKey(item.start), [...(byDay.get(dayKey(item.start)) || []), item]);
   const totalMinutes = items.reduce((sum, item) => sum + (item.end - item.start) / 60000, 0);
-  const clashing = items.filter((item) => item.clashes.length).length;
   const title = `${MONTHS[current % 12]} ${Math.floor(current / 12)}`;
   const headingId = `session-calendar-${current}`;
 
@@ -63,9 +58,6 @@ export default function SessionCalendar({ sessions = [], caption }) {
       {caption ? <>{caption} · </> : null}
       {items.length} session{items.length === 1 ? '' : 's'} · {hoursLabel(totalMinutes)} in total · {dateLabel(items[0].start)} to {dateLabel(items[items.length - 1].start)}
     </p>
-    {clashing ? <p className="session-calendar-warning" role="alert">
-      {clashing} session{clashing === 1 ? ' clashes' : 's clash'} with teaching you already have. They are marked in red.
-    </p> : null}
     <table className="session-calendar-grid" role="grid" aria-labelledby={headingId}>
       <thead><tr>{WEEKDAYS.map((day) => <th key={day} scope="col">{day}</th>)}</tr></thead>
       <tbody>{monthCells(current).map((week, row) => <tr key={row}>{week.map((day, column) => {
@@ -74,9 +66,7 @@ export default function SessionCalendar({ sessions = [], caption }) {
         const label = `${day.getDate()} ${MONTHS[day.getMonth()]} ${day.getFullYear()}${daySessions.length ? `, ${daySessions.length} session${daySessions.length === 1 ? '' : 's'}` : ''}`;
         return <td key={column} role="gridcell" aria-label={label} className={daySessions.length ? 'has-session' : undefined}>
           <span className="session-calendar-day" aria-hidden="true">{day.getDate()}</span>
-          {daySessions.length ? <ul>{daySessions.map((item) => <li key={item.id ?? item.start.getTime()}
-            className={item.clashes.length ? 'clash' : undefined}
-            title={item.clashes.length ? `Clashes with ${clashText(item.clashes)}` : undefined}>
+          {daySessions.length ? <ul>{daySessions.map((item) => <li key={item.id ?? item.start.getTime()}>
             <strong>{time(item.start)}–{time(item.end)}</strong>
             <span>{item.label}</span>
           </li>)}</ul> : null}

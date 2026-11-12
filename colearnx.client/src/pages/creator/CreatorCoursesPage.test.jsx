@@ -363,12 +363,13 @@ describe('Creator Course workspace', () => {
     await vi.waitFor(() => expect(globalThis.fetch.mock.calls.some(([path]) => path === '/api/creator/courses/44/submit')).toBe(true));
   });
 
-  it('points a published course without a trainer to the invite step', async () => {
+  it('points an approved course without an intake to creating one, with no course-level invite', async () => {
     stubCourseApi({ existing: course({ id: 44, status: 'Published' }) });
     renderAt('/creator/courses/44');
-    const line = (await screen.findByText('Step 3 of 5 · Find trainers for this course')).closest('[role="status"]');
-    fireEvent.click(within(line).getByRole('button', { name: 'Invite trainer' }));
-    expect(screen.getByRole('dialog', { name: 'Invite a trainer' })).toBeTruthy();
+    const line = (await screen.findByText('Step 3 of 5 · Create an Intake and schedule its sessions')).closest('[role="status"]');
+    expect(screen.queryByRole('button', { name: 'Invite trainer' })).toBeNull();
+    fireEvent.click(within(line).getByRole('button', { name: 'Create an intake' }));
+    expect(await screen.findByRole('heading', { name: 'Create an intake.' })).toBeTruthy();
   });
 
   it('redirects the old upload page to the course list', async () => {

@@ -27,6 +27,7 @@ public interface ICourseIntakeService
     Task<CourseIntakeDetailDto> PublishAsync(int creatorUserId, int courseIntakeId, Guid version, CancellationToken ct = default);
     Task<CourseIntakeDetailDto> OpenClassAsync(int creatorUserId, int courseId, OpenClassRequest request, CancellationToken ct = default);
     Task<CourseIntakeDetailDto> SendToTrainerAsync(int creatorUserId, int courseIntakeId, Guid version, CancellationToken ct = default);
+    Task<CourseIntakeDetailDto> InviteTrainerAsync(int creatorUserId, int courseIntakeId, int trainerId, Guid version, CancellationToken ct = default);
     Task<CourseIntakeDetailDto> WithdrawTrainerInvitationAsync(int creatorUserId, int courseIntakeId, Guid version, CancellationToken ct = default);
 }
 
@@ -37,7 +38,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         await RequireAdminAccountAsync(adminAccountId, ct);
         return await db.CourseIntakes.AsNoTracking().OrderByDescending(i => i.Id)
             .Select(i => new AdminIntakeDatesDto(i.Id, i.CourseId, i.Course.Code, i.Course.Title,
-                i.Trainer.FullName, i.StartsAt, i.EndsAt, i.Status.ToString())).ToListAsync(ct);
+                i.TrainerId == i.Course.CreatorId ? null : i.Trainer.FullName, i.StartsAt, i.EndsAt, i.Status.ToString())).ToListAsync(ct);
     }
 
     public async Task<CourseIntakeDetailDto> GetForAdminAsync(int adminAccountId, int courseIntakeId, CancellationToken ct = default)
@@ -104,7 +105,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             ValidateMinEnrollment(request.MinEnrollment);
             if (request.StartsAt <= original.StartsAt || request.RegistrationClosesAt <= now)
                 throw new CourseIntakeException("INVALID_POSTPONEMENT_DATES", "The replacement must start later and have an open future registration window.");
-            var replacement = new CourseIntake { CourseId = original.CourseId, TrainerId = original.TrainerId,
+            var replacement = new CourseIntake { CourseId = original.CourseId, Course = original.Course, TrainerId = original.TrainerId,
                 ReplacementForIntakeId = original.Id, Status = CourseIntakeStatus.Published,
                 // The same Trainer already agreed to this run; the replacement only moves it later.
                 TrainerInvitation = TrainerInvitationStatus.Accepted, TrainerInvitedAt = original.TrainerInvitedAt, TrainerRespondedAt = now,
@@ -144,7 +145,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         await RequireTrainerAsync(trainerUserId, ct);
         return await db.CourseIntakes.AsNoTracking().Where(i => i.TrainerId == trainerUserId).OrderByDescending(i => i.Id)
             .Select(i => new CourseIntakeSummaryDto(i.Id, i.CourseId, i.TrainerId, i.StartsAt, i.EndsAt, i.Status.ToString(), i.Version,
-                i.TrainerInvitation.ToString())).ToListAsync(ct);
+                i.TrainerInvitation.ToString(), i.TrainerId != i.Course.CreatorId)).ToListAsync(ct);
     }
 
     public async Task<CourseIntakeDetailDto> GetOwnedAsync(int trainerUserId, int courseIntakeId, CancellationToken ct = default)
@@ -157,7 +158,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             .Where(i => i.Course.CreatorId == creatorUserId && (courseId == null || i.CourseId == courseId))
             .OrderByDescending(i => i.Id)
             .Select(i => new CourseIntakeSummaryDto(i.Id, i.CourseId, i.TrainerId, i.StartsAt, i.EndsAt, i.Status.ToString(), i.Version,
-                i.TrainerInvitation.ToString()))
+                i.TrainerInvitation.ToString(), i.TrainerId != i.Course.CreatorId))
             .ToListAsync(ct);
     }
 
@@ -173,17 +174,18 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             await RequireCreatorAsync(creatorUserId, ct);
             var existing = await db.CourseIntakes
                 .Include(item => item.Sessions).ThenInclude(session => session.Enrollments)
-                .Include(item => item.Applications)
+                .Include(item => item.Applications).Include(item => item.Course)
                 .SingleOrDefaultAsync(item => item.CourseId == courseId && item.Version == creationVersion, ct);
             if (existing is not null)
                 return ToDto(existing);
 
             await RequireOwnedPublishedCourseAsync(creatorUserId, courseId, ct);
-            await RequireAcceptedTrainerAsync(courseId, request.TrainerId, ct);
+            if (request.TrainerId is { } chosenTrainer) await RequireAcceptedTrainerAsync(courseId, chosenTrainer, ct);
             ValidateDates(request.RegistrationOpensAt, request.RegistrationClosesAt, request.StartsAt, request.EndsAt, request.DaysBeforeTeaching);
             ValidateMinEnrollment(request.MinEnrollment);
             await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
-            var intake = new CourseIntake { CourseId = courseId, TrainerId = request.TrainerId,
+            // Without a Trainer the Creator holds the place (see HasNoTrainer) until a Trainer accepts an invitation.
+            var intake = new CourseIntake { CourseId = courseId, TrainerId = request.TrainerId ?? creatorUserId,
                 RegistrationOpensAt = request.RegistrationOpensAt, RegistrationClosesAt = request.RegistrationClosesAt,
                 StartsAt = request.StartsAt, EndsAt = request.EndsAt, MinEnrollment = request.MinEnrollment,
                 Version = creationVersion };
@@ -191,6 +193,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             await db.SaveChangesAsync(ct);
             await SaveWithCurrentVersionAsync(intake, creatorUserId, "CourseIntakeCreated", null, ct);
             await transaction.CommitAsync(ct);
+            await db.Entry(intake).Reference(item => item.Course).LoadAsync(ct);
             return ToDto(intake);
         });
     }
@@ -245,14 +248,16 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
 
     public async Task<CourseIntakeDetailDto> UpdateSessionAsync(int creatorUserId, int courseIntakeId, int courseSessionId, UpdateCourseSessionRequest request, CancellationToken ct = default)
     {
-        var intake = await LoadEditableAsync(creatorUserId, courseIntakeId, request.Version, ct);
+        var intake = await LoadForCreatorAsync(creatorUserId, courseIntakeId, ct);
+        if (intake.Status is CourseIntakeStatus.Published or CourseIntakeStatus.InProgress)
+            return await RescheduleAsync(intake, creatorUserId, courseSessionId, request, ct);
+        CourseIntakeValidation.Version(intake, request.Version);
+        CourseIntakeValidation.Editable(intake);
         var session = FindSession(intake, courseSessionId);
         var next = BuildSession(request.Label, request.StartsAt, request.EndsAt, request.MeetingLink,
             request.PhysicalAddress, request.PhysicalCapacity, request.PhysicalBookingDeadline, intake);
         ValidateCapacity(next, intake.MinEnrollment);
         await RequireNoHistoryAsync(session.Id, ct);
-        if (intake.Status == CourseIntakeStatus.Published)
-            CourseIntakeValidation.TotalDuration(intake.Course.DurationHours, intake.Sessions.Select(item => item.Id == session.Id ? next : item));
         session.Label = next.Label;
         session.StartsAt = next.StartsAt;
         session.EndsAt = next.EndsAt;
@@ -263,6 +268,46 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         FitTeachingDates(intake);
         KeepScheduleStatus(intake);
         await SaveAsync(intake, creatorUserId, "CourseSessionUpdated", ct);
+        return ToDto(intake);
+    }
+
+    // A published Intake keeps running, but a session that has not started can still move. The Trainer and the
+    // learners booked into that session are told the new time.
+    private async Task<CourseIntakeDetailDto> RescheduleAsync(CourseIntake intake, int creatorUserId, int courseSessionId,
+        UpdateCourseSessionRequest request, CancellationToken ct)
+    {
+        CourseIntakeValidation.Version(intake, request.Version);
+        var session = FindSession(intake, courseSessionId);
+        var now = DateTime.UtcNow;
+        if (session.StartsAt <= now || await db.AttendanceRecords.AnyAsync(record => record.CourseSessionId == session.Id, ct))
+            throw new CourseIntakeException("SESSION_ALREADY_STARTED", "A session that has started can no longer be moved.", 409);
+        if (request.StartsAt <= now)
+            throw new CourseIntakeException("SESSION_IN_THE_PAST", "Move the session to a time in the future.", field: "startsAt");
+        var next = BuildSession(request.Label, request.StartsAt, request.EndsAt, request.MeetingLink,
+            request.PhysicalAddress, request.PhysicalCapacity, request.PhysicalBookingDeadline, intake);
+        ValidateCapacity(next, intake.MinEnrollment);
+        if (next.PhysicalAddress is not null && next.PhysicalCapacity < session.SeatsTaken)
+            throw new CourseIntakeException("CAPACITY_BELOW_BOOKINGS", "The room must hold everyone already booked into this session.", field: "physicalCapacity");
+        CourseIntakeValidation.TotalDuration(intake.Course.DurationHours, intake.Sessions.Select(item => item.Id == session.Id ? next : item));
+
+        var before = session.StartsAt;
+        session.Label = next.Label;
+        session.StartsAt = next.StartsAt;
+        session.EndsAt = next.EndsAt;
+        session.MeetingLink = next.MeetingLink;
+        session.PhysicalAddress = next.PhysicalAddress;
+        session.PhysicalCapacity = next.PhysicalCapacity;
+        session.PhysicalBookingDeadline = next.PhysicalBookingDeadline;
+        FitTeachingDates(intake);
+        var body = $"{intake.Course.Code} {intake.Course.Title}: {session.Label} moved from {before:yyyy-MM-dd HH:mm} "
+            + $"to {session.StartsAt:yyyy-MM-dd HH:mm}–{session.EndsAt:HH:mm} (UTC).";
+        if (!HasNoTrainer(intake))
+            db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, EmailPending = true,
+                Code = "N-session-rescheduled-trainer", Title = "Session time changed", Body = body });
+        foreach (var enrollment in session.Enrollments.Where(item => item.Status is EnrollmentStatus.Reserved or EnrollmentStatus.Active))
+            db.Notifications.Add(new Notification { UserId = enrollment.UserId, IntakeId = intake.Id, EnrollmentId = enrollment.Id,
+                EmailPending = true, Code = "N-session-rescheduled", Title = "Session time changed", Body = body });
+        await SaveAsync(intake, creatorUserId, "CourseSessionRescheduled", ct);
         return ToDto(intake);
     }
 
@@ -341,6 +386,8 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         if (request.Publish)
             throw new CourseIntakeException("TRAINER_NOT_CONFIRMED",
                 "Send the schedule to the Trainer and wait for them to accept before publishing.", 409);
+        if (request.SendToTrainer && request.TrainerId is null)
+            throw new CourseIntakeException("TRAINER_REQUIRED", "Choose a Trainer before sending the schedule.", 409, "trainerId");
         if (request.SendToTrainer)
         {
             await RequireCreatorAsync(creatorUserId, ct);
@@ -376,17 +423,19 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
     {
         await RequireCreatorAsync(intake.Course.CreatorId, ct);
         return await StagePublishAsync(intake, intake.Course.CreatorId,
-            "Published automatically when the Trainer accepted the schedule.", ct);
+            "Published automatically when the Trainer accepted the schedule.", ct, trainerJustJoined: true);
     }
 
     // Every publish goes through here: all checks run first, then the Intake changes and the Trainer notice and
     // audit entry are queued. Nothing is changed when a check fails, and nothing is saved; the caller saves.
-    private async Task<Notification?> StagePublishAsync(CourseIntake intake, int creatorUserId, string? auditReason, CancellationToken ct)
+    // trainerJustJoined: the Trainer was added to the course roster in this unsaved change, so the roster query cannot see it yet.
+    private async Task<Notification?> StagePublishAsync(CourseIntake intake, int creatorUserId, string? auditReason, CancellationToken ct,
+        bool trainerJustJoined = false)
     {
         if (intake.Status is not (CourseIntakeStatus.Draft or CourseIntakeStatus.Rejected))
             throw new CourseIntakeException("INTAKE_NOT_PUBLISHABLE", "Only a draft Intake can be published.", 409);
         await RequirePublishedCourseAsync(intake.CourseId, ct);
-        await RequireAcceptedTrainerAsync(intake.CourseId, intake.TrainerId, ct);
+        if (!trainerJustJoined) await RequireAcceptedTrainerAsync(intake.CourseId, intake.TrainerId, ct);
         // A draft may have been prepared earlier. Registration then opens at the moment of publishing.
         var publishedAt = DateTime.UtcNow;
         if (intake.RegistrationClosesAt <= publishedAt)
@@ -433,8 +482,32 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         if (intake.TrainerInvitation is TrainerInvitationStatus.Invited or TrainerInvitationStatus.Accepted) return ToDto(intake);
         if (intake.Status is not (CourseIntakeStatus.Draft or CourseIntakeStatus.Rejected))
             throw new CourseIntakeException("INTAKE_NOT_EDITABLE", "Only a draft Intake can be sent to a Trainer.", 409);
+        if (HasNoTrainer(intake))
+            throw new CourseIntakeException("TRAINER_REQUIRED", "Choose a Trainer for this Intake first.", 409, "trainerId");
+        await RequireEligibleTrainerAsync(intake.Course, intake.TrainerId, ct);
+        return await SendAsync(intake, creatorUserId, ct);
+    }
+
+    public async Task<CourseIntakeDetailDto> InviteTrainerAsync(int creatorUserId, int courseIntakeId, int trainerId, Guid version, CancellationToken ct = default)
+    {
+        var intake = await LoadForCreatorAsync(creatorUserId, courseIntakeId, ct);
+        CourseIntakeValidation.Version(intake, version);
+        if (intake.Status is not (CourseIntakeStatus.Draft or CourseIntakeStatus.Rejected))
+            throw new CourseIntakeException("INTAKE_NOT_EDITABLE", "Only a draft Intake can be sent to a Trainer.", 409);
+        if (intake.TrainerInvitation is not (TrainerInvitationStatus.NotSent or TrainerInvitationStatus.Declined))
+            throw new CourseIntakeException("INVITATION_ALREADY_SENT", "Withdraw the current invitation before inviting another Trainer.", 409);
+        if (intake.Sessions.Count == 0)
+            throw new CourseIntakeException("SESSION_REQUIRED", "Add at least one session before inviting a Trainer.", field: "sessions");
+        await RequireEligibleTrainerAsync(intake.Course, trainerId, ct);
+        intake.TrainerId = trainerId;
+        intake.Trainer = await db.Users.SingleAsync(user => user.Id == trainerId, ct);
+        return await SendAsync(intake, creatorUserId, ct);
+    }
+
+    // Every session goes into the invitation, so the Trainer can check each date before agreeing.
+    private async Task<CourseIntakeDetailDto> SendAsync(CourseIntake intake, int creatorUserId, CancellationToken ct)
+    {
         await RequirePublishedCourseAsync(intake.CourseId, ct);
-        await RequireAcceptedTrainerAsync(intake.CourseId, intake.TrainerId, ct);
         var now = DateTime.UtcNow;
         if (intake.RegistrationClosesAt <= now)
             throw new CourseIntakeException("REGISTRATION_ALREADY_CLOSED",
@@ -453,15 +526,15 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         intake.TrainerRespondedAt = null;
         intake.TrainerDeclineReason = null;
         var creatorName = await db.Users.Where(u => u.Id == creatorUserId).Select(u => u.FullName).SingleAsync(ct);
-        var first = intake.Sessions.Min(s => s.StartsAt);
-        var last = intake.Sessions.Max(s => s.EndsAt);
         var count = intake.Sessions.Count;
+        var dates = intake.Sessions.OrderBy(s => s.StartsAt).ThenBy(s => s.Id)
+            .Select(s => $"{s.Label}: {s.StartsAt:yyyy-MM-dd HH:mm}–{s.EndsAt:HH:mm}");
         var notification = new Notification
         {
             UserId = intake.TrainerId, IntakeId = intake.Id, EmailPending = true, Code = "N-intake-invitation",
             Title = "Intake teaching invitation",
             Body = $"{creatorName} invited you to teach {intake.Course.Code} {intake.Course.Title} (Intake #{intake.Id}): "
-                + $"{count} {(count == 1 ? "session" : "sessions")} from {first:yyyy-MM-dd} to {last:yyyy-MM-dd} (UTC). Check the schedule and reply.",
+                + $"{count} {(count == 1 ? "session" : "sessions")} (UTC): {string.Join("; ", dates)}. Check the schedule and reply.",
         };
         db.Notifications.Add(notification);
         await SaveAsync(intake, creatorUserId, "CourseIntakeTrainerInvited", ct);
@@ -490,6 +563,22 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         });
         await SaveAsync(intake, creatorUserId, "CourseIntakeTrainerInvitationWithdrawn", ct);
         return ToDto(intake);
+    }
+
+    // No Trainer has accepted yet: the Creator holds the place, and a Creator account cannot teach.
+    private static bool HasNoTrainer(CourseIntake intake) => intake.Course is not null && intake.TrainerId == intake.Course.CreatorId;
+
+    // Anyone invited to an Intake: an active, certified Trainer in the course's specialty, never the Creator.
+    private async Task RequireEligibleTrainerAsync(Course course, int trainerId, CancellationToken ct)
+    {
+        if (trainerId == course.CreatorId)
+            throw new CourseIntakeException("CREATOR_CANNOT_TEACH", "A Creator cannot teach. Invite a Trainer account instead.", field: "trainerId");
+        if (!await db.Users.AnyAsync(user => user.Id == trainerId && user.IsActive
+                && user.Roles.Any(role => role.Role == AppRole.Trainer && role.CertifiedAt != null), ct))
+            throw new CourseIntakeException("TRAINER_NOT_FOUND", "This Trainer was not found or cannot teach right now.", 404, "trainerId");
+        if (course.CourseSubjectId is null
+            || !await db.UserSpecialties.AnyAsync(item => item.UserId == trainerId && item.CourseSubjectId == course.CourseSubjectId, ct))
+            throw new CourseIntakeException("TRAINER_SUBJECT_MISMATCH", "This Trainer is not certified in the specialty of this Course.", 409, "trainerId");
     }
 
     private async Task RequireTrainerAsync(int userId, CancellationToken ct)
@@ -534,7 +623,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
     {
         await RequireTrainerAsync(userId, ct);
         return await db.CourseIntakes.Include(i => i.Sessions).ThenInclude(session => session.Enrollments)
-            .Include(i => i.Applications).Include(i => i.ReplacementIntake).Include(i => i.Trainer).AsSplitQuery()
+            .Include(i => i.Applications).Include(i => i.ReplacementIntake).Include(i => i.Trainer).Include(i => i.Course).AsSplitQuery()
             .SingleOrDefaultAsync(i => i.Id == id && i.TrainerId == userId, ct)
             ?? throw new CourseIntakeException("INTAKE_NOT_FOUND", "Owned Intake was not found.", 404);
     }
@@ -559,7 +648,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
     {
         await RequireAdminAccountAsync(adminAccountId, ct);
         return await db.CourseIntakes.Include(i => i.Sessions).ThenInclude(s => s.Enrollments)
-            .Include(i => i.Applications).Include(i => i.ReplacementIntake).Include(i => i.Trainer).AsSplitQuery()
+            .Include(i => i.Applications).Include(i => i.ReplacementIntake).Include(i => i.Trainer).Include(i => i.Course).AsSplitQuery()
             .SingleOrDefaultAsync(i => i.Id == id, ct)
             ?? throw new CourseIntakeException("INTAKE_NOT_FOUND", "Intake was not found.", 404);
     }
@@ -687,8 +776,8 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
                 .Select(ToChangeDto).FirstOrDefault(), i.MinEnrollment, i.ConfirmedToRunAt, i.CancelledAt,
             i.CancellationReason, i.ReplacementForIntakeId, i.ReplacementIntake?.Id,
             i.CancellationReason == "MinimumEnrollmentNotMet" ? i.CancelledAt?.AddDays(7) : null,
-            reserved, active, remaining, i.Trainer?.FullName, i.TrainerInvitation.ToString(), i.TrainerInvitedAt,
-            i.TrainerRespondedAt, i.TrainerDeclineReason);
+            reserved, active, remaining, HasNoTrainer(i) ? null : i.Trainer?.FullName, i.TrainerInvitation.ToString(), i.TrainerInvitedAt,
+            i.TrainerRespondedAt, i.TrainerDeclineReason, !HasNoTrainer(i));
     }
 
     private static CourseIntakeChangeDto ToChangeDto(CourseIntakeApplication application)

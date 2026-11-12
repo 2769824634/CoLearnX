@@ -77,11 +77,12 @@ internal static class CourseIntakeValidation
         if (committed)
             throw new CourseIntakeException("INTAKE_HAS_COMMITTED_ENROLLMENTS",
                 "An Intake with reserved or confirmed places cannot change its schedule. Cancel it to return learners' credits.", 409);
-        // The Trainer agrees to one fixed timetable, so it cannot change behind their back.
-        if (intake.TrainerInvitation is TrainerInvitationStatus.Invited or TrainerInvitationStatus.Accepted)
-            throw new CourseIntakeException("SCHEDULE_LOCKED", intake.Status is CourseIntakeStatus.Draft or CourseIntakeStatus.Rejected
-                ? "The schedule was sent to the Trainer. Withdraw the invitation before changing it."
-                : "The schedule of a published Intake is fixed.", 409);
+        // While a Trainer is deciding on the schedule it cannot change behind their back. Once published, the Creator
+        // may change it again; moving a session notifies everyone (see CourseIntakeService.RescheduleAsync).
+        var unpublished = intake.Status is CourseIntakeStatus.Draft or CourseIntakeStatus.Rejected;
+        if (intake.TrainerInvitation == TrainerInvitationStatus.Invited
+            || (unpublished && intake.TrainerInvitation == TrainerInvitationStatus.Accepted))
+            throw new CourseIntakeException("SCHEDULE_LOCKED", "The schedule was sent to the Trainer. Withdraw the invitation before changing it.", 409);
     }
 
     public static void Version(CourseIntake intake, Guid expected)

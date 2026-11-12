@@ -35,16 +35,12 @@ public sealed class CourseTrainerInvitationTests
     private const int DualCourse = 302;
 
     [Fact]
-    public async Task Invited_trainer_accepts_and_joins_the_course_roster()
+    public async Task An_earlier_course_invitation_can_still_be_accepted_and_joins_the_roster()
     {
         using var factory = await RosterFactory.CreateAsync();
         using var creator = factory.UserClient(Creator, AppRole.Creator);
         using var alex = factory.UserClient(Alex, AppRole.Trainer);
-
-        var invited = await Read<CourseTrainerDto>(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(Alex)));
-        Assert.Equal("Invited", invited.Status);
-        Assert.Equal("Alex Chen", invited.FullName);
-        Assert.Equal("Inclusive design coach", invited.Headline);
+        await factory.SeedInvitationAsync(Alex);
 
         var invitations = await alex.GetFromJsonAsync<List<CourseInvitationDto>>("/api/trainer/course-invitations");
         var invitation = Assert.Single(invitations!);
@@ -56,74 +52,48 @@ public sealed class CourseTrainerInvitationTests
         Assert.NotNull(accepted.RespondedAt);
 
         var roster = await creator.GetFromJsonAsync<List<CourseTrainerDto>>($"/api/creator/courses/{Course}/trainers");
-        Assert.Equal("Accepted", Assert.Single(roster!).Status);
+        var row = Assert.Single(roster!);
+        Assert.Equal(("Accepted", "Alex Chen", "Inclusive design coach"), (row.Status, row.FullName, row.Headline));
 
-        var trainerNotice = Assert.Single((await Inbox(alex)).Items, item => item.Type == "N-course-invitation");
-        Assert.Equal("/trainer/invitations", trainerNotice.TargetPath);
-        Assert.Contains("ROS-300 Roster Basics", trainerNotice.Message);
         var creatorNotice = Assert.Single((await Inbox(creator)).Items, item => item.Type == "N-course-invitation-accepted");
         Assert.Equal("/creator/courses", creatorNotice.TargetPath);
         Assert.Equal("Alex Chen accepted your invitation to teach ROS-300 Roster Basics.", creatorNotice.Message);
-
-        var emails = await factory.ReadAsync(db => db.Notifications.Where(n => n.UserId == Alex || n.UserId == Creator)
-            .ToDictionaryAsync(n => n.Code, n => n.EmailPending));
-        Assert.True(emails["N-course-invitation"]);
-        Assert.False(emails["N-course-invitation-accepted"]);
+        Assert.False(await factory.ReadAsync(db => db.Notifications.Where(n => n.Code == "N-course-invitation-accepted").Select(n => n.EmailPending).SingleAsync()));
     }
 
     [Fact]
-    public async Task Declined_and_removed_trainers_can_be_invited_again()
+    public async Task Creators_can_no_longer_invite_a_trainer_to_the_whole_course()
+    {
+        using var factory = await RosterFactory.CreateAsync();
+        using var creator = factory.UserClient(Creator, AppRole.Creator);
+
+        using var response = await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new { trainerId = Alex });
+
+        Assert.False(response.IsSuccessStatusCode);
+        Assert.False(await factory.ReadAsync(db => db.CourseTrainers.AnyAsync(row => row.CourseId == Course)));
+    }
+
+    [Fact]
+    public async Task Declining_tells_the_creator_and_removing_tells_the_trainer()
     {
         using var factory = await RosterFactory.CreateAsync();
         using var creator = factory.UserClient(Creator, AppRole.Creator);
         using var alex = factory.UserClient(Alex, AppRole.Trainer);
+        using var blair = factory.UserClient(Blair, AppRole.Trainer);
+        await factory.SeedInvitationAsync(Alex);
+        await factory.SeedInvitationAsync(Blair);
 
-        await Read<CourseTrainerDto>(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(Alex)));
-        var invitationId = (await alex.GetFromJsonAsync<List<CourseInvitationDto>>("/api/trainer/course-invitations"))!.Single().Id;
-        Assert.Equal("Declined", (await Read<CourseInvitationDto>(await alex.PostAsync($"/api/trainer/course-invitations/{invitationId}/decline", null))).Status);
+        var blairInvitation = (await blair.GetFromJsonAsync<List<CourseInvitationDto>>("/api/trainer/course-invitations"))!.Single().Id;
+        Assert.Equal("Declined", (await Read<CourseInvitationDto>(await blair.PostAsync($"/api/trainer/course-invitations/{blairInvitation}/decline", null))).Status);
         Assert.Single((await Inbox(creator)).Items, item => item.Type == "N-course-invitation-declined");
 
-        var again = await Read<CourseTrainerDto>(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(Alex)));
-        Assert.Equal("Invited", again.Status);
-        Assert.Null(again.RespondedAt);
-        await Read<CourseInvitationDto>(await alex.PostAsync($"/api/trainer/course-invitations/{invitationId}/accept", null));
-
+        var alexInvitation = (await alex.GetFromJsonAsync<List<CourseInvitationDto>>("/api/trainer/course-invitations"))!.Single().Id;
+        await Read<CourseInvitationDto>(await alex.PostAsync($"/api/trainer/course-invitations/{alexInvitation}/accept", null));
         var removed = await Read<CourseTrainerDto>(await creator.PostAsync($"/api/creator/courses/{Course}/trainers/{Alex}/remove", null));
         Assert.Equal("Removed", removed.Status);
         Assert.NotNull(removed.RemovedAt);
         var removedNotice = Assert.Single((await Inbox(alex)).Items, item => item.Type == "N-course-trainer-removed");
         Assert.Equal("/trainer/invitations", removedNotice.TargetPath);
-
-        Assert.Equal("Invited", (await Read<CourseTrainerDto>(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(Alex)))).Status);
-        Assert.Equal(3, (await Inbox(alex)).Items.Count(item => item.Type == "N-course-invitation"));
-        Assert.Equal(1, await factory.ReadAsync(db => db.CourseTrainers.CountAsync(row => row.CourseId == Course)));
-    }
-
-    [Fact]
-    public async Task Inviting_a_pending_or_accepted_trainer_again_is_a_conflict()
-    {
-        using var factory = await RosterFactory.CreateAsync();
-        using var creator = factory.UserClient(Creator, AppRole.Creator);
-        using var alex = factory.UserClient(Alex, AppRole.Trainer);
-
-        await Read<CourseTrainerDto>(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(Alex)));
-        await Error(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(Alex)), 409, "TRAINER_ALREADY_INVITED");
-
-        var invitationId = (await alex.GetFromJsonAsync<List<CourseInvitationDto>>("/api/trainer/course-invitations"))!.Single().Id;
-        await Read<CourseInvitationDto>(await alex.PostAsync($"/api/trainer/course-invitations/{invitationId}/accept", null));
-        await Error(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(Alex)), 409, "TRAINER_ALREADY_INVITED");
-    }
-
-    [Theory]
-    [InlineData(MemberOnly)]
-    [InlineData(InactiveTrainer)]
-    [InlineData(999)]
-    public async Task Only_active_trainers_can_be_invited(int userId)
-    {
-        using var factory = await RosterFactory.CreateAsync();
-        using var creator = factory.UserClient(Creator, AppRole.Creator);
-
-        await Error(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(userId)), 404, "TRAINER_NOT_FOUND");
     }
 
     [Fact]
@@ -136,10 +106,9 @@ public sealed class CourseTrainerInvitationTests
         using var blair = factory.UserClient(Blair, AppRole.Trainer);
 
         await Error(await creator.GetAsync($"/api/creator/courses/{OtherCourse}/trainers"), 404, "COURSE_NOT_FOUND");
-        await Error(await creator.PostAsJsonAsync($"/api/creator/courses/{OtherCourse}/trainers", new InviteTrainerRequest(Alex)), 404, "COURSE_NOT_FOUND");
         await Error(await creator.PostAsync($"/api/creator/courses/{OtherCourse}/trainers/{Alex}/remove", null), 404, "COURSE_NOT_FOUND");
 
-        await Read<CourseTrainerDto>(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(Alex)));
+        await factory.SeedInvitationAsync(Alex);
         await Error(await otherCreator.PostAsync($"/api/creator/courses/{Course}/trainers/{Alex}/remove", null), 404, "COURSE_NOT_FOUND");
         await Error(await creator.PostAsync($"/api/creator/courses/{Course}/trainers/{Blair}/remove", null), 404, "COURSE_TRAINER_NOT_FOUND");
 
@@ -158,7 +127,7 @@ public sealed class CourseTrainerInvitationTests
         using var creator = factory.UserClient(Creator, AppRole.Creator);
         using var alex = factory.UserClient(Alex, AppRole.Trainer);
 
-        await Read<CourseTrainerDto>(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(Alex)));
+        await factory.SeedInvitationAsync(Alex);
         var invitationId = (await alex.GetFromJsonAsync<List<CourseInvitationDto>>("/api/trainer/course-invitations"))!.Single().Id;
         await Read<CourseInvitationDto>(await alex.PostAsync($"/api/trainer/course-invitations/{invitationId}/accept", null));
         Assert.Equal("Accepted", (await Read<CourseInvitationDto>(await alex.PostAsync($"/api/trainer/course-invitations/{invitationId}/accept", null))).Status);
@@ -172,17 +141,13 @@ public sealed class CourseTrainerInvitationTests
     }
 
     [Fact]
-    public async Task A_creator_cannot_invite_themselves()
+    public async Task A_creator_is_never_offered_as_a_trainer()
     {
         using var factory = await RosterFactory.CreateAsync();
         using var dual = factory.UserClient(DualUser, AppRole.Creator);
 
-        using var response = await dual.PostAsJsonAsync($"/api/creator/courses/{DualCourse}/trainers", new InviteTrainerRequest(DualUser));
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("CREATOR_CANNOT_TEACH", await response.Content.ReadAsStringAsync());
-        Assert.False(await factory.ReadAsync(db => db.CourseTrainers.AnyAsync(row => row.CourseId == DualCourse && row.TrainerId == DualUser)));
         var candidates = await dual.GetFromJsonAsync<List<TrainerCandidateDto>>($"/api/creator/trainers?courseId={DualCourse}");
+
         Assert.DoesNotContain(candidates!, item => item.Id == DualUser);
     }
 
@@ -194,8 +159,8 @@ public sealed class CourseTrainerInvitationTests
         using var alex = factory.UserClient(Alex, AppRole.Trainer);
         using var blair = factory.UserClient(Blair, AppRole.Trainer);
 
-        await Read<CourseTrainerDto>(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(Alex)));
-        await Read<CourseTrainerDto>(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(Blair)));
+        await factory.SeedInvitationAsync(Alex);
+        await factory.SeedInvitationAsync(Blair);
         var alexInvitation = (await alex.GetFromJsonAsync<List<CourseInvitationDto>>("/api/trainer/course-invitations"))!.Single().Id;
         var blairInvitation = (await blair.GetFromJsonAsync<List<CourseInvitationDto>>("/api/trainer/course-invitations"))!.Single().Id;
         await Read<CourseInvitationDto>(await alex.PostAsync($"/api/trainer/course-invitations/{alexInvitation}/accept", null));
@@ -211,8 +176,6 @@ public sealed class CourseTrainerInvitationTests
 
         Assert.Equal(new[]
         {
-            (Creator, "CourseTrainerInvited", $"{Course}/{Alex}", "Invited"),
-            (Creator, "CourseTrainerInvited", $"{Course}/{Blair}", "Invited"),
             (Alex, "CourseInvitationAccepted", $"{Course}/{Alex}", "Accepted"),
             (Blair, "CourseInvitationDeclined", $"{Course}/{Blair}", "Declined"),
             (Creator, "CourseTrainerRemoved", $"{Course}/{Alex}", "Removed"),
@@ -257,20 +220,13 @@ public sealed class CourseTrainerInvitationTests
     }
 
     [Fact]
-    public async Task Invitations_only_reach_certified_trainers_in_the_course_specialty()
+    public async Task Trainer_search_is_limited_to_the_creators_own_courses()
     {
         using var factory = await RosterFactory.CreateAsync();
         using var creator = factory.UserClient(Creator, AppRole.Creator);
 
-        using var otherSpecialty = await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(OtherSpecialtyTrainer));
-        Assert.Equal(HttpStatusCode.Conflict, otherSpecialty.StatusCode);
-        Assert.Contains("TRAINER_SUBJECT_MISMATCH", await otherSpecialty.Content.ReadAsStringAsync());
-
-        using var uncertified = await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(UncertifiedTrainer));
-        Assert.Equal(HttpStatusCode.NotFound, uncertified.StatusCode);
-        Assert.Contains("TRAINER_NOT_FOUND", await uncertified.Content.ReadAsStringAsync());
-
         using var foreignCourse = await creator.GetAsync($"/api/creator/trainers?courseId={OtherCourse}");
+
         Assert.Equal(HttpStatusCode.NotFound, foreignCourse.StatusCode);
         Assert.Contains("COURSE_NOT_FOUND", await foreignCourse.Content.ReadAsStringAsync());
     }
@@ -290,31 +246,6 @@ public sealed class CourseTrainerInvitationTests
 
         var row = Assert.Single(roster!, item => item.FullName == trainerName);
         Assert.Equal("Accepted", row.Status);
-    }
-
-    [Fact]
-    public async Task Invitation_is_pushed_to_the_trainer_immediately()
-    {
-        using var factory = await RosterFactory.CreateAsync();
-        using var creator = factory.UserClient(Creator, AppRole.Creator);
-        await using var connection = new HubConnectionBuilder()
-            .WithUrl(new Uri(factory.Server.BaseAddress, "hubs/notifications"), options =>
-            {
-                options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
-                options.Transports = HttpTransportType.LongPolling;
-                options.AccessTokenProvider = () => Task.FromResult<string?>(factory.Token(Alex, AppRole.Trainer));
-            })
-            .Build();
-        var received = new TaskCompletionSource<NotificationDto>(TaskCreationOptions.RunContinuationsAsynchronously);
-        connection.On<NotificationDto>("notification", notification => received.TrySetResult(notification));
-        await connection.StartAsync();
-
-        await Read<CourseTrainerDto>(await creator.PostAsJsonAsync($"/api/creator/courses/{Course}/trainers", new InviteTrainerRequest(Alex)));
-
-        Assert.Same(received.Task, await Task.WhenAny(received.Task, Task.Delay(TimeSpan.FromSeconds(5))));
-        var notification = await received.Task;
-        Assert.Equal("N-course-invitation", notification.Type);
-        Assert.Equal("/trainer/invitations", notification.TargetPath);
     }
 
     private static async Task<NotificationInboxDto> Inbox(HttpClient client)
@@ -408,6 +339,13 @@ public sealed class CourseTrainerInvitationTests
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token(id, role, roles));
             return client;
         }
+
+        public Task<int> SeedInvitationAsync(int trainerId) => ReadAsync(db =>
+        {
+            db.CourseTrainers.Add(new CourseTrainer { CourseId = Course, TrainerId = trainerId, Status = CourseTrainerStatus.Invited,
+                InvitedByUserId = Creator, InvitedAt = DateTime.UtcNow });
+            return db.SaveChangesAsync();
+        });
 
         public async Task<T> ReadAsync<T>(Func<CoLearnXDbContext, Task<T>> action)
         {

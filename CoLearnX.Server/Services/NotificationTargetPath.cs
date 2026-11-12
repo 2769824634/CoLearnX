@@ -22,6 +22,8 @@ public static class NotificationTargetPath
         "N-intake-invitation" or "N-intake-invitation-withdrawn" => "/trainer/invitations",
         "N-intake-invitation-accepted" or "N-intake-invitation-declined"
             => intakeId > 0 ? $"/creator/intakes/{intakeId}" : "/creator/courses",
+        "N-session-rescheduled-trainer" => intakeId > 0 ? $"/trainer/courses/intakes/{intakeId}" : "/trainer/courses",
+        "N-session-rescheduled" => MemberProgramsPath("active", enrollmentId),
         "N-intake-published" => intakeId > 0 ? $"/trainer/courses/intakes/{intakeId}" : "/trainer/courses",
         "N-earnings-pending" => "/trainer/earnings",
         "N-earnings-pending-creator" => "/creator/earnings",

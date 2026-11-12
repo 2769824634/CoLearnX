@@ -30,6 +30,15 @@ it('lists every class with readable status, attendance and a red row below 70%',
   expect(screen.getByRole('button', { name: 'Cybersecurity' })).toBeTruthy();
 });
 
+it('says an intake has no trainer yet instead of naming its creator', async () => {
+  overview.classes.mockResolvedValue([row(), row({ id: 4, courseTitle: 'Draft run', status: 'Draft', trainerId: 3, trainerName: null })]);
+  render(<MemoryRouter><AdminClassesPage /></MemoryRouter>);
+
+  const draft = (await screen.findByRole('button', { name: 'Draft run' })).closest('tr');
+  expect(within(draft).getByText('No trainer yet')).toBeTruthy();
+  expect([...screen.getByLabelText('Trainer').options].map((option) => option.textContent)).not.toContain('');
+});
+
 it('opens a class with its sessions, learners, certificates and materials', async () => {
   overview.classes.mockResolvedValue([row()]);
   overview.classDetail.mockResolvedValue({

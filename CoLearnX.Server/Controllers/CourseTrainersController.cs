@@ -16,9 +16,6 @@ public sealed class CreatorCourseTrainersController(ICourseTrainerService roster
     public async Task<ActionResult<IReadOnlyList<CourseTrainerDto>>> List(int courseId, CancellationToken ct)
         => Ok(await roster.ListAsync(User.GetUserId(), courseId, ct));
 
-    [HttpPost("courses/{courseId:int}/trainers")]
-    public async Task<ActionResult<CourseTrainerDto>> Invite(int courseId, [FromBody] InviteTrainerRequest request, CancellationToken ct)
-        => Ok(await roster.InviteAsync(User.GetUserId(), courseId, request.TrainerId, ct));
 
     [HttpPost("courses/{courseId:int}/trainers/{trainerId:int}/remove")]
     public async Task<ActionResult<CourseTrainerDto>> Remove(int courseId, int trainerId, CancellationToken ct)

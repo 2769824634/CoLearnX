@@ -44,19 +44,24 @@ public sealed class B4WorkflowIntegrationTests
             new UpdateSessionDeliveryRequest("https://example.com/live-room", intake.Version)));
         Assert.Equal("https://example.com/live-room", Assert.Single(intake.Sessions).MeetingLink);
 
-        // The Trainer accepted this timetable, so the Creator can no longer change it.
-        await Error(await creator.PutAsJsonAsync($"/api/creator/intakes/{intake.Id}/sessions/{session.Id}",
+        // After publishing the Creator can still change the schedule.
+        var changedEnd = intake.EndsAt.AddDays(1);
+        intake = await Detail(await creator.PutAsJsonAsync($"/api/creator/intakes/{intake.Id}/sessions/{session.Id}",
             new UpdateCourseSessionRequest("Advanced workshop", session.StartsAt, session.EndsAt,
-                "https://example.com/live-room", null, 0, null, intake.Version)), 409, "SCHEDULE_LOCKED");
-        await Error(await creator.PutAsJsonAsync($"/api/creator/intakes/{intake.Id}",
-            new UpdateCourseIntakeRequest(intake.RegistrationOpensAt, intake.RegistrationClosesAt, intake.StartsAt, intake.EndsAt.AddDays(1), intake.Version)),
-            409, "SCHEDULE_LOCKED");
+                "https://example.com/live-room", null, 0, null, intake.Version)));
+        intake = await Detail(await creator.PutAsJsonAsync($"/api/creator/intakes/{intake.Id}",
+            new UpdateCourseIntakeRequest(intake.RegistrationOpensAt, intake.RegistrationClosesAt, intake.StartsAt, changedEnd, intake.Version)));
+        Assert.Equal("Published", intake.Status);
+        Assert.Equal(changedEnd, intake.EndsAt);
+        Assert.Equal("Advanced workshop", Assert.Single(intake.Sessions).Label);
 
         var logs = await factory.ReadAsync(db => db.AuditLogs.Where(log => log.EntityType == nameof(CourseIntake)
             && log.EntityId == intake.Id.ToString()).ToListAsync());
         Assert.Contains(logs, log => log.Action == "CourseIntakePublished" && log.UserId == 103);
         Assert.Contains(logs, log => log.Action == "CourseSessionDeliveryUpdated" && log.UserId == 100);
         Assert.Contains(logs, log => log.Action == "CourseIntakeTrainerAccepted" && log.UserId == 100);
+        Assert.Contains(logs, log => log.Action == "CourseSessionRescheduled" && log.UserId == 103);
+        Assert.Contains(logs, log => log.Action == "CourseIntakeUpdated" && log.UserId == 103);
     }
 
     [Fact]
@@ -78,7 +83,7 @@ public sealed class B4WorkflowIntegrationTests
         Assert.NotNull(material);
 
         await Error(await creator.DeleteAsync($"/api/creator/intakes/{published.Id}/sessions/{session.Id}?version={published.Version}"),
-            409, "SCHEDULE_LOCKED");
+            409, "SESSION_HAS_MATERIALS");
 
         var current = await trainer.GetFromJsonAsync<CourseIntakeDetailDto>($"/api/trainer/intakes/{published.Id}");
         Assert.Equal("Published", current!.Status);
@@ -126,17 +131,17 @@ public sealed class B4WorkflowIntegrationTests
     }
 
     [Fact]
-    public async Task PublishedSchedule_IsFixed_AndLearnersCommittingKeepItThatWay()
+    public async Task PublishedSchedule_CanStillChange_UntilALearnerCommitsToItsDates()
     {
         using var factory = new B4ApiFactory();
         await factory.InitializeAsync();
         using var creator = factory.UserClient(103, AppRole.Creator);
         var published = await CreatePublishedAsync(factory, creator);
         var session = Assert.Single(published.Sessions);
-        await Error(await creator.PutAsJsonAsync($"/api/creator/intakes/{published.Id}/sessions/{session.Id}",
+        var edited = await Detail(await creator.PutAsJsonAsync($"/api/creator/intakes/{published.Id}/sessions/{session.Id}",
             new UpdateCourseSessionRequest("Agreed workshop title", session.StartsAt, session.EndsAt,
-                session.MeetingLink, null, 0, null, published.Version)), 409, "SCHEDULE_LOCKED");
-        var edited = published;
+                session.MeetingLink, null, 0, null, published.Version)));
+        Assert.Equal("Agreed workshop title", Assert.Single(edited.Sessions).Label);
 
         await factory.ReadAsync(async db =>
         {
@@ -178,11 +183,14 @@ public sealed class B4WorkflowIntegrationTests
                 CreditsSpent = 10, Status = EnrollmentStatus.Active });
             return await db.SaveChangesAsync();
         });
-        await Error(await creator.PutAsJsonAsync($"/api/creator/intakes/{published.Id}/sessions/{session.Id}",
-            new UpdateCourseSessionRequest("Cannot rewrite history", session.StartsAt, session.EndsAt,
-                session.MeetingLink, null, 0, null, published.Version)), 409, "INTAKE_HAS_COMMITTED_ENROLLMENTS");
+        // A booked session that has not started can still move; the booked learner is told.
+        var moved = await Detail(await creator.PutAsJsonAsync($"/api/creator/intakes/{published.Id}/sessions/{session.Id}",
+            new UpdateCourseSessionRequest("Moved workshop", session.StartsAt.AddHours(1), session.EndsAt.AddHours(1),
+                session.MeetingLink, null, 0, null, published.Version)));
+        Assert.Equal(session.StartsAt.AddHours(1), Assert.Single(moved.Sessions).StartsAt);
+        Assert.True(await factory.ReadAsync(db => db.Notifications.AnyAsync(n => n.UserId == 102 && n.Code == "N-session-rescheduled")));
         var delivered = await Detail(await trainer.PatchAsJsonAsync($"/api/trainer/intakes/{published.Id}/sessions/{session.Id}/delivery",
-            new UpdateSessionDeliveryRequest("https://example.com/still-open", published.Version)));
+            new UpdateSessionDeliveryRequest("https://example.com/still-open", moved.Version)));
         Assert.Equal("https://example.com/still-open", Assert.Single(delivered.Sessions).MeetingLink);
     }
 
@@ -304,10 +312,13 @@ public sealed class B4WorkflowIntegrationTests
         {
             await ReadAsync(async db =>
             {
+                var subject = await db.CourseSubjects.OrderBy(item => item.Id).Select(item => item.Id).FirstAsync();
                 var users = new[]
                 {
-                    new User { Id = 100, Email = "b4-trainer@example.com", FullName = "B4 Trainer", Roles = [new UserRole { Role = AppRole.Trainer }] },
-                    new User { Id = 101, Email = "b4-other-trainer@example.com", FullName = "Other Trainer", Roles = [new UserRole { Role = AppRole.Trainer }] },
+                    new User { Id = 100, Email = "b4-trainer@example.com", FullName = "B4 Trainer", Roles = [new UserRole { Role = AppRole.Trainer }],
+                        Specialties = [new UserSpecialty { CourseSubjectId = subject }] },
+                    new User { Id = 101, Email = "b4-other-trainer@example.com", FullName = "Other Trainer", Roles = [new UserRole { Role = AppRole.Trainer }],
+                        Specialties = [new UserSpecialty { CourseSubjectId = subject }] },
                     new User { Id = 102, Email = "b4-member@example.com", FullName = "B4 Member", CreditBalance = 100, Roles = [new UserRole { Role = AppRole.Member }] },
                     new User { Id = 103, Email = "b4-creator@example.com", FullName = "B4 Creator", Roles = [new UserRole { Role = AppRole.Creator }] },
                     new User { Id = 104, Email = "b4-other-creator@example.com", FullName = "Other Creator", Roles = [new UserRole { Role = AppRole.Creator }] },
@@ -315,8 +326,8 @@ public sealed class B4WorkflowIntegrationTests
                 };
                 db.Users.AddRange(users);
                 db.Courses.AddRange(
-                    new Course { Id = 100, Code = "B4-100", Title = "B4 Workflow", TrainerId = 100, CreatorId = 103, CreditCost = 10, Status = CourseStatus.Published },
-                    new Course { Id = 101, Code = "B4-101", Title = "Second Course", TrainerId = 100, CreatorId = 105, CreditCost = 10, Status = CourseStatus.Published });
+                    new Course { Id = 100, Code = "B4-100", Title = "B4 Workflow", TrainerId = 100, CreatorId = 103, CreditCost = 10, Status = CourseStatus.Published, CourseSubjectId = subject },
+                    new Course { Id = 101, Code = "B4-101", Title = "Second Course", TrainerId = 100, CreatorId = 105, CreditCost = 10, Status = CourseStatus.Published, CourseSubjectId = subject });
                 db.CourseTrainers.AddRange(
                     new CourseTrainer { CourseId = 100, TrainerId = 100, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 103, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow },
                     new CourseTrainer { CourseId = 101, TrainerId = 100, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 105, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow });

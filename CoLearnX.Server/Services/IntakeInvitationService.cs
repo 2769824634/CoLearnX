@@ -62,6 +62,7 @@ public sealed class IntakeInvitationService(CoLearnXDbContext db, INotificationR
         string? publishProblem = null;
         if (accept)
         {
+            await JoinCourseRosterAsync(intake, trainerUserId, now, ct);
             try { publishedNotice = await new CourseIntakeService(db, realtime).StagePublishOnAcceptanceAsync(intake, ct); }
             catch (CourseIntakeException problem) { publishProblem = problem.Message; }
         }
@@ -92,6 +93,21 @@ public sealed class IntakeInvitationService(CoLearnXDbContext db, INotificationR
             await realtime.PublishAsync(notification, ct);
         }
         return ToDto(intake, await BusySessionsAsync(trainerUserId, ct));
+    }
+
+    // Accepting an Intake makes the Trainer one of the course's Trainers, whatever their earlier roster status was.
+    private async Task JoinCourseRosterAsync(CourseIntake intake, int trainerUserId, DateTime now, CancellationToken ct)
+    {
+        var roster = await db.CourseTrainers.SingleOrDefaultAsync(row => row.CourseId == intake.CourseId && row.TrainerId == trainerUserId, ct);
+        if (roster is null)
+        {
+            roster = new CourseTrainer { CourseId = intake.CourseId, TrainerId = trainerUserId, InvitedByUserId = intake.Course.CreatorId,
+                InvitedAt = intake.TrainerInvitedAt ?? now };
+            db.CourseTrainers.Add(roster);
+        }
+        roster.Status = CourseTrainerStatus.Accepted;
+        roster.RespondedAt = now;
+        roster.RemovedAt = null;
     }
 
     private IQueryable<CourseIntake> InvitationsFor(int trainerUserId)
