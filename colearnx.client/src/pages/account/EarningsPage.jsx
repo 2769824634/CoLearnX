@@ -27,7 +27,7 @@ export default function EarningsPage({ role }) {
   };
   return <section className={`${role}-page`}>
     <h1>Earnings</h1>
-    <p>Earnings are recorded when a class finishes, then remain pending for 7 days before they can be requested.</p>
+    <p>Earnings are recorded when an intake finishes, then remain pending for 7 days before they can be requested.</p>
     {query.loading ? <p role="status">Loading earnings…</p> : null}
     {query.error ? <div className="callout warn" role="alert">{userFacingError(query.error, 'Could not load earnings.')}
       <button type="button" className="btn btn-ghost" onClick={query.refresh}>Retry</button></div> : null}
@@ -38,7 +38,7 @@ export default function EarningsPage({ role }) {
           <small>≈ ${(data.availableCredits * data.cashPerCredit).toFixed(2)}</small></div>
         <div className="card card-body"><strong>Paid out</strong><span>{formatCount(data.paidCredits, 'credit')}</span></div>
       </div>
-      <p>{formatCount(data.pendingCredits, 'credit')} become available 7 days after each class ends.</p>
+      <p>{formatCount(data.pendingCredits, 'credit')} become available 7 days after each intake ends.</p>
       <form className="card card-body" onSubmit={requestPayout}>
         <h2>Request payout</h2>
         {requested ? <p role="status">Payout of {formatCount(data.payouts.find((item) => item.status === 'Requested').credits, 'credit')} requested on {localDateTime(data.payouts.find((item) => item.status === 'Requested').requestedAt)}. An administrator pays it within a few working days.</p> : <>
@@ -50,9 +50,9 @@ export default function EarningsPage({ role }) {
         {notice ? <p className="admin-review-notice" role="status">{notice}</p> : null}
         {error ? <p className="callout warn" role="alert">{userFacingError(error, 'Payout request failed.')}</p> : null}
       </form>
-      <h2>Earnings by class</h2>
-      {!data.classes.length ? <p>No earnings yet. Earnings appear after a class finishes.</p> :
-        <div style={{ overflowX: 'auto' }}><table className="data-table"><thead><tr><th>Course</th><th>Class ended</th><th>Learners</th><th>Your share</th><th>Credits</th><th>Status</th></tr></thead>
+      <h2>Earnings by intake</h2>
+      {!data.classes.length ? <p>No earnings yet. Earnings appear after an intake finishes.</p> :
+        <div style={{ overflowX: 'auto' }}><table className="data-table"><thead><tr><th>Course</th><th>Intake ended</th><th>Learners</th><th>Your share</th><th>Credits</th><th>Status</th></tr></thead>
           <tbody>{data.classes.map((item) => <tr key={item.courseIntakeId}><td>{item.courseCode} · {item.courseTitle}</td>
             <td>{localDateTime(item.endsAt)}</td><td>{item.learners}</td><td>{item.sharePercent == null ? 'Varies' : `${item.sharePercent}%`}</td>
             <td>{formatCount(item.credits, 'credit')}</td><td>{item.status}{item.status === 'Pending' ? ` · available ${localDateTime(item.availableAt)}` : ''}</td></tr>)}</tbody></table></div>}

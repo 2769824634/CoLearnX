@@ -47,6 +47,7 @@ public class CourseIntakeCoreTests
             () => f.Service.PublishAsync(1, draft.Id, draft.Version))).Code);
         var scheduled = await f.Service.AddSessionAsync(1, draft.Id, SessionRequest(draft.Version));
         Assert.NotEqual(draft.Version, scheduled.Version);
+        await f.TrainerAcceptsAsync(draft.Id);
         var pending = await f.Service.PublishAsync(1, draft.Id, scheduled.Version);
         Assert.Equal("Published", pending.Status);
         Assert.NotNull(pending.SubmittedAt);
@@ -243,6 +244,7 @@ public class CourseIntakeCoreTests
         d = await f.Service.AddSessionAsync(1, d.Id, SessionRequest(d.Version));
         Assert.Equal("Draft", d.Status);
         Assert.Null(d.ConfirmationNote);
+        await f.TrainerAcceptsAsync(d.Id);
         Assert.Equal("Published", (await f.Service.PublishAsync(1, d.Id, d.Version)).Status);
     }
 
@@ -436,6 +438,7 @@ public class CourseIntakeCoreTests
         stored.RegistrationClosesAt = DateTime.UtcNow.AddDays(3);
         await f.Db.SaveChangesAsync();
 
+        await f.TrainerAcceptsAsync(draft.Id);
         var before = DateTime.UtcNow;
         var published = await f.Service.PublishAsync(1, draft.Id, draft.Version);
 
@@ -485,6 +488,7 @@ public class CourseIntakeCoreTests
         {
             Label = "Session 3", StartsAt = Start.AddDays(2), EndsAt = Start.AddDays(2).AddHours(1),
         });
+        await f.TrainerAcceptsAsync(draft.Id);
         Assert.Equal("Published", (await f.Service.PublishAsync(1, draft.Id, draft.Version)).Status);
     }
 
@@ -494,38 +498,41 @@ public class CourseIntakeCoreTests
         await using var f = await Fixture.CreateAsync();
         (await f.Db.Courses.SingleAsync()).DurationHours = 7;
         await f.Db.SaveChangesAsync();
-        var error = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.OpenClassAsync(1, 1, WeeklyClass));
+        var error = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.OpenClassAsync(1, 1, WeeklyClass with { SendToTrainer = true }));
         Assert.Equal("SESSION_DURATION_INSUFFICIENT", error.Code);
         Assert.Empty(await f.Db.CourseIntakes.ToListAsync());
     }
 
     [Fact]
-    public async Task Editing_a_published_class_cannot_reduce_its_duration_below_the_course_hours()
+    public async Task A_published_intake_keeps_every_session_the_trainer_accepted()
     {
         await using var f = await Fixture.CreateAsync();
         (await f.Db.Courses.SingleAsync()).DurationHours = 6;
         await f.Db.SaveChangesAsync();
         var opened = await f.Service.OpenClassAsync(1, 1, WeeklyClass);
+        await f.TrainerAcceptsAsync(opened.Id);
+        opened = await f.Service.PublishAsync(1, opened.Id, opened.Version);
         var error = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.DeleteSessionAsync(
             1, opened.Id, opened.Sessions[0].Id, opened.Version));
-        Assert.Equal("SESSION_DURATION_INSUFFICIENT", error.Code);
+        Assert.Equal("SCHEDULE_LOCKED", error.Code);
         Assert.Equal(3, await f.Db.CourseSessions.CountAsync());
     }
 
     [Fact]
-    public async Task Open_class_creates_every_session_and_publishes_in_one_step()
+    public async Task Open_class_creates_every_session_and_sends_the_schedule_to_the_trainer_in_one_step()
     {
         await using var f = await Fixture.CreateAsync();
         var before = DateTime.UtcNow;
 
-        var opened = await f.Service.OpenClassAsync(1, 1, WeeklyClass);
+        var opened = await f.Service.OpenClassAsync(1, 1, WeeklyClass with { SendToTrainer = true });
 
-        Assert.Equal("Published", opened.Status);
+        Assert.Equal("Draft", opened.Status);
+        Assert.Equal("Invited", opened.TrainerInvitationStatus);
         Assert.Equal(3, opened.MinEnrollment);
         Assert.Equal(["Session 1", "Session 2", "Session 3"], opened.Sessions.OrderBy(x => x.StartsAt).Select(x => x.Label));
         Assert.All(opened.Sessions, session => Assert.Equal(TimeSpan.FromHours(2), session.EndsAt - session.StartsAt));
         Assert.All(opened.Sessions, session => Assert.Equal("https://example.com/meeting", session.MeetingLink));
-        // Registration opens on publishing and closes two days before the first session.
+        // Registration closes two days before the first session; it opens again when the Intake is published.
         Assert.InRange(opened.RegistrationOpensAt, before.AddSeconds(-1), DateTime.UtcNow.AddSeconds(1));
         Assert.Equal(FirstClass.AddDays(-2), opened.RegistrationClosesAt);
         Assert.Equal(FirstClass, opened.StartsAt);
@@ -667,6 +674,13 @@ public class CourseIntakeCoreTests
         public CoLearnXDbContext Db { get; } = db;
         public DbContextOptions<CoLearnXDbContext> Options { get; } = options;
         public CourseIntakeService Service { get; } = new(db);
+        // State fixture: the Trainer accepted the schedule. The real reply is covered by IntakeTrainerInvitationTests.
+        public async Task TrainerAcceptsAsync(int intakeId)
+        {
+            await Db.CourseIntakes.Where(i => i.Id == intakeId)
+                .ExecuteUpdateAsync(set => set.SetProperty(i => i.TrainerInvitation, TrainerInvitationStatus.Accepted));
+            Db.ChangeTracker.Clear();
+        }
         public static async Task<Fixture> CreateAsync()
         {
             var connection = new SqliteConnection("Data Source=:memory:");

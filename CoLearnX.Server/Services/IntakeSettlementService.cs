@@ -30,7 +30,7 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db, IOptions<Earni
             if (intake.CancelledAt is not null && intake.Status == CourseIntakeStatus.Cancelled)
                 return new IntakeSettlementResult(intakeId, false, 0);
             if (intake.Status is not (CourseIntakeStatus.Published or CourseIntakeStatus.InProgress))
-                throw new CourseException("INTAKE_NOT_CANCELLABLE", "Only a published class can be cancelled.", 409);
+                throw new CourseException("INTAKE_NOT_CANCELLABLE", "Only a published Intake can be cancelled.", 409);
             var now = DateTime.UtcNow;
             var changed = await db.CourseIntakes.Where(i => i.Id == intakeId && i.CancelledAt == null
                     && (i.Status == CourseIntakeStatus.Published || i.Status == CourseIntakeStatus.InProgress))
@@ -65,9 +65,9 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db, IOptions<Earni
             }
             var course = await db.Courses.AsNoTracking().SingleAsync(c => c.Id == intake.CourseId, ct);
             db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, EmailPending = true, Code = "N-intake-cancelled",
-                Title = "Class cancelled", Body = $"{course.Code} Intake #{intakeId} was cancelled." });
+                Title = "Intake cancelled", Body = $"{course.Code} Intake #{intakeId} was cancelled." });
             db.Notifications.Add(new Notification { UserId = course.CreatorId, IntakeId = intake.Id, EmailPending = true, Code = "N-intake-cancelled-creator",
-                Title = "Class cancelled", Body = $"{course.Code} Intake #{intakeId} was cancelled." });
+                Title = "Intake cancelled", Body = $"{course.Code} Intake #{intakeId} was cancelled." });
             db.AuditLogs.Add(new AuditLog { UserId = creatorUserId, Action = "CourseIntakeCancelled",
                 EntityType = nameof(CourseIntake), EntityId = intakeId.ToString(), Result = "Succeeded" });
             await db.SaveChangesAsync(ct);
@@ -92,13 +92,13 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db, IOptions<Earni
             var ran = intake.CancelledAt is null && (intake.Status == CourseIntakeStatus.InProgress
                 || (intake.Status == CourseIntakeStatus.Published && intake.ConfirmedToRunAt is not null));
             if (!ran)
-                throw new CourseException("INTAKE_NOT_COMPLETABLE", "Only a class that was confirmed and has run can be completed.", 409);
+                throw new CourseException("INTAKE_NOT_COMPLETABLE", "Only an Intake that was confirmed and has run can be completed.", 409);
             var now = DateTime.UtcNow;
             var lastSessionEnds = await db.CourseSessions.Where(s => s.CourseIntakeId == intakeId)
                 .MaxAsync(s => (DateTime?)s.EndsAt, ct) ?? intake.EndsAt;
             if (lastSessionEnds > now)
                 throw new CourseException("CLASS_NOT_FINISHED",
-                    $"The last session ends {lastSessionEnds:u}. Complete the class after it has ended.", 409);
+                    $"The last session ends {lastSessionEnds:u}. Complete the Intake after it has ended.", 409);
             var changed = await db.CourseIntakes.Where(i => i.Id == intakeId && i.CancelledAt == null
                     && (i.Status == CourseIntakeStatus.Published || i.Status == CourseIntakeStatus.InProgress))
                 .ExecuteUpdateAsync(setters => setters.SetProperty(i => i.Status, CourseIntakeStatus.Completed)
@@ -107,7 +107,7 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db, IOptions<Earni
                 return;
             var course = await db.Courses.AsNoTracking().SingleAsync(c => c.Id == intake.CourseId, ct);
             db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, EmailPending = true, Code = "N-intake-completed",
-                Title = "Class completed",
+                Title = "Intake completed",
                 Body = $"{course.Code} Intake #{intakeId} was completed by the Creator. You can still record attendance and final results." });
             var learnerIds = await db.Enrollments.Where(e => e.CourseSession.CourseIntakeId == intakeId
                     && (e.Status == EnrollmentStatus.Active || e.Status == EnrollmentStatus.Completed))
@@ -165,10 +165,10 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db, IOptions<Earni
                 intake.Status = CourseIntakeStatus.Completed;
                 intake.Version = Guid.NewGuid();
                 db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = id, EmailPending = true,
-                    Code = "N-earnings-pending", Title = "Class earnings recorded",
+                    Code = "N-earnings-pending", Title = "Intake earnings recorded",
                     Body = $"Earnings for {intake.Course.Code} Intake #{id} are pending for {EarningsRules.CooldownDays} days." });
                 db.Notifications.Add(new Notification { UserId = intake.Course.CreatorId, IntakeId = id, EmailPending = true,
-                    Code = "N-earnings-pending-creator", Title = "Class earnings recorded",
+                    Code = "N-earnings-pending-creator", Title = "Intake earnings recorded",
                     Body = $"Earnings for {intake.Course.Code} Intake #{id} are pending for {EarningsRules.CooldownDays} days." });
                 await db.SaveChangesAsync(ct);
                 await tx.CommitAsync(ct);
@@ -277,7 +277,7 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db, IOptions<Earni
             }
             var course = await db.Courses.AsNoTracking().SingleAsync(c => c.Id == intake.CourseId, ct);
             var code = confirmed ? "N-intake-confirmed" : "N-intake-cancelled";
-            var title = confirmed ? "Class confirmed" : "Class cancelled";
+            var title = confirmed ? "Intake confirmed" : "Intake cancelled";
             var body = $"{course.Code} Intake #{intakeId} {(confirmed ? "will run" : "did not meet minimum enrollment")}.";
             db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, EmailPending = true, Code = code, Title = title, Body = body });
             db.Notifications.Add(new Notification { UserId = course.CreatorId, IntakeId = intake.Id, EmailPending = true, Code = $"{code}-creator", Title = title, Body = body });

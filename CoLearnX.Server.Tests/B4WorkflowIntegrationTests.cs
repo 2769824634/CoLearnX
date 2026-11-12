@@ -31,7 +31,7 @@ public sealed class B4WorkflowIntegrationTests
         using var trainer = factory.UserClient(100, AppRole.Trainer);
         using var creator = factory.UserClient(103, AppRole.Creator);
 
-        var intake = await CreatePublishedAsync(creator);
+        var intake = await CreatePublishedAsync(factory, creator);
         Assert.Equal("Published", intake.Status);
         Assert.Equal(103, intake.ConfirmedByCreatorId);
         Assert.Equal(100, intake.TrainerId);
@@ -44,21 +44,19 @@ public sealed class B4WorkflowIntegrationTests
             new UpdateSessionDeliveryRequest("https://example.com/live-room", intake.Version)));
         Assert.Equal("https://example.com/live-room", Assert.Single(intake.Sessions).MeetingLink);
 
-        var changedEnd = intake.EndsAt.AddDays(1);
-        intake = await Detail(await creator.PutAsJsonAsync($"/api/creator/intakes/{intake.Id}/sessions/{session.Id}",
+        // The Trainer accepted this timetable, so the Creator can no longer change it.
+        await Error(await creator.PutAsJsonAsync($"/api/creator/intakes/{intake.Id}/sessions/{session.Id}",
             new UpdateCourseSessionRequest("Advanced workshop", session.StartsAt, session.EndsAt,
-                "https://example.com/live-room", null, 0, null, intake.Version)));
-        intake = await Detail(await creator.PutAsJsonAsync($"/api/creator/intakes/{intake.Id}",
-            new UpdateCourseIntakeRequest(intake.RegistrationOpensAt, intake.RegistrationClosesAt, intake.StartsAt, changedEnd, intake.Version)));
-        Assert.Equal("Published", intake.Status);
-        Assert.Equal(changedEnd, intake.EndsAt);
-        Assert.Equal("Advanced workshop", Assert.Single(intake.Sessions).Label);
+                "https://example.com/live-room", null, 0, null, intake.Version)), 409, "SCHEDULE_LOCKED");
+        await Error(await creator.PutAsJsonAsync($"/api/creator/intakes/{intake.Id}",
+            new UpdateCourseIntakeRequest(intake.RegistrationOpensAt, intake.RegistrationClosesAt, intake.StartsAt, intake.EndsAt.AddDays(1), intake.Version)),
+            409, "SCHEDULE_LOCKED");
 
         var logs = await factory.ReadAsync(db => db.AuditLogs.Where(log => log.EntityType == nameof(CourseIntake)
             && log.EntityId == intake.Id.ToString()).ToListAsync());
         Assert.Contains(logs, log => log.Action == "CourseIntakePublished" && log.UserId == 103);
         Assert.Contains(logs, log => log.Action == "CourseSessionDeliveryUpdated" && log.UserId == 100);
-        Assert.Contains(logs, log => log.Action == "CourseIntakeUpdated" && log.UserId == 103);
+        Assert.Contains(logs, log => log.Action == "CourseIntakeTrainerAccepted" && log.UserId == 100);
     }
 
     [Fact]
@@ -69,7 +67,7 @@ public sealed class B4WorkflowIntegrationTests
         using var trainer = factory.UserClient(100, AppRole.Trainer);
         using var creator = factory.UserClient(103, AppRole.Creator);
 
-        var published = await CreatePublishedAsync(creator);
+        var published = await CreatePublishedAsync(factory, creator);
         var session = Assert.Single(published.Sessions);
         var title = $"Uploaded before removal {Guid.NewGuid():N}";
         var payload = "uploaded session material"u8.ToArray();
@@ -80,7 +78,7 @@ public sealed class B4WorkflowIntegrationTests
         Assert.NotNull(material);
 
         await Error(await creator.DeleteAsync($"/api/creator/intakes/{published.Id}/sessions/{session.Id}?version={published.Version}"),
-            409, "SESSION_HAS_MATERIALS");
+            409, "SCHEDULE_LOCKED");
 
         var current = await trainer.GetFromJsonAsync<CourseIntakeDetailDto>($"/api/trainer/intakes/{published.Id}");
         Assert.Equal("Published", current!.Status);
@@ -101,7 +99,7 @@ public sealed class B4WorkflowIntegrationTests
         using var otherCreator = factory.UserClient(104, AppRole.Creator);
         using var admin = factory.AdminClient();
         using var member = factory.UserClient(102, AppRole.Member);
-        var intake = await CreatePublishedAsync(creator);
+        var intake = await CreatePublishedAsync(factory, creator);
 
         await Error(await admin.GetAsync("/api/creator/intakes"), 401, "UNAUTHENTICATED");
         await Error(await otherCreator.GetAsync($"/api/creator/intakes/{intake.Id}"), 404, "INTAKE_NOT_FOUND");
@@ -119,7 +117,7 @@ public sealed class B4WorkflowIntegrationTests
         await factory.InitializeAsync();
         using var trainer = factory.UserClient(100, AppRole.Trainer);
         using var creator = factory.UserClient(105, AppRole.Creator);
-        var published = await CreatePublishedAsync(creator, 101, 100);
+        var published = await CreatePublishedAsync(factory, creator, 101, 100);
         Assert.Equal("Published", published.Status);
         Assert.Equal(105, published.ConfirmedByCreatorId);
         Assert.Equal(published.Id, Assert.Single((await trainer.GetFromJsonAsync<List<CourseIntakeSummaryDto>>("/api/trainer/intakes"))!).Id);
@@ -128,18 +126,17 @@ public sealed class B4WorkflowIntegrationTests
     }
 
     [Fact]
-    public async Task PublishedSchedule_CanBeEditedUntilALearnerCommits()
+    public async Task PublishedSchedule_IsFixed_AndLearnersCommittingKeepItThatWay()
     {
         using var factory = new B4ApiFactory();
         await factory.InitializeAsync();
         using var creator = factory.UserClient(103, AppRole.Creator);
-        var published = await CreatePublishedAsync(creator);
+        var published = await CreatePublishedAsync(factory, creator);
         var session = Assert.Single(published.Sessions);
-        var edited = await Detail(await creator.PutAsJsonAsync($"/api/creator/intakes/{published.Id}/sessions/{session.Id}",
+        await Error(await creator.PutAsJsonAsync($"/api/creator/intakes/{published.Id}/sessions/{session.Id}",
             new UpdateCourseSessionRequest("Agreed workshop title", session.StartsAt, session.EndsAt,
-                session.MeetingLink, null, 0, null, published.Version)));
-        Assert.Equal("Published", edited.Status);
-        Assert.Equal("Agreed workshop title", Assert.Single(edited.Sessions).Label);
+                session.MeetingLink, null, 0, null, published.Version)), 409, "SCHEDULE_LOCKED");
+        var edited = published;
 
         await factory.ReadAsync(async db =>
         {
@@ -166,8 +163,7 @@ public sealed class B4WorkflowIntegrationTests
         var session = Assert.Single(draft.Sessions);
         await Error(await trainer.PatchAsJsonAsync($"/api/trainer/intakes/{draft.Id}/sessions/{session.Id}/delivery",
             new UpdateSessionDeliveryRequest("https://example.com", draft.Version)), 409, "DELIVERY_NOT_EDITABLE");
-        var published = await Detail(await creator.PostAsJsonAsync($"/api/creator/intakes/{draft.Id}/publish",
-            new SubmitCourseIntakeRequest(draft.Version)));
+        var published = await AcceptAndPublishAsync(factory, creator, draft);
         session = Assert.Single(published.Sessions);
         await Error(await otherTrainer.PatchAsJsonAsync($"/api/trainer/intakes/{published.Id}/sessions/{session.Id}/delivery",
             new UpdateSessionDeliveryRequest("https://example.com/forged", published.Version)), 404, "INTAKE_NOT_FOUND");
@@ -197,7 +193,7 @@ public sealed class B4WorkflowIntegrationTests
         await factory.InitializeAsync();
         using var trainer = factory.UserClient(100, AppRole.Trainer);
         using var creator = factory.UserClient(103, AppRole.Creator);
-        var published = await CreatePublishedAsync(creator);
+        var published = await CreatePublishedAsync(factory, creator);
         await factory.ReadAsync(async db =>
         {
             (await db.CourseIntakes.FindAsync(published.Id))!.Status = CourseIntakeStatus.InProgress;
@@ -210,13 +206,26 @@ public sealed class B4WorkflowIntegrationTests
         Assert.Equal("https://example.com/in-progress", Assert.Single(delivered.Sessions).MeetingLink);
     }
 
-    private static async Task<CourseIntakeDetailDto> CreatePublishedAsync(HttpClient creator, int courseId = 100, int trainerId = 100)
+    private static async Task<CourseIntakeDetailDto> CreatePublishedAsync(B4ApiFactory factory, HttpClient creator, int courseId = 100, int trainerId = 100)
     {
         var intake = await Detail(await creator.PostAsJsonAsync($"/api/creator/courses/{courseId}/intakes", DraftFor(trainerId)), HttpStatusCode.Created);
         intake = await Detail(await creator.PostAsJsonAsync($"/api/creator/intakes/{intake.Id}/sessions",
             new CreateCourseSessionRequest("Session 1", Start, Start.AddHours(2), "https://example.com/class", null, 0, null, intake.Version)));
-        return await Detail(await creator.PostAsJsonAsync($"/api/creator/intakes/{intake.Id}/publish",
-            new SubmitCourseIntakeRequest(intake.Version)));
+        return await AcceptAndPublishAsync(factory, creator, intake);
+    }
+
+    // The Creator sends the schedule, the assigned Trainer accepts it, then the Creator publishes.
+    private static async Task<CourseIntakeDetailDto> AcceptAndPublishAsync(B4ApiFactory factory, HttpClient creator, CourseIntakeDetailDto draft)
+    {
+        var invited = await Detail(await creator.PostAsJsonAsync($"/api/creator/intakes/{draft.Id}/send-to-trainer",
+            new SubmitCourseIntakeRequest(draft.Version)));
+        Assert.Equal("Invited", invited.TrainerInvitationStatus);
+        using (var trainer = factory.UserClient(draft.TrainerId, AppRole.Trainer))
+        using (var accepted = await trainer.PostAsync($"/api/trainer/intake-invitations/{draft.Id}/accept", null))
+            Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+        var current = await Detail(await creator.GetAsync($"/api/creator/intakes/{draft.Id}"));
+        return await Detail(await creator.PostAsJsonAsync($"/api/creator/intakes/{draft.Id}/publish",
+            new SubmitCourseIntakeRequest(current.Version)));
     }
 
     private static async Task<CourseIntakeDetailDto> Detail(HttpResponseMessage response, HttpStatusCode status = HttpStatusCode.OK)

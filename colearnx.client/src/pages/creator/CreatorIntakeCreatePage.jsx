@@ -11,9 +11,14 @@ const loadCourses = (token, key, signal) => creatorCoursesApi.list(token, signal
 const loadCourse = (token, courseId, signal) => creatorCoursesApi.get(token, courseId, signal);
 const loadAccepted = (token, courseId, signal) => courseTrainersApi.list(token, courseId, signal);
 
+// Trainers who joined the course or applied to teach it can be invited to an Intake; applicants come first.
+const invitable = (roster) => (Array.isArray(roster) ? roster : [])
+  .filter((trainer) => trainer.status === 'Accepted' || trainer.status === 'Requested')
+  .sort((left, right) => (left.status === 'Requested' ? 0 : 1) - (right.status === 'Requested' ? 0 : 1));
+
 function CourseClassForm({ course, onCancel, onCreated }) {
   const query = useTrainerQuery(loadAccepted, String(course.id));
-  const trainers = (Array.isArray(query.data) ? query.data : []).filter((trainer) => trainer.status === 'Accepted');
+  const trainers = invitable(query.data);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -29,18 +34,18 @@ function CourseClassForm({ course, onCancel, onCreated }) {
   }
 
   if (course.status !== 'Published') {
-    return <div className="creator-empty"><strong>Publish this course first</strong><p>Publish a course before opening a class.</p></div>;
+    return <div className="creator-empty"><strong>Publish this course first</strong><p>An Admin must approve the course before you create an intake.</p></div>;
   }
   return <>
-    <CreatorHeader eyebrow="Classes / New" title="Open a class.">
-      Say when the class meets and who teaches it. Every session is created for you. Publish the class now, or save it as a draft.
+    <CreatorHeader eyebrow="Intakes / New" title="Create an intake.">
+      Enter every session of this intake and choose who teaches it. The trainer receives the whole schedule and accepts it before you publish.
     </CreatorHeader>
     {query.loading ? <div className="creator-empty" role="status">Loading trainers…</div>
       : query.error ? <CreatorError error={query.error} onRetry={query.refresh} />
         : trainers.length ? <>
           <CreatorError error={error} />
           <OpenClassForm trainers={trainers} onSave={create} onCancel={onCancel} busy={busy} error={error} onError={setError} />
-        </> : <div className="creator-empty"><strong>No accepted Trainer yet</strong><p>Invite a Trainer and wait until they accept this course.</p></div>}
+        </> : <div className="creator-empty"><strong>No trainer for this course yet</strong><p>Invite a Trainer to the course, or wait for one to apply.</p></div>}
   </>;
 }
 
@@ -57,7 +62,7 @@ function StandaloneCreate() {
     if (!courseId) return;
     try {
       const roster = await courseTrainersApi.list(query.token, courseId);
-      setTrainers(roster.filter((trainer) => trainer.status === 'Accepted'));
+      setTrainers(invitable(roster));
     } catch (failure) { setError(failure); }
   }
 
@@ -73,16 +78,16 @@ function StandaloneCreate() {
   }
 
   return <section className="creator-page">
-    <Link className="creator-back" to="/creator/intakes">← All classes</Link>
-    <CreatorHeader eyebrow="Classes / New" title="Open a class.">
-      Choose a published course, say when the class meets and who teaches it. Every session is created for you.
+    <Link className="creator-back" to="/creator/intakes">← All intakes</Link>
+    <CreatorHeader eyebrow="Intakes / New" title="Create an intake.">
+      Choose a published course, enter every session and who teaches it. The trainer accepts the schedule before you publish.
     </CreatorHeader>
     {query.loading ? <div className="creator-empty" role="status">Loading courses…</div>
       : query.error ? <CreatorError error={query.error} onRetry={query.refresh} />
         : published.length ? <>
           <CreatorError error={error} />
           <OpenClassForm courses={published} trainers={trainers} onCourseChange={onCourseChange} onSave={create} onCancel={() => navigate('/creator/intakes')} busy={busy} error={error} onError={setError} />
-        </> : <div className="creator-empty"><strong>No published courses</strong><p>Publish a course before opening a class.</p></div>}
+        </> : <div className="creator-empty"><strong>No published courses</strong><p>An Admin must approve a course before you create an intake.</p></div>}
     </section>;
 }
 

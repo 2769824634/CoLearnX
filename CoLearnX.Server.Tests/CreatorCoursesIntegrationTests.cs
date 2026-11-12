@@ -364,6 +364,19 @@ public class CreatorCoursesIntegrationTests : IClassFixture<CoLearnXApiFactory>
         intake = await withSession.Content.ReadFromJsonAsync<CourseIntakeDetailDto>(ApiJson.Options);
         Assert.NotNull(intake);
 
+        // The Trainer sees the whole schedule and accepts it before the Creator can publish.
+        var sent = await creator.PostAsJsonAsync($"/api/creator/intakes/{intake.Id}/send-to-trainer",
+            new SubmitCourseIntakeRequest(intake.Version));
+        sent.EnsureSuccessStatusCode();
+        using (var trainer = await AsUserAsync(SeedData.TrainerEmail, "Trainer"))
+        {
+            var invitations = await trainer.GetFromJsonAsync<List<IntakeInvitationDto>>("/api/trainer/intake-invitations", ApiJson.Options);
+            Assert.Equal("Workshop 1", Assert.Single(invitations!, item => item.IntakeId == intake.Id).Sessions.Single().Label);
+            (await trainer.PostAsync($"/api/trainer/intake-invitations/{intake.Id}/accept", null)).EnsureSuccessStatusCode();
+        }
+        intake = await creator.GetFromJsonAsync<CourseIntakeDetailDto>($"/api/creator/intakes/{intake.Id}", ApiJson.Options);
+        Assert.Equal("Accepted", intake!.TrainerInvitationStatus);
+
         var published = await creator.PostAsJsonAsync($"/api/creator/intakes/{intake.Id}/publish",
             new SubmitCourseIntakeRequest(intake.Version));
         published.EnsureSuccessStatusCode();

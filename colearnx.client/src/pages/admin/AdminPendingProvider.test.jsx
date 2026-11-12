@@ -62,7 +62,7 @@ it('hides a badge at zero and caps large numbers at 99+', async () => {
   await settle();
 
   expect(screen.getByRole('link', { name: 'Approvals, 124 pending' }).textContent).toContain('99+');
-  expect(screen.getByRole('link', { name: 'Classes' }).textContent).toBe('Classes');
+  expect(screen.getByRole('link', { name: 'Intakes' }).textContent).toBe('Intakes');
 });
 
 it('refreshes every 30 seconds while visible and when the window becomes visible again', async () => {

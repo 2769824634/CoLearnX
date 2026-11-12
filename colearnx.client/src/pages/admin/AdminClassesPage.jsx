@@ -31,14 +31,14 @@ export default function AdminClassesPage() {
   const openClass = (id) => setParams(id ? { classId: String(id) } : {});
 
   return <section className="admin-review-page later-page">
-    <header className="admin-review-header"><div><p className="admin-form-eyebrow">Class overview</p><h1>Classes</h1>
-      <p>Every class on the platform in one table. Open a class to see its sessions, learners, materials and certificates.</p></div>
+    <header className="admin-review-header"><div><p className="admin-form-eyebrow">Intake overview</p><h1>Intakes</h1>
+      <p>Every intake on the platform in one table. Open an intake to see its sessions, learners, materials and certificates.</p></div>
       <button className="btn btn-ghost" type="button" onClick={query.refresh} disabled={query.loading}>Refresh</button>
     </header>
     <AdminDataState loading={query.loading} error={query.error} onRetry={query.refresh} />
     {query.data ? <>
       <dl className="admin-summary-stats">
-        <div><dt>All classes</dt><dd>{rows.length}</dd></div>
+        <div><dt>All intakes</dt><dd>{rows.length}</dd></div>
         <div><dt>In progress</dt><dd>{running}</dd></div>
         <div><dt>Open for registration</dt><dd>{open}</dd></div>
         <div><dt>Attendance below {Math.round(LOW_ATTENDANCE * 100)}%</dt><dd className={low ? 'later-negative' : undefined}>{low}</dd></div>
@@ -61,9 +61,9 @@ export default function AdminClassesPage() {
         </select></label>
       </form>
       <p className="admin-class-hint">Rows in red have attendance below {Math.round(LOW_ATTENDANCE * 100)}%.</p>
-      <AdminClassTable rows={shown} onOpen={openClass} emptyText={rows.length ? 'No classes match these filters.' : 'No classes yet.'} />
+      <AdminClassTable rows={shown} onOpen={openClass} emptyText={rows.length ? 'No intakes match these filters.' : 'No intakes yet.'} />
     </> : null}
-    <Modal open={selectedId !== null} title="Class details" onClose={() => openClass(null)} width={1100}>
+    <Modal open={selectedId !== null} title="Intake details" onClose={() => openClass(null)} width={1100}>
       {selectedId !== null ? <AdminClassDetail key={selectedId} classId={selectedId} onChanged={query.refresh} /> : null}
     </Modal>
   </section>;

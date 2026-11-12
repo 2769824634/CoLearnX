@@ -191,11 +191,12 @@ function CourseEditor({ initialCourse, source, initialMaterials, options, token 
     }
   }
 
-  function onNextStep(action) {
+  function onNextStep(action, step) {
     if (action === 'submit') submitForApproval();
     else if (action === 'edit') { goTo(0); formRef.current?.scrollIntoView?.({ block: 'start' }); }
     else if (action === 'invite') setInviteOpen(true);
     else if (action === 'class') navigate(`/creator/courses/${course.id}/intakes/new`);
+    else if (action === 'intake') navigate(`/creator/courses/${course.id}/intakes/${step.intakeId}`);
     else document.getElementById(action === 'classes' ? 'course-classes' : 'course-trainers')?.scrollIntoView?.({ block: 'start' });
   }
 
@@ -242,7 +243,8 @@ function CourseEditor({ initialCourse, source, initialMaterials, options, token 
     </>}
     {course ? <CourseMaterialsCard course={course} materials={materials} onMaterials={setMaterials} token={token} open={uploadOpen} onOpenChange={setUploadOpen} /> : null}
     {course ? <CourseTrainersCard courseId={course.id} onLoaded={setRoster} inviteOpen={inviteOpen} onInviteOpenChange={setInviteOpen} /> : null}
-    {course ? <CourseClassesSection course={course} onLoaded={setClasses} /> : null}
+    {/* Intakes can only be created after an Admin approves the course. */}
+    {course?.status === 'Published' ? <CourseClassesSection course={course} onLoaded={setClasses} /> : null}
   </section>;
 }
 

@@ -4,7 +4,7 @@ export const MemberNotificationsContext = createContext(null);
 export const useMemberNotifications = () => useContext(MemberNotificationsContext);
 
 const destinations = new Set(['/member/programs', '/member/badges', '/member/payment', '/member/disputes', '/trainer/courses', '/trainer/learners', '/trainer/invitations', '/creator/courses', '/creator/intakes', '/creator/approvals']);
-export const importantNotificationTypes = new Set(['N-course-published', 'N-course-rejected', 'N-course-invitation', 'N-course-invitation-accepted', 'N-course-invitation-declined', 'N-intake-published', 'N-intake-cancelled', 'N-intake-cancelled-creator', 'N-role-approved', 'N-role-rejected']);
+export const importantNotificationTypes = new Set(['N-course-published', 'N-course-rejected', 'N-course-invitation', 'N-course-invitation-accepted', 'N-course-invitation-declined', 'N-intake-invitation', 'N-intake-invitation-accepted', 'N-intake-invitation-declined', 'N-intake-published', 'N-intake-cancelled', 'N-intake-cancelled-creator', 'N-role-approved', 'N-role-rejected']);
 const programTabs = new Set(['active', 'reserved', 'completed', 'history']);
 
 export function safeNotificationPath(path) {

@@ -16,7 +16,7 @@ it('asks only for the registration close time and the minimum number of learners
 
   expect(screen.queryByLabelText(/Days before teaching/)).toBeNull();
   expect(screen.queryByLabelText(/Registration starts/)).toBeNull();
-  fireEvent.change(screen.getByLabelText('Minimum learners for the class to run'), { target: { value: '5' } });
+  fireEvent.change(screen.getByLabelText('Minimum learners for the intake to run'), { target: { value: '5' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save schedule' }));
 
   expect(onSave).toHaveBeenCalledWith(expect.objectContaining({

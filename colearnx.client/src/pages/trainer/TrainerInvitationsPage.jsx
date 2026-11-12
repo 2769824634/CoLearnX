@@ -3,6 +3,7 @@ import { courseTrainersApi } from '../../api/courseTrainers';
 import useTrainerQuery from './useTrainerQuery';
 import { TrainerError, TrainerHeader, TrainerLoading } from './TrainerUi';
 import { formatDate } from './intakeForm';
+import TrainerIntakeInvitations from './TrainerIntakeInvitations';
 
 const GROUPS = [
   { title: 'Waiting for you', statuses: ['Invited'], empty: 'No invitations are waiting for you.' },
@@ -103,8 +104,9 @@ export default function TrainerInvitationsPage() {
 
   return <section className="trainer-page">
     <TrainerHeader eyebrow="Course / Teaching invitations" title="Teaching invitations" action={<button type="button" className="btn btn-ghost" onClick={query.refresh} disabled={query.loading}>Refresh</button>}>
-      Apply for published Courses in your certified specialties, or respond when a Creator invites you.
+      Review intake schedules Creators send you, apply for published Courses in your certified specialties, or respond when a Creator invites you to a Course.
     </TrainerHeader>
+    <TrainerIntakeInvitations />
     {query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} />
       : <>
         <section aria-label="Available courses">

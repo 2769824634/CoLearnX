@@ -215,7 +215,7 @@ it('highlights Pricing in Admin navigation on /admin/pricing', () => {
   );
 
   const labels = screen.getAllByRole('link').map((link) => link.textContent);
-  expect(labels.filter((label) => label !== 'Skip to main content')).toEqual(['Home', 'Approvals', 'Users', 'Classes', 'Pricing', 'Learning paths', 'Audit Log', 'My Account']);
+  expect(labels.filter((label) => label !== 'Skip to main content')).toEqual(['Home', 'Approvals', 'Users', 'Intakes', 'Pricing', 'Learning paths', 'Audit Log', 'My Account']);
   expect(screen.getByRole('link', { name: 'Pricing' }).className).toMatch(/active/);
   expect(screen.queryByRole('link', { name: 'Disputes' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Class dates' })).toBeNull();

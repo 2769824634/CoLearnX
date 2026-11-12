@@ -3,13 +3,13 @@ import { defaultOpenClass, openClassPayload, planClass } from './openClass';
 
 const now = new Date(2026, 10, 12, 10, 0); // Thu 12 Nov 2026 10:00 local
 
-it('starts with values that can be published without touching a date', () => {
+it('starts with values that can be sent to the trainer without touching a date', () => {
   const values = { ...defaultOpenClass(now), meetingLink: 'https://example.com/room' };
   expect(values.firstDate).toBe('2026-11-26');
   expect(values.firstTime).toBe('18:00');
   expect(planClass(values, now).problem).toBeNull();
   const body = openClassPayload(values, 7, true, now);
-  expect(body).toMatchObject({ trainerId: 7, sessionMinutes: 120, registrationClosesDaysBefore: 2, minEnrollment: 3, publish: true, meetingLink: 'https://example.com/room' });
+  expect(body).toMatchObject({ trainerId: 7, sessionMinutes: 120, registrationClosesDaysBefore: 2, minEnrollment: 3, publish: false, sendToTrainer: true, meetingLink: 'https://example.com/room' });
   expect(body.sessionStarts).toEqual([new Date(2026, 10, 26, 18, 0).toISOString()]);
 });
 
@@ -36,7 +36,7 @@ it('requires a place to meet and a trainer', () => {
 
 it('sends a physical location only when one is included', () => {
   const body = openClassPayload({ ...defaultOpenClass(now), physical: true, physicalAddress: ' Room 2 ', physicalCapacity: '12' }, 7, false, now);
-  expect(body).toMatchObject({ meetingLink: null, physicalAddress: 'Room 2', physicalCapacity: 12, publish: false });
+  expect(body).toMatchObject({ meetingLink: null, physicalAddress: 'Room 2', physicalCapacity: 12, publish: false, sendToTrainer: false });
 });
 
 import { initialSession } from '../trainer/intakeForm';

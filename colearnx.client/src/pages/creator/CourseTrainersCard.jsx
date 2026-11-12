@@ -68,7 +68,7 @@ export default function CourseTrainersCard({ courseId, onLoaded, inviteOpen, onI
       <button type="button" className="btn btn-primary btn-sm" onClick={() => setInviting(true)}>Invite trainer</button>
     </div>
     <div className="card-body">
-      <p className="page-sub" style={{ marginTop: 0 }}>Invite Trainers to teach this Course. Trainers who accept become available when you open a class.</p>
+      <p className="page-sub" style={{ marginTop: 0 }}>Invite Trainers to teach this Course. Trainers who accept can be invited to teach an intake.</p>
       <CreatorError error={error} />
       {query.loading ? <div className="creator-empty" role="status">Loading trainers…</div>
         : query.error ? <CreatorError error={query.error} onRetry={query.refresh} />
@@ -89,7 +89,7 @@ export default function CourseTrainersCard({ courseId, onLoaded, inviteOpen, onI
     </div>
     {inviting ? <InviteDialog courseId={courseId} roster={roster} onInvite={invite} busyId={busyId} onClose={() => setInviting(false)} /> : null}
     <Modal open={Boolean(removing)} title={removing ? `Remove ${removing.fullName}?` : ''} onClose={() => setRemoving(null)}>
-      <p style={{ marginTop: 0 }}>They will no longer be available for new classes of this Course. Classes they already teach are not changed.</p>
+      <p style={{ marginTop: 0 }}>They will no longer be available for new intakes of this Course. Intakes they already teach are not changed.</p>
       <div className="trainer-actions">
         <button type="button" className="btn btn-ghost" onClick={() => setRemoving(null)}>Cancel</button>
         <button type="button" className="btn btn-primary" disabled={busyId === removing?.trainerId} onClick={async () => {

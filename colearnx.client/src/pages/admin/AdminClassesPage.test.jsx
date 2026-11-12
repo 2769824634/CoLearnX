@@ -41,7 +41,7 @@ it('opens a class with its sessions, learners, certificates and materials', asyn
   render(<MemoryRouter><AdminClassesPage /></MemoryRouter>);
   fireEvent.click(await screen.findByRole('button', { name: 'UI/UX Design' }));
 
-  const dialog = await screen.findByRole('dialog', { name: 'Class details' });
+  const dialog = await screen.findByRole('dialog', { name: 'Intake details' });
   expect(await within(dialog).findByText('Kick-off', { selector: 'strong' })).toBeTruthy();
   expect(within(dialog).getByText('3 of 4')).toBeTruthy();
   expect(within(dialog).getByText('Waiting for admin')).toBeTruthy();

@@ -37,9 +37,9 @@ function renderTrainerIntake(overrides = {}) {
   </MemoryRouter></AuthContext.Provider>);
 }
 
-it('creates a replacement Draft from the cancelled class schedule and opens it', async () => {
+it('creates a replacement Draft from the cancelled intake schedule and opens it', async () => {
   const fetch = renderIntake();
-  fireEvent.click(await screen.findByRole('button', { name: 'Create replacement class' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Create replacement intake' }));
   fireEvent.click(screen.getByRole('button', { name: 'Publish replacement' }));
   await screen.findByText('New replacement draft');
   const call = fetch.mock.calls.find(([path]) => path.endsWith('/postpone'));
@@ -50,10 +50,10 @@ it('creates a replacement Draft from the cancelled class schedule and opens it',
   expect(new Date(body.startsAt) > new Date('2099-01-20T00:00:00Z')).toBe(true);
 });
 
-it.each([{ cancellationReason: 'TrainerCancelled' }, { postponementAvailableUntil: '2000-01-01T00:00:00Z' }, { replacementIntakeId: 20 }])('does not offer a replacement for ineligible class %j', async (overrides) => {
+it.each([{ cancellationReason: 'TrainerCancelled' }, { postponementAvailableUntil: '2000-01-01T00:00:00Z' }, { replacementIntakeId: 20 }])('does not offer a replacement for ineligible intake %j', async (overrides) => {
   renderIntake(overrides);
   await waitFor(() => expect(screen.getByRole('heading', { name: 'Schedule' })).toBeTruthy());
-  expect(screen.queryByRole('button', { name: 'Create replacement class' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Create replacement intake' })).toBeNull();
 });
 
 it('shows the same reservation progress and UTC schedule on the Intake detail', async () => {

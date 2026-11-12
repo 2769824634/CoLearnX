@@ -57,6 +57,14 @@ public sealed class CreatorIntakesController(ICourseIntakeService intakes, IInta
     public async Task<ActionResult<CourseIntakeDetailDto>> Publish(int courseIntakeId, [FromBody] SubmitCourseIntakeRequest request, CancellationToken ct)
         => Ok(await intakes.PublishAsync(User.GetUserId(), courseIntakeId, request.Version, ct));
 
+    [HttpPost("intakes/{courseIntakeId:int}/send-to-trainer")]
+    public async Task<ActionResult<CourseIntakeDetailDto>> SendToTrainer(int courseIntakeId, [FromBody] SubmitCourseIntakeRequest request, CancellationToken ct)
+        => Ok(await intakes.SendToTrainerAsync(User.GetUserId(), courseIntakeId, request.Version, ct));
+
+    [HttpPost("intakes/{courseIntakeId:int}/withdraw-invitation")]
+    public async Task<ActionResult<CourseIntakeDetailDto>> WithdrawInvitation(int courseIntakeId, [FromBody] SubmitCourseIntakeRequest request, CancellationToken ct)
+        => Ok(await intakes.WithdrawTrainerInvitationAsync(User.GetUserId(), courseIntakeId, request.Version, ct));
+
     [HttpPost("intakes/{courseIntakeId:int}/cancel")]
     public async Task<ActionResult<IntakeSettlementResult>> Cancel(int courseIntakeId, CancellationToken ct)
     {

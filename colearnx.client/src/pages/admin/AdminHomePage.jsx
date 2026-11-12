@@ -65,11 +65,11 @@ export default function AdminHomePage() {
         ) : null}
         <section className="admin-activity-panel" aria-labelledby="running-classes-title">
           <div className="admin-section-heading">
-            <div><h2 id="running-classes-title">Classes in progress</h2><p>Ending soonest first; red rows have low attendance</p></div>
-            <Link to="/admin/classes">View all classes <span aria-hidden="true">↗</span></Link>
+            <div><h2 id="running-classes-title">Intakes in progress</h2><p>Ending soonest first; red rows have low attendance</p></div>
+            <Link to="/admin/classes">View all intakes <span aria-hidden="true">↗</span></Link>
           </div>
           <AdminClassTable rows={sortEndingSoon(data.classes.filter((row) => row.status === 'InProgress')).slice(0, 5)}
-            onOpen={(id) => navigate(`/admin/classes?classId=${id}`)} emptyText="No class is running right now." />
+            onOpen={(id) => navigate(`/admin/classes?classId=${id}`)} emptyText="No intake is running right now." />
         </section>
         <section className="admin-activity-panel" aria-labelledby="recent-activity-title">
           <div className="admin-section-heading">

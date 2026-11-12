@@ -31,7 +31,7 @@ export default function CreatorHomePage() {
 
   return <section className="creator-page">
     <CreatorHeader eyebrow="Creator workspace" title={`Welcome back, ${firstName}.`} action={<Link className="btn btn-primary" to="/creator/courses/new">+ Create Course</Link>}>
-      {query.data ? attentionSummary(returned.length) : 'Create Courses, submit them for Admin approval, then open classes for accepted Trainers.'}
+      {query.data ? attentionSummary(returned.length) : 'Create Courses, submit them for Admin approval, then create intakes and send their schedules to Trainers.'}
     </CreatorHeader>
     {query.loading ? <div className="creator-empty" role="status">Loading your workspace…</div>
       : query.error ? <CreatorError error={query.error} onRetry={query.refresh} />
@@ -54,7 +54,7 @@ export default function CreatorHomePage() {
             </section>
             <section aria-labelledby="creator-classes-title">
               <div className="creator-home-heading"><h2 id="creator-classes-title">Classes</h2><Link to="/creator/courses">Open a course →</Link></div>
-              <p>Materials, classes, and sessions live on each course. Open a published course to create them.</p>
+              <p>Materials, intakes, and sessions live on each course. Open a published course to create them.</p>
             </section>
           </div>
           <section className="creator-quick-actions" aria-labelledby="creator-actions-title">

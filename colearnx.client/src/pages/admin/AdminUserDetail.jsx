@@ -23,11 +23,11 @@ function TeachingTab({ activity, openClass }) {
   const current = activity.teachingClasses.filter((row) => !FINISHED.has(row.status));
   const finished = activity.teachingClasses.filter((row) => FINISHED.has(row.status));
   return <>
-    <h4 className="admin-detail-heading">Classes this Trainer is teaching</h4>
-    <AdminClassTable rows={current} onOpen={openClass} hideTrainer emptyText="Not teaching any class right now." />
+    <h4 className="admin-detail-heading">Intakes this Trainer is teaching</h4>
+    <AdminClassTable rows={current} onOpen={openClass} hideTrainer emptyText="Not teaching any intake right now." />
     <details className="admin-collapse">
-      <summary>Finished and cancelled classes ({finished.length})</summary>
-      <AdminClassTable rows={finished} onOpen={openClass} hideTrainer emptyText="No finished classes." />
+      <summary>Finished and cancelled intakes ({finished.length})</summary>
+      <AdminClassTable rows={finished} onOpen={openClass} hideTrainer emptyText="No finished intakes." />
     </details>
   </>;
 }
@@ -37,7 +37,7 @@ function CreatorTab({ activity, openClass }) {
   return <>
     <dl className="admin-summary-stats">
       <div><dt>Courses</dt><dd>{courses.length}</dd></div>
-      <div><dt>Classes run</dt><dd>{courses.reduce((sum, course) => sum + course.classCount, 0)}</dd></div>
+      <div><dt>Intakes run</dt><dd>{courses.reduce((sum, course) => sum + course.classCount, 0)}</dd></div>
       <div><dt>Learners in total</dt><dd>{courses.reduce((sum, course) => sum + course.learnerCount, 0)}</dd></div>
       <div><dt>Royalty income</dt><dd>{formatCount(activity.royaltyCredits, 'credit')}</dd></div>
     </dl>
@@ -47,9 +47,9 @@ function CreatorTab({ activity, openClass }) {
         <strong>{course.title}</strong>
         <span>{course.code}</span>
         <span className="pill neutral">{COURSE_STATUS[course.status] || course.status}</span>
-        <span>{formatCount(course.classCount, 'class', 'classes')} · {formatCount(course.learnerCount, 'learner')}</span>
+        <span>{formatCount(course.classCount, 'intake', 'intakes')} · {formatCount(course.learnerCount, 'learner')}</span>
       </summary>
-      <AdminClassTable rows={course.classes} onOpen={openClass} hideCreator emptyText="No classes opened for this course yet." />
+      <AdminClassTable rows={course.classes} onOpen={openClass} hideCreator emptyText="No intakes opened for this course yet." />
     </details>)}</div> : <p className="admin-review-state">This Creator has not created a course yet.</p>}
   </>;
 }
@@ -66,11 +66,11 @@ function LearningTab({ activity, openClass }) {
       <div><dt>Total spent on courses</dt><dd>{formatCount(activity.totalSpentCredits, 'credit')}</dd></div>
     </dl>
     <h4 className="admin-detail-heading">Courses</h4>
-    <div className="later-table-wrap"><table className="later-table"><thead><tr><th>Course</th><th>Class dates</th><th>Status</th><th>Attendance</th><th>Credits</th></tr></thead>
+    <div className="later-table-wrap"><table className="later-table"><thead><tr><th>Course</th><th>Intake dates</th><th>Status</th><th>Attendance</th><th>Credits</th></tr></thead>
       <tbody>{learning.map((item) => <tr key={item.enrollmentId} className={isLowAttendance(item.attendanceRate) ? 'admin-class-low' : undefined}>
         <td>{item.classId
           ? <button type="button" className="account-name-button" onClick={() => openClass(item.classId)}>{item.courseTitle}</button>
-          : <strong>{item.courseTitle}</strong>}<small>{item.courseCode}{item.classId ? ` · Class #${item.classId}` : ''}</small></td>
+          : <strong>{item.courseTitle}</strong>}<small>{item.courseCode}{item.classId ? ` · Intake #${item.classId}` : ''}</small></td>
         <td>{classDates(item).start} → {classDates(item).end}</td>
         <td>{LEARNING_STATUS[item.status] || item.status}</td>
         <td>{attendanceText(item.attendanceRate)}<small>{item.attended} of {item.sessionsHeld} sessions</small></td>

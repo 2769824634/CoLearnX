@@ -9,7 +9,7 @@ import { formatDate, intakeLink } from './intakeForm';
 const PIPELINE = [
   ['Published', 'Upcoming', 'Assigned and published', (status) => status === 'Published'],
   ['InProgress', 'Teaching now', 'In progress', (status) => status === 'InProgress'],
-  ['Completed', 'Finished', 'Completed classes', (status) => status === 'Completed'],
+  ['Completed', 'Finished', 'Completed intakes', (status) => status === 'Completed'],
 ];
 
 const QUICK_ACTIONS = [
@@ -17,12 +17,12 @@ const QUICK_ACTIONS = [
   ['/trainer/courses', 'Learner List', 'Choose a Course to manage its learners.'],
 ];
 
-const DELIVERY_STEPS = ['Accept the teaching invitation', 'Open the assigned class', 'Update the meeting link', 'Record attendance'];
+const DELIVERY_STEPS = ['Accept the teaching invitation', 'Open the assigned intake', 'Update the meeting link', 'Record attendance'];
 
 function attentionSummary(upcoming, teaching) {
   const items = [
-    upcoming ? formatCount(upcoming, 'upcoming class', 'upcoming classes') : null,
-    teaching ? `${formatCount(teaching, 'class')} in progress` : null,
+    upcoming ? formatCount(upcoming, 'upcoming intake', 'upcoming intakes') : null,
+    teaching ? `${formatCount(teaching, 'intake')} in progress` : null,
   ].filter(Boolean);
   return items.length ? `${items.join(' and ')}.` : 'Nothing needs your attention right now.';
 }
@@ -42,7 +42,7 @@ function TeachingNext({ intake, courses }) {
       <div className="trainer-next-body">
         <p className="trainer-eyebrow" id="trainer-next-title">Teaching next</p>
         <h2>No confirmed delivery yet</h2>
-        <p>Published classes assigned to you appear here.</p>
+        <p>Published intakes you accepted appear here.</p>
       </div>
     </section>;
   }
@@ -75,7 +75,7 @@ export default function TrainerHomePage() {
 
   return <section className="trainer-page">
     <TrainerHeader title={`Welcome back, ${firstName}.`} action={<Link className="btn btn-primary" to="/trainer/invitations">Teaching invitations</Link>}>
-      {query.data ? attentionSummary(upcoming.length, teaching.length) : 'Classes assigned to you appear here after you accept a teaching invitation.'}
+      {query.data ? attentionSummary(upcoming.length, teaching.length) : 'Intakes appear here after you accept their schedule on the Teaching invitations page.'}
     </TrainerHeader>
     {query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <div className="trainer-home-layout">
       <div className="trainer-home-main">
@@ -92,7 +92,7 @@ export default function TrainerHomePage() {
         <section aria-labelledby="trainer-prepare-title">
           <div className="trainer-section-heading"><h2 id="trainer-prepare-title">Pick up where you left off</h2><Link to="/trainer/courses">All Courses →</Link></div>
           <TrainerError error={query.data.catalogError} onRetry={query.refresh} retryLabel="Reload course names" />
-          <IntakeRows intakes={[...teaching, ...upcoming].slice(0, 5)} courses={query.data.courses} empty="No assigned classes yet. Accept a teaching invitation to be added to a course." />
+          <IntakeRows intakes={[...teaching, ...upcoming].slice(0, 5)} courses={query.data.courses} empty="No assigned intakes yet. Accept a teaching invitation to be added to a course." />
         </section>
       </div>
       <aside className="trainer-home-side">

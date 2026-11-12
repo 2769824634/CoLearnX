@@ -28,13 +28,13 @@ export default function TrainerCourseDetailPage() {
     <div className="trainer-detail-nav"><Link className="trainer-back" to="/trainer/courses">← All courses</Link></div>
     {query.loading ? <TrainerLoading /> : query.error ? <TrainerError error={query.error} onRetry={query.refresh} /> : <>
       <TrainerHeader eyebrow={query.data.course.courseCode} title={query.data.course.courseTitle}>
-        Open a class, then choose the Session where delivery work belongs.
+        Open an intake, then choose the Session where delivery work belongs.
       </TrainerHeader>
-      <div className="trainer-section-heading"><div><p className="trainer-eyebrow">Classes</p><h2>Intakes <span className="trainer-count">{query.data.intakes.length}</span></h2></div></div>
+      <div className="trainer-section-heading"><div><p className="trainer-eyebrow">Schedule</p><h2>Intakes <span className="trainer-count">{query.data.intakes.length}</span></h2></div></div>
       {query.data.intakes.length ? <div className="trainer-sessions">{query.data.intakes.map((intake) => <article className="trainer-session-card" key={intake.id}>
         <div className="trainer-section-heading"><div><p className="trainer-eyebrow">{intake.trainerName || 'Trainer'}</p><h3><Link to={`/trainer/courses/intakes/${intake.id}`}>{formatDate(intake.startsAt)} → {formatDate(intake.endsAt)}</Link></h3></div><IntakeStatus status={intake.status} /></div>
         {intake.sessions?.length ? <ul className="later-resource-list">{intake.sessions.map((session) => <li key={session.id}><div><strong><Link to={`/trainer/courses/intakes/${intake.id}/sessions/${session.id}`}>{session.label}</Link></strong><small>{formatDate(session.startsAt)} → {formatDate(session.endsAt)}</small></div><Link className="btn btn-ghost" to={`/trainer/courses/intakes/${intake.id}/sessions/${session.id}`}>Open Session</Link></li>)}</ul> : <p className="trainer-help">No Sessions are configured for this Intake.</p>}
-      </article>)}</div> : <div className="trainer-empty">No classes have been assigned for this Course.</div>}
+      </article>)}</div> : <div className="trainer-empty">No intakes have been assigned for this Course.</div>}
       <section className="later-panel">
         <div className="trainer-section-heading"><div><p className="trainer-eyebrow">Course roster</p><h2>Learners & assessments</h2></div>
           <button type="button" className="btn btn-ghost" aria-expanded={learnersOpen} onClick={() => setLearnersOpen((value) => !value)}>{learnersOpen ? 'Hide learner list' : 'Show learner list'}</button>

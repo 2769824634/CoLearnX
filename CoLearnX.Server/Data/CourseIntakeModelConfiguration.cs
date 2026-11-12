@@ -27,6 +27,9 @@ internal static class CourseIntakeModelConfiguration
             e.Property(x => x.ConfirmedToRunAt).HasConversion(utc);
             e.Property(x => x.CancelledAt).HasConversion(utc);
             e.Property(x => x.CancellationReason).HasMaxLength(64);
+            e.Property(x => x.TrainerInvitedAt).HasConversion(utc);
+            e.Property(x => x.TrainerRespondedAt).HasConversion(utc);
+            e.Property(x => x.TrainerDeclineReason).HasMaxLength(500);
             e.HasOne(x => x.ReplacementForIntake).WithOne(x => x.ReplacementIntake)
                 .HasForeignKey<CourseIntake>(x => x.ReplacementForIntakeId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => x.ReplacementForIntakeId).IsUnique().HasFilter("ReplacementForIntakeId IS NOT NULL");

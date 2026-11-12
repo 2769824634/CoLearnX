@@ -52,7 +52,7 @@ it('greets the Trainer and summarises what needs attention', async () => {
   stubApi();
   renderHome();
   expect(await screen.findByRole('heading', { name: 'Welcome back, Gu.' })).toBeTruthy();
-  expect(screen.getByText('3 upcoming classes.')).toBeTruthy();
+  expect(screen.getByText('3 upcoming intakes.')).toBeTruthy();
 });
 
 it('features the earliest confirmed Intake that has not ended', async () => {
