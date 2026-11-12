@@ -70,10 +70,11 @@ export const adminRoleRequestsApi = {
       body: { decision, reason: reason || null, ...(specialtyIds ? { specialtyIds } : {}) },
     }),
   specialties: (token, signal) => apiRequest('/api/admin/role-requests/specialties', { token, signal }),
-  downloadResume: (token, roleRequestId) =>
-    downloadFile(`/api/admin/role-requests/${roleRequestId}/resume`, 'role-request-resume', token),
-  downloadIdDocument: (token, roleRequestId) =>
-    downloadFile(`/api/admin/role-requests/${roleRequestId}/id-document`, 'role-request-id', token),
+  // index picks one file when the applicant uploaded several for the same field.
+  downloadResume: (token, roleRequestId, index = 0) =>
+    downloadFile(`/api/admin/role-requests/${roleRequestId}/resume${index ? `?index=${index}` : ''}`, 'role-request-resume', token),
+  downloadIdDocument: (token, roleRequestId, index = 0) =>
+    downloadFile(`/api/admin/role-requests/${roleRequestId}/id-document${index ? `?index=${index}` : ''}`, 'role-request-id', token),
 };
 
 export const adminCourseReviewsApi = {
@@ -214,13 +215,14 @@ export const notificationsApi = {
 export const roleRequestsApi = {
   my: () => apiRequest('/api/role-requests/my'),
   specialties: () => apiRequest('/api/role-requests/specialties'),
+  // resume and idDocument take one File or an array of Files.
   create: (requestedRole, resume, idDocument, statement, specialtyIds = []) => {
     const body = new FormData();
     body.append('requestedRole', requestedRole);
     specialtyIds.forEach((id) => body.append('specialtyIds', String(id)));
     body.append('statement', statement);
-    body.append('resume', resume);
-    body.append('idDocument', idDocument);
+    [resume].flat().forEach((file) => body.append('resume', file));
+    [idDocument].flat().forEach((file) => body.append('idDocument', file));
     return apiRequest('/api/role-requests', { method: 'POST', body, asForm: true });
   },
 };

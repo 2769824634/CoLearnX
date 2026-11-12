@@ -33,8 +33,8 @@ public sealed class RoleRequestsController(IRoleRequestService roleRequests) : C
     public async Task<ActionResult<RoleRequestDto>> Create(
         [FromForm] string requestedRole,
         [FromForm] string? statement,
-        IFormFile? resume,
-        IFormFile? idDocument,
+        List<IFormFile>? resume,
+        List<IFormFile>? idDocument,
         [FromForm] List<int>? specialtyIds,
         CancellationToken ct)
     {
