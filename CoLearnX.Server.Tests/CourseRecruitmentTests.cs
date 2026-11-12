@@ -1,4 +1,3 @@
-using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
@@ -12,10 +11,9 @@ namespace CoLearnX.Server.Tests;
 
 public class CourseRecruitmentTests
 {
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task Published_courses_respect_recruitment_choice_and_notify_matching_trainers(bool open)
+    // Trainers no longer apply to Courses; a Creator invites them. Publishing only approves the waiting files.
+    [Fact]
+    public async Task Publishing_a_course_approves_its_files_and_offers_no_trainer_applications()
     {
         using var factory = new CoLearnXApiFactory();
         using var creator = await ApiClient.AsCreatorAsync(factory);
@@ -32,13 +30,10 @@ public class CourseRecruitmentTests
         var response = await creator.PostAsJsonAsync("/api/creator/courses", new {
             code = $"REC-{Guid.NewGuid():N}", title = "Security Essentials", courseLevelId = 1,
             courseSubjectId = subjectId, durationHours = 2, creditCost = 40, interestIds = new[] { interestId },
-            openToTrainerApplications = open,
         });
         response.EnsureSuccessStatusCode();
         var course = (await response.Content.ReadFromJsonAsync<JsonObject>())!;
-        Assert.Equal(open, course["openToTrainerApplications"]!.GetValue<bool>());
         var id = course["id"]!.GetValue<int>();
-        var code = course["code"]!.GetValue<string>();
         using var form = new MultipartFormDataContent();
         form.Add(new StringContent("Recruitment guide"), "title");
         form.Add(new StringContent(id.ToString()), "courseId");
@@ -53,16 +48,12 @@ public class CourseRecruitmentTests
         (await admin.PostAsJsonAsync($"/api/admin/courses/{id}/review", new AdminReviewRequest("Approve", null))).EnsureSuccessStatusCode();
         (await admin.PostAsJsonAsync($"/api/admin/courses/{id}/review", new AdminReviewRequest("Approve", null))).EnsureSuccessStatusCode();
 
-        var available = await trainer.GetFromJsonAsync<JsonArray>("/api/trainer/course-applications/available");
-        Assert.Equal(open, available!.Any(item => item!["courseId"]!.GetValue<int>() == id));
         var apply = await trainer.PostAsync($"/api/trainer/course-applications/{id}", null);
-        Assert.Equal(open ? HttpStatusCode.OK : HttpStatusCode.Conflict, apply.StatusCode);
+        Assert.False(apply.IsSuccessStatusCode);
         using var check = factory.Services.CreateScope();
         var database = check.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
         Assert.Equal(MaterialVersionStatus.Approved, (await database.CourseMaterialVersions
             .SingleAsync(version => version.LearningMaterialId == materialId)).Status);
-        var notices = await database.Notifications.Where(n => n.UserId == trainerId && n.Code == "N-course-seeking-trainer"
-            && n.Body.Contains(code)).CountAsync();
-        Assert.Equal(open ? 1 : 0, notices);
+        Assert.False(await database.CourseTrainers.AnyAsync(row => row.CourseId == id && row.TrainerId == trainerId));
     }
 }

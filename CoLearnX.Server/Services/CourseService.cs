@@ -109,7 +109,6 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         };
         ApplyCourseFields(course, input.Code, request.Title, request.Description,
             request.CreditCost, request.LearningOutcomes, input.Level, input.Path, priced.Subject, request.DurationHours, priced.ExceptionReason);
-        course.OpenToTrainerApplications = request.OpenToTrainerApplications;
         course.Interests = await ValidateInterestsAsync(request.InterestIds, priced.Subject, ct);
         db.Courses.Add(course);
         await db.SaveChangesAsync(ct);
@@ -138,7 +137,6 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         var selectedInterestIds = request.InterestIds;
         ApplyCourseFields(course, input.Code, request.Title, request.Description,
             request.CreditCost, request.LearningOutcomes, input.Level, input.Path, priced.Subject, request.DurationHours, priced.ExceptionReason);
-        course.OpenToTrainerApplications = request.OpenToTrainerApplications ?? course.OpenToTrainerApplications;
         if (selectedInterestIds is not null)
         {
             var validated = await ValidateInterestsAsync(selectedInterestIds, priced.Subject, ct);
@@ -580,6 +578,5 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             course.CourseSubjectId,
             course.CourseSubject?.Name,
             course.DurationHours,
-            course.PriceExceptionReason,
-            course.OpenToTrainerApplications);
+            course.PriceExceptionReason);
 }

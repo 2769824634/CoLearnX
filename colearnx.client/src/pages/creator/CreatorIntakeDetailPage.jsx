@@ -37,7 +37,7 @@ function trainerChange(intake, trainerId) {
 function TrainerPicker({ intake, busy, onSave, onCancel }) {
   const query = useTrainerQuery(loadRoster, String(intake.courseId));
   const options = (Array.isArray(query.data) ? query.data : [])
-    .filter((row) => (row.status === 'Accepted' || row.status === 'Requested') && row.trainerId !== intake.trainerId);
+    .filter((row) => row.status === 'Accepted' && row.trainerId !== intake.trainerId);
   const [picked, setPicked] = useState('');
   if (query.loading) return <div className="creator-empty" role="status">Loading trainers…</div>;
   if (query.error) return <CreatorError error={query.error} onRetry={query.refresh} />;
@@ -49,7 +49,7 @@ function TrainerPicker({ intake, busy, onSave, onCancel }) {
     <div className="form-group"><label htmlFor="intake-new-trainer">New trainer</label>
       <select id="intake-new-trainer" value={picked} onChange={(event) => setPicked(event.target.value)} required>
         <option value="">Choose a Trainer for this course</option>
-        {options.map((row) => <option key={row.trainerId} value={row.trainerId}>{row.fullName}{row.status === 'Requested' ? ' (applied to teach)' : ''}</option>)}
+        {options.map((row) => <option key={row.trainerId} value={row.trainerId}>{row.fullName}</option>)}
       </select></div>
     <div className="trainer-actions">
       <button type="submit" className="btn btn-primary" disabled={busy || !picked}>Change trainer</button>
@@ -62,7 +62,7 @@ function invitationText(intake, name) {
   const state = intake.trainerInvitationStatus || 'NotSent';
   if (!isUnpublished(intake)) return `${name} accepted this schedule. It stays fixed for the whole intake.`;
   if (state === 'Invited') return `Sent ${localDateTime(intake.trainerInvitedAt)}. ${name} is checking the dates. The schedule is locked until they reply.`;
-  if (state === 'Accepted') return `${name} accepted the schedule ${localDateTime(intake.trainerRespondedAt)}. Publish the intake to open registration.`;
+  if (state === 'Accepted') return `${name} accepted the schedule ${localDateTime(intake.trainerRespondedAt)}, but the intake could not be published automatically. Publish it below, or withdraw the invitation to change the schedule.`;
   if (state === 'Declined') {
     const reason = intake.trainerDeclineReason ? ` Reason: “${intake.trainerDeclineReason}”.` : '';
     return `${name} declined ${localDateTime(intake.trainerRespondedAt)}.${reason} Choose another trainer, or change the schedule and send it again.`;
@@ -187,7 +187,7 @@ export function IntakeWorkspace({ query, onOpenClass }) {
     <SessionCalendar sessions={sessions} />
     {sessions.length ? <div className="creator-application-list creator-session-rows">{sessions.map((session) => <SessionCard key={session.id} session={session} editable={editable && !editor && !busy} onEdit={() => setEditor({ type: 'session', session })} onDelete={() => setEditor({ type: 'delete', session })} />)}</div> : <div className="creator-empty"><strong>No sessions yet</strong><p>Add every session before sending the schedule to the trainer.</p></div>}
     {editor?.type === 'delete' ? <div className="creator-confirm"><h2>Delete “{editor.session.label}”?</h2><button type="button" className="btn btn-primary" disabled={busy} onClick={() => mutate(() => creatorIntakesApi.deleteSession(query.token, intake.id, editor.session.id, intake.version), 'Session deleted.')}>Confirm deletion</button><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setEditor(null)}>Cancel</button></div> : null}
-    {publishable ? <div className="creator-section-heading"><div><h2>Publish this intake</h2><p>The trainer accepted the schedule. Publishing opens registration and fixes the timetable.</p></div><button type="button" className="btn btn-primary" disabled={busy || !sessions.length} onClick={() => mutate(() => creatorIntakesApi.publish(query.token, intake.id, intake.version), 'Intake published.')}>Publish</button></div> : null}
+    {publishable ? <div className="creator-section-heading"><div><h2>Publish this intake</h2><p>An intake is normally published as soon as the trainer accepts. This one could not be, so publish it here once the problem in your notification is fixed. Publishing opens registration and fixes the timetable.</p></div><button type="button" className="btn btn-primary" disabled={busy || !sessions.length} onClick={() => mutate(() => creatorIntakesApi.publish(query.token, intake.id, intake.version), 'Intake published.')}>Publish</button></div> : null}
     {intake.status === 'Completed' ? <p>This intake is completed. The Trainer can still record attendance and final results, and learners can request their certificates.</p> : null}
     {completable ? <div className="creator-section-heading"><div><h2>Complete this intake</h2>
       <p>{finished

@@ -11,8 +11,4 @@ export const courseTrainersApi = {
   myInvitations: (token, signal) => apiRequest('/api/trainer/course-invitations', { token, signal }),
   accept: (token, id) => apiRequest(`${invitationPath(id)}/accept`, { method: 'POST', token }),
   decline: (token, id) => apiRequest(`${invitationPath(id)}/decline`, { method: 'POST', token }),
-  available: (token, signal) => apiRequest('/api/trainer/course-applications/available', { token, signal }),
-  apply: (token, courseId) => apiRequest(`/api/trainer/course-applications/${encodeURIComponent(courseId)}`, { method: 'POST', token }),
-  acceptRequest: (token, courseId, trainerId) => apiRequest(`${rosterPath(courseId)}/${encodeURIComponent(trainerId)}/accept-request`, { method: 'POST', token }),
-  declineRequest: (token, courseId, trainerId) => apiRequest(`${rosterPath(courseId)}/${encodeURIComponent(trainerId)}/decline-request`, { method: 'POST', token }),
 };

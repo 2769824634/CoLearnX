@@ -179,14 +179,12 @@ describe('Creator Course workspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /Development/ }));
     fireEvent.click(screen.getByLabelText('Web Development'));
     fireEvent.change(screen.getByLabelText('Credit cost'), { target: { value: '40' } });
-    expect(screen.getByRole('radio', { name: /Open to applications/i }).checked).toBe(true);
-    fireEvent.click(screen.getByRole('radio', { name: /I will invite trainers myself/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
 
     expect(await screen.findByRole('heading', { name: 'Inclusive Design' })).toBeTruthy();
     const createRequest = globalThis.fetch.mock.calls.find(([path, options]) => path === '/api/creator/courses' && options?.method === 'POST');
     const payload = JSON.parse(createRequest[1].body);
-    expect(payload).toMatchObject({ title: 'Inclusive Design', courseLevelId: 1, courseSubjectId: 1, learningPathId: 0, durationHours: 2, creditCost: 40, interestIds: [5], openToTrainerApplications: false });
+    expect(payload).toMatchObject({ title: 'Inclusive Design', courseLevelId: 1, courseSubjectId: 1, learningPathId: 0, durationHours: 2, creditCost: 40, interestIds: [5] });
     expect(payload.category).toBeUndefined();
     expect(globalThis.fetch.mock.calls.filter(([path, options]) => path === '/api/materials' && options?.method === 'POST')).toHaveLength(1);
   });

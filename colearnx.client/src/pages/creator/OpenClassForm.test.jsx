@@ -49,12 +49,11 @@ it('blocks sending and says why when the first session is too soon', () => {
   expect(onSave).not.toHaveBeenCalled();
 });
 
-it('shows the planned sessions on a calendar and marks trainers who only applied', () => {
-  render(<OpenClassForm trainers={[...trainers, { trainerId: 6, fullName: 'Bo Li', status: 'Requested' }]} onSave={vi.fn()} onError={vi.fn()} />);
+it('shows the planned sessions on a calendar', () => {
+  render(<OpenClassForm trainers={trainers} onSave={vi.fn()} onError={vi.fn()} />);
 
   fireEvent.change(screen.getByLabelText('First session date'), { target: { value: '2027-06-10' } });
   fireEvent.change(screen.getByLabelText('Number of sessions'), { target: { value: '2' } });
   const summary = screen.getByLabelText('Intake summary');
   expect(within(summary).getAllByRole('gridcell', { name: /1 session$/ })).toHaveLength(2);
-  expect(screen.getByRole('option', { name: 'Bo Li (applied to teach)' })).toBeTruthy();
 });

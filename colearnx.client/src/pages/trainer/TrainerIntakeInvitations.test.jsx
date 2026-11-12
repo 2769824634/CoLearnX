@@ -23,7 +23,7 @@ const invitation = (intakeId, status, extra = {}) => ({
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 
 function renderPage(items, respond = (id, action, body) => json(invitation(id, action === 'accept' ? 'Accepted' : 'Declined',
-  { respondedAt: '2027-02-02T01:00:00Z', declineReason: body?.reason ?? null }))) {
+  { intakeStatus: action === 'accept' ? 'Published' : 'Draft', respondedAt: '2027-02-02T01:00:00Z', declineReason: body?.reason ?? null }))) {
   const fetch = vi.fn(async (path, init = {}) => {
     const match = /^\/api\/trainer\/intake-invitations\/(\d+)\/(accept|decline)$/.exec(path);
     if (match && init.method === 'POST') return respond(Number(match[1]), match[2], init.body ? JSON.parse(init.body) : null);
@@ -57,8 +57,20 @@ it('warns about sessions that clash with teaching the trainer already has', asyn
   expect(within(card).getByText(/INFT 3030 Session 5/)).toBeTruthy();
 });
 
-it('accepts a schedule and moves it out of the waiting list', async () => {
+it('accepts a schedule, which publishes the intake and moves it off this page', async () => {
   const fetch = renderPage([invitation(7, 'Invited')]);
+  const waiting = await screen.findByRole('region', { name: 'Intake schedules to review' });
+
+  fireEvent.click(within(waiting).getByRole('button', { name: 'Accept schedule' }));
+
+  expect(await screen.findByText('You accepted UI/UX Design Fundamentals (Intake #7). It is now published and listed under Courses.')).toBeTruthy();
+  expect(within(waiting).getByText('No intake schedules are waiting for you.')).toBeTruthy();
+  expect(screen.queryByRole('region', { name: 'Answered intake schedules' })).toBeNull();
+  expect(fetch.mock.calls.filter(([, init = {}]) => init.method === 'POST').map(([path]) => path)).toEqual(['/api/trainer/intake-invitations/7/accept']);
+});
+
+it('keeps an accepted schedule in view when the intake could not be published automatically', async () => {
+  renderPage([invitation(7, 'Invited')], (id) => json(invitation(id, 'Accepted', { respondedAt: '2027-02-02T01:00:00Z' })));
   const waiting = await screen.findByRole('region', { name: 'Intake schedules to review' });
 
   fireEvent.click(within(waiting).getByRole('button', { name: 'Accept schedule' }));
@@ -66,8 +78,9 @@ it('accepts a schedule and moves it out of the waiting list', async () => {
   const answered = await screen.findByRole('region', { name: 'Answered intake schedules' });
   expect(await within(answered).findByText('UI/UX Design Fundamentals')).toBeTruthy();
   expect(within(answered).getByText('Accepted', { selector: '.trainer-status' })).toBeTruthy();
+  expect(within(answered).getByText(/could not be published automatically, so the creator still has to publish it\./)).toBeTruthy();
   expect(within(waiting).getByText('No intake schedules are waiting for you.')).toBeTruthy();
-  expect(fetch.mock.calls.filter(([, init = {}]) => init.method === 'POST').map(([path]) => path)).toEqual(['/api/trainer/intake-invitations/7/accept']);
+  expect(screen.queryByText(/It is now published/)).toBeNull();
 });
 
 it('declines with a reason the creator will see', async () => {

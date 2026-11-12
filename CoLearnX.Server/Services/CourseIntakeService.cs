@@ -363,6 +363,26 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         var intake = await LoadForCreatorAsync(creatorUserId, courseIntakeId, ct);
         CourseIntakeValidation.Version(intake, version);
         if (intake.Status == CourseIntakeStatus.Published) return ToDto(intake);
+        var notification = await StagePublishAsync(intake, creatorUserId, null, ct);
+        await SaveTrackedAsync(ct);
+        if (notification is not null && realtime is not null)
+            await realtime.PublishAsync(notification, ct);
+        return ToDto(intake);
+    }
+
+    // The Trainer accepting the schedule publishes the Intake on the Creator's behalf, under the same rules as PublishAsync.
+    // Throws CourseIntakeException, leaving the Intake untouched, when it cannot be published yet. The caller saves.
+    internal async Task<Notification?> StagePublishOnAcceptanceAsync(CourseIntake intake, CancellationToken ct)
+    {
+        await RequireCreatorAsync(intake.Course.CreatorId, ct);
+        return await StagePublishAsync(intake, intake.Course.CreatorId,
+            "Published automatically when the Trainer accepted the schedule.", ct);
+    }
+
+    // Every publish goes through here: all checks run first, then the Intake changes and the Trainer notice and
+    // audit entry are queued. Nothing is changed when a check fails, and nothing is saved; the caller saves.
+    private async Task<Notification?> StagePublishAsync(CourseIntake intake, int creatorUserId, string? auditReason, CancellationToken ct)
+    {
         if (intake.Status is not (CourseIntakeStatus.Draft or CourseIntakeStatus.Rejected))
             throw new CourseIntakeException("INTAKE_NOT_PUBLISHABLE", "Only a draft Intake can be published.", 409);
         await RequirePublishedCourseAsync(intake.CourseId, ct);
@@ -372,9 +392,8 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         if (intake.RegistrationClosesAt <= publishedAt)
             throw new CourseIntakeException("REGISTRATION_ALREADY_CLOSED",
                 "Registration would already be closed. Move the registration dates into the future.", 409, "registrationClosesAt");
-        if (intake.RegistrationOpensAt < publishedAt)
-            intake.RegistrationOpensAt = publishedAt;
-        CourseIntakeValidation.Dates(intake.RegistrationOpensAt, intake.RegistrationClosesAt, intake.StartsAt, intake.EndsAt);
+        var opensAt = intake.RegistrationOpensAt < publishedAt ? publishedAt : intake.RegistrationOpensAt;
+        CourseIntakeValidation.Dates(opensAt, intake.RegistrationClosesAt, intake.StartsAt, intake.EndsAt);
         if (intake.Sessions.Count == 0)
             throw new CourseIntakeException("SESSION_REQUIRED", "Add at least one valid session before publishing.", field: "sessions");
         foreach (var session in intake.Sessions)
@@ -386,6 +405,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         if (intake.TrainerInvitation != TrainerInvitationStatus.Accepted)
             throw new CourseIntakeException("TRAINER_NOT_CONFIRMED", "The Trainer must accept the schedule before the Intake is published.", 409);
         var now = DateTime.UtcNow;
+        intake.RegistrationOpensAt = opensAt;
         intake.Status = CourseIntakeStatus.Published;
         intake.ConfirmedByCreatorId = creatorUserId;
         intake.ConfirmedAt = now;
@@ -401,10 +421,8 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             };
             db.Notifications.Add(notification);
         }
-        await SaveWithCurrentVersionAsync(intake, creatorUserId, "CourseIntakePublished", null, ct);
-        if (notification is not null && realtime is not null)
-            await realtime.PublishAsync(notification, ct);
-        return ToDto(intake);
+        AddAudit(intake, creatorUserId, "CourseIntakePublished", auditReason);
+        return notification;
     }
 
     // The Trainer receives the whole fixed timetable and decides whether they can teach it.
@@ -505,12 +523,11 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
 
     private async Task RequireAcceptedTrainerAsync(int courseId, int trainerId, CancellationToken ct)
     {
-        // Trainers who applied to the course may also be invited; they join it by accepting an Intake's schedule.
         var accepted = await db.CourseTrainers.AnyAsync(item => item.CourseId == courseId && item.TrainerId == trainerId
-            && (item.Status == CourseTrainerStatus.Accepted || item.Status == CourseTrainerStatus.Requested)
+            && item.Status == CourseTrainerStatus.Accepted
             && item.Trainer.IsActive && item.Trainer.Roles.Any(role => role.Role == AppRole.Trainer), ct);
         if (!accepted)
-            throw new CourseIntakeException("TRAINER_NOT_ACCEPTED", "Choose a Trainer who has joined or applied to this course.", 409, "trainerId");
+            throw new CourseIntakeException("TRAINER_NOT_ACCEPTED", "Choose a Trainer who has joined this course.", 409, "trainerId");
     }
 
     private async Task<CourseIntake> LoadOwnedAsync(int userId, int id, CancellationToken ct)
@@ -639,8 +656,16 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
 
     private async Task SaveWithCurrentVersionAsync(CourseIntake intake, int actorUserId, string action, string? reason, CancellationToken ct)
     {
-        db.AuditLogs.Add(new AuditLog { UserId = actorUserId, Action = action, EntityType = nameof(CourseIntake),
+        AddAudit(intake, actorUserId, action, reason);
+        await SaveTrackedAsync(ct);
+    }
+
+    private void AddAudit(CourseIntake intake, int actorUserId, string action, string? reason)
+        => db.AuditLogs.Add(new AuditLog { UserId = actorUserId, Action = action, EntityType = nameof(CourseIntake),
             EntityId = intake.Id.ToString(), Result = intake.Status.ToString(), Reason = reason });
+
+    private async Task SaveTrackedAsync(CancellationToken ct)
+    {
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException)
         {

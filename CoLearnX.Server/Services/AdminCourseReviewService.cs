@@ -155,26 +155,11 @@ public sealed class AdminCourseReviewService(
             course.Status = targetStatus;
             if (decision == AdminReviewDecision.Approve)
                 await ApproveWaitingMaterialsAsync(adminAccountId, course, ct);
-            var trainerNotifications = new List<Notification>();
-            if (decision == AdminReviewDecision.Approve && course.OpenToTrainerApplications && course.CourseSubjectId is int subjectId)
-            {
-                var trainerIds = await db.UserSpecialties.AsNoTracking()
-                    .Where(item => item.CourseSubjectId == subjectId && item.User.IsActive && item.UserId != course.CreatorId
-                        && item.User.Roles.Any(role => role.Role == AppRole.Trainer && role.CertifiedAt != null))
-                    .Select(item => item.UserId).Distinct().ToListAsync(ct);
-                trainerNotifications = trainerIds.Select(id => new Notification
-                {
-                    UserId = id, Code = "N-course-seeking-trainer", Title = "A course in your specialty needs a Trainer",
-                    Body = $"{course.Code} {course.Title} is open for teaching applications.", EmailPending = true,
-                }).ToList();
-                db.Notifications.AddRange(trainerNotifications);
-            }
             var notification = decision == AdminReviewDecision.Approve
                 ? new Notification
                 {
                     UserId = course.CreatorId, Code = "N-course-published", Title = "Course published",
-                    Body = $"{course.Code} {course.Title} was approved by Admin and is now in the catalogue."
-                        + (trainerNotifications.Count > 0 ? $" {trainerNotifications.Count} certified trainer{(trainerNotifications.Count == 1 ? "" : "s")} notified." : ""),
+                    Body = $"{course.Code} {course.Title} was approved by Admin and is now in the catalogue.",
                 }
                 : new Notification
                 {
@@ -192,11 +177,7 @@ public sealed class AdminCourseReviewService(
                 ct);
             await transaction.CommitAsync(ct);
             if (realtime is not null)
-            {
                 await realtime.PublishAsync(notification, ct);
-                foreach (var trainerNotification in trainerNotifications)
-                    await realtime.PublishAsync(trainerNotification, ct);
-            }
 
             var reviewLog = await FindLatestReviewLogAsync(course.Id, ct);
             var details = await LoadDetailsAsync([course.Id], ct);

@@ -15,7 +15,6 @@ it.each([
   ['a course in review', { status: 'PendingApproval' }, [], [], 'Step 2 of 5 · Waiting for admin review', undefined, undefined],
   ['no trainer who can teach it', published, [row('Invited'), row('Declined')], [], 'Step 3 of 5 · Find trainers for this course', 'invite', 'Invite trainer'],
   ['a trainer but no intake', published, [row('Accepted')], [], 'Step 3 of 5 · Create an Intake and schedule its sessions', 'class', 'Create an intake'],
-  ['an applicant but no intake', published, [row('Requested')], [], 'Step 3 of 5 · Create an Intake and schedule its sessions', 'class', 'Create an intake'],
   ['scheduled intakes', published, [row('Accepted')], [intake(2, 'Published', 'Accepted'), intake(1, 'Completed', 'Accepted')], 'All set · 2 intakes scheduled', 'classes', 'View intakes'],
 ])('tells the Creator what to do for %s', (_name, course, roster, classes, text, action, label) => {
   expect(nextStep(course, roster, classes)).toEqual(action ? { text, action, label } : { text });
@@ -25,7 +24,7 @@ it.each([
   ['NotSent', 'Step 4 of 5 · Send the schedule to a trainer', 'Invite trainer'],
   ['Declined', 'Step 4 of 5 · The trainer declined. Choose another trainer and send again', 'Open intake'],
   ['Invited', 'Step 4 of 5 · Waiting for the trainer to accept the schedule', 'View intake'],
-  ['Accepted', 'Step 5 of 5 · The trainer accepted. Publish the intake', 'Publish intake'],
+  ['Accepted', 'Step 5 of 5 · The trainer accepted, but the intake is not published yet. Open it to finish', 'Open intake'],
 ])('follows the newest unpublished intake when its trainer invitation is %s', (invitation, text, label) => {
   const classes = [intake(7, 'Draft', invitation), intake(3, 'Published', 'Accepted')];
   expect(nextStep(published, [row('Accepted')], classes)).toEqual({ text, action: 'intake', label, intakeId: 7 });

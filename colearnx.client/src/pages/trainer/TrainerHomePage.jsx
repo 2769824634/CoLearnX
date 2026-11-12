@@ -103,7 +103,7 @@ export default function TrainerHomePage() {
         <section className="trainer-delivery-path" aria-labelledby="trainer-path-title">
           <h2 id="trainer-path-title">Your path to delivery</h2>
           <ol>{DELIVERY_STEPS.map((step) => <li key={step}>{step}</li>)}</ol>
-          <p>The course Creator publishes the schedule. All displayed dates use UTC.</p>
+          <p>The schedule is published when you accept it. All displayed dates use UTC.</p>
         </section>
       </aside>
     </div>}

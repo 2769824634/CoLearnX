@@ -10,7 +10,4 @@ public record TrainerCandidateDto(int Id, string FullName, string? Headline, str
 public record CourseInvitationDto(int Id, int CourseId, string CourseCode, string CourseTitle, string CreatorName,
     string Status, DateTime InvitedAt, DateTime? RespondedAt, DateTime? RemovedAt);
 
-public record TrainerCourseApplicationDto(int CourseId, string CourseCode, string CourseTitle, string CreatorName,
-    string SpecialtyName, string? Status);
-
 public record InviteTrainerRequest([Range(1, int.MaxValue)] int TrainerId);

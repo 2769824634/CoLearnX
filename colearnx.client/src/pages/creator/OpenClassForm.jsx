@@ -46,7 +46,7 @@ export default function OpenClassForm({ courses, trainers = [], onCourseChange, 
       </Field> : null}
       <Field name="trainerId" label="Trainer" value={trainerId} required error={error} onChange={(event) => setPickedTrainer(event.target.value)}>
         <option value="">Choose a Trainer for this course</option>
-        {trainers.map((trainer) => <option key={trainer.trainerId} value={trainer.trainerId}>{trainer.fullName}{trainer.status === 'Requested' ? ' (applied to teach)' : ''}</option>)}
+        {trainers.map((trainer) => <option key={trainer.trainerId} value={trainer.trainerId}>{trainer.fullName}</option>)}
       </Field>
 
       <div className="trainer-form-grid">

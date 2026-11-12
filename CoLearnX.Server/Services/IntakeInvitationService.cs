@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace CoLearnX.Server.Services;
 
 // The Trainer's side of an Intake invitation: review the fixed schedule, then accept or decline it.
+// Accepting also publishes the Intake, so the Creator does not have to come back and do it.
 public interface IIntakeInvitationService
 {
     Task<IReadOnlyList<IntakeInvitationDto>> ListForTrainerAsync(int trainerUserId, CancellationToken ct = default);
@@ -50,39 +51,46 @@ public sealed class IntakeInvitationService(CoLearnXDbContext db, INotificationR
         intake.TrainerRespondedAt = now;
         intake.TrainerDeclineReason = accept ? null : note;
         intake.Version = Guid.NewGuid();
-        if (accept)
-        {
-            // A Trainer who only applied to the course joins it by agreeing to teach this Intake.
-            var applied = await db.CourseTrainers.SingleOrDefaultAsync(row => row.CourseId == intake.CourseId
-                && row.TrainerId == trainerUserId && row.Status == CourseTrainerStatus.Requested, ct);
-            if (applied is not null)
-            {
-                applied.Status = CourseTrainerStatus.Accepted;
-                applied.RespondedAt = now;
-            }
-        }
-
         var trainerName = await db.Users.Where(u => u.Id == trainerUserId).Select(u => u.FullName).SingleAsync(ct);
         var subject = $"{intake.Course.Code} {intake.Course.Title} (Intake #{intake.Id})";
+        db.AuditLogs.Add(new AuditLog { UserId = trainerUserId, Action = accept ? "CourseIntakeTrainerAccepted" : "CourseIntakeTrainerDeclined",
+            EntityType = nameof(CourseIntake), EntityId = intake.Id.ToString(), Result = target.ToString(), Reason = accept ? null : note });
+
+        // Accepting publishes the Intake straight away. When it cannot be published as it stands, the acceptance is
+        // still kept and the Creator is told what to fix before publishing it themselves.
+        Notification? publishedNotice = null;
+        string? publishProblem = null;
+        if (accept)
+        {
+            try { publishedNotice = await new CourseIntakeService(db, realtime).StagePublishOnAcceptanceAsync(intake, ct); }
+            catch (CourseIntakeException problem) { publishProblem = problem.Message; }
+        }
+        var published = accept && publishProblem is null;
         var notification = new Notification
         {
             UserId = intake.Course.CreatorId, IntakeId = intake.Id,
             Code = accept ? "N-intake-invitation-accepted" : "N-intake-invitation-declined",
-            Title = accept ? "Intake invitation accepted" : "Intake invitation declined",
-            Body = accept
-                ? $"{trainerName} accepted the schedule for {subject}. You can publish it now."
-                : $"{trainerName} declined the schedule for {subject}." + (note is null ? "" : $" Reason: {note}")
-                    + " Choose another Trainer, or change the schedule and send it again.",
+            Title = !accept ? "Intake invitation declined"
+                : published ? "Trainer accepted, Intake published" : "Trainer accepted, Intake not published yet",
+            Body = !accept
+                ? $"{trainerName} declined the schedule for {subject}." + (note is null ? "" : $" Reason: {note}")
+                    + " Choose another Trainer, or change the schedule and send it again."
+                : published
+                    ? $"{trainerName} accepted the schedule for {subject}. The Intake was published automatically."
+                    : $"{trainerName} accepted the schedule for {subject}, but the Intake could not be published automatically: "
+                        + $"{publishProblem} Open the Intake to fix this, then publish it yourself.",
         };
         db.Notifications.Add(notification);
-        db.AuditLogs.Add(new AuditLog { UserId = trainerUserId, Action = accept ? "CourseIntakeTrainerAccepted" : "CourseIntakeTrainerDeclined",
-            EntityType = nameof(CourseIntake), EntityId = intake.Id.ToString(), Result = target.ToString(), Reason = accept ? null : note });
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException)
         {
             throw new CourseIntakeException("INTAKE_VERSION_CONFLICT", "The Intake changed. Reload before replying.", 409);
         }
-        if (realtime is not null) await realtime.PublishAsync(notification, ct);
+        if (realtime is not null)
+        {
+            if (publishedNotice is not null) await realtime.PublishAsync(publishedNotice, ct);
+            await realtime.PublishAsync(notification, ct);
+        }
         return ToDto(intake, await BusySessionsAsync(trainerUserId, ct));
     }
 

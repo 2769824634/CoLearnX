@@ -1,11 +1,12 @@
 // One line that tells the Creator what to do next on this course:
-// submit → admin review → create an Intake with its sessions → invite a trainer → publish.
+// submit → admin review → create an Intake with its sessions → invite a trainer → published when the trainer accepts.
 const OPEN = new Set(['Draft', 'Rejected']);
 const INVITATION_STEPS = {
   NotSent: { text: 'Step 4 of 5 · Send the schedule to a trainer', label: 'Invite trainer' },
   Declined: { text: 'Step 4 of 5 · The trainer declined. Choose another trainer and send again', label: 'Open intake' },
   Invited: { text: 'Step 4 of 5 · Waiting for the trainer to accept the schedule', label: 'View intake' },
-  Accepted: { text: 'Step 5 of 5 · The trainer accepted. Publish the intake', label: 'Publish intake' },
+  // Accepting normally publishes the Intake. It only stays here when that could not happen automatically.
+  Accepted: { text: 'Step 5 of 5 · The trainer accepted, but the intake is not published yet. Open it to finish', label: 'Open intake' },
 };
 
 export function nextStep(course, roster, classes) {
@@ -14,8 +15,8 @@ export function nextStep(course, roster, classes) {
   if (course.status === 'PendingApproval') return { text: 'Step 2 of 5 · Waiting for admin review' };
   // Trainers and intakes only matter once the course is published, and both lists must have arrived first.
   if (course.status !== 'Published' || !roster || !classes) return null;
-  // Trainers who joined the course or applied to it can be invited to an Intake.
-  if (!roster.some((row) => row.status === 'Accepted' || row.status === 'Requested')) {
+  // Only Trainers who joined the course can be invited to an Intake.
+  if (!roster.some((row) => row.status === 'Accepted')) {
     return { text: 'Step 3 of 5 · Find trainers for this course', action: 'invite', label: 'Invite trainer' };
   }
   if (!classes.length) return { text: 'Step 3 of 5 · Create an Intake and schedule its sessions', action: 'class', label: 'Create an intake' };

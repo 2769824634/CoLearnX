@@ -202,6 +202,7 @@ public class Course
     public int? CourseLevelId { get; set; }
     public int? CourseSubjectId { get; set; }
     public int? DurationHours { get; set; }
+    // No longer used (Trainer applications were removed). Kept so existing databases with this NOT NULL column still accept inserts.
     public bool OpenToTrainerApplications { get; set; } = true;
     public string? PriceExceptionReason { get; set; }
     public int? LearningPathId { get; set; }

@@ -30,7 +30,6 @@ async function loadCourseForm(token, key, signal) {
 const emptyCourse = {
   code: '', title: '', description: '', courseLevelId: '', learningPathId: '', courseSubjectId: '',
   durationHours: '', creditCost: '', priceExceptionReason: '', learningOutcomes: [], interestIds: [], status: 'Draft',
-  openToTrainerApplications: true,
 };
 
 const NEW_COURSE_STEPS = [
@@ -272,7 +271,6 @@ function CourseSummary({ course, options }) {
       <div className="wide"><dt>Learning outcomes</dt><dd>{outcomes.length ? <ul>{outcomes.map((item) => <li key={item}>{item}</li>)}</ul> : '—'}</dd></div>
       <div className="wide"><dt>Course interests</dt><dd>{interests.length ? interests.join(', ') : '—'}</dd></div>
       <div><dt>Credit cost</dt><dd>{course.creditCost ? `${course.creditCost} credits` : '—'}</dd></div>
-      <div><dt>Trainer recruitment</dt><dd>{course.openToTrainerApplications === false ? 'Invitation only' : 'Open to applications'}</dd></div>
     </dl>
   </div>;
 }
@@ -421,14 +419,6 @@ function InterestPriceFields({ form, options, setForm }) {
       <small id="creator-course-cost-hint">{cell ? `Suggested from the standard range. You can change it. Enter a whole number from ${cell.minCredits} to ${cell.maxCredits} credits. A higher price up to ${cell.maxCredits * 2} needs a reason.` : 'Choose a level and subject before setting the price.'}</small>
     </div>
     {aboveRange ? <div className="form-group"><label htmlFor="creator-price-reason">Reason for a higher price</label><textarea id="creator-price-reason" required maxLength={500} value={form.priceExceptionReason} onChange={change('priceExceptionReason')} /></div> : null}
-    <fieldset className="form-group">
-      <legend>How will you find a Trainer?</legend>
-      <label><input type="radio" name="trainerRecruitment" checked={form.openToTrainerApplications}
-        onChange={() => setForm((current) => ({ ...current, openToTrainerApplications: true }))} /> Open to applications</label>
-      <p className="page-sub">Certified trainers in this specialty are notified when the course is published and can apply.</p>
-      <label><input type="radio" name="trainerRecruitment" checked={!form.openToTrainerApplications}
-        onChange={() => setForm((current) => ({ ...current, openToTrainerApplications: false }))} /> I will invite trainers myself</label>
-    </fieldset>
   </>;
 }
 
@@ -445,7 +435,6 @@ function toForm(course) {
     priceExceptionReason: course.priceExceptionReason || '',
     learningOutcomes: (course.learningOutcomes || []).join('\n'),
     interestIds: course.interestIds || [],
-    openToTrainerApplications: course.openToTrainerApplications !== false,
   };
 }
 

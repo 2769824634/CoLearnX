@@ -276,54 +276,6 @@ public sealed class CourseTrainerInvitationTests
     }
 
     [Fact]
-    public async Task Trainer_requests_a_matching_published_course_and_creator_accepts_the_request()
-    {
-        using var factory = await RosterFactory.CreateAsync();
-        await factory.ReadAsync(async db =>
-        {
-            var course = await db.Courses.SingleAsync(item => item.Id == Course);
-            course.Status = CourseStatus.Published;
-            await db.SaveChangesAsync();
-            return true;
-        });
-        using var alex = factory.UserClient(Alex, AppRole.Trainer);
-        using var creator = factory.UserClient(Creator, AppRole.Creator);
-
-        var available = await alex.GetFromJsonAsync<List<TrainerCourseApplicationDto>>("/api/trainer/course-applications/available");
-        Assert.Contains(available!, item => item.CourseId == Course && item.Status is null);
-
-        var requested = await Read<CourseInvitationDto>(
-            await alex.PostAsync($"/api/trainer/course-applications/{Course}", null));
-        Assert.Equal("Requested", requested.Status);
-
-        var roster = await creator.GetFromJsonAsync<List<CourseTrainerDto>>($"/api/creator/courses/{Course}/trainers");
-        Assert.Equal("Requested", Assert.Single(roster!).Status);
-
-        var accepted = await Read<CourseTrainerDto>(
-            await creator.PostAsync($"/api/creator/courses/{Course}/trainers/{Alex}/accept-request", null));
-        Assert.Equal("Accepted", accepted.Status);
-        Assert.NotNull(accepted.RespondedAt);
-    }
-
-    [Fact]
-    public async Task Trainer_cannot_request_a_draft_or_foreign_specialty_course()
-    {
-        using var factory = await RosterFactory.CreateAsync();
-        using var alex = factory.UserClient(Alex, AppRole.Trainer);
-        using var otherSpecialty = factory.UserClient(OtherSpecialtyTrainer, AppRole.Trainer);
-
-        await Error(await alex.PostAsync($"/api/trainer/course-applications/{Course}", null), 409, "COURSE_NOT_PUBLISHED");
-        await factory.ReadAsync(async db =>
-        {
-            var course = await db.Courses.SingleAsync(item => item.Id == Course);
-            course.Status = CourseStatus.Published;
-            await db.SaveChangesAsync();
-            return true;
-        });
-        await Error(await otherSpecialty.PostAsync($"/api/trainer/course-applications/{Course}", null), 409, "TRAINER_SUBJECT_MISMATCH");
-    }
-
-    [Fact]
     public async Task Past_intake_trainers_start_on_the_roster_of_seeded_courses()
     {
         using var factory = await RosterFactory.CreateAsync();

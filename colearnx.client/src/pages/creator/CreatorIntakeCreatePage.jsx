@@ -11,10 +11,9 @@ const loadCourses = (token, key, signal) => creatorCoursesApi.list(token, signal
 const loadCourse = (token, courseId, signal) => creatorCoursesApi.get(token, courseId, signal);
 const loadAccepted = (token, courseId, signal) => courseTrainersApi.list(token, courseId, signal);
 
-// Trainers who joined the course or applied to teach it can be invited to an Intake; applicants come first.
+// Only Trainers who joined the course can be invited to an Intake.
 const invitable = (roster) => (Array.isArray(roster) ? roster : [])
-  .filter((trainer) => trainer.status === 'Accepted' || trainer.status === 'Requested')
-  .sort((left, right) => (left.status === 'Requested' ? 0 : 1) - (right.status === 'Requested' ? 0 : 1));
+  .filter((trainer) => trainer.status === 'Accepted');
 
 function CourseClassForm({ course, onCancel, onCreated }) {
   const query = useTrainerQuery(loadAccepted, String(course.id));
@@ -45,7 +44,7 @@ function CourseClassForm({ course, onCancel, onCreated }) {
         : trainers.length ? <>
           <CreatorError error={error} />
           <OpenClassForm trainers={trainers} onSave={create} onCancel={onCancel} busy={busy} error={error} onError={setError} />
-        </> : <div className="creator-empty"><strong>No trainer for this course yet</strong><p>Invite a Trainer to the course, or wait for one to apply.</p></div>}
+        </> : <div className="creator-empty"><strong>No trainer for this course yet</strong><p>Invite a Trainer to the course first.</p></div>}
   </>;
 }
 

@@ -9,7 +9,7 @@ using CoLearnX.Server.Data;
 
 namespace CoLearnX.Server.Tests;
 
-// The Creator fixes the whole schedule, sends it to the Trainer, and publishes only after the Trainer accepts.
+// The Creator fixes the whole schedule and sends it to the Trainer; the Intake is published when the Trainer accepts.
 public class IntakeTrainerInvitationTests
 {
     private const int Creator = 1;
@@ -63,12 +63,103 @@ public class IntakeTrainerInvitationTests
         var waiting = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Intakes.PublishAsync(Creator, invited.Id, invited.Version));
         Assert.Equal("TRAINER_NOT_CONFIRMED", waiting.Code);
 
-        await f.Invitations.RespondAsync(Trainer, invited.Id, accept: true, reason: null);
+        var reply = await f.Invitations.RespondAsync(Trainer, invited.Id, accept: true, reason: null);
+        Assert.Equal("Accepted", reply.Status);
+        Assert.Equal("Published", reply.IntakeStatus);
         var accepted = await f.Intakes.GetForCreatorAsync(Creator, invited.Id);
+        Assert.Equal("Published", accepted.Status);
+        Assert.Equal("Accepted", accepted.TrainerInvitationStatus);
+
+        // Publishing again by hand changes nothing.
         var published = await f.Intakes.PublishAsync(Creator, accepted.Id, accepted.Version);
+        Assert.Equal("Published", published.Status);
+        Assert.Equal(accepted.Version, published.Version);
+        Assert.Equal(1, await f.Db.AuditLogs.CountAsync(a => a.Action == "CourseIntakePublished" && a.EntityId == invited.Id.ToString()));
+    }
+
+    [Fact]
+    public async Task Accepting_publishes_the_intake_exactly_as_the_creator_would()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var invited = await f.Intakes.OpenClassAsync(Creator, 1, Weekly() with { SendToTrainer = true });
+
+        await f.Invitations.RespondAsync(Trainer, invited.Id, accept: true, reason: null);
+
+        var intake = await f.Intakes.GetForCreatorAsync(Creator, invited.Id);
+        Assert.Equal("Published", intake.Status);
+        Assert.Equal(Creator, intake.ConfirmedByCreatorId);
+        Assert.NotNull(intake.ConfirmedAt);
+        Assert.NotNull(intake.SubmittedAt);
+        var toCreator = await f.Db.Notifications.SingleAsync(n => n.UserId == Creator);
+        Assert.Equal("N-intake-invitation-accepted", toCreator.Code);
+        Assert.Contains("published automatically", toCreator.Body);
+        Assert.DoesNotContain("You can publish it now", toCreator.Body);
+        var toTrainer = await f.Db.Notifications.SingleAsync(n => n.UserId == Trainer && n.Code == "N-intake-published");
+        Assert.Equal(invited.Id, toTrainer.IntakeId);
+        Assert.True(toTrainer.EmailPending);
+        var actions = await f.Db.AuditLogs.Where(a => a.EntityId == invited.Id.ToString())
+            .Select(a => new { a.Action, a.UserId, a.Result }).ToListAsync();
+        Assert.Contains(actions, a => a.Action == "CourseIntakeTrainerAccepted" && a.UserId == Trainer);
+        var publish = Assert.Single(actions, a => a.Action == "CourseIntakePublished");
+        Assert.Equal(Creator, publish.UserId);
+        Assert.Equal("Published", publish.Result);
+    }
+
+    [Fact]
+    public async Task An_acceptance_is_kept_when_the_intake_cannot_be_published_and_the_creator_publishes_later()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var invited = await f.Intakes.OpenClassAsync(Creator, 1, Weekly() with { SendToTrainer = true });
+        await f.Db.Courses.Where(c => c.Id == 1).ExecuteUpdateAsync(set => set.SetProperty(c => c.Status, CourseStatus.PendingApproval));
+        f.Db.ChangeTracker.Clear();
+
+        var reply = await f.Invitations.RespondAsync(Trainer, invited.Id, accept: true, reason: null);
+
+        Assert.Equal("Accepted", reply.Status);
+        Assert.Equal("Draft", reply.IntakeStatus);
+        var waiting = await f.Intakes.GetForCreatorAsync(Creator, invited.Id);
+        Assert.Equal("Draft", waiting.Status);
+        Assert.Equal("Accepted", waiting.TrainerInvitationStatus);
+        Assert.Null(waiting.ConfirmedByCreatorId);
+        var notice = await f.Db.Notifications.SingleAsync(n => n.UserId == Creator);
+        Assert.Equal("N-intake-invitation-accepted", notice.Code);
+        Assert.Contains("could not be published automatically", notice.Body);
+        Assert.Contains("The Course must be published.", notice.Body);
+        Assert.False(await f.Db.Notifications.AnyAsync(n => n.Code == "N-intake-published"));
+        Assert.False(await f.Db.AuditLogs.AnyAsync(a => a.Action == "CourseIntakePublished"));
+        Assert.True(await f.Db.AuditLogs.AnyAsync(a => a.Action == "CourseIntakeTrainerAccepted" && a.UserId == Trainer));
+
+        await f.Db.Courses.Where(c => c.Id == 1).ExecuteUpdateAsync(set => set.SetProperty(c => c.Status, CourseStatus.Published));
+        f.Db.ChangeTracker.Clear();
+        var published = await f.Intakes.PublishAsync(Creator, waiting.Id, waiting.Version);
 
         Assert.Equal("Published", published.Status);
-        Assert.Equal("Accepted", published.TrainerInvitationStatus);
+        Assert.Equal(Creator, published.ConfirmedByCreatorId);
+    }
+
+    [Fact]
+    public async Task An_acceptance_after_registration_would_have_closed_leaves_the_intake_unchanged_for_the_creator()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var invited = await f.Intakes.OpenClassAsync(Creator, 1, Weekly() with { SendToTrainer = true });
+        var opens = DateTime.UtcNow.AddDays(-2);
+        var closes = DateTime.UtcNow.AddDays(-1);
+        await f.Db.CourseIntakes.Where(i => i.Id == invited.Id).ExecuteUpdateAsync(set => set
+            .SetProperty(i => i.RegistrationOpensAt, opens).SetProperty(i => i.RegistrationClosesAt, closes));
+        f.Db.ChangeTracker.Clear();
+
+        var reply = await f.Invitations.RespondAsync(Trainer, invited.Id, accept: true, reason: null);
+
+        Assert.Equal("Accepted", reply.Status);
+        Assert.Equal("Draft", reply.IntakeStatus);
+        var notice = await f.Db.Notifications.SingleAsync(n => n.UserId == Creator);
+        Assert.Contains("could not be published automatically", notice.Body);
+        Assert.Contains("Registration would already be closed.", notice.Body);
+        f.Db.ChangeTracker.Clear();
+        var stored = await f.Db.CourseIntakes.SingleAsync(i => i.Id == invited.Id);
+        Assert.Equal(CourseIntakeStatus.Draft, stored.Status);
+        Assert.Equal(TrainerInvitationStatus.Accepted, stored.TrainerInvitation);
+        Assert.True(stored.RegistrationOpensAt < stored.RegistrationClosesAt);
     }
 
     [Fact]
@@ -229,9 +320,11 @@ public class IntakeTrainerInvitationTests
         public async Task<CourseIntakeDetailDto> PublishedAsync(int course = 1)
         {
             var draft = await Intakes.OpenClassAsync(Creator, course, Weekly() with { SendToTrainer = true });
+            // Accepting publishes the Intake; no separate publish step is needed.
             await Invitations.RespondAsync(Trainer, draft.Id, accept: true, reason: null);
-            var accepted = await Intakes.GetForCreatorAsync(Creator, draft.Id);
-            return await Intakes.PublishAsync(Creator, accepted.Id, accepted.Version);
+            var published = await Intakes.GetForCreatorAsync(Creator, draft.Id);
+            Assert.Equal("Published", published.Status);
+            return published;
         }
 
         public static async Task<Fixture> CreateAsync()

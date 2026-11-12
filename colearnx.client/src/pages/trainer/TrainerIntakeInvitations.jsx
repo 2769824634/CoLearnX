@@ -13,11 +13,12 @@ const STATUS = {
   Accepted: { label: 'Accepted', tone: 'published' },
   Declined: { label: 'Declined', tone: 'rejected' },
 };
-// Once the Creator publishes an accepted Intake it appears under Courses, so it leaves this page.
+// Accepting publishes the Intake, which then appears under Courses and leaves this page.
+// An accepted Intake only stays here when it could not be published automatically and waits for the Creator.
 const unpublished = (invitation) => invitation.intakeStatus === 'Draft' || invitation.intakeStatus === 'Rejected';
 
 function answered(invitation) {
-  if (invitation.status === 'Accepted') return `Accepted ${formatDate(invitation.respondedAt)}. The creator publishes the intake next.`;
+  if (invitation.status === 'Accepted') return `Accepted ${formatDate(invitation.respondedAt)}. The intake could not be published automatically, so the creator still has to publish it.`;
   const reason = invitation.declineReason ? ` Your reason: “${invitation.declineReason}”` : '';
   return `Declined ${formatDate(invitation.respondedAt)}.${reason}`;
 }
@@ -83,13 +84,19 @@ export default function TrainerIntakeInvitations() {
   const query = useTrainerQuery(loadInvitations);
   const [busyId, setBusyId] = useState(null);
   const [errors, setErrors] = useState({});
+  const [notice, setNotice] = useState('');
   const items = (Array.isArray(query.data) ? query.data : []).filter(unpublished);
 
   async function reply(invitation, command) {
     setBusyId(invitation.intakeId);
     setErrors((current) => ({ ...current, [invitation.intakeId]: null }));
+    setNotice('');
     try {
       const updated = await command();
+      // A published Intake leaves this page, so say where it went.
+      if (updated.status === 'Accepted' && !unpublished(updated)) {
+        setNotice(`You accepted ${updated.courseTitle} (Intake #${updated.intakeId}). It is now published and listed under Courses.`);
+      }
       query.setData((Array.isArray(query.data) ? query.data : []).map((item) => item.intakeId === updated.intakeId ? updated : item));
     } catch (requestError) {
       setErrors((current) => ({ ...current, [invitation.intakeId]: requestError }));
@@ -104,6 +111,7 @@ export default function TrainerIntakeInvitations() {
   if (query.error) return <TrainerError error={query.error} onRetry={query.refresh} />;
   const shared = { busyId, errors, onAccept: accept, onDecline: decline };
   return <>
+    {notice ? <p className="trainer-notice" role="status">{notice}</p> : null}
     <Group title="Intake schedules to review" empty="No intake schedules are waiting for you." items={items.filter((item) => item.status === 'Invited')} {...shared} />
     {items.some((item) => item.status !== 'Invited')
       ? <Group title="Answered intake schedules" empty="" items={items.filter((item) => item.status !== 'Invited')} {...shared} />
