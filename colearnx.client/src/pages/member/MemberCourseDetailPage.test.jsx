@@ -25,7 +25,7 @@ afterEach(() => {
   cleanup();
 });
 
-function renderDetail(course, { credits = 200, loadCourseDetail, enrol } = {}) {
+function renderDetail(course, { credits = 200, loadCourseDetail, enrol, locationState } = {}) {
   const showToast = vi.fn();
   const enrolFn = enrol || vi.fn().mockResolvedValue({ creditsSpent: 20, balance: 180, heldAfter: 20 });
   const loadFn = loadCourseDetail || vi.fn().mockResolvedValue(course);
@@ -38,7 +38,7 @@ function renderDetail(course, { credits = 200, loadCourseDetail, enrol } = {}) {
         enrol: enrolFn,
         toggleWish: vi.fn(),
       }}>
-        <MemoryRouter initialEntries={[`/member/courses/${course.id}`]}>
+        <MemoryRouter initialEntries={[{ pathname: `/member/courses/${course.id}`, state: locationState }]}>
           <Routes>
             <Route path="/member/courses/:courseId" element={<MemberCourseDetailPage />} />
             <Route path="/member/payment" element={<h1>Credit Wallet</h1>} />
@@ -171,8 +171,40 @@ describe('Member course enrolment', () => {
     expect(screen.getByText(/need 25 credits/i)).toBeTruthy();
     expect(screen.getByText(/balance is 5/i)).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Go to Payment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Top up 20 credits' }));
     expect(await screen.findByRole('heading', { name: 'Credit Wallet' })).toBeTruthy();
+  });
+
+  it('reopens the chosen class confirmation after a top-up without submitting a reservation', async () => {
+    const course = { ...baseCourse, sessions: [openSession, { ...openSession, id: 61, label: 'Second session' }] };
+    const { enrol } = renderDetail(course, { locationState: { resumeReserve: true, sessionId: 61 } });
+    expect(await screen.findByRole('heading', { name: 'Confirm Enrolment' })).toBeTruthy();
+    expect(enrol).not.toHaveBeenCalled();
+  });
+
+  it('lets the learner choose a delivery mode for each session in a class', async () => {
+    const course = { ...baseCourse, sessions: [
+      { ...openSession, id: 60, intakeId: 4, label: 'Session 1', online: true },
+      { ...openSession, id: 61, intakeId: 4, label: 'Session 2', online: true },
+    ] };
+    const { enrol } = renderDetail(course);
+    fireEvent.click(await screen.findByRole('button', { name: 'Reserve place' }));
+    expect(screen.getByRole('radio', { name: 'Physical for Session 1' }).disabled).toBe(false);
+    fireEvent.click(screen.getByRole('radio', { name: 'Online for Session 1' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Physical for Session 2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Enrolment' }));
+    await waitFor(() => expect(enrol).toHaveBeenCalledWith(15, 60, [
+      { courseSessionId: 60, mode: 'Online' }, { courseSessionId: 61, mode: 'Physical' },
+    ]));
+  });
+
+  it('keeps hybrid sessions closed when their shared capacity is full', async () => {
+    const course = { ...baseCourse, sessions: [
+      { ...openSession, id: 60, intakeId: 4, label: 'Session 1', online: true, seats: 0 },
+    ] };
+    const { enrol } = renderDetail(course);
+    expect((await screen.findByRole('button', { name: 'Session full' })).disabled).toBe(true);
+    expect(enrol).not.toHaveBeenCalled();
   });
 
   it('refreshes the Intake count after a successful reservation without submitting again', async () => {

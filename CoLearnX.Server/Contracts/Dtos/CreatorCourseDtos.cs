@@ -14,7 +14,8 @@ public record CreateCreatorCourseRequest(
     IReadOnlyList<int>? InterestIds = null,
     int CourseSubjectId = 0,
     int DurationHours = 0,
-    string? PriceExceptionReason = null);
+    string? PriceExceptionReason = null,
+    bool OpenToTrainerApplications = true);
 
 public record UpdateCreatorCourseRequest(
     [Required, MaxLength(64)] string Code,
@@ -28,7 +29,8 @@ public record UpdateCreatorCourseRequest(
     IReadOnlyList<int>? InterestIds = null,
     int CourseSubjectId = 0,
     int DurationHours = 0,
-    string? PriceExceptionReason = null);
+    string? PriceExceptionReason = null,
+    bool? OpenToTrainerApplications = null);
 
 public record CreatorCourseDto(
     int Id,
@@ -53,7 +55,8 @@ public record CreatorCourseDto(
     int? CourseSubjectId = null,
     string? CourseSubjectName = null,
     int? DurationHours = null,
-    string? PriceExceptionReason = null);
+    string? PriceExceptionReason = null,
+    bool OpenToTrainerApplications = true);
 
 public record CourseOptionDto(int Id, string Name);
 

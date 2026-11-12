@@ -33,6 +33,8 @@ public static class SeedData
         await DisableStaffUsersAsync(db);
         await RecommendationSeed.EnsureSchemaAsync(db);
         await CreditReservationSchema.EnsureAsync(db);
+        await EnrollmentSessionChoiceSchema.EnsureAsync(db);
+        await IntakeEarningSchema.EnsureAsync(db);
         await NotificationSchema.EnsureAsync(db);
         await MaterialUsageSchema.EnsureAsync(db);
         await SessionMaterialSchema.EnsureAsync(db);
@@ -41,6 +43,7 @@ public static class SeedData
         await PricingSchema.EnsureAsync(db);
         await CourseTrainerSchema.EnsureAsync(db);
         await CourseSubjectSchema.EnsureAsync(db);
+        await CourseRecruitmentSchema.EnsureAsync(db);
         await RoleCertificationSchema.EnsureAsync(db);
         await LearningPathSchema.EnsureAsync(db);
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);

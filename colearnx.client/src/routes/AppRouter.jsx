@@ -26,6 +26,7 @@ import TrainerLearnersPage from '../pages/trainer/TrainerLearnersPage';
 import TrainerAccountPage from '../pages/trainer/TrainerAccountPage';
 import TrainerInvitationsPage from '../pages/trainer/TrainerInvitationsPage';
 import CertificationPage from '../pages/account/CertificationPage';
+import EarningsPage from '../pages/account/EarningsPage';
 import CreatorApprovalsPage from '../pages/creator/CreatorApprovalsPage';
 import CreatorHomePage from '../pages/creator/CreatorHomePage';
 import CreatorAccountPage from '../pages/creator/CreatorAccountPage';
@@ -144,6 +145,7 @@ export default function AppRouter() {
             <Route path="courses/intakes/:courseIntakeId" element={<TrainerIntakeDetailPage />} />
             <Route path="courses/intakes/:courseIntakeId/sessions/:courseSessionId" element={<TrainerSessionDetailPage />} />
             <Route path="invitations" element={<TrainerInvitationsPage />} />
+            <Route path="earnings" element={<EarningsPage role="trainer" />} />
             <Route path="attendance" element={<TrainerAttendancePage />} />
             <Route path="learners" element={<TrainerLearnersPage />} />
             <Route path="account" element={<TrainerAccountPage />} />
@@ -166,6 +168,7 @@ export default function AppRouter() {
             <Route path="approvals" element={<CreatorApprovalsPage />} />
             <Route path="upload" element={<Navigate to="/creator/courses" replace />} />
             <Route path="usage" element={<CreatorUsagePage />} />
+            <Route path="earnings" element={<EarningsPage role="creator" />} />
             <Route path="account" element={<CreatorAccountPage />} />
             <Route index element={<Navigate to="home" replace />} />
           </Route>

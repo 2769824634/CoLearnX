@@ -62,7 +62,9 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
                 throw new CourseException("REGISTRATION_NOT_OPEN", "Registration is not open yet.");
             if (userId == course.CreatorId || userId == intake.TrainerId)
                 throw new CourseException("SELF_ENROLLMENT_NOT_ALLOWED", "You cannot enrol in a class you teach or created.");
-            if (session.PhysicalCapacity > 0 && session.PhysicalBookingDeadline < now)
+            var choices = request.DeliveryChoices is null ? null
+                : await ValidateDeliveryChoicesAsync(intake.Id, request.DeliveryChoices, now, ct);
+            if (choices is null && session.PhysicalCapacity > 0 && session.PhysicalBookingDeadline < now)
                 throw new CourseException("PHYSICAL_BOOKING_CLOSED", "Physical booking is closed.");
             if (await db.Enrollments.AnyAsync(e => e.UserId == userId && e.CourseId == course.Id
                     && (e.Status == EnrollmentStatus.Active || e.Status == EnrollmentStatus.Reserved), ct))
@@ -81,10 +83,12 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
                 throw new CourseException("INTAKE_VERSION_CONFLICT", "The class changed. Refresh before reserving again.", 409);
 
             var credits = new EnrollmentCreditTransitions(db);
-            var wallet = await credits.HoldCreditsAndSeatAsync(userId, session.Id, cost, ct);
+            var wallet = await credits.HoldCreditsAndSeatAsync(userId, session.Id, cost, ct,
+                choices?.Select(choice => choice.CourseSessionId).OrderBy(id => id).ToList());
             var enrollment = new Enrollment { UserId = userId, CourseId = course.Id, CourseSessionId = session.Id,
                 Status = EnrollmentStatus.Reserved, ProgressPercent = 0, CreditsSpent = cost,
-                PostponedFromEnrollmentId = original?.Id };
+                PostponedFromEnrollmentId = original?.Id,
+                DeliveryChoices = choices ?? [] };
             db.Enrollments.Add(enrollment);
             await db.SaveChangesAsync(ct);
             credits.RecordHold(userId, enrollment.Id, cost, wallet.BalanceAfter, wallet.HeldAfter,
@@ -94,9 +98,14 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
                 Reason = $"Held {BusinessText.Credits(cost)} for {course.Code}" });
             db.Notifications.Add(new Notification { UserId = userId, IntakeId = intake.Id, EnrollmentId = enrollment.Id, Code = "N-01", Title = "Place reserved",
                 Body = $"{BusinessText.Credits(cost)} {(cost == 1 ? "is" : "are")} on hold for {course.Code}." });
-            if (session.PhysicalCapacity > 0 && session.SeatsTaken + 1 == session.PhysicalCapacity)
+            var reservedIds = choices?.Select(choice => choice.CourseSessionId).ToList() ?? [session.Id];
+            var newlyFull = await db.CourseSessions.AsNoTracking().Where(item => reservedIds.Contains(item.Id)
+                && item.PhysicalCapacity > 0 && item.SeatsTaken == item.PhysicalCapacity).ToListAsync(ct);
+            foreach (var fullSession in newlyFull)
                 db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, Code = "N-session-full",
-                    Title = "Session is full", Body = $"{course.Code} Intake #{intake.Id} has reached physical capacity." });
+                    Title = "Session is full", Body = choices is null
+                        ? $"{course.Code} Intake #{intake.Id} has reached physical capacity."
+                        : $"{course.Code} Intake #{intake.Id} {fullSession.Label} has reached shared capacity." });
             if (classSize + 1 == intake.MinEnrollment)
             {
                 var body = $"{course.Code} Intake #{intake.Id} has enough learners to run.";
@@ -112,6 +121,30 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
         });
     }
 
+    private async Task<List<EnrollmentSessionChoice>> ValidateDeliveryChoicesAsync(int intakeId,
+        IReadOnlyList<SessionDeliveryChoiceRequest> requested, DateTime now, CancellationToken ct)
+    {
+        var sessions = await db.CourseSessions.AsNoTracking().Where(s => s.CourseIntakeId == intakeId).ToListAsync(ct);
+        if (requested.Any(choice => choice is null) || requested.Count != sessions.Count
+            || requested.Select(choice => choice.CourseSessionId).Distinct().Count() != requested.Count)
+            throw new CourseException("SESSION_CHOICES_REQUIRED", "Choose a delivery mode for every session in the class.");
+        var result = new List<EnrollmentSessionChoice>();
+        foreach (var choice in requested)
+        {
+            var session = sessions.SingleOrDefault(item => item.Id == choice.CourseSessionId)
+                ?? throw new CourseException("INVALID_SESSION_CHOICE", "A selected session does not belong to this class.");
+            var mode = choice.Mode?.Trim();
+            if (string.Equals(mode, "Online", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(session.MeetingLink))
+                mode = "Online";
+            else if (string.Equals(mode, "Physical", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(session.PhysicalAddress)
+                && session.PhysicalCapacity > 0 && (session.PhysicalBookingDeadline == null || session.PhysicalBookingDeadline >= now))
+                mode = "Physical";
+            else throw new CourseException("INVALID_SESSION_CHOICE", "The selected delivery mode is not available for this session.");
+            result.Add(new EnrollmentSessionChoice { CourseSessionId = session.Id, Mode = mode });
+        }
+        return result;
+    }
+
     public async Task<EnrollmentDto> CancelReservationAsync(int userId, int enrollmentId, CancellationToken ct = default)
     {
         return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
@@ -120,6 +153,7 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
             await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
             var enrollment = await db.Enrollments.Include(e => e.Course).ThenInclude(c => c.Trainer)
                 .Include(e => e.CourseSession).ThenInclude(s => s.CourseIntake).ThenInclude(i => i.Trainer)
+                .Include(e => e.DeliveryChoices).ThenInclude(choice => choice.CourseSession)
                 .SingleOrDefaultAsync(e => e.Id == enrollmentId && e.UserId == userId, ct)
                 ?? throw new CourseException("ENROLLMENT_NOT_FOUND", "Enrollment was not found.", 404);
             if (enrollment.Status != EnrollmentStatus.Reserved || enrollment.CourseSession.CourseIntake.ConfirmedToRunAt is not null)
@@ -133,11 +167,17 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
             db.Notifications.Add(new Notification { UserId = userId, IntakeId = enrollment.CourseSession.CourseIntakeId, EnrollmentId = enrollment.Id, Code = "N-hold-released", Title = "Credits released",
                 Body = $"{BusinessText.Credits(enrollment.CreditsSpent)} {(enrollment.CreditsSpent == 1 ? "is" : "are")} available again." });
             var intake = enrollment.CourseSession.CourseIntake;
-            if (enrollment.CourseSession.PhysicalCapacity > 0
-                && enrollment.CourseSession.SeatsTaken + 1 == enrollment.CourseSession.PhysicalCapacity
-                && DateTime.UtcNow < intake.RegistrationClosesAt)
-                db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, Code = "N-session-reopened",
-                    Title = "Session has a place available", Body = $"{enrollment.Course.Code} Intake #{intake.Id} has a free physical place." });
+            if (DateTime.UtcNow < intake.RegistrationClosesAt)
+            {
+                var releasedSessions = enrollment.DeliveryChoices.Count == 0 ? [enrollment.CourseSession]
+                    : enrollment.DeliveryChoices.Select(choice => choice.CourseSession);
+                foreach (var releasedSession in releasedSessions.Where(item => item.PhysicalCapacity > 0
+                    && item.SeatsTaken + 1 == item.PhysicalCapacity))
+                    db.Notifications.Add(new Notification { UserId = intake.TrainerId, IntakeId = intake.Id, Code = "N-session-reopened",
+                        Title = "Session has a place available", Body = enrollment.DeliveryChoices.Count == 0
+                            ? $"{enrollment.Course.Code} Intake #{intake.Id} has a free physical place."
+                            : $"{enrollment.Course.Code} Intake #{intake.Id} {releasedSession.Label} has a free shared place." });
+            }
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
             return ToEnrollmentDto(enrollment);
@@ -152,6 +192,7 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
             await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
             var enrollment = await db.Enrollments.Include(e => e.Course).ThenInclude(c => c.Trainer)
                 .Include(e => e.CourseSession).ThenInclude(s => s.CourseIntake).ThenInclude(i => i.Trainer)
+                .Include(e => e.DeliveryChoices).ThenInclude(choice => choice.CourseSession)
                 .SingleOrDefaultAsync(e => e.Id == enrollmentId && e.UserId == userId, ct)
                 ?? throw new CourseException("ENROLLMENT_NOT_FOUND", "Enrollment was not found.", 404);
             if (enrollment.Status != EnrollmentStatus.Active)
@@ -167,6 +208,7 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
             new EnrollmentCreditTransitions(db).Refund(user, enrollment, refund,
                 $"Withdrawal refund: {enrollment.Course.Code}",
                 forfeited > 0 ? $"{forfeited} credits retained after withdrawal from {enrollment.Course.Code}" : null);
+            await EarningsLedger.ReverseAsync(db, enrollment.Id, refund, ct);
             db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "EnrollmentWithdrawn",
                 EntityType = nameof(Enrollment), EntityId = enrollment.Id.ToString(), Result = "Succeeded",
                 Reason = $"Refunded {refund}; forfeited {forfeited} credits" });
@@ -187,6 +229,7 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
         var enrollments = await db.Enrollments.AsNoTracking()
             .Include(e => e.Course).ThenInclude(c => c.Trainer)
             .Include(e => e.CourseSession).ThenInclude(s => s.CourseIntake).ThenInclude(i => i.Trainer)
+            .Include(e => e.DeliveryChoices).ThenInclude(choice => choice.CourseSession)
             .Where(e => e.UserId == userId)
             .OrderByDescending(e => e.EnrolledAt)
             .ToListAsync(ct);
@@ -221,7 +264,12 @@ public class EnrollmentService(CoLearnXDbContext db) : IEnrollmentService
             e.Status == EnrollmentStatus.Reserved ? null : e.CourseSession.MeetingLink,
             e.Status == EnrollmentStatus.Reserved ? e.CreditsSpent : 0,
             e.CourseSession.CourseIntake.RegistrationClosesAt,
-            e.CourseSession.CourseIntake.StartsAt, [], WithdrawalRefund(e));
+            e.CourseSession.CourseIntake.StartsAt, [], WithdrawalRefund(e),
+            e.DeliveryChoices.OrderBy(choice => choice.CourseSession.StartsAt).Select(choice =>
+                new EnrollmentDeliveryChoiceDto(choice.CourseSessionId, choice.CourseSession.Label,
+                    choice.CourseSession.StartsAt, choice.CourseSession.EndsAt, choice.Mode,
+                    e.Status == EnrollmentStatus.Reserved || choice.Mode != "Online" ? null : choice.CourseSession.MeetingLink,
+                    choice.CourseSession.PhysicalAddress)).ToList());
 
     private static int? WithdrawalRefund(Enrollment e)
     {

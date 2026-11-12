@@ -285,6 +285,7 @@ public sealed class AdminFinanceService(CoLearnXDbContext db, ILogger<AdminFinan
                             IdempotencyKey = request.IdempotencyKey,
                         });
                     }
+                    await EarningsLedger.ReverseAsync(db, dispute.EnrollmentId.Value, credits, ct);
                     db.Notifications.Add(new Notification
                     {
                         UserId = dispute.RaisedByUserId,
@@ -342,6 +343,7 @@ public sealed class AdminFinanceService(CoLearnXDbContext db, ILogger<AdminFinan
     private IQueryable<Dispute> DisputeQuery()
         => db.Disputes.Include(item => item.Enrollment).ThenInclude(enrollment => enrollment!.User)
             .Include(item => item.Enrollment).ThenInclude(enrollment => enrollment!.Course)
+            .Include(item => item.Enrollment).ThenInclude(enrollment => enrollment!.DeliveryChoices).ThenInclude(choice => choice.CourseSession)
             .Include(item => item.Enrollment).ThenInclude(enrollment => enrollment!.CourseSession)
                 .ThenInclude(session => session.CourseIntake);
 

@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import MemberPaymentPage from './MemberPaymentPage';
 
 const packages = [
@@ -14,7 +15,7 @@ const ledger = [
 
 vi.mock('../../components/MemberShell', () => ({ default: ({ title, children }) => <div><h1>{title}</h1>{children}</div> }));
 vi.mock('../../components/PayPalPackageButtons', () => ({
-  default: ({ packageId }) => <div data-testid="paypal">{packageId}</div>,
+  default: ({ packageId, onCaptured }) => <button type="button" data-testid="paypal" onClick={() => onCaptured({ delta: 240, balanceAfter: 245, description: 'Captured' })}>{packageId}</button>,
 }));
 vi.mock('../../api', () => ({ creditsApi: { capturePayPalOrder: vi.fn() } }));
 vi.mock('./memberDataState', () => ({
@@ -26,10 +27,24 @@ vi.mock('./memberDataState', () => ({
   }),
 }));
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); sessionStorage.clear(); });
+
+function mountPayment(state) {
+  return render(<MemoryRouter initialEntries={[{ pathname: '/member/payment', state }]}>
+    <Routes>
+      <Route path="/member/payment" element={<MemberPaymentPage />} />
+      <Route path="/member/courses/:id" element={<ReturnProbe />} />
+    </Routes>
+  </MemoryRouter>);
+}
+
+function ReturnProbe() {
+  const location = useLocation();
+  return <div>Returned: {String(location.state?.resumeReserve)} / {location.state?.sessionId}</div>;
+}
 
 it('marks the chosen package and passes that package to the PayPal buttons', () => {
-  render(<MemberPaymentPage />);
+  mountPayment();
   const first = screen.getByRole('button', { name: /^20 Credits/ });
   const best = screen.getByRole('button', { name: /240 Credits/ });
   expect(first.getAttribute('aria-pressed')).toBe('true');
@@ -45,7 +60,7 @@ it('marks the chosen package and passes that package to the PayPal buttons', () 
 });
 
 it('shows readable ledger summaries, labels, filters and related courses', () => {
-  render(<MemberPaymentPage />);
+  mountPayment();
   fireEvent.click(screen.getByRole('button', { name: 'Credit Ledger' }));
   expect(screen.getByText('20 credits added')).toBeTruthy();
   expect(screen.getByText('35 credits used')).toBeTruthy();
@@ -65,4 +80,13 @@ it('shows readable ledger summaries, labels, filters and related courses', () =>
   fireEvent.change(screen.getByRole('combobox', { name: 'Related course' }), { target: { value: '7' } });
   expect(screen.getAllByRole('row')).toHaveLength(2);
   expect(screen.getByText('Reserved')).toBeTruthy();
+});
+
+it('preselects a package covering the shortage and returns to the chosen class after capture', async () => {
+  mountPayment({ returnTo: '/member/courses/6', need: 40, courseTitle: 'Web Basics', sessionId: 81 });
+  expect(screen.getByText('You need 40 more credits to reserve Web Basics.')).toBeTruthy();
+  expect(screen.getByRole('button', { name: /240 Credits/ }).getAttribute('aria-pressed')).toBe('true');
+  fireEvent.click(screen.getByTestId('paypal'));
+  fireEvent.click(await screen.findByRole('button', { name: 'Back to the course' }));
+  expect(screen.getByText('Returned: true / 81')).toBeTruthy();
 });

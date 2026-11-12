@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
 import { enrollmentsApi } from '../../api';
@@ -7,15 +7,19 @@ import { useMemberSlices } from './memberDataState';
 import { formatCount, formatUtcDate, formatUtcRange, userFacingError } from '../businessPresentation';
 import { sessionAvailability } from './sessionAvailability';
 import { CourseArt } from '../guest/GuestCourseCard';
+import { saveReservationReturn } from './reservationReturn';
 
 function initials(name) {
   return (name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 }
 
+const currentAvailability = (session) => sessionAvailability(session, Date.now());
+
 // Course detail + enrol.
 export default function MemberCourseDetailPage() {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { state, showToast, loadCourseDetail, peekCourseDetail, enrol, toggleWish } = useMemberSlices('enrollments');
   const numericCourseId = Number(courseId);
   const peeked = peekCourseDetail?.(numericCourseId) || null;
@@ -34,6 +38,7 @@ export default function MemberCourseDetailPage() {
   const [comment, setComment] = useState('');
   const [ratingBusy, setRatingBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [deliveryModes, setDeliveryModes] = useState({});
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60000);
@@ -63,6 +68,24 @@ export default function MemberCourseDetailPage() {
     };
   }, [courseId, loadCourseDetail, numericCourseId, peekCourseDetail, showToast]);
 
+  useEffect(() => {
+    if (!location.state?.resumeReserve || !course) return undefined;
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      const index = (course.sessions || []).findIndex((item) => item.id === Number(location.state.sessionId));
+      if (index >= 0 && sessionAvailability(course.sessions[index], Date.now()).canReserve
+        && !course.alreadyEnrolled && state.credits >= course.credits) {
+        setSessionIdx(index);
+        setEnrolOpen(true);
+      } else {
+        showToast('Please check the class and your balance before reserving.');
+      }
+      navigate(location.pathname, { replace: true, state: null });
+    });
+    return () => { active = false; };
+  }, [course, location, navigate, showToast, state.credits]);
+
   function setCourse(update) {
     setCourseSnapshot((snapshot) => snapshot?.courseId === courseId
       ? { ...snapshot, course: typeof update === 'function' ? update(snapshot.course) : update } : snapshot);
@@ -78,10 +101,20 @@ export default function MemberCourseDetailPage() {
 
   const sessions = course.sessions || [];
   const session = sessions[sessionIdx] || sessions[0];
+  const classSessions = session?.intakeId ? sessions.filter((item) => item.intakeId === session.intakeId) : [session].filter(Boolean);
+  const hasSessionChoices = Boolean(session?.intakeId);
+  const physicalAvailable = (item) => item.physical && Number(item.seats) > 0
+    && (!item.physicalBookingDeadline || now <= new Date(item.physicalBookingDeadline).getTime());
+  const chosenMode = (item) => item.online && item.physical ? deliveryModes[item.id]
+    : item.online ? 'Online' : physicalAvailable(item) ? 'Physical' : null;
+  const choices = classSessions.map((item) => ({ courseSessionId: item.id, mode: chosenMode(item) }));
+  const choicesReady = !hasSessionChoices || choices.every((choice) => choice.mode
+    && (choice.mode !== 'Physical' || physicalAvailable(classSessions.find((item) => item.id === choice.courseSessionId))));
   const afterBalance = state.credits - course.credits;
   const completedEnrollment = (state.enrolled || []).find((item) => item.id === course.id && item.status === 'completed');
   const noPublishedSession = 'This course has no published session yet. A Trainer must open an Intake and the Creator must confirm it.';
-  const availability = sessionAvailability(session, now);
+  const unavailable = classSessions.map((item) => sessionAvailability(item, now)).find((item) => !item.canReserve);
+  const availability = unavailable || sessionAvailability(session, now);
   const openCount = sessions.filter((item) => sessionAvailability(item, now).canReserve).length;
 
   function tryEnrol() {
@@ -93,7 +126,7 @@ export default function MemberCourseDetailPage() {
       showToast(noPublishedSession);
       return;
     }
-    const current = sessionAvailability(session, Date.now());
+    const current = currentAvailability(session);
     if (!current.canReserve) { showToast(current.label); return; }
     if (state.credits < course.credits) {
       setInsufficientOpen(true);
@@ -104,7 +137,7 @@ export default function MemberCourseDetailPage() {
 
   async function confirmEnrol() {
     if (enrolBusy) return;
-    const current = sessionAvailability(session, Date.now());
+    const current = currentAvailability(session);
     if (!current.canReserve) {
       setEnrolOpen(false);
       showToast(current.label);
@@ -112,7 +145,7 @@ export default function MemberCourseDetailPage() {
     }
     setEnrolBusy(true);
     try {
-      const result = await enrol(course.id, session.id);
+      const result = hasSessionChoices ? await enrol(course.id, session.id, choices) : await enrol(course.id, session.id);
       const updated = await loadCourseDetail(course.id, { fresh: true });
       setEnrolOpen(false);
       setSuccessMsg(`${formatCount(result.creditsSpent, 'credit')} on hold · ${result.balance} available · ${result.heldAfter} on hold in total`);
@@ -197,7 +230,7 @@ export default function MemberCourseDetailPage() {
                       <span className="cx-class-main">
                         <span className="cx-class-title"><strong>{s.label}</strong><span className={`cx-class-status${sAvailability.canReserve ? ' is-open' : ''}`}>{sAvailability.label}</span></span>
                         <span className="cx-class-when">{s.startsAt && s.endsAt ? formatUtcRange(s.startsAt, s.endsAt) : 'Schedule unavailable'}</span>
-                        <span className="cx-class-note">Delivery: {s.physical && s.online ? 'Physical and online (shared place; choosing a mode is not available yet)' : s.physical ? 'Physical' : 'Online'}</span>
+                        <span className="cx-class-note">Delivery: {s.physical && s.online ? 'Physical and online (shared capacity)' : s.physical ? 'Physical' : 'Online'}</span>
                         {s.registrationClosesAt ? <span className="cx-class-note">Registration closes {formatUtcDate(s.registrationClosesAt)}</span> : null}
                       </span>
                       <span className="cx-class-side">
@@ -277,9 +310,20 @@ export default function MemberCourseDetailPage() {
           <strong>{afterBalance}</strong>
         </div>
         <p className="page-sub">{course.credits} credits will be held until the class is confirmed at registration close. If it does not run, or you cancel before confirmation, they return to your available balance. The minimum is {session?.minEnrollment ?? 10} learners. After confirmation, withdrawal 6–10 calendar days before the start refunds 70%; within five days it is closed.</p>
+        {hasSessionChoices ? <div>
+          <h3>Choose how to attend each session</h3>
+          {classSessions.map((item) => <fieldset className="form-group" key={item.id}>
+            <legend>{item.label}</legend>
+            {item.online ? <label><input type="radio" name={`delivery-${item.id}`} aria-label={`Online for ${item.label}`}
+              checked={chosenMode(item) === 'Online'} onChange={() => setDeliveryModes((current) => ({ ...current, [item.id]: 'Online' }))} /> Online</label> : null}
+            {item.physical ? <label><input type="radio" name={`delivery-${item.id}`} aria-label={`Physical for ${item.label}`}
+              checked={chosenMode(item) === 'Physical'} disabled={!physicalAvailable(item)}
+              onChange={() => setDeliveryModes((current) => ({ ...current, [item.id]: 'Physical' }))} /> Physical{!physicalAvailable(item) ? ' (unavailable)' : ''}</label> : null}
+          </fieldset>)}
+        </div> : null}
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" disabled={enrolBusy} onClick={() => setEnrolOpen(false)}>Cancel</button>
-          <button type="button" className="btn btn-primary" disabled={enrolBusy || !availability.canReserve} onClick={confirmEnrol}>{enrolBusy ? 'Reserving…' : 'Confirm Enrolment'}</button>
+          <button type="button" className="btn btn-primary" disabled={enrolBusy || !availability.canReserve || !choicesReady} onClick={confirmEnrol}>{enrolBusy ? 'Reserving…' : 'Confirm Enrolment'}</button>
         </div>
       </Modal>
 
@@ -296,10 +340,13 @@ export default function MemberCourseDetailPage() {
             className="btn btn-primary"
             onClick={() => {
               setInsufficientOpen(false);
-              navigate('/member/payment');
+              const back = { returnTo: location.pathname, need: Math.max(0, course.credits - state.credits),
+                courseTitle: course.title, sessionId: session.id, userId: state.user?.id };
+              saveReservationReturn(back);
+              navigate('/member/payment', { state: back });
             }}
           >
-            Go to Payment
+            {course.credits > state.credits ? `Top up ${course.credits - state.credits} credits` : 'Top up credits'}
           </button>
         </div>
       </Modal>

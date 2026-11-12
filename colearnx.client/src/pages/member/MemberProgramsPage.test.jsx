@@ -26,6 +26,16 @@ it('disables withdrawal when the server does not offer a refund, even for a dist
   await screen.findByText('No materials attached yet.');
 });
 
+it('shows the selected attendance mode for every session', async () => {
+  renderPrograms({ status: 'active', deliveryChoices: [
+    { courseSessionId: 8, label: 'Session 1', mode: 'Online', startsAt: '2099-01-01T00:00:00Z', meetingLink: 'https://example.test/meeting' },
+    { courseSessionId: 9, label: 'Session 2', mode: 'Physical', startsAt: '2099-01-02T00:00:00Z', physicalAddress: 'Room 2' },
+  ] });
+  expect(screen.getByText(/Session 1.*Online/)).toBeTruthy();
+  expect(screen.getByText(/Session 2.*Physical/)).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Join Session 1' }).getAttribute('href')).toBe('https://example.test/meeting');
+});
+
 it('shows the exact offered refund before withdrawing', async () => {
   const member = renderPrograms({ status: 'active', withdrawalRefundCredits: 7 });
   fireEvent.click(screen.getByRole('button', { name: 'Withdraw from class' }));

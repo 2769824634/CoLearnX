@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import Modal from '../../components/Modal';
 import PayPalPackageButtons from '../../components/PayPalPackageButtons';
 import { creditsApi } from '../../api';
 import { useMemberSlices } from './memberDataState';
 import { formatCount, ledgerPillClass, ledgerTypeLabel } from '../businessPresentation';
+import { clearReservationReturn, readReservationReturn, validReservationReturn } from './reservationReturn';
 
 function relatedCourseOptions(ledger) {
   const courses = new Map();
@@ -16,7 +18,10 @@ function relatedCourseOptions(ledger) {
 
 // Fixed credit packages + PayPal.
 export default function MemberPaymentPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { state, showToast, applyLedgerTopUp, reload } = useMemberSlices('billing');
+  const [back] = useState(() => validReservationReturn(location.state, state.user?.id) || readReservationReturn(state.user?.id));
   const [tab, setTab] = useState('topup');
   const [selectedId, setSelectedId] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -26,7 +31,8 @@ export default function MemberPaymentPage() {
   const capturingReturn = useRef(false);
 
   const packages = state.packages || [];
-  const selected = packages.find((p) => p.id === selectedId) || packages[0];
+  const suggested = back ? [...packages].sort((a, b) => a.credits - b.credits).find((p) => p.credits >= back.need) : null;
+  const selected = packages.find((p) => p.id === selectedId) || suggested || packages[0];
   const ledger = state.ledger || [];
   const ledgerTypes = [...new Set(ledger.map((item) => item.type))].sort();
   const ledgerCourses = relatedCourseOptions(ledger);
@@ -99,6 +105,7 @@ export default function MemberPaymentPage() {
           <strong className="cx-wallet-balance-amount">{state.credits}</strong>
           <span className="cx-wallet-balance-sub">On hold: {formatCount(state.heldCredits ?? 0, 'credit')} · Total: {formatCount(state.totalCredits ?? state.credits, 'credit')}</span>
         </div>
+        {back ? <p className="callout" role="status">You need {back.need} more credits to reserve {back.courseTitle}.</p> : null}
 
         {state.loading && !(state.packages || []).length ? <p role="status">Loading packages…</p> : null}
         {state.loadError ? <div className="callout warn" role="alert">{state.loadError} <button type="button" className="btn btn-ghost" onClick={reload}>Retry</button></div> : null}
@@ -108,7 +115,7 @@ export default function MemberPaymentPage() {
             <h3 className="cx-wallet-heading">Choose a Credit Package</h3>
             <div className="grid-3 cx-wallet-packs">
               {packages.map((p) => {
-                const active = (selectedId ?? packages[0]?.id) === p.id;
+                const active = selected?.id === p.id;
                 return (
                   <button
                     key={p.id}
@@ -240,8 +247,14 @@ export default function MemberPaymentPage() {
               >
                 View Ledger
               </button>
-              <button type="button" className="btn btn-primary" onClick={() => setSuccess(null)}>
-                Done
+              <button type="button" className="btn btn-primary" onClick={() => {
+                setSuccess(null);
+                if (back) {
+                  clearReservationReturn();
+                  navigate(back.returnTo, { state: { resumeReserve: true, sessionId: back.sessionId } });
+                }
+              }}>
+                {back ? 'Back to the course' : 'Done'}
               </button>
             </div>
           </div>

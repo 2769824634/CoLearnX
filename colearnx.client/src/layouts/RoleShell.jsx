@@ -19,6 +19,7 @@ const NAV = {
     { to: '/trainer/home', label: 'Homepage' },
     { to: '/trainer/courses', label: 'Course' },
     { to: '/trainer/invitations', label: 'Teaching invitations' },
+    { to: '/trainer/earnings', label: 'Earnings' },
     { to: '/trainer/account', label: 'My Account' },
   ],
   creator: [
@@ -27,6 +28,7 @@ const NAV = {
     { to: '/creator/courses/new', label: 'Create Course', end: true },
     { to: '/creator/approvals', label: 'Approval status' },
     { to: '/creator/usage', label: 'Usage Records' },
+    { to: '/creator/earnings', label: 'Earnings' },
     { to: '/creator/account', label: 'My Account' },
   ],
   admin: [

@@ -466,6 +466,53 @@ public class CourseIntakeCoreTests
         MeetingLink: "https://example.com/meeting");
 
     [Fact]
+    public async Task Publishing_requires_total_session_time_to_cover_the_course_duration()
+    {
+        await using var f = await Fixture.CreateAsync();
+        (await f.Db.Courses.SingleAsync()).DurationHours = 3;
+        await f.Db.SaveChangesAsync();
+        var draft = await f.Service.CreateAsync(1, 1, DraftRequest);
+        draft = await f.Service.AddSessionAsync(1, draft.Id, SessionRequest(draft.Version));
+        draft = await f.Service.AddSessionAsync(1, draft.Id, SessionRequest(draft.Version) with
+        {
+            Label = "Session 2", StartsAt = Start.AddDays(1), EndsAt = Start.AddDays(1).AddHours(1),
+        });
+        var error = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.PublishAsync(1, draft.Id, draft.Version));
+        Assert.Equal("SESSION_DURATION_INSUFFICIENT", error.Code);
+        f.Db.ChangeTracker.Clear();
+        Assert.Equal(CourseIntakeStatus.Draft, (await f.Db.CourseIntakes.SingleAsync()).Status);
+        draft = await f.Service.AddSessionAsync(1, draft.Id, SessionRequest(draft.Version) with
+        {
+            Label = "Session 3", StartsAt = Start.AddDays(2), EndsAt = Start.AddDays(2).AddHours(1),
+        });
+        Assert.Equal("Published", (await f.Service.PublishAsync(1, draft.Id, draft.Version)).Status);
+    }
+
+    [Fact]
+    public async Task Opening_a_short_class_fails_without_creating_an_orphan_draft()
+    {
+        await using var f = await Fixture.CreateAsync();
+        (await f.Db.Courses.SingleAsync()).DurationHours = 7;
+        await f.Db.SaveChangesAsync();
+        var error = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.OpenClassAsync(1, 1, WeeklyClass));
+        Assert.Equal("SESSION_DURATION_INSUFFICIENT", error.Code);
+        Assert.Empty(await f.Db.CourseIntakes.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Editing_a_published_class_cannot_reduce_its_duration_below_the_course_hours()
+    {
+        await using var f = await Fixture.CreateAsync();
+        (await f.Db.Courses.SingleAsync()).DurationHours = 6;
+        await f.Db.SaveChangesAsync();
+        var opened = await f.Service.OpenClassAsync(1, 1, WeeklyClass);
+        var error = await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.DeleteSessionAsync(
+            1, opened.Id, opened.Sessions[0].Id, opened.Version));
+        Assert.Equal("SESSION_DURATION_INSUFFICIENT", error.Code);
+        Assert.Equal(3, await f.Db.CourseSessions.CountAsync());
+    }
+
+    [Fact]
     public async Task Open_class_creates_every_session_and_publishes_in_one_step()
     {
         await using var f = await Fixture.CreateAsync();

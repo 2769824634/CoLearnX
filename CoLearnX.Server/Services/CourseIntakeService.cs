@@ -119,6 +119,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             }
             if (replacement.Sessions.Count == 0)
                 throw new CourseIntakeException("SESSION_REQUIRED", "The replacement needs at least one session.", field: "sessions");
+            CourseIntakeValidation.TotalDuration(original.Course.DurationHours, replacement.Sessions);
             db.CourseIntakes.Add(replacement);
             original.Version = Guid.NewGuid();
             var learners = await db.Enrollments.Where(e => e.CourseSession.CourseIntakeId == original.Id
@@ -235,6 +236,8 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             request.PhysicalAddress, request.PhysicalCapacity, request.PhysicalBookingDeadline, intake);
         ValidateCapacity(next, intake.MinEnrollment);
         await RequireNoHistoryAsync(session.Id, ct);
+        if (intake.Status == CourseIntakeStatus.Published)
+            CourseIntakeValidation.TotalDuration(intake.Course.DurationHours, intake.Sessions.Select(item => item.Id == session.Id ? next : item));
         session.Label = next.Label;
         session.StartsAt = next.StartsAt;
         session.EndsAt = next.EndsAt;
@@ -253,6 +256,8 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         var intake = await LoadEditableAsync(creatorUserId, courseIntakeId, version, ct);
         var session = FindSession(intake, courseSessionId);
         await RequireNoHistoryAsync(session.Id, ct);
+        if (intake.Status == CourseIntakeStatus.Published)
+            CourseIntakeValidation.TotalDuration(intake.Course.DurationHours, intake.Sessions.Where(item => item.Id != session.Id));
         db.CourseSessions.Remove(session);
         intake.Sessions.Remove(session);
         FitTeachingDates(intake);
@@ -300,6 +305,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
         var teachingStart = starts[0];
         var teachingEnd = starts[^1] + length;
         var bookingDeadline = physicalAddress is null ? (DateTime?)null : closes;
+        var proposed = new List<CourseSession>();
         for (var index = 0; index < starts.Count; index++)
         {
             var prototype = new CourseSession
@@ -314,8 +320,15 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             };
             CourseIntakeValidation.Session(prototype, teachingStart, teachingEnd);
             ValidateCapacity(prototype, request.MinEnrollment);
+            proposed.Add(prototype);
         }
 
+        if (request.Publish)
+        {
+            await RequireCreatorAsync(creatorUserId, ct);
+            var course = await RequireOwnedPublishedCourseAsync(creatorUserId, courseId, ct);
+            CourseIntakeValidation.TotalDuration(course.DurationHours, proposed);
+        }
         var intake = await CreateAsync(creatorUserId, courseId, new CreateCourseIntakeRequest(
             opens, closes, starts[0], starts[^1] + length, request.TrainerId, request.MinEnrollment), ct);
         for (var index = 0; index < starts.Count; index++)
@@ -351,6 +364,7 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             CourseIntakeValidation.Session(session, intake.StartsAt, intake.EndsAt);
             ValidateCapacity(session, intake.MinEnrollment);
         }
+        CourseIntakeValidation.TotalDuration(intake.Course.DurationHours, intake.Sessions);
         var now = DateTime.UtcNow;
         intake.Status = CourseIntakeStatus.Published;
         intake.ConfirmedByCreatorId = creatorUserId;
@@ -394,12 +408,13 @@ public sealed class CourseIntakeService(CoLearnXDbContext db, INotificationRealt
             throw new CourseIntakeException("COURSE_NOT_PUBLISHED", "The Course must be published.", 409);
     }
 
-    private async Task RequireOwnedPublishedCourseAsync(int creatorUserId, int courseId, CancellationToken ct)
+    private async Task<Course> RequireOwnedPublishedCourseAsync(int creatorUserId, int courseId, CancellationToken ct)
     {
         var course = await db.Courses.AsNoTracking().SingleOrDefaultAsync(c => c.Id == courseId && c.CreatorId == creatorUserId, ct)
             ?? throw new CourseIntakeException("COURSE_NOT_FOUND", "Course was not found.", 404);
         if (course.Status != CourseStatus.Published)
             throw new CourseIntakeException("COURSE_NOT_PUBLISHED", "The Course must be published.", 409);
+        return course;
     }
 
     private async Task RequireAcceptedTrainerAsync(int courseId, int trainerId, CancellationToken ct)

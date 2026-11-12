@@ -190,6 +190,15 @@ export default function MemberProgramsPage() {
             {tab === 'active' && hub ? <><button type="button" className="btn btn-ghost" disabled={busy || hub.withdrawalRefundCredits == null} onClick={() => setPendingAction({ enrollmentId: hub.enrollmentId, action: 'withdraw', refundCredits: hub.withdrawalRefundCredits })}>Withdraw from class</button><p>{hub.withdrawalRefundCredits != null ? `Available refund: ${formatCount(hub.withdrawalRefundCredits, 'credit')} (70%).` : 'Self-withdrawal is available only 6-10 calendar days before the confirmed class starts, using UTC dates.'}</p></> : null}
             {tab === 'history' ? <p>Cancelled and refunded classes are kept here for your records.</p> : null}
             {tab === 'history' && hub ? <PostponementPicker key={hub.enrollmentId} enrollment={hub} busy={busy} onReserve={setPendingAction} /> : null}
+            {hub?.deliveryChoices?.length ? <section aria-label="Session attendance">
+              <h3>Session attendance</h3>
+              <ul>{hub.deliveryChoices.map((choice) => <li key={choice.courseSessionId}>
+                <span>{choice.label} · {choice.mode}</span>
+                {choice.startsAt ? <span> · {formatUtcDateTime(choice.startsAt)}</span> : null}
+                {choice.mode === 'Physical' && choice.physicalAddress ? <span> · {choice.physicalAddress}</span> : null}
+                {choice.mode === 'Online' && choice.meetingLink ? <> · <a href={choice.meetingLink} target="_blank" rel="noopener noreferrer">Join {choice.label}</a></> : null}
+              </li>)}</ul>
+            </section> : null}
             {['active', 'completed'].includes(tab) ? <>
             <p style={{ fontSize: 12, color: 'var(--slate)' }}>
               {hub ? `Session materials for ${hub.courseTitle}` : 'Select a program'}
@@ -214,7 +223,7 @@ export default function MemberProgramsPage() {
                 {item.dueAt ? <small>Due {formatUtcDateTime(item.dueAt)}</small> : <small>No due date</small>}
                 {item.feedback ? <p>{item.feedback}</p> : null}
               </article>)}</div> : <p>No assessments created yet.</p>}
-              {hub.meetingLink ? <a className="btn btn-primary btn-block" href={hub.meetingLink} target="_blank" rel="noopener noreferrer">Join Live Session</a> : null}
+              {hub.meetingLink && !hub.deliveryChoices?.length ? <a className="btn btn-primary btn-block" href={hub.meetingLink} target="_blank" rel="noopener noreferrer">Join Live Session</a> : null}
             </> : null}
             {hub ? <><p>For an enrollment issue or refund review, ask Admin through My Disputes.</p><button type="button" className="btn btn-ghost btn-block" onClick={() => navigate(`/member/disputes?enrollmentId=${hub.enrollmentId}`)}>View or submit a dispute</button></> : null}
             </> : null}

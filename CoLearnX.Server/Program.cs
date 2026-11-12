@@ -86,6 +86,11 @@ builder.Services.AddScoped<ICourseTrainerService, CourseTrainerService>();
 builder.Services.AddScoped<ITrainerDeliveryService, TrainerDeliveryService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 builder.Services.AddScoped<IIntakeSettlementService, IntakeSettlementService>();
+builder.Services.AddScoped<EarningsService>();
+builder.Services.AddOptions<EarningsOptions>().Bind(builder.Configuration.GetSection("Earnings"))
+    .Validate(options => options.TrainerPercent >= 0 && options.CreatorPercent >= 0
+        && options.TrainerPercent + options.CreatorPercent <= 100, "Earnings percentages must be non-negative and total at most 100.")
+    .ValidateOnStart();
 if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService<IntakeSettlementWorker>();
 builder.Services.AddScoped<RecommendationService>();

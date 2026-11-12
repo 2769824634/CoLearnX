@@ -155,10 +155,10 @@ export const enrollmentsApi = {
   downloadMaterial: (id, versionId, title, token) => downloadFile(`/api/enrollments/${encodeURIComponent(id)}/materials/${encodeURIComponent(versionId)}/file`, title, token),
   downloadSessionMaterial: (id, materialId, title, token) => downloadFile(`/api/enrollments/${encodeURIComponent(id)}/session-materials/${encodeURIComponent(materialId)}/file`, title, token),
   downloadRecording: (id, recordingId, title, token) => downloadFile(`/api/enrollments/${encodeURIComponent(id)}/recordings/${encodeURIComponent(recordingId)}/file`, title, token),
-  enrol: (courseId, courseSessionId) =>
+  enrol: (courseId, courseSessionId, deliveryChoices) =>
     apiRequest('/api/enrollments', {
       method: 'POST',
-      body: { courseId, courseSessionId },
+      body: { courseId, courseSessionId, ...(deliveryChoices ? { deliveryChoices } : {}) },
     }),
 };
 
@@ -176,6 +176,11 @@ export const creditsApi = {
       method: 'POST',
       body: { orderId },
     }),
+};
+
+export const earningsApi = {
+  trainer: (token, signal) => apiRequest('/api/trainer/earnings', { token, signal }),
+  creator: (token, signal) => apiRequest('/api/creator/earnings', { token, signal }),
 };
 
 export const medalsApi = {

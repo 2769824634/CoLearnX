@@ -109,6 +109,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         };
         ApplyCourseFields(course, input.Code, request.Title, request.Description,
             request.CreditCost, request.LearningOutcomes, input.Level, input.Path, priced.Subject, request.DurationHours, priced.ExceptionReason);
+        course.OpenToTrainerApplications = request.OpenToTrainerApplications;
         course.Interests = await ValidateInterestsAsync(request.InterestIds, priced.Subject, ct);
         db.Courses.Add(course);
         await db.SaveChangesAsync(ct);
@@ -137,6 +138,7 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         var selectedInterestIds = request.InterestIds;
         ApplyCourseFields(course, input.Code, request.Title, request.Description,
             request.CreditCost, request.LearningOutcomes, input.Level, input.Path, priced.Subject, request.DurationHours, priced.ExceptionReason);
+        course.OpenToTrainerApplications = request.OpenToTrainerApplications ?? course.OpenToTrainerApplications;
         if (selectedInterestIds is not null)
         {
             var validated = await ValidateInterestsAsync(selectedInterestIds, priced.Subject, ct);
@@ -212,7 +214,8 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
                 c.IsFeatured,
                 c.IsPlatformOwned ? PlatformIdentity.Name : c.Creator.FullName,
                 c.IsPlatformOwned,
-                c.CourseSubject == null ? null : c.CourseSubject.Name))
+                c.CourseSubject == null ? null : c.CourseSubject.Name,
+                c.CourseSubjectId))
             .ToListAsync(ct);
         if (courses.Count == 0) return [];
 
@@ -221,6 +224,10 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             ? []
             : await db.WishlistItems.AsNoTracking().Where(w => w.UserId == userId).Select(w => w.CourseId).ToListAsync(ct);
         var wished = wishlist.ToHashSet();
+        var interests = userId is null ? [] : await db.UserInterests.AsNoTracking()
+            .Where(item => item.UserId == userId).Select(item => item.InterestId).ToListAsync(ct);
+        var interestIds = interests.ToHashSet();
+        var subjectIds = await InterestSubjectMap.SubjectIdsForInterestsAsync(db, interests, ct);
         var interestRows = await db.CourseInterests.AsNoTracking()
             .Where(i => ids.Contains(i.CourseId))
             .Select(i => new { i.CourseId, i.InterestId, i.Interest.Slug, i.Interest.Name, i.Interest.SortOrder })
@@ -252,7 +259,10 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             wished.Contains(c.Id), tags.GetValueOrDefault(c.Id) ?? [],
             stars.GetValueOrDefault(c.Id).Average, stars.GetValueOrDefault(c.Id).Count,
             CreatorName: c.CreatorName, TrainerNames: trainerNames.GetValueOrDefault(c.Id) ?? [],
-            LearningPath: c.LearningPath, IsPlatformOwned: c.IsPlatformOwned)).ToList();
+            LearningPath: c.LearningPath, IsPlatformOwned: c.IsPlatformOwned,
+            MatchesInterests: (c.CourseSubjectId is int subjectId && subjectIds.Contains(subjectId))
+                || (tags.GetValueOrDefault(c.Id)?.Any(tag => interestIds.Contains(tag.Id)) ?? false)))
+            .OrderByDescending(course => course.MatchesInterests).ToList();
     }
 
     public async Task<CourseDetailDto?> GetByIdAsync(int courseId, int? userId, CancellationToken ct = default)
@@ -341,7 +351,8 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
         bool IsFeatured,
         string CreatorName,
         bool IsPlatformOwned,
-        string? LearningPath);
+        string? LearningPath,
+        int? CourseSubjectId);
 
     private static IReadOnlyList<string> PublicTrainerNames(Course course)
         => course.Intakes.Where(i => i.Status is CourseIntakeStatus.Published or CourseIntakeStatus.InProgress or CourseIntakeStatus.Completed)
@@ -548,5 +559,6 @@ public class CourseService(CoLearnXDbContext db) : ICourseService
             course.CourseSubjectId,
             course.CourseSubject?.Name,
             course.DurationHours,
-            course.PriceExceptionReason);
+            course.PriceExceptionReason,
+            course.OpenToTrainerApplications);
 }

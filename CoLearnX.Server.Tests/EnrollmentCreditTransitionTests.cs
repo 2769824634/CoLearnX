@@ -42,6 +42,30 @@ public class EnrollmentCreditTransitionTests
     }
 
     [Fact]
+    public async Task Failed_multiple_session_hold_restores_credits_and_all_previously_reserved_seats()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var first = await f.Db.CourseSessions.SingleAsync();
+        first.PhysicalBookingDeadline = DateTime.UtcNow.AddDays(2);
+        f.Db.CourseSessions.Add(new CourseSession
+        {
+            Id = 2, CourseIntakeId = 1, Label = "Full Session",
+            StartsAt = DateTime.UtcNow.AddDays(21), EndsAt = DateTime.UtcNow.AddDays(21).AddHours(1),
+            PhysicalCapacity = 1, SeatsTaken = 1, PhysicalBookingDeadline = DateTime.UtcNow.AddDays(2),
+        });
+        await f.Db.SaveChangesAsync();
+        f.Db.ChangeTracker.Clear();
+
+        Assert.Equal("SESSION_FULL", (await Assert.ThrowsAsync<CourseException>(() =>
+            f.Credits.HoldCreditsAndSeatAsync(1, 1, 20, physicalSessionIds: [1, 2]))).Code);
+        var user = await f.Db.Users.AsNoTracking().SingleAsync();
+        Assert.Equal(100, user.CreditBalance);
+        Assert.Equal(0, user.HeldCredits);
+        Assert.Equal(0, (await f.Db.CourseSessions.AsNoTracking().SingleAsync(s => s.Id == 1)).SeatsTaken);
+        Assert.Equal(1, (await f.Db.CourseSessions.AsNoTracking().SingleAsync(s => s.Id == 2)).SeatsTaken);
+    }
+
+    [Fact]
     public async Task RecordHold_writes_the_hold_ledger_against_the_enrollment()
     {
         await using var f = await Fixture.CreateAsync();

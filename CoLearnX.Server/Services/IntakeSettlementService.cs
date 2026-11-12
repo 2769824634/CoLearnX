@@ -3,6 +3,7 @@ using CoLearnX.Server.Data;
 using CoLearnX.Server.Domain.Entities;
 using CoLearnX.Server.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace CoLearnX.Server.Services;
 
@@ -15,7 +16,7 @@ public interface IIntakeSettlementService
     Task ProcessDueAsync(CancellationToken ct = default);
 }
 
-public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettlementService
+public sealed class IntakeSettlementService(CoLearnXDbContext db, IOptions<EarningsOptions>? earnings = null) : IIntakeSettlementService
 {
     public async Task<IntakeSettlementResult> CancelIntakeAsync(int creatorUserId, int intakeId, CancellationToken ct = default)
     {
@@ -40,6 +41,7 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
                 return new IntakeSettlementResult(intakeId, false, 0);
             var enrollments = await db.Enrollments.Include(e => e.User).Include(e => e.Course)
                 .Include(e => e.CourseSession)
+                .Include(e => e.DeliveryChoices).ThenInclude(choice => choice.CourseSession)
                 .Where(e => e.CourseSession.CourseIntakeId == intakeId
                     && (e.Status == EnrollmentStatus.Reserved || e.Status == EnrollmentStatus.Active))
                 .ToListAsync(ct);
@@ -51,7 +53,10 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
                 if (reserved)
                     credits.Release(enrollment.User, enrollment, description, inconsistentHoldIsDataError: true);
                 else
+                {
                     credits.Refund(enrollment.User, enrollment, enrollment.CreditsSpent, description);
+                    await EarningsLedger.ReverseAsync(db, enrollment.Id, enrollment.CreditsSpent, ct);
+                }
                 db.Notifications.Add(new Notification { UserId = enrollment.UserId, IntakeId = intake.Id, EnrollmentId = enrollment.Id, EmailPending = true,
                     Code = reserved ? "N-hold-released" : "N-class-cancelled",
                     Title = "Class cancelled", Body = $"{BusinessText.Credits(enrollment.CreditsSpent)} {(enrollment.CreditsSpent == 1 ? "was" : "were")} returned for {enrollment.Course.Code}." });
@@ -108,6 +113,7 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
 
         var reminders = await db.Enrollments.AsNoTracking().Include(e => e.Course)
             .Include(e => e.CourseSession).ThenInclude(s => s.CourseIntake)
+            .Include(e => e.DeliveryChoices)
             .Where(e => e.Status == EnrollmentStatus.Active && e.CourseSession.CourseIntake.ConfirmedToRunAt != null
                 && e.CourseSession.CourseIntake.StartsAt > now
                 && e.CourseSession.CourseIntake.StartsAt <= now.AddDays(7))
@@ -116,7 +122,10 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
         {
             var intake = enrollment.CourseSession.CourseIntake;
             var session = enrollment.CourseSession;
-            var place = session.PhysicalCapacity > 0 ? session.PhysicalAddress : session.MeetingLink;
+            var choice = enrollment.DeliveryChoices.FirstOrDefault(item => item.CourseSessionId == session.Id);
+            var place = choice?.Mode == "Online" ? session.MeetingLink
+                : choice?.Mode == "Physical" ? session.PhysicalAddress
+                : session.PhysicalCapacity > 0 ? session.PhysicalAddress : session.MeetingLink;
             var body = $"{enrollment.Course.Code} Intake #{intake.Id} starts {session.StartsAt:u}."
                 + (string.IsNullOrWhiteSpace(place) ? " Check your program for details." : $" Location: {place}");
             if (!await db.Notifications.AnyAsync(n => n.UserId == enrollment.UserId
@@ -142,6 +151,7 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
 
             var enrollments = await db.Enrollments.Include(e => e.User).Include(e => e.Course)
                 .Include(e => e.CourseSession)
+                .Include(e => e.DeliveryChoices).ThenInclude(choice => choice.CourseSession)
                 .Where(e => e.CourseSession.CourseIntakeId == intakeId
                     && (e.Status == EnrollmentStatus.Reserved || e.Status == EnrollmentStatus.Active))
                 .ToListAsync(ct);
@@ -182,6 +192,11 @@ public sealed class IntakeSettlementService(CoLearnXDbContext db) : IIntakeSettl
                             + "If one is published, open My Programs to choose a session and reserve again using your available credits. A replacement is not guaranteed; your credits remain available until you reserve again." });
             }
             var course = await db.Courses.AsNoTracking().SingleAsync(c => c.Id == intake.CourseId, ct);
+            if (confirmed)
+            {
+                var allocation = await EarningsLedger.AllocationAsync(db, course, earnings?.Value ?? new EarningsOptions(), ct);
+                EarningsLedger.RecordSettlement(db, intake, course, reservations, allocation);
+            }
             var code = confirmed ? "N-intake-confirmed" : "N-intake-cancelled";
             var title = confirmed ? "Class confirmed" : "Class cancelled";
             var body = $"{course.Code} Intake #{intakeId} {(confirmed ? "will run" : "did not meet minimum enrollment")}.";

@@ -181,6 +181,7 @@ public sealed class CourseTrainerService(CoLearnXDbContext db, INotificationReal
         await RequireActiveTrainerAsync(trainerId, ct);
         var courses = await db.Courses.AsNoTracking()
             .Where(course => course.Status == CourseStatus.Published
+                && course.OpenToTrainerApplications
                 && course.CourseSubjectId != null
                 && db.UserSpecialties.Any(specialty => specialty.UserId == trainerId && specialty.CourseSubjectId == course.CourseSubjectId))
             .OrderBy(course => course.Title)
@@ -206,6 +207,8 @@ public sealed class CourseTrainerService(CoLearnXDbContext db, INotificationReal
             ?? throw new CourseException("COURSE_NOT_FOUND", "Course was not found.", StatusCodes.Status404NotFound);
         if (course.Status != CourseStatus.Published)
             throw new CourseException("COURSE_NOT_PUBLISHED", "Only published Courses accept teaching applications.", StatusCodes.Status409Conflict);
+        if (!course.OpenToTrainerApplications)
+            throw new CourseException("COURSE_NOT_OPEN_TO_APPLICATIONS", "This Course is by invitation only.", StatusCodes.Status409Conflict);
         if (course.CourseSubjectId is null
             || !await db.UserSpecialties.AnyAsync(item => item.UserId == trainerId && item.CourseSubjectId == course.CourseSubjectId, ct))
             throw new CourseException("TRAINER_SUBJECT_MISMATCH", "You can only apply for Courses in your certified specialties.", StatusCodes.Status409Conflict);

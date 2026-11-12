@@ -59,6 +59,15 @@ internal static class CourseIntakeValidation
             throw new CourseIntakeException("DELIVERY_LOCATION_REQUIRED", "Provide an online meeting link or a physical location.", field: "meetingLink");
     }
 
+    public static void TotalDuration(int? durationHours, IEnumerable<CourseSession> sessions)
+    {
+        if (durationHours is not > 0) return; // Older courses may not have a declared duration.
+        var ticks = sessions.Sum(session => (decimal)(session.EndsAt - session.StartsAt).Ticks);
+        if (ticks < (decimal)durationHours.Value * TimeSpan.TicksPerHour)
+            throw new CourseIntakeException("SESSION_DURATION_INSUFFICIENT",
+                $"The sessions must total at least {durationHours.Value} hours for this Course.", field: "sessions");
+    }
+
     public static void Editable(CourseIntake intake)
     {
         if (intake.Status is CourseIntakeStatus.Cancelled or CourseIntakeStatus.Completed or CourseIntakeStatus.PendingApproval)

@@ -48,8 +48,10 @@ public sealed class MemberLearningHubService(CoLearnXDbContext db, IFileStorage 
     public async Task<IReadOnlyList<MemberHubRecordingDto>> RecordingsAsync(int userId, int enrollmentId, CancellationToken ct = default)
     {
         var enrollment = await RequireEnrollmentAsync(userId, enrollmentId, ct);
+        var sessionIds = AccessibleSessionIds(enrollment);
         var recordings = await db.SessionRecordings.AsNoTracking()
-            .Where(item => item.CourseSessionId == enrollment.CourseSessionId)
+            .Where(item => sessionIds.Contains(item.CourseSessionId)
+                && item.CourseSession.CourseIntakeId == enrollment.CourseSession.CourseIntakeId)
             .OrderByDescending(item => item.CreatedAt)
             .Select(item => new { item.Id, item.Title, item.RecordingUrl, item.FilePath, item.CreatedAt })
             .ToListAsync(ct);
@@ -111,8 +113,10 @@ public sealed class MemberLearningHubService(CoLearnXDbContext db, IFileStorage 
         CancellationToken ct = default)
     {
         var enrollment = await RequireEnrollmentAsync(userId, enrollmentId, ct);
+        var sessionIds = AccessibleSessionIds(enrollment);
         var recording = await db.SessionRecordings.AsNoTracking()
-            .Where(item => item.Id == recordingId && item.CourseSessionId == enrollment.CourseSessionId
+            .Where(item => item.Id == recordingId && sessionIds.Contains(item.CourseSessionId)
+                && item.CourseSession.CourseIntakeId == enrollment.CourseSession.CourseIntakeId
                 && item.FilePath != null)
             .Select(item => new { item.FilePath, item.Title })
             .SingleOrDefaultAsync(ct) ?? throw new FileNotFoundException("Recording not found.");
@@ -124,8 +128,13 @@ public sealed class MemberLearningHubService(CoLearnXDbContext db, IFileStorage 
 
     private async Task<Enrollment> RequireEnrollmentAsync(int userId, int enrollmentId, CancellationToken ct)
         => await db.Enrollments.AsNoTracking().Include(item => item.CourseSession)
+            .Include(item => item.DeliveryChoices)
             .FirstOrDefaultAsync(item => item.Id == enrollmentId && item.UserId == userId
                 && item.User.IsActive && item.User.Roles.Any(role => role.Role == AppRole.Member)
                 && (item.Status == EnrollmentStatus.Active || item.Status == EnrollmentStatus.Completed), ct)
             ?? throw new KeyNotFoundException("Enrollment not found.");
+
+    private static int[] AccessibleSessionIds(Enrollment enrollment)
+        => enrollment.DeliveryChoices.Count == 0 ? [enrollment.CourseSessionId]
+            : enrollment.DeliveryChoices.Select(choice => choice.CourseSessionId).ToArray();
 }

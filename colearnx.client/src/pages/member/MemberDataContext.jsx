@@ -48,6 +48,7 @@ function mapCourseDetail(c) {
     ratingCount: c.ratingCount || 0,
     sessions: (c.sessions || []).map((s) => ({
       id: s.id,
+      intakeId: s.courseIntakeId,
       label: s.label,
       when: formatUtcRange(s.startsAt, s.endsAt),
       seats: s.seatsLeft,
@@ -84,6 +85,7 @@ function mapEnrollment(e) {
     startsAt: e.startsAt,
     withdrawalRefundCredits: e.withdrawalRefundCredits ?? null,
     postponementOptions: e.postponementOptions ?? [],
+    deliveryChoices: e.deliveryChoices ?? [],
     cert: e.status === 'Completed' ? 'Earned' : undefined,
   };
 }
@@ -325,8 +327,8 @@ export function MemberDataProvider({ children }) {
     return raw ? mapCourseDetail(raw) : null;
   }, [detailKey]);
 
-  async function enrol(courseId, sessionId) {
-    const result = await enrollmentsApi.enrol(courseId, sessionId);
+  async function enrol(courseId, sessionId, deliveryChoices) {
+    const result = await enrollmentsApi.enrol(courseId, sessionId, deliveryChoices);
     refreshUser({ ...user, creditBalance: result.balanceAfter, heldCredits: result.heldAfter,
       totalCredits: result.balanceAfter + result.heldAfter });
     await refreshSlice('enrollments');

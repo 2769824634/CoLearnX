@@ -145,7 +145,12 @@ public record WishlistResultDto(int CourseId, bool InWishlist);
 
 public record EnrolRequest(
     [Required] int CourseId,
-    [Required] int CourseSessionId);
+    [Required] int CourseSessionId,
+    IReadOnlyList<SessionDeliveryChoiceRequest>? DeliveryChoices = null);
+
+public record SessionDeliveryChoiceRequest(int CourseSessionId, string Mode);
+public record EnrollmentDeliveryChoiceDto(int CourseSessionId, string Label, DateTime StartsAt, DateTime EndsAt,
+    string Mode, string? MeetingLink, string? PhysicalAddress);
 
 public record EnrolResultDto(
     int EnrollmentId,
@@ -170,7 +175,8 @@ public record EnrollmentDto(
     DateTime? RegistrationClosesAt = null,
     DateTime? StartsAt = null,
     IReadOnlyList<PostponementOptionDto>? PostponementOptions = null,
-    int? WithdrawalRefundCredits = null);
+    int? WithdrawalRefundCredits = null,
+    IReadOnlyList<EnrollmentDeliveryChoiceDto>? DeliveryChoices = null);
 
 public record AcceptPostponementRequest(int CourseSessionId);
 public record PostponementOptionDto(int IntakeId, int CourseSessionId, string Label, DateTime StartsAt,

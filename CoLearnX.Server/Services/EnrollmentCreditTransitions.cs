@@ -10,7 +10,22 @@ public readonly record struct EnrollmentWalletSnapshot(int BalanceAfter, int Hel
 public sealed class EnrollmentCreditTransitions(CoLearnXDbContext db)
 {
     public async Task<EnrollmentWalletSnapshot> HoldCreditsAndSeatAsync(int userId, int sessionId, int cost,
-        CancellationToken ct = default)
+        CancellationToken ct = default, IReadOnlyList<int>? physicalSessionIds = null)
+    {
+        if (db.Database.CurrentTransaction is not null)
+            return await HoldCoreAsync(userId, sessionId, cost, ct, physicalSessionIds);
+
+        return await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+            var result = await HoldCoreAsync(userId, sessionId, cost, ct, physicalSessionIds);
+            await transaction.CommitAsync(ct);
+            return result;
+        });
+    }
+
+    private async Task<EnrollmentWalletSnapshot> HoldCoreAsync(int userId, int sessionId, int cost,
+        CancellationToken ct, IReadOnlyList<int>? physicalSessionIds)
     {
         var updatedUser = await db.Users.Where(u => u.Id == userId && u.IsActive && u.CreditBalance >= cost)
             .ExecuteUpdateAsync(setters => setters
@@ -18,16 +33,17 @@ public sealed class EnrollmentCreditTransitions(CoLearnXDbContext db)
                 .SetProperty(u => u.HeldCredits, u => u.HeldCredits + cost), ct);
         if (updatedUser != 1)
             throw new CourseException("INSUFFICIENT_CREDITS", "Not enough available credits to reserve this place.");
-        var updatedSeat = await db.CourseSessions.Where(s => s.Id == sessionId
-                && (s.PhysicalCapacity == 0 || s.SeatsTaken < s.PhysicalCapacity))
-            .ExecuteUpdateAsync(setters => setters.SetProperty(s => s.SeatsTaken, s => s.SeatsTaken + 1), ct);
-        if (updatedSeat != 1)
+        foreach (var seatId in physicalSessionIds ?? [sessionId])
         {
-            await db.Users.Where(u => u.Id == userId)
-                .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(u => u.CreditBalance, u => u.CreditBalance + cost)
-                    .SetProperty(u => u.HeldCredits, u => u.HeldCredits - cost), ct);
-            throw new CourseException("SESSION_FULL", "Session is full.");
+            var seats = db.CourseSessions.Where(s => s.Id == seatId);
+            if (physicalSessionIds is null)
+                seats = seats.Where(s => s.PhysicalCapacity == 0 || s.SeatsTaken < s.PhysicalCapacity);
+            else
+                seats = seats.Where(s => s.PhysicalCapacity == 0 || (s.SeatsTaken < s.PhysicalCapacity
+                    && (s.PhysicalBookingDeadline == null || s.PhysicalBookingDeadline >= DateTime.UtcNow)));
+            var updatedSeat = await seats.ExecuteUpdateAsync(setters => setters.SetProperty(s => s.SeatsTaken, s => s.SeatsTaken + 1), ct);
+            if (updatedSeat != 1)
+                throw new CourseException("SESSION_FULL", "A selected physical session is full or no longer available.");
         }
         var wallet = await db.Users.AsNoTracking().Where(u => u.Id == userId)
             .Select(u => new { u.CreditBalance, u.HeldCredits }).SingleAsync(ct);
@@ -47,13 +63,10 @@ public sealed class EnrollmentCreditTransitions(CoLearnXDbContext db)
             throw new CourseException("RESERVATION_BALANCE_CONFLICT",
                 "Reservation balances need review before cancellation.", 409);
         }
-        if (enrollment.CourseSession.SeatsTaken <= 0)
-            throw new CourseException("RESERVATION_BALANCE_CONFLICT",
-                "Reservation balances need review before cancellation.", 409);
+        ReleaseSeats(enrollment, "RESERVATION_BALANCE_CONFLICT", "Reservation balances need review before cancellation.");
         user.HeldCredits -= cost;
         user.CreditBalance += cost;
         enrollment.Status = EnrollmentStatus.Cancelled;
-        enrollment.CourseSession.SeatsTaken -= 1;
         AddLedger(user.Id, CreditTransactionType.Release, description, cost, user.CreditBalance, user.HeldCredits,
             enrollment.Id);
     }
@@ -73,18 +86,24 @@ public sealed class EnrollmentCreditTransitions(CoLearnXDbContext db)
         string? forfeitDescription = null, int? relatedDisputeId = null, int? adminAccountId = null,
         Guid? idempotencyKey = null)
     {
-        if (enrollment.CourseSession.SeatsTaken <= 0)
-            throw new CourseException("ENROLLMENT_SEAT_CONFLICT",
-                "Enrollment seats need review before withdrawal.", 409);
+        ReleaseSeats(enrollment, "ENROLLMENT_SEAT_CONFLICT", "Enrollment seats need review before withdrawal.");
         user.CreditBalance += refundAmount;
         enrollment.Status = EnrollmentStatus.Refunded;
-        enrollment.CourseSession.SeatsTaken -= 1;
         AddLedger(user.Id, CreditTransactionType.Refund, description, refundAmount, user.CreditBalance, user.HeldCredits,
             enrollment.Id, relatedDisputeId, adminAccountId, idempotencyKey);
         var forfeited = enrollment.CreditsSpent - refundAmount;
         if (forfeited > 0 && forfeitDescription is not null)
             AddLedger(user.Id, CreditTransactionType.Forfeit, forfeitDescription, 0, user.CreditBalance,
                 user.HeldCredits, enrollment.Id);
+    }
+
+    private static void ReleaseSeats(Enrollment enrollment, string code, string message)
+    {
+        var sessions = enrollment.DeliveryChoices.Count > 0
+            ? enrollment.DeliveryChoices.Select(choice => choice.CourseSession).ToList()
+            : [enrollment.CourseSession];
+        if (sessions.Any(session => session.SeatsTaken <= 0)) throw new CourseException(code, message, 409);
+        foreach (var session in sessions) session.SeatsTaken--;
     }
 
     private void AddLedger(int userId, CreditTransactionType type, string description, int delta, int balanceAfter,

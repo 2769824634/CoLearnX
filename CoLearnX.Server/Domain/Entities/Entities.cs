@@ -202,6 +202,7 @@ public class Course
     public int? CourseLevelId { get; set; }
     public int? CourseSubjectId { get; set; }
     public int? DurationHours { get; set; }
+    public bool OpenToTrainerApplications { get; set; } = true;
     public string? PriceExceptionReason { get; set; }
     public int? LearningPathId { get; set; }
     public string Level { get; set; } = "Beginner";
@@ -334,6 +335,7 @@ public class Enrollment
     public User User { get; set; } = null!;
     public Course Course { get; set; } = null!;
     public CourseSession CourseSession { get; set; } = null!;
+    public ICollection<EnrollmentSessionChoice> DeliveryChoices { get; set; } = new List<EnrollmentSessionChoice>();
     public ProgramRating? Rating { get; set; }
 }
 
