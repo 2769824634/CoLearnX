@@ -10,7 +10,8 @@ public interface IAdminCourseReviewService
 {
     Task<IReadOnlyList<AdminCourseDto>> ListAsync(
         CourseStatus? status,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        bool includeNewMaterials = false);
 
     Task<AdminCourseReviewResultDto> ReviewAsync(
         int adminAccountId,
@@ -27,9 +28,17 @@ public sealed class AdminCourseReviewService(
     private const string PublishedAction = "CoursePublished";
     private const string RejectedAction = "CourseRejected";
 
+    // A published course with a file still waiting needs an admin too, so the review queue can ask for both.
+    internal static IQueryable<Course> WithNewMaterials(CoLearnXDbContext db)
+        => db.Courses.Where(course => course.Status == CourseStatus.Published
+            && db.CourseMaterials.Any(link => link.CourseId == course.Id
+                && db.CourseMaterialVersions.Any(version => version.LearningMaterialId == link.LearningMaterialId
+                    && version.Status == MaterialVersionStatus.PendingApproval)));
+
     public async Task<IReadOnlyList<AdminCourseDto>> ListAsync(
         CourseStatus? status,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool includeNewMaterials = false)
     {
         var query = db.Courses
             .AsNoTracking()
@@ -41,7 +50,12 @@ public sealed class AdminCourseReviewService(
             .AsQueryable();
 
         if (status.HasValue)
-            query = query.Where(course => course.Status == status.Value);
+        {
+            var newMaterialCourseIds = includeNewMaterials ? WithNewMaterials(db).Select(course => course.Id) : null;
+            query = newMaterialCourseIds is null
+                ? query.Where(course => course.Status == status.Value)
+                : query.Where(course => course.Status == status.Value || newMaterialCourseIds.Contains(course.Id));
+        }
 
         var courses = await query
             .OrderBy(course => course.Status == CourseStatus.PendingApproval ? 0 : 1)
@@ -139,6 +153,8 @@ public sealed class AdminCourseReviewService(
                     "COURSE_INTERESTS_REQUIRED", "A Course needs one to four leaf interests before publication.");
 
             course.Status = targetStatus;
+            if (decision == AdminReviewDecision.Approve)
+                await ApproveWaitingMaterialsAsync(adminAccountId, course, ct);
             var notification = decision == AdminReviewDecision.Approve
                 ? new Notification
                 {
@@ -167,6 +183,38 @@ public sealed class AdminCourseReviewService(
             var details = await LoadDetailsAsync([course.Id], ct);
             return new AdminCourseReviewResultDto(ToDto(course, reviewLog, details), false);
         });
+    }
+
+    // One decision covers the course and its files. A returned course keeps its files waiting for the resubmission.
+    private async Task ApproveWaitingMaterialsAsync(int adminAccountId, Course course, CancellationToken ct)
+    {
+        var versions = await db.CourseMaterialVersions
+            .Include(version => version.LearningMaterial)
+            .Where(version => version.Status == MaterialVersionStatus.PendingApproval
+                && db.CourseMaterials.Any(link => link.CourseId == course.Id
+                    && link.LearningMaterialId == version.LearningMaterialId))
+            .ToListAsync(ct);
+        foreach (var version in versions)
+        {
+            version.Status = MaterialVersionStatus.Approved;
+            version.ReviewReason = null;
+            version.ReviewedByAdminAccountId = adminAccountId;
+            version.ReviewedAt = DateTime.UtcNow;
+            version.LearningMaterial.Status = MaterialStatus.Approved;
+            version.LearningMaterial.RejectionReason = null;
+            version.LearningMaterial.FilePath = version.FilePath;
+            version.LearningMaterial.Format = version.Format;
+            version.LearningMaterial.Version = version.VersionNumber;
+            db.AuditLogs.Add(new AuditLog
+            {
+                AdminAccountId = adminAccountId,
+                Action = "MaterialVersionApproved",
+                EntityType = nameof(CourseMaterialVersion),
+                EntityId = version.Id.ToString(),
+                Result = "Succeeded",
+                Reason = $"Approved with course {course.Code}.",
+            });
+        }
     }
 
     private async Task<CourseReviewDetails> LoadDetailsAsync(

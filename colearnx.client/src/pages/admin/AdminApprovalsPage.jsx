@@ -6,15 +6,15 @@ import { useAdminPending } from './adminPending';
 
 const QUEUES = [
   { id: 'roles', label: 'Role requests', detail: 'Trainer & Creator', countKey: 'roleRequests' },
-  { id: 'courses', label: 'Course reviews', detail: 'Publish & reject', countKey: 'courses' },
-  { id: 'materials', label: 'Material versions', detail: 'Approve Trainer use', countKey: 'materialVersions' },
+  { id: 'courses', label: 'Course reviews', detail: 'Courses & their files', countKey: 'courses' },
   { id: 'certificates', label: 'Certificates', detail: 'Final issuance gate', countKey: 'certificates' },
 ];
 
 export default function AdminApprovalsPage() {
   const counts = useAdminPending()?.counts;
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedQueue = searchParams.get('queue');
+  // Files are reviewed with their course, so old links to the material queue land on course reviews.
+  const requestedQueue = searchParams.get('queue') === 'materials' ? 'courses' : searchParams.get('queue');
   const activeQueue = QUEUES.some((queue) => queue.id === requestedQueue) ? requestedQueue : 'roles';
 
   return (
@@ -22,7 +22,7 @@ export default function AdminApprovalsPage() {
       <div className="admin-approval-switch" role="group" aria-label="Approval queues">
         <div className="admin-approval-switch-label">
           <span>Approval desk</span>
-          <small>04 governed queues</small>
+          <small>03 governed queues</small>
         </div>
         {QUEUES.map((queue, index) => {
           const pending = counts?.[queue.countKey] ?? 0;
@@ -53,8 +53,7 @@ export default function AdminApprovalsPage() {
       >
         {activeQueue === 'roles' ? <AdminRoleRequestsPage /> : null}
         {activeQueue === 'courses' ? <AdminCourseReviewsPage /> : null}
-        {activeQueue === 'materials' ? <AdminLaterApprovalsPage type="materials" /> : null}
-        {activeQueue === 'certificates' ? <AdminLaterApprovalsPage type="certificates" /> : null}
+        {activeQueue === 'certificates' ? <AdminLaterApprovalsPage /> : null}
       </div>
     </div>
   );

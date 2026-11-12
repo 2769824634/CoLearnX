@@ -9,7 +9,7 @@ vi.mock('../../api', async (importOriginal) => ({ ...(await importOriginal()), a
 vi.mock('../../components/Logo', () => ({ default: () => <span>Logo</span> }));
 vi.mock('../../components/UserAvatar', () => ({ default: () => <span>Avatar</span> }));
 
-const counts = (overrides = {}) => ({ roleRequests: 1, courses: 1, materialVersions: 1, certificates: 1, disputes: 2, ...overrides });
+const counts = (overrides = {}) => ({ roleRequests: 1, courses: 2, certificates: 1, disputes: 2, ...overrides });
 
 function setHidden(hidden) {
   Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
@@ -86,8 +86,8 @@ it('announces new submissions only when the total grows', async () => {
   overviewApi.pendingCounts
     .mockResolvedValueOnce(counts())
     .mockResolvedValueOnce(counts())
-    .mockResolvedValueOnce(counts({ courses: 3 }))
-    .mockResolvedValueOnce(counts({ courses: 2 }));
+    .mockResolvedValueOnce(counts({ courses: 4 }))
+    .mockResolvedValueOnce(counts({ courses: 3 }));
   renderShell();
   await settle();
   expect(screen.queryByText(/waiting for review/)).toBeNull();

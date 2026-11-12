@@ -59,7 +59,6 @@ public sealed class AdminPendingAlertsTests
         {
             RoleRequests = before.RoleRequests + 1,
             Courses = before.Courses + 1,
-            MaterialVersions = before.MaterialVersions + 1,
             Certificates = before.Certificates + 1,
             Disputes = before.Disputes + 1,
         }, after);

@@ -54,8 +54,8 @@ public class AdminController(IAdminFinanceService finance) : ControllerBase
     public async Task<ActionResult<AdminPendingCountsDto>> PendingCounts([FromServices] CoLearnXDbContext db, CancellationToken ct)
         => Ok(new AdminPendingCountsDto(
             await db.RoleRequests.CountAsync(item => item.Status == RoleRequestStatus.Pending, ct),
-            await db.Courses.CountAsync(item => item.Status == CourseStatus.PendingApproval, ct),
-            await db.CourseMaterialVersions.CountAsync(item => item.Status == MaterialVersionStatus.PendingApproval, ct),
+            await db.Courses.CountAsync(item => item.Status == CourseStatus.PendingApproval, ct)
+                + await AdminCourseReviewService.WithNewMaterials(db).CountAsync(ct),
             await db.CertificateRequests.CountAsync(item => item.Status == CertificateRequestStatus.TrainerApproved, ct),
             await db.Disputes.CountAsync(item => item.Status == DisputeStatus.Open, ct)));
 

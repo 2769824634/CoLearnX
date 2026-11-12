@@ -31,8 +31,9 @@ public class AdminCoursesController(IAdminCourseReviewService courses, ICourseIn
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<AdminCourseDto>>> List(
         [FromQuery] CourseStatus? status,
-        CancellationToken ct)
-        => Ok(await courses.ListAsync(status, ct));
+        CancellationToken ct,
+        [FromQuery] bool includeNewMaterials = false)
+        => Ok(await courses.ListAsync(status, ct, includeNewMaterials));
 
     [HttpPost("{courseId:int}/review")]
     public async Task<ActionResult<AdminCourseReviewResultDto>> Review(

@@ -75,8 +75,9 @@ export const adminCourseReviewsApi = {
   listIntakes: (token, signal) => apiRequest('/api/admin/courses/intakes', { token, signal }),
   getIntake: (token, id, signal) => apiRequest(`/api/admin/courses/intakes/${encodeURIComponent(id)}`, { token, signal }),
   updateTeachingDates: (token, id, body) => apiRequest(`/api/admin/courses/intakes/${encodeURIComponent(id)}/teaching-dates`, { method: 'PATCH', token, body }),
-  list: (token, status, signal) => {
-    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  // includeNewMaterials adds published courses that have a file still waiting for review.
+  list: (token, status, signal, includeNewMaterials = false) => {
+    const query = status ? `?status=${encodeURIComponent(status)}${includeNewMaterials ? '&includeNewMaterials=true' : ''}` : '';
     return apiRequest(`/api/admin/courses${query}`, { token, signal });
   },
   review: (token, courseId, decision, reason) =>
