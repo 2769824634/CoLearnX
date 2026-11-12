@@ -29,8 +29,7 @@ public static class SeedData
             await EnsureSqlServerAccountTokenSchemaAsync(db);
         await ProfileCountrySchema.EnsureAsync(db);
         await ProfileOccupationSchema.EnsureAsync(db);
-        await PlatformStaffSchema.EnsureAsync(db);
-        await DisableStaffUsersAsync(db);
+        await PlatformCourseSchema.EnsureAsync(db);
         await RecommendationSeed.EnsureSchemaAsync(db);
         await CreditReservationSchema.EnsureAsync(db);
         await EnrollmentSessionChoiceSchema.EnsureAsync(db);
@@ -455,19 +454,6 @@ public static class SeedData
                 RoleCertificationSchema.SingleRoleIndexName, duplicates.Count, string.Join(", ", duplicates));
     }
 
-    private static async Task DisableStaffUsersAsync(CoLearnXDbContext db)
-    {
-        var users = await db.StaffAccounts.Include(account => account.User)
-            .Select(account => account.User)
-            .Where(user => user.IsActive)
-            .ToListAsync();
-        foreach (var user in users)
-        {
-            user.IsActive = false;
-            user.SessionStamp = Guid.NewGuid();
-        }
-        await db.SaveChangesAsync();
-    }
 
     // Demo Trainer and Creator specialties, matching their profile text.
     private static async Task EnsureDemoSpecialtiesAsync(CoLearnXDbContext db)

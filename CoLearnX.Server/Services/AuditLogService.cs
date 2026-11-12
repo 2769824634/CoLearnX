@@ -58,8 +58,6 @@ public class AuditLogService(CoLearnXDbContext db) : IAuditLogService
             logs = logs.Where(log => log.Result == query.Result.Trim());
         if (query.ActorType == "Admin")
             logs = logs.Where(log => log.AdminAccountId != null);
-        else if (query.ActorType == "Staff")
-            logs = logs.Where(log => log.StaffAccountId != null);
         else if (query.ActorType == "User")
             logs = logs.Where(log => log.UserId != null);
 
@@ -76,8 +74,7 @@ public class AuditLogService(CoLearnXDbContext db) : IAuditLogService
                 log.EntityId,
                 log.Result,
                 log.Reason,
-                log.CreatedAt,
-                log.StaffAccountId))
+                log.CreatedAt))
             .ToListAsync(ct);
     }
 

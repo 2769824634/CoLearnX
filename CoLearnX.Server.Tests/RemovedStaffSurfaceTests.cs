@@ -15,7 +15,7 @@ public sealed class RemovedStaffSurfaceTests : IClassFixture<CoLearnXApiFactory>
     public RemovedStaffSurfaceTests(CoLearnXApiFactory factory) => this.factory = factory;
 
     [Fact]
-    public async Task Staff_and_admin_staff_endpoints_are_not_exposed_but_history_schema_remains()
+    public async Task Staff_endpoints_model_and_audit_actor_are_gone()
     {
         using var anonymous = factory.CreateClient();
         Assert.Equal(HttpStatusCode.NotFound,
@@ -29,11 +29,11 @@ public sealed class RemovedStaffSurfaceTests : IClassFixture<CoLearnXApiFactory>
         admin.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth!.AccessToken);
         Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/admin/staff")).StatusCode);
 
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync("/api/admin/audit-logs?actorType=Staff")).StatusCode);
+
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-        Assert.NotNull(db.Model.FindEntityType("CoLearnX.Server.Domain.Entities.StaffAccount"));
-        Assert.NotNull(db.Model.FindEntityType("CoLearnX.Server.Domain.Entities.AuditLog")!
-            .FindProperty("StaffAccountId"));
-        _ = await db.StaffAccounts.CountAsync();
+        Assert.DoesNotContain(db.Model.GetEntityTypes(), type => type.ClrType.Name.Contains("Staff"));
+        Assert.Null(db.Model.FindEntityType("CoLearnX.Server.Domain.Entities.AuditLog")!.FindProperty("StaffAccountId"));
     }
 }

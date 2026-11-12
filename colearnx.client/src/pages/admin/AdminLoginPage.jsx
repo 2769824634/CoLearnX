@@ -10,7 +10,6 @@ import '../../styles/admin.css';
 const CONSOLE_AREAS = [
   ['Approvals', 'Role requests, courses and materials'],
   ['Users', 'Personal information, credit ledger and corrections'],
-  ['Staff', 'Employee accounts, documents and teaching assignments'],
   ['Disputes', 'Cases and refunds'],
   ['Audit Log', 'Recorded decisions and sign-ins'],
 ];

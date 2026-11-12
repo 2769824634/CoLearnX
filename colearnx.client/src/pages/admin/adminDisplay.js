@@ -11,7 +11,6 @@ export function formatAuditTime(value) {
 
 export function auditActor(log) {
   if (log.adminAccountId != null) return `Admin #${log.adminAccountId}`;
-  if (log.staffAccountId != null) return `Staff #${log.staffAccountId}`;
   return `User #${log.userId}`;
 }
 

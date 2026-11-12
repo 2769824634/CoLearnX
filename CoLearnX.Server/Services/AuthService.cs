@@ -47,8 +47,7 @@ public class AuthService(
         if (PlatformIdentity.IsInternalEmail(email))
             throw new InvalidOperationException(PasswordRules.TakenMessage);
         var taken = await db.Users.AnyAsync(u => u.Email == email, ct)
-            || await db.AdminAccounts.AnyAsync(account => account.Email == email, ct)
-            || await db.StaffAccounts.AnyAsync(account => account.Email == email, ct);
+            || await db.AdminAccounts.AnyAsync(account => account.Email == email, ct);
         if (taken)
             throw new InvalidOperationException(PasswordRules.TakenMessage);
         if (!PasswordRules.Meets(request.Password, email))

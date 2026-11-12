@@ -24,8 +24,7 @@ public record AuditLogDto(
     string? EntityId,
     string Result,
     string? Reason,
-    DateTime CreatedAt,
-    int? StaffAccountId = null);
+    DateTime CreatedAt);
 
 public record AuditLogFilterOptionsDto(IReadOnlyList<string> EntityTypes, IReadOnlyList<string> Results);
 

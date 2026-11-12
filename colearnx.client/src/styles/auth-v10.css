@@ -1,5 +1,5 @@
 /* UI v10 · part 2: every sign-in page follows the member login page.
-   Staff, register and password pages take its background and card.
+   Register and password pages take its background and card.
    Admin takes the same card, with red marking it as the restricted entrance.
    Appearance only: same fields, same text, same behaviour.
    Selectors start with "html" so they win over admin.css, which loads later. */

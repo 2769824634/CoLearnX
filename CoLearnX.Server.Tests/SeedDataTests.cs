@@ -8,50 +8,6 @@ namespace CoLearnX.Server.Tests;
 public class SeedDataTests
 {
     [Fact]
-    public async Task Initialize_disables_existing_staff_user_but_preserves_staff_history()
-    {
-        var path = Path.Combine(Path.GetTempPath(), $"colearnx-staff-retire-{Guid.NewGuid():N}.db");
-        var options = new DbContextOptionsBuilder<CoLearnXDbContext>().UseSqlite($"Data Source={path}").Options;
-        try
-        {
-            int staffId;
-            int userId;
-            await using (var seeded = new CoLearnXDbContext(options))
-            {
-                await SeedData.InitializeAsync(seeded);
-                var admin = await seeded.AdminAccounts.SingleAsync(item => item.Email == SeedData.AdminEmail);
-                var hidden = new User
-                {
-                    Email = "retired-staff@staff.colearnx", PasswordHash = "x", FullName = "Retired staff",
-                    DisplayName = "Retired staff", IsActive = true, EmailVerifiedAt = DateTime.UtcNow,
-                };
-                seeded.Users.Add(hidden);
-                await seeded.SaveChangesAsync();
-                var staff = new StaffAccount
-                {
-                    Email = "retired@colearnx.test", PasswordHash = "x", FullName = "Retired staff",
-                    DisplayName = "Retired staff", StaffNumber = 99, DocumentPath = "retired.pdf",
-                    UserId = hidden.Id, CreatedByAdminAccountId = admin.Id,
-                };
-                seeded.StaffAccounts.Add(staff);
-                await seeded.SaveChangesAsync();
-                staffId = staff.Id;
-                userId = hidden.Id;
-            }
-
-            await using (var repaired = new CoLearnXDbContext(options)) await SeedData.InitializeAsync(repaired);
-
-            await using var db = new CoLearnXDbContext(options);
-            Assert.True(await db.StaffAccounts.AnyAsync(item => item.Id == staffId));
-            Assert.False((await db.Users.SingleAsync(item => item.Id == userId)).IsActive);
-        }
-        finally
-        {
-            TryDelete(path); TryDelete(path + "-wal"); TryDelete(path + "-shm");
-        }
-    }
-
-    [Fact]
     public async Task Initialize_preserves_team_accounts_and_separates_admin_identity()
     {
         var path = Path.Combine(Path.GetTempPath(), $"colearnx-seed-{Guid.NewGuid():N}.db");

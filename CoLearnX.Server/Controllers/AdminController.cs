@@ -20,8 +20,7 @@ public class AdminController(IAdminFinanceService finance) : ControllerBase
         [FromQuery] string? search, [FromServices] CoLearnXDbContext db, CancellationToken ct)
     {
         var query = db.Users.AsNoTracking().Include(user => user.Roles)
-            .Where(user => user.Email != PlatformIdentity.Email
-                && !EF.Functions.Like(user.Email, "%@staff.colearnx"));
+            .Where(user => user.Email != PlatformIdentity.Email);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var text = search.Trim().ToLowerInvariant();
@@ -39,8 +38,7 @@ public class AdminController(IAdminFinanceService finance) : ControllerBase
     {
         var user = await db.Users.AsNoTracking().Include(u => u.Roles).Include(u => u.Preference)
             .Include(u => u.TrainerProfile).Include(u => u.CreatorProfile)
-            .SingleOrDefaultAsync(u => u.Id == id && u.Email != PlatformIdentity.Email
-                && !EF.Functions.Like(u.Email, "%@staff.colearnx"), ct);
+            .SingleOrDefaultAsync(u => u.Id == id && u.Email != PlatformIdentity.Email, ct);
         if (user is null) return NotFound(new ApiError("USER_NOT_FOUND", "User was not found."));
         return Ok(new { user.Id, user.Email, user.FullName, user.DisplayName, user.Phone, user.Bio,
             user.Country, user.Occupation, user.CreatedAt, user.EmailVerifiedAt, user.IsActive,

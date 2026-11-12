@@ -49,7 +49,7 @@ export default function AdminPricingPage() {
               </tbody>
             </table>
           </div>
-          <p>Shares are content, delivery, then platform. Staff are paid a salary and do not receive these shares.</p>
+          <p>Shares are content (Creator), delivery (Trainer), then platform.</p>
         </section>
       ) : null}
     </section>

@@ -202,7 +202,6 @@ it('highlights Pricing in Admin navigation on /admin/pricing', () => {
   expect(screen.queryByRole('link', { name: 'Disputes' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Class dates' })).toBeNull();
   expect(screen.getByRole('link', { name: 'Audit Log' }).className).not.toMatch(/active/);
-  expect(screen.queryByRole('link', { name: 'Staff' })).toBeNull();
 });
 
 it.each([

@@ -80,8 +80,7 @@ public sealed class AdminOverviewService(CoLearnXDbContext db, TimeProvider? clo
         var user = await db.Users.AsNoTracking()
             .Include(u => u.Roles)
             .Include(u => u.Specialties).ThenInclude(s => s.CourseSubject)
-            .SingleOrDefaultAsync(u => u.Id == userId && u.Email != PlatformIdentity.Email
-                && !EF.Functions.Like(u.Email, "%@staff.colearnx"), ct);
+            .SingleOrDefaultAsync(u => u.Id == userId && u.Email != PlatformIdentity.Email, ct);
         if (user is null) return null;
 
         var roles = user.Roles.Where(r => r.IsVisible).OrderBy(r => r.Role).ToList();

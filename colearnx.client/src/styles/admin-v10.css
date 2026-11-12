@@ -1,7 +1,7 @@
 /* UI v10 · part 8: Admin workspace.
    Same data, filters and actions as before: only appearance changes.
    Everything is scoped to the Admin shell (plus the detail dialogs it opens, which
-   render outside the shell) because Trainer, Creator and Staff share some of these
+   render outside the shell) because Trainer and Creator share some of these
    class names and get their turn later. */
 
 /* ---------- Page headings ---------- */
@@ -355,25 +355,6 @@
   margin: 0;
 }
 
-/* ---------- Staff ---------- */
-:is(.admin-shell, .modal .account-details) .admin-staff-form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 18px;
-  margin-bottom: 18px;
-  padding: 20px;
-  border-radius: 12px;
-}
-
-:is(.admin-shell, .modal .account-details) .admin-staff-form .form-group {
-  margin: 0;
-}
-
-:is(.admin-shell, .modal .account-details) .admin-staff-form > .btn {
-  grid-column: 1 / -1;
-  justify-self: start;
-}
-
 :is(.admin-shell, .modal .account-details) .btn.admin-danger-ghost {
   border-color: #f8ccc8;
   color: var(--danger-text);
@@ -395,10 +376,6 @@
 }
 
 @media (max-width: 760px) {
-  :is(.admin-shell, .modal .account-details) .admin-staff-form {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   :is(.admin-shell, .modal .account-details) .admin-review-header h1 {
     font-size: 26px;
   }
