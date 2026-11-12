@@ -8,7 +8,7 @@ import UserAccountPage from './UserAccountPage';
 
 vi.mock('../../components/MemberShell', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('./AvatarEditor', () => ({ default: () => <div>Upload avatar</div> }));
-vi.mock('./ProfileEditor', () => ({ ProfileEditor: () => <div role="dialog">Profile editor</div>, ProfileDetails: () => null }));
+vi.mock('./ProfileEditor', () => ({ ProfileEditor: () => <div role="dialog">Profile editor</div>, ProfileDetails: () => null, TeachingProfile: () => null }));
 const user = { id: 1, email: 'person@example.test', phone: '0411222333', fullName: 'Person', displayName: 'Person', roles: ['Member'] };
 function renderAccount(role, hash = '') {
   const auth = { user, refreshUser: vi.fn() };

@@ -83,5 +83,6 @@
 .account-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin: 16px 0 24px; }
 .account-detail-grid dt { font-size: 13px; opacity: .7; margin-bottom: 6px; }
 .account-detail-grid dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.admin-specialty-tags { display: flex; flex-wrap: wrap; gap: 6px; white-space: normal; }
 .account-details .later-panel { margin-bottom: 20px; }
 .account-details h2 { font-size: 18px; }

@@ -22,6 +22,25 @@ function AccountField({ id, label, value, onChange, maxLength }) {
   );
 }
 
+const CHIP_STYLE = { display: 'inline-block', padding: '3px 10px', borderRadius: 999, border: '1px solid var(--purple)', background: 'var(--purple-soft)', color: 'var(--purple)', fontSize: 13, fontWeight: 600 };
+
+// Specialties come from the admin's certification; trainers can only view them here.
+function CertifiedSpecialties({ specialties }) {
+  return (
+    <div className="masked-field" style={{ gridColumn: '1 / -1' }}>
+      <div className="label">Certified specialties</div>
+      <div className="value">
+        {specialties?.length ? (
+          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
+            {specialties.map((name) => <span key={name} style={CHIP_STYLE}>{name}</span>)}
+          </span>
+        ) : 'None certified yet'}
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--slate)', marginTop: 4 }}>Confirmed by an administrator. To change them, apply for certification again.</div>
+    </div>
+  );
+}
+
 function profileDraft(user) {
   return {
     fullName: user?.fullName ?? '',
@@ -31,7 +50,6 @@ function profileDraft(user) {
     country: user?.country ?? '',
     occupation: user?.occupation || 'unknown',
     trainerHeadline: user?.trainerHeadline ?? '',
-    specialisations: user?.specialisations ?? '',
     creatorHeadline: user?.creatorHeadline ?? '',
     expertiseTags: user?.expertiseTags ?? '',
   };
@@ -71,7 +89,7 @@ export function ProfileEditor({ onClose }) {
     try {
       const updated = await usersApi.update(user.id, {
         fullName: draft.fullName, displayName: draft.displayName, phone: draft.phone, bio: draft.bio, country: draft.country, occupation: draft.occupation,
-        ...(granted.has('trainer') ? { trainerHeadline: draft.trainerHeadline, specialisations: draft.specialisations } : {}),
+        ...(granted.has('trainer') ? { trainerHeadline: draft.trainerHeadline } : {}),
         ...(granted.has('creator') ? { creatorHeadline: draft.creatorHeadline, expertiseTags: draft.expertiseTags } : {}),
       });
       refreshUser(updated);
@@ -123,8 +141,8 @@ export function ProfileEditor({ onClose }) {
                       </>}
                       {section.key === 'trainer' && <>
                         <AccountField id="account-trainerHeadline" label="Trainer headline" value={draft.trainerHeadline} onChange={(trainerHeadline) => setDraft({ ...draft, trainerHeadline })} />
-                        <AccountField id="account-specialisations" label="Specialisations" value={draft.specialisations} onChange={(specialisations) => setDraft({ ...draft, specialisations })} />
                       </>}
+                      {section.key === 'trainer' && <CertifiedSpecialties specialties={user?.specialties} />}
                       {section.key === 'creator' && <>
                         <AccountField id="account-creatorHeadline" label="Creator headline" value={draft.creatorHeadline} onChange={(creatorHeadline) => setDraft({ ...draft, creatorHeadline })} />
                         <AccountField id="account-expertiseTags" label="Expertise tags" value={draft.expertiseTags} onChange={(expertiseTags) => setDraft({ ...draft, expertiseTags })} />
@@ -145,13 +163,35 @@ export function ProfileEditor({ onClose }) {
   );
 }
 
+function Field({ label, children, wide }) {
+  return (
+    <div className="masked-field" style={wide ? { gridColumn: '1 / -1' } : undefined}>
+      <div className="label">{label}</div>
+      <div className="value">{children}</div>
+    </div>
+  );
+}
+
+const EMPTY_HINT = { color: 'var(--slate)', fontWeight: 400 };
+
 export function ProfileDetails({ user }) {
-  const roles = roleSet(user);
   return (<>
-    <div className="masked-field" style={{ marginTop: 12 }}><div className="label">Country / Region</div><div className="value">{user?.country || '—'}</div></div>
-    <div className="masked-field"><div className="label">Occupation</div><div className="value">{user?.occupation || 'unknown'}</div></div>
-    <div className="masked-field"><div className="label">Bio</div><div className="value">{user?.bio || 'No bio yet.'}</div></div>
-    {roles.has('trainer') && <><div className="masked-field"><div className="label">Trainer headline</div><div className="value">{user?.trainerHeadline || '—'}</div></div><div className="masked-field"><div className="label">Specialisations</div><div className="value">{user?.specialisations || '—'}</div></div></>}
-    {roles.has('creator') && <><div className="masked-field"><div className="label">Creator headline</div><div className="value">{user?.creatorHeadline || '—'}</div></div><div className="masked-field"><div className="label">Expertise tags</div><div className="value">{user?.expertiseTags || '—'}</div></div></>}
+    <Field label="Country / Region">{user?.country || '—'}</Field>
+    <Field label="Occupation">{user?.occupation || 'unknown'}</Field>
+    <Field label="Bio" wide>{user?.bio || <span style={EMPTY_HINT}>No bio yet.</span>}</Field>
+  </>);
+}
+
+// Trainer and Creator details, shown in their own card under Personal info.
+export function TeachingProfile({ user, kind }) {
+  if (kind === 'trainer') {
+    return (<>
+      <Field label="Trainer headline">{user?.trainerHeadline || <span style={EMPTY_HINT}>Not added yet. Add one in Edit Profile.</span>}</Field>
+      <CertifiedSpecialties specialties={user?.specialties} />
+    </>);
+  }
+  return (<>
+    <Field label="Creator headline">{user?.creatorHeadline || <span style={EMPTY_HINT}>Not added yet. Add one in Edit Profile.</span>}</Field>
+    <Field label="Expertise tags">{user?.expertiseTags || '—'}</Field>
   </>);
 }

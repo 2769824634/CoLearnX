@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import MemberShell from '../../components/MemberShell';
 import { useAuth } from '../../auth/AuthContext';
-import { ProfileEditor, ProfileDetails } from '../account/ProfileEditor';
+import { ProfileEditor, ProfileDetails, TeachingProfile } from '../account/ProfileEditor';
 import { useMemberData } from './memberDataState';
 import AvatarEditor from '../account/AvatarEditor';
 import useAccountShortcuts from '../account/useAccountShortcuts';
@@ -55,6 +55,10 @@ export default function MemberAccountPage() {
                   <div className="masked-field"><div className="label">Email</div><div className="value">{user?.email || '—'}</div></div>
                   <div className="masked-field"><div className="label">Phone</div><div className="value">{user?.phone || '—'}</div></div>
                   <ProfileDetails user={user} />
+                  {/* Older accounts may still hold a teaching role next to Member. */}
+                  {(user?.roles || []).map((role) => String(role).toLowerCase())
+                    .filter((role) => role === 'trainer' || role === 'creator')
+                    .map((role) => <TeachingProfile key={role} user={user} kind={role} />)}
                 </div>
               </div>
             </div>
