@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { courseTrainersApi } from '../../api/courseTrainers';
 import { useAuth } from '../../auth/AuthContext';
 import Modal from '../../components/Modal';
@@ -13,7 +13,6 @@ const STATUS = {
   Removed: { label: 'Removed', tone: 'rejected' },
   Requested: { label: 'Requested', tone: 'pending' },
 };
-const MIN_SEARCH = 2;
 const SEARCH_DELAY_MS = 300;
 
 const loadRoster = (token, courseId, signal) => courseTrainersApi.list(token, courseId, signal);
@@ -107,12 +106,7 @@ function InviteDialog({ courseId, roster, onInvite, busyId, onClose }) {
   const pending = useRef(null);
   const statusById = new Map(roster.map((row) => [row.trainerId, row.status]));
 
-  useEffect(() => () => {
-    clearTimeout(timer.current);
-    pending.current?.abort();
-  }, []);
-
-  function search(value) {
+  const search = useCallback((value) => {
     pending.current?.abort();
     const controller = new AbortController();
     pending.current = controller;
@@ -121,7 +115,16 @@ function InviteDialog({ courseId, roster, onInvite, busyId, onClose }) {
       (items) => { if (!controller.signal.aborted) setResults(Array.isArray(items) ? items : []); },
       (requestError) => { if (!controller.signal.aborted) setSearchError(requestError); },
     );
-  }
+  }, [token, courseId]);
+
+  // The Creator may not know any Trainer by name, so matching trainers are listed as soon as the dialog opens.
+  useEffect(() => {
+    search('');
+    return () => {
+      clearTimeout(timer.current);
+      pending.current?.abort();
+    };
+  }, [search]);
 
   function onChange(event) {
     const value = event.target.value;
@@ -129,10 +132,6 @@ function InviteDialog({ courseId, roster, onInvite, busyId, onClose }) {
     setSent('');
     clearTimeout(timer.current);
     pending.current?.abort();
-    if (value.trim().length < MIN_SEARCH) {
-      setResults(null);
-      return;
-    }
     timer.current = setTimeout(() => search(value.trim()), SEARCH_DELAY_MS);
   }
 
@@ -144,12 +143,13 @@ function InviteDialog({ courseId, roster, onInvite, busyId, onClose }) {
 
   return <Modal open title="Invite a trainer" onClose={onClose}>
     <div className="form-group">
-      <label htmlFor="course-trainer-search">Search trainers by name</label>
-      <input id="course-trainer-search" type="search" autoComplete="off" value={term} onChange={onChange} placeholder={`Type at least ${MIN_SEARCH} letters`} data-modal-autofocus />
+      <label htmlFor="course-trainer-search">Certified trainers in this specialty</label>
+      <input id="course-trainer-search" type="search" autoComplete="off" value={term} onChange={onChange} placeholder="Filter by name" data-modal-autofocus />
     </div>
     {sent ? <p role="status" style={{ color: 'var(--teal)' }}>{sent}</p> : null}
     <CreatorError error={searchError} />
-    {results === null ? null : !results.length ? <p className="page-sub">No trainers match “{term.trim()}”.</p>
+    {results === null ? (searchError ? null : <p className="page-sub" role="status">Loading trainers…</p>)
+      : !results.length ? <p className="page-sub">{term.trim() ? `No trainers match “${term.trim()}”.` : 'No certified trainers in this specialty yet. Trainers can also apply once the course is published.'}</p>
       : <ul className="later-resource-list">{results.map((candidate) => {
         const status = statusById.get(candidate.id);
         const onRoster = status === 'Invited' || status === 'Accepted' || status === 'Requested';
