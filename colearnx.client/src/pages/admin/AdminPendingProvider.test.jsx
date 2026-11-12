@@ -51,8 +51,9 @@ it('shows pending approvals and open disputes as navigation badges', async () =>
   await settle();
 
   expect(overviewApi.pendingCounts).toHaveBeenCalledWith('admin-token');
-  expect(screen.getByRole('link', { name: 'Approvals, 4 pending' })).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'Disputes, 2 pending' })).toBeTruthy();
+  // Disputes now live inside Approvals, so the one badge counts both.
+  expect(screen.getByRole('link', { name: 'Approvals, 6 pending' })).toBeTruthy();
+  expect(screen.queryByRole('link', { name: /Disputes/ })).toBeNull();
 });
 
 it('hides a badge at zero and caps large numbers at 99+', async () => {
@@ -61,7 +62,7 @@ it('hides a badge at zero and caps large numbers at 99+', async () => {
   await settle();
 
   expect(screen.getByRole('link', { name: 'Approvals, 123 pending' }).textContent).toContain('99+');
-  expect(screen.getByRole('link', { name: 'Disputes' }).textContent).toBe('Disputes');
+  expect(screen.getByRole('link', { name: 'Classes' }).textContent).toBe('Classes');
 });
 
 it('refreshes every 30 seconds while visible and when the window becomes visible again', async () => {
@@ -114,7 +115,7 @@ it('points a new dispute notice at the disputes page', async () => {
   await settle();
 
   await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
-  expect(screen.getByRole('link', { name: '1 new item is waiting for review' }).getAttribute('href')).toBe('/admin/disputes');
+  expect(screen.getByRole('link', { name: '1 new item is waiting for review' }).getAttribute('href')).toBe('/admin/approvals?queue=disputes');
 });
 
 it('keeps the last counts when a refresh fails', async () => {
@@ -125,6 +126,6 @@ it('keeps the last counts when a refresh fails', async () => {
   await settle();
 
   await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
-  expect(screen.getByRole('link', { name: 'Approvals, 4 pending' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Approvals, 6 pending' })).toBeTruthy();
   expect(screen.queryByRole('alert')).toBeNull();
 });

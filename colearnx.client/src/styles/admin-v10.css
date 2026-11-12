@@ -403,3 +403,154 @@
     font-size: 26px;
   }
 }
+
+/* ---------- Classes overview and user details by role ---------- */
+:is(.admin-shell, .modal .account-details) .admin-summary-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-summary-stats > div {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--white);
+  padding: 12px 16px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-summary-stats dt {
+  color: var(--slate);
+  font-size: 13px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-summary-stats dd {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--charcoal);
+}
+
+:is(.admin-shell, .modal .account-details) .admin-summary-stats dd small {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--slate);
+}
+
+:is(.admin-shell, .modal .account-details) .admin-summary-stats dd.later-negative {
+  color: var(--danger-text);
+}
+
+:is(.admin-shell, .modal .account-details) .admin-class-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-shell .admin-class-hint {
+  margin: 0 0 10px;
+  color: var(--slate);
+  font-size: 13px;
+}
+
+:is(.admin-shell, .modal .account-details) .later-table tr.admin-class-low td {
+  background: var(--danger-soft);
+}
+
+:is(.admin-shell, .modal .account-details) .later-table td.later-negative {
+  color: var(--danger-text);
+  font-weight: 600;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-user-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-user-summary h3 {
+  margin: 0;
+  font-size: 22px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-user-summary p {
+  margin: 4px 0 0;
+  color: var(--slate);
+}
+
+:is(.admin-shell, .modal .account-details) .admin-user-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-user-tabs .btn[aria-pressed='true'] {
+  border-color: var(--purple);
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+:is(.admin-shell, .modal .account-details) .admin-detail-heading {
+  margin: 20px 0 10px;
+  font-size: 16px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-collapse {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--white);
+  padding: 10px 14px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-collapse > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  color: var(--charcoal);
+}
+
+:is(.admin-shell, .modal .account-details) .admin-collapse[open] > summary {
+  margin-bottom: 10px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-material-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-material-list li {
+  display: flex;
+  justify-content: space-between;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--white);
+}
+
+:is(.admin-shell, .modal .account-details) .admin-material-list span {
+  color: var(--slate);
+}
+
+@media (max-width: 900px) {
+  :is(.admin-shell, .modal .account-details) :is(.admin-summary-stats, .admin-class-filters) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+:is(.admin-shell, .modal .account-details) .admin-nowrap {
+  white-space: nowrap;
+}
+
+:is(.admin-shell, .modal .account-details) .admin-class-detail .admin-summary-stats dd {
+  font-size: 18px;
+}

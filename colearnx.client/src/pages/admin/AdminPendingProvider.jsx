@@ -24,7 +24,7 @@ export function AdminPendingProvider({ token, children }) {
       const added = before ? pendingTotal(next) - pendingTotal(before) : 0;
       if (added > 0) {
         const approvalsGrew = approvalTotal(next) > approvalTotal(before);
-        setNotice({ added, to: approvalsGrew ? '/admin/approvals' : '/admin/disputes' });
+        setNotice({ added, to: approvalsGrew ? '/admin/approvals' : '/admin/approvals?queue=disputes' });
       }
     };
     // Counts are a hint; a failed poll keeps the last known numbers instead of interrupting the page.

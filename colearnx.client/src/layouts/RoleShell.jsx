@@ -4,7 +4,7 @@ import { MemberNotificationsProvider } from '../components/MemberNotificationsPr
 import { useAuth } from '../auth/AuthContext';
 import useAdminAuth from '../auth/useAdminAuth';
 import { AdminPendingProvider } from '../pages/admin/AdminPendingProvider';
-import { approvalTotal, useAdminPending } from '../pages/admin/adminPending';
+import { pendingTotal, useAdminPending } from '../pages/admin/adminPending';
 import { ShellChrome, ShellNavLink } from './ShellChrome';
 import { useAccessNotice } from './useAccessNotice';
 import '../styles/admin.css';
@@ -30,11 +30,10 @@ const NAV = {
     { to: '/creator/account', label: 'My Account' },
   ],
   admin: [
-    { to: '/admin/home', label: 'Homepage' },
+    { to: '/admin/home', label: 'Home' },
     { to: '/admin/approvals', label: 'Approvals', pending: 'approvals' },
     { to: '/admin/users', label: 'Users' },
-    { to: '/admin/class-dates', label: 'Class dates' },
-    { to: '/admin/disputes', label: 'Disputes', pending: 'disputes' },
+    { to: '/admin/classes', label: 'Classes' },
     { to: '/admin/pricing', label: 'Pricing' },
     { to: '/admin/learning-paths', label: 'Learning paths' },
     { to: '/admin/audit', label: 'Audit Log' },
@@ -52,7 +51,7 @@ function isNavActive(item, pathname, isActive) {
 
 function pendingCount(kind, counts) {
   if (!kind || !counts) return 0;
-  return kind === 'disputes' ? counts.disputes : approvalTotal(counts);
+  return kind === 'approvals' ? pendingTotal(counts) : 0;
 }
 
 function ShellFrame({ identityName, avatarUrl, token, role, logout, identityLabel = 'Administrator', title, subtitle, accessNotice, onDismissAccessNotice }) {

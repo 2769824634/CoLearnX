@@ -1,8 +1,10 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { adminAuditApi, adminOverviewApi } from '../../api';
 import useAdminQuery from './useAdminQuery';
 import AdminDataState from './AdminDataState';
 import { pendingTotal, useAdminPending } from './adminPending';
+import AdminClassTable from './AdminClassTable';
+import { sortEndingSoon } from './adminClasses';
 import { actionLabel, auditActor, formatAuditTime, resultClass, resultLabel } from './adminDisplay';
 
 const QUEUE_CARDS = [
@@ -12,21 +14,23 @@ const QUEUE_CARDS = [
     detail: 'Submitted courses, and new files on published courses, awaiting a decision.', link: 'Open course reviews' },
   { key: 'certificates', number: '03 / Certificates', title: 'Certificates', to: '/admin/approvals?queue=certificates',
     detail: 'Trainer-approved certificates awaiting final issue.', link: 'Open certificates' },
-  { key: 'disputes', number: '04 / Disputes', title: 'Disputes', to: '/admin/disputes',
+  { key: 'disputes', number: '04 / Disputes', title: 'Disputes', to: '/admin/approvals?queue=disputes',
     detail: 'Open disputes awaiting a resolution.', link: 'Open disputes' },
 ];
 
 async function loadOverview(token, _queryKey, signal) {
-  const [counts, activity] = await Promise.all([
+  const [counts, activity, classes] = await Promise.all([
     adminOverviewApi.pendingCounts(token, signal),
     adminAuditApi.list(token, 5, signal),
+    adminOverviewApi.classes(token, signal),
   ]);
-  return { counts, activity, loadedAt: new Date().toISOString() };
+  return { counts, activity, classes, loadedAt: new Date().toISOString() };
 }
 
 export default function AdminHomePage() {
   const { data, loading, error, refresh: refreshOverview } = useAdminQuery(loadOverview);
   const pending = useAdminPending();
+  const navigate = useNavigate();
   const refresh = () => {
     refreshOverview();
     pending?.refresh();
@@ -57,6 +61,14 @@ export default function AdminHomePage() {
         {pendingTotal(data.counts) === 0 ? (
           <p className="admin-review-notice" role="status">All caught up. Nothing is waiting for review.</p>
         ) : null}
+        <section className="admin-activity-panel" aria-labelledby="running-classes-title">
+          <div className="admin-section-heading">
+            <div><h2 id="running-classes-title">Classes in progress</h2><p>Ending soonest first; red rows have low attendance</p></div>
+            <Link to="/admin/classes">View all classes <span aria-hidden="true">↗</span></Link>
+          </div>
+          <AdminClassTable rows={sortEndingSoon(data.classes.filter((row) => row.status === 'InProgress')).slice(0, 5)}
+            onOpen={(id) => navigate(`/admin/classes?classId=${id}`)} emptyText="No class is running right now." />
+        </section>
         <section className="admin-activity-panel" aria-labelledby="recent-activity-title">
           <div className="admin-section-heading">
             <div><h2 id="recent-activity-title">Recent activity</h2><p>Latest 5 recorded events</p></div>

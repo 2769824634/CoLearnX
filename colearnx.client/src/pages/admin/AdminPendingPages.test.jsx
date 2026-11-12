@@ -6,7 +6,7 @@ import AdminApprovalsPage from './AdminApprovalsPage';
 import AdminAuditLogsPage from './AdminAuditLogsPage';
 import { AdminPendingContext } from './adminPending';
 
-const overviewApi = vi.hoisted(() => ({ pendingCounts: vi.fn() }));
+const overviewApi = vi.hoisted(() => ({ pendingCounts: vi.fn(), classes: vi.fn() }));
 const auditApi = vi.hoisted(() => ({ list: vi.fn(), query: vi.fn(), filterOptions: vi.fn() }));
 
 vi.mock('../../auth/useAdminAuth', () => ({ default: () => ({ token: 'admin-token', logout: vi.fn() }) }));
@@ -32,6 +32,7 @@ afterEach(() => {
 
 it('summarises every admin queue on the homepage with links to each queue', async () => {
   overviewApi.pendingCounts.mockResolvedValue(counts());
+  overviewApi.classes.mockResolvedValue([]);
   auditApi.list.mockResolvedValue([]);
   renderPage(<AdminHomePage />);
 
@@ -45,7 +46,7 @@ it('summarises every admin queue on the homepage with links to each queue', asyn
     ['Role requests', '2', '/admin/approvals?queue=roles'],
     ['Courses to review', '1', '/admin/approvals?queue=courses'],
     ['Certificates', '3', '/admin/approvals?queue=certificates'],
-    ['Disputes', '4', '/admin/disputes'],
+    ['Disputes', '4', '/admin/approvals?queue=disputes'],
   ]);
   expect(screen.queryByText(/All caught up/)).toBeNull();
   expect(auditApi.list).toHaveBeenCalledWith('admin-token', 5, expect.anything());
@@ -53,6 +54,7 @@ it('summarises every admin queue on the homepage with links to each queue', asyn
 
 it('tells the admin when nothing is waiting', async () => {
   overviewApi.pendingCounts.mockResolvedValue(counts({ roleRequests: 0, courses: 0, certificates: 0, disputes: 0 }));
+  overviewApi.classes.mockResolvedValue([]);
   auditApi.list.mockResolvedValue([]);
   renderPage(<AdminHomePage />);
 
@@ -67,8 +69,9 @@ it('shows how many items wait in each approval queue tab', () => {
     'Role requests, 2 pending',
     'Course reviews, 1 pending',
     'Certificates, 3 pending',
+    'Disputes, 4 pending',
   ]);
-  expect(tabs).toHaveLength(3);
+  expect(tabs).toHaveLength(4);
   expect(tabs[2].querySelector('.admin-approval-count').textContent).toBe('3');
 });
 
