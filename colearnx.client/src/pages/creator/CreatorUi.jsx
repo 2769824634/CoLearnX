@@ -3,7 +3,7 @@ import '../../styles/creator-intakes.css';
 import { userFacingError } from '../businessPresentation';
 
 export function CreatorHeader({ eyebrow = 'Creator review desk', title, children, action }) {
-  return <header className="creator-header"><div><p className="creator-eyebrow">{eyebrow}</p><h1>{title}</h1><p>{children}</p></div>{action}</header>;
+  return <header className="creator-header"><div><p className="creator-eyebrow">{eyebrow}</p><h1>{title}</h1>{children ? <p>{children}</p> : null}</div>{action}</header>;
 }
 
 export function CreatorError({ error, onRetry }) {

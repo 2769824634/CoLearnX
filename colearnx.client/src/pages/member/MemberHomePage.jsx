@@ -4,7 +4,10 @@ import { CourseArt } from '../guest/GuestCourseCard';
 import MemberShell from '../../components/MemberShell';
 import { recommendationsApi } from '../../api';
 import { userFacingError } from '../businessPresentation';
+import { useAuth } from '../../auth/AuthContext';
 import { useMemberSlices } from './memberDataState';
+import MemberOnboardingModal from './MemberOnboardingModal';
+import { needsMemberOnboarding } from './needsMemberOnboarding';
 
 const programLink = (enrollment) => `/member/programs?tab=active&enrollmentId=${enrollment.enrollmentId}`;
 
@@ -30,12 +33,17 @@ export default function MemberHomePage() {
   const [recommendations, setRecommendations] = useState(null);
   const [recommendationError, setRecommendationError] = useState('');
 
+  const { user } = useAuth();
+  const onboarding = needsMemberOnboarding(user);
+
+  // Recommendations start from the chosen interests, so they are requested once the interest steps are done.
   useEffect(() => {
+    if (onboarding) return undefined;
     let activeRequest = true;
     recommendationsApi.my().then((data) => { if (activeRequest) setRecommendations(data); })
       .catch((error) => { if (activeRequest) setRecommendationError(userFacingError(error, 'Could not load recommendations.')); });
     return () => { activeRequest = false; };
-  }, []);
+  }, [onboarding]);
 
   return (
     <MemberShell
@@ -140,6 +148,7 @@ export default function MemberHomePage() {
         })}
       </div>
       </div>
+      {onboarding ? <MemberOnboardingModal /> : null}
     </MemberShell>
   );
 }

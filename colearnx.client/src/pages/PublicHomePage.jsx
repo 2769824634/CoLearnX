@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import PublicSiteShell from '../components/PublicSiteShell';
 import { useGuestGate } from '../components/useGuestGate';
 import MemberShell from '../components/MemberShell';
@@ -9,7 +9,6 @@ import { SessionLoading } from '../auth/authSession';
 import { resolveAuthSession } from '../auth/resolveAuthSession';
 import { SITE_TITLE } from '../siteTitle';
 import MemberOnboardingModal from './member/MemberOnboardingModal';
-import { needsMemberOnboarding } from './member/needsMemberOnboarding';
 import { usePublicCourses } from './publicCourses';
 import GuestHome from './guest/GuestHome';
 import { CourseArt } from './guest/GuestCourseCard';
@@ -47,10 +46,11 @@ export default function PublicHomePage({ onboardingMode = 'auto' }) {
   const { courses, loading, error } = usePublicCourses();
   const gate = useGuestGate();
   // The interests API only serves the Member role, so other sessions would get a dialog that can neither load nor skip.
-  const showOnboarding = session === 'member'
-    && (onboardingMode === 'edit' || (onboardingMode === 'auto' && needsMemberOnboarding(auth.user)));
+  const showOnboarding = session === 'member' && onboardingMode === 'edit';
 
   if (session === 'booting') return <SessionLoading />;
+  // A signed-in Member has a dashboard of their own; this page is for visitors.
+  if (session === 'member' && onboardingMode !== 'edit') return <Navigate to="/member/home" replace />;
 
   if (session === 'member') {
     const platformCourses = courses.filter((course) => course.isPlatformOwned);

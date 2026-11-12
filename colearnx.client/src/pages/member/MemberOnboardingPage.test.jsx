@@ -23,6 +23,7 @@ function mountOnboarding() {
         <Routes>
           <Route path="/member/onboarding" element={<MemberOnboardingPage />} />
           <Route path="/" element={<PublicHomePage />} />
+          <Route path="/member/home" element={<h1>Member dashboard</h1>} />
         </Routes>
       </MemoryRouter>
     </AuthContext.Provider>,
@@ -44,7 +45,7 @@ it('runs interest selection in a stepped dialog over the site homepage', async (
   expect(screen.queryByRole('navigation', { name: 'Site navigation' })).toBeNull();
 });
 
-it('saves the selected leaf after the three onboarding steps and opens the site homepage', async () => {
+it('saves the selected leaf after the three onboarding steps and opens the member dashboard', async () => {
   const refreshUser = mountOnboarding();
 
   expect(await screen.findByRole('heading', { name: 'What brings you here?' })).toBeTruthy();
@@ -58,11 +59,7 @@ it('saves the selected leaf after the three onboarding steps and opens the site 
   await waitFor(() => {
     expect(screen.queryByRole('dialog', { name: 'Your learning interests' })).toBeNull();
   });
-  expect(screen.getByRole('heading', { name: 'CoLearnX' })).toBeTruthy();
-  expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
-  expect(screen.getByRole('button', { name: 'Log out' })).toBeTruthy();
-  expect(screen.queryByRole('link', { name: 'Log in' })).toBeNull();
+  expect(screen.getByRole('heading', { name: 'Member dashboard' })).toBeTruthy();
   const save = globalThis.fetch.mock.calls.find(([path, options]) => path === '/api/users/me/interests' && options.method === 'PUT');
   expect(JSON.parse(save[1].body)).toEqual({ interestIds: [2], learningGoals: 'hobby', skip: false });
   expect(refreshUser).toHaveBeenCalledWith(expect.objectContaining({ onboardingCompletedAt: '2026-09-29T00:00:00Z' }));

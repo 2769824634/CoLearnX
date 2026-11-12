@@ -1,6 +1,6 @@
 namespace CoLearnX.Server.Contracts.Dtos;
 
-public record InterestDto(int Id, string Slug, string Name, IReadOnlyList<InterestDto> Children);
+public record InterestDto(int Id, string Slug, string Name, IReadOnlyList<InterestDto> Children, string? Subject = null);
 public record MemberInterestsDto(IReadOnlyList<int> InterestIds, string? LearningGoals, DateTime? OnboardingCompletedAt, DateTime? OnboardingSkippedAt);
 public record UpdateMemberInterestsRequest(IReadOnlyList<int>? InterestIds, string? LearningGoals, bool Skip = false);
 public record CourseInterestDto(int Id, string Slug, string Name);

@@ -51,19 +51,19 @@ it('explains an empty roster', async () => {
   expect(await screen.findByText('No trainers yet. Invite one to teach this course.')).toBeTruthy();
 });
 
-it('searches after two characters and refreshes the roster after an invitation', async () => {
+it('lists matching trainers as soon as the dialog opens, filters as the Creator types, and refreshes the roster after an invitation', async () => {
   const fetch = mount((path, init) => init.method === 'POST' ? json(row(6, 'Erin Dual', 'Invited')) : null);
   fireEvent.click(await screen.findByRole('button', { name: 'Invite trainer' }));
   const dialog = screen.getByRole('dialog', { name: 'Invite a trainer' });
-  const search = within(dialog).getByLabelText('Search trainers by name');
+  const search = within(dialog).getByLabelText('Certified trainers in this specialty');
 
-  fireEvent.change(search, { target: { value: 'e' } });
-  await new Promise((resolve) => setTimeout(resolve, 400));
-  expect(calls(fetch, (path) => path.startsWith('/api/creator/trainers'))).toHaveLength(0);
+  expect(await within(dialog).findByText('Erin Dual')).toBeTruthy();
+  expect(calls(fetch, (path) => path.startsWith('/api/creator/trainers'))).toEqual([['/api/creator/trainers?courseId=9&search=', expect.anything()]]);
 
   fireEvent.change(search, { target: { value: 'er' } });
+  await vi.waitFor(() => expect(calls(fetch, (path) => path.startsWith('/api/creator/trainers')).map(([path]) => path))
+    .toEqual(['/api/creator/trainers?courseId=9&search=', '/api/creator/trainers?courseId=9&search=er']));
   const erin = (await within(dialog).findByText('Erin Dual')).closest('li');
-  expect(calls(fetch, (path) => path.startsWith('/api/creator/trainers'))).toEqual([['/api/creator/trainers?courseId=9&search=er', expect.anything()]]);
   const alex = within(dialog).getByText('Alex Chen').closest('li');
   expect(within(alex).queryByRole('button', { name: 'Invite' })).toBeNull();
   expect(within(alex).getByText('Available')).toBeTruthy();
@@ -73,6 +73,12 @@ it('searches after two characters and refreshes the roster after an invitation',
   const [, invite] = calls(fetch, (path, init) => init.method === 'POST')[0];
   expect(JSON.parse(invite.body)).toEqual({ trainerId: 6 });
   expect(calls(fetch, (path, init) => path === '/api/creator/courses/9/trainers' && isGet(init))).toHaveLength(2);
+});
+
+it('says so when no certified trainer has this specialty yet', async () => {
+  mount((path) => path.startsWith('/api/creator/trainers?') ? json([]) : null);
+  fireEvent.click(await screen.findByRole('button', { name: 'Invite trainer' }));
+  expect(await screen.findByText('No certified trainers in this specialty yet. Trainers can also apply once the course is published.')).toBeTruthy();
 });
 
 it('asks before removing an available trainer', async () => {

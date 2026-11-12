@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace CoLearnX.Server.Contracts.Dtos;
 
 public record CreateCreatorCourseRequest(
-    [Required, MaxLength(64)] string Code,
+    [MaxLength(64)] string? Code,
     [Required, MaxLength(200)] string Title,
     [MaxLength(4000)] string? Description,
     [Range(1, int.MaxValue)] int CourseLevelId,
@@ -18,7 +18,7 @@ public record CreateCreatorCourseRequest(
     bool OpenToTrainerApplications = true);
 
 public record UpdateCreatorCourseRequest(
-    [Required, MaxLength(64)] string Code,
+    [MaxLength(64)] string? Code,
     [Required, MaxLength(200)] string Title,
     [MaxLength(4000)] string? Description,
     [Range(1, int.MaxValue)] int CourseLevelId,

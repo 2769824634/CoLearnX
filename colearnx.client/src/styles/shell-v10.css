@@ -194,6 +194,7 @@
 
 /* ---------- sidebar icons ---------- */
 .sidebar .nav-item[href="/"]::before,
+.sidebar .nav-item[href="/member/home"]::before,
 .sidebar .nav-item[href="/trainer/home"]::before,
 .sidebar .nav-item[href="/creator/home"]::before,
 .sidebar .nav-item[href="/admin/home"]::before {

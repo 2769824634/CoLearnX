@@ -28,11 +28,13 @@ const enrolled = [
 
 const recommendation = { courseId: 31, code: 'DES 1001', title: 'Visual Storytelling', interests: [{ id: 1, name: 'Design' }], creditCost: 20, level: 'Beginner', ratingCount: 0 };
 
-function mount(state) {
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ items: [recommendation] }), { headers: { 'Content-Type': 'application/json' } })));
+function mount(state, user = { id: 1, roles: ['Member'] }) {
+  vi.stubGlobal('fetch', vi.fn(async (path) => new Response(JSON.stringify(
+    path === '/api/interests' ? [] : path === '/api/users/me/interests' ? { interestIds: [], learningGoals: null } : { items: [recommendation] },
+  ), { headers: { 'Content-Type': 'application/json' } })));
   render(
     <MemoryRouter>
-      <AuthContext.Provider value={{ token: 't', user: { id: 1, roles: ['Member'] } }}>
+      <AuthContext.Provider value={{ token: 't', user, refreshUser: vi.fn() }}>
         <MemberDataContext.Provider value={{ state: { ...baseState, ...state }, toggleWish: vi.fn(), reload: vi.fn() }}>
           <MemberHomePage />
         </MemberDataContext.Provider>
@@ -87,4 +89,17 @@ it('marks a recommended course that has no open class yet', async () => {
   );
   const card = (await screen.findByText('Visual Storytelling')).closest('article');
   expect(within(card).getByText('No class scheduled yet')).toBeTruthy();
+});
+
+it('asks a new member for their interests on the dashboard and waits with recommendations', async () => {
+  mount({}, { id: 1, roles: ['Member'], onboardingCompletedAt: null, onboardingSkippedAt: null });
+  expect(await screen.findByRole('dialog', { name: 'Your learning interests' })).toBeTruthy();
+  expect(await screen.findByText('Choose a learning goal. It helps us understand what you are here for.')).toBeTruthy();
+  expect(globalThis.fetch.mock.calls.some(([path]) => String(path).includes('/api/recommendations'))).toBe(false);
+});
+
+it('does not ask a member who already chose or skipped interests', async () => {
+  mount({}, { id: 1, roles: ['Member'], onboardingCompletedAt: '2026-11-01T00:00:00Z', onboardingSkippedAt: null });
+  expect(await screen.findByText('Visual Storytelling')).toBeTruthy();
+  expect(screen.queryByRole('dialog', { name: 'Your learning interests' })).toBeNull();
 });
