@@ -57,7 +57,8 @@ public class AdminController(IAdminFinanceService finance) : ControllerBase
             await db.Courses.CountAsync(item => item.Status == CourseStatus.PendingApproval, ct)
                 + await AdminCourseReviewService.WithNewMaterials(db).CountAsync(ct),
             await db.CertificateRequests.CountAsync(item => item.Status == CertificateRequestStatus.TrainerApproved, ct),
-            await db.Disputes.CountAsync(item => item.Status == DisputeStatus.Open, ct)));
+            await db.Disputes.CountAsync(item => item.Status == DisputeStatus.Open, ct),
+            await db.PayoutRequests.CountAsync(item => item.Status == PayoutStatus.Requested, ct)));
 
     [HttpGet("credits/ledger")]
     public async Task<ActionResult<IReadOnlyList<AdminCreditLedgerItemDto>>> Ledger(

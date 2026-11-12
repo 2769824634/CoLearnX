@@ -95,6 +95,13 @@ export const adminPricingApi = {
   pool: (token, signal) => apiRequest('/api/admin/pricing/pool', { token, signal }),
 };
 
+export const adminPayoutsApi = {
+  list: (token, status = 'Requested', signal) => apiRequest(`/api/admin/payouts?status=${encodeURIComponent(status)}`, { token, signal }),
+  review: (token, id, decision, reference) => apiRequest(`/api/admin/payouts/${encodeURIComponent(id)}/review`, {
+    method: 'POST', token, body: { decision, reference },
+  }),
+};
+
 export const coursesApi = {
   list: (params = {}) => {
     const q = new URLSearchParams();
@@ -181,6 +188,8 @@ export const creditsApi = {
 export const earningsApi = {
   trainer: (token, signal) => apiRequest('/api/trainer/earnings', { token, signal }),
   creator: (token, signal) => apiRequest('/api/creator/earnings', { token, signal }),
+  my: (token, signal) => apiRequest('/api/earnings/my', { token, signal }),
+  requestPayout: (payoutMethod, token) => apiRequest('/api/earnings/payouts', { method: 'POST', token, body: { payoutMethod } }),
 };
 
 export const medalsApi = {

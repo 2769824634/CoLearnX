@@ -34,7 +34,7 @@ public static class SeedData
         await RecommendationSeed.EnsureSchemaAsync(db);
         await CreditReservationSchema.EnsureAsync(db);
         await EnrollmentSessionChoiceSchema.EnsureAsync(db);
-        await IntakeEarningSchema.EnsureAsync(db);
+        await EarningsSchema.EnsureAsync(db);
         await NotificationSchema.EnsureAsync(db);
         await MaterialUsageSchema.EnsureAsync(db);
         await SessionMaterialSchema.EnsureAsync(db);

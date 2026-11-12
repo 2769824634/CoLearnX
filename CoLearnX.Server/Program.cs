@@ -86,7 +86,8 @@ builder.Services.AddScoped<ICourseTrainerService, CourseTrainerService>();
 builder.Services.AddScoped<ITrainerDeliveryService, TrainerDeliveryService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 builder.Services.AddScoped<IIntakeSettlementService, IntakeSettlementService>();
-builder.Services.AddScoped<EarningsService>();
+builder.Services.AddScoped<IEarningsService, EarningsService>();
+builder.Services.AddScoped<IPayoutService, PayoutService>();
 builder.Services.AddOptions<EarningsOptions>().Bind(builder.Configuration.GetSection("Earnings"))
     .Validate(options => options.TrainerPercent >= 0 && options.CreatorPercent >= 0
         && options.TrainerPercent + options.CreatorPercent <= 100, "Earnings percentages must be non-negative and total at most 100.")
@@ -163,6 +164,15 @@ builder.Services.AddAuthorization(options =>
         policy.RequireClaim(AuthTokenSubjects.ClaimType, AuthTokenSubjects.User);
         policy.RequireClaim("active_role", "Creator");
         policy.RequireRole("Creator");
+        policy.AddRequirements(CertifiedRoleRequirement.Instance);
+    });
+    options.AddPolicy("EarningsRecipient", policy =>
+    {
+        policy.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme);
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim(AuthTokenSubjects.ClaimType, AuthTokenSubjects.User);
+        policy.RequireClaim("active_role", "Trainer", "Creator");
+        policy.RequireAssertion(context => context.User.IsInRole("Trainer") || context.User.IsInRole("Creator"));
         policy.AddRequirements(CertifiedRoleRequirement.Instance);
     });
     options.AddPolicy(AdminAuthorization.PolicyName, policy =>
