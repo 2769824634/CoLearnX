@@ -54,6 +54,29 @@ public static class RoleCertificationSchema
         }
     }
 
+    public const string SingleRoleIndexName = "UX_UserRoles_UserId";
+
+    // One account holds one role. Run after multi-role accounts are cleaned up: while any remain,
+    // the index is not created and their user ids are returned so startup can warn instead of failing.
+    public static async Task<IReadOnlyList<int>> EnsureSingleRoleIndexAsync(CoLearnXDbContext db, CancellationToken ct = default)
+    {
+        var duplicates = await db.Database.SqlQuery<int>(
+            $"SELECT UserId AS Value FROM UserRoles GROUP BY UserId HAVING COUNT(*) > 1")
+            .ToListAsync(ct);
+        if (duplicates.Count > 0)
+            return duplicates;
+
+        if (db.Database.IsSqlite())
+            await db.Database.ExecuteSqlRawAsync(
+                "CREATE UNIQUE INDEX IF NOT EXISTS UX_UserRoles_UserId ON UserRoles (UserId);", ct);
+        else if (db.Database.IsSqlServer())
+            await db.Database.ExecuteSqlRawAsync("""
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_UserRoles_UserId' AND object_id = OBJECT_ID(N'dbo.UserRoles'))
+                    CREATE UNIQUE INDEX UX_UserRoles_UserId ON dbo.UserRoles (UserId);
+                """, ct);
+        return [];
+    }
+
     private static async Task<bool> MissingColumnAsync(CoLearnXDbContext db, string table, string column, CancellationToken ct)
     {
         var count = await db.Database.SqlQuery<long>(

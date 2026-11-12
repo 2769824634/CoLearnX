@@ -108,6 +108,8 @@ public class SeedDataTests
                 var trainer = await seeded.Users.SingleAsync(user => user.Email == SeedData.TrainerEmail);
                 var creator = await seeded.Users.SingleAsync(user => user.Email == SeedData.CreatorEmail);
                 var member = await seeded.Users.SingleAsync(user => user.Email == SeedData.MemberEmail);
+                // A database from before the single-role index, where demo accounts picked up extra roles.
+                await seeded.Database.ExecuteSqlRawAsync("DROP INDEX UX_UserRoles_UserId");
                 seeded.UserRoles.AddRange(
                     new UserRole { UserId = trainer.Id, Role = AppRole.Member },
                     new UserRole { UserId = creator.Id, Role = AppRole.Member });
@@ -123,6 +125,8 @@ public class SeedDataTests
 
             await using var db = new CoLearnXDbContext(options);
             await AssertDemoWorkspaceRolesAsync(db);
+            Assert.Equal(1, await db.Database.SqlQueryRaw<int>(
+                "SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'index' AND name = 'UX_UserRoles_UserId'").SingleAsync());
             Assert.False(await db.RoleRequests.AnyAsync(request => request.Status == RoleRequestStatus.Pending
                 && !db.UserRoles.Any(role => role.UserId == request.UserId && role.Role == request.RequestedRole)));
         }

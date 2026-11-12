@@ -40,7 +40,7 @@ public sealed class FirstRoundRetryStrategyTests
                     IntakeStart.AddDays(-10),
                     IntakeStart,
                     IntakeStart.AddDays(2),
-                    TrainerId: 1,
+                    TrainerId: 4,
                     MinEnrollment: 2));
 
             Assert.Equal("Draft", result.Status);
@@ -136,24 +136,32 @@ public sealed class FirstRoundRetryStrategyTests
 
     private static async Task SeedIntakeAsync(CoLearnXDbContext db)
     {
-        db.Users.Add(new User
-        {
-            Id = 1,
-            Email = "retry-trainer@example.com",
-            FullName = "Retry Trainer",
-            Roles = [new UserRole { Role = AppRole.Member }, new UserRole { Role = AppRole.Trainer }, new UserRole { Role = AppRole.Creator }],
-        });
+        db.Users.AddRange(
+            new User
+            {
+                Id = 1,
+                Email = "retry-creator@example.com",
+                FullName = "Retry Creator",
+                Roles = [new UserRole { Role = AppRole.Creator }],
+            },
+            new User
+            {
+                Id = 4,
+                Email = "retry-trainer@example.com",
+                FullName = "Retry Trainer",
+                Roles = [new UserRole { Role = AppRole.Trainer }],
+            });
         db.Courses.Add(new Course
         {
             Id = 1,
             Code = "RETRY-INTAKE",
             Title = "Retry Intake",
-            TrainerId = 1,
+            TrainerId = 4,
             CreatorId = 1,
             Status = CourseStatus.Published,
             CreditCost = 20,
         });
-        db.CourseTrainers.Add(new CourseTrainer { CourseId = 1, TrainerId = 1, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 1, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow });
+        db.CourseTrainers.Add(new CourseTrainer { CourseId = 1, TrainerId = 4, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 1, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
     }
 

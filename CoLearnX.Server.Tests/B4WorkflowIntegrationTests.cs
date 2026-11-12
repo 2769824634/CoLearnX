@@ -113,18 +113,18 @@ public sealed class B4WorkflowIntegrationTests
     }
 
     [Fact]
-    public async Task CourseCreatorWhoAlsoTeaches_PublishesWithoutASecondRoleToken()
+    public async Task Creator_and_trainer_tokens_each_reach_only_their_own_workspace()
     {
         using var factory = new B4ApiFactory();
         await factory.InitializeAsync();
-        using var dualTrainer = factory.UserClient(105, AppRole.Trainer, AppRole.Trainer, AppRole.Creator);
-        using var dualCreator = factory.UserClient(105, AppRole.Creator, AppRole.Trainer, AppRole.Creator);
-        var published = await CreatePublishedAsync(dualCreator, 101, 105);
+        using var trainer = factory.UserClient(100, AppRole.Trainer);
+        using var creator = factory.UserClient(105, AppRole.Creator);
+        var published = await CreatePublishedAsync(creator, 101, 100);
         Assert.Equal("Published", published.Status);
         Assert.Equal(105, published.ConfirmedByCreatorId);
-        Assert.Equal(published.Id, Assert.Single((await dualTrainer.GetFromJsonAsync<List<CourseIntakeSummaryDto>>("/api/trainer/intakes"))!).Id);
-        await Error(await dualTrainer.PostAsJsonAsync("/api/creator/courses/101/intakes", DraftFor(105)), 403, "CREATOR_REQUIRED");
-        await Error(await dualCreator.GetAsync("/api/trainer/intakes"), 403, "TRAINER_REQUIRED");
+        Assert.Equal(published.Id, Assert.Single((await trainer.GetFromJsonAsync<List<CourseIntakeSummaryDto>>("/api/trainer/intakes"))!).Id);
+        await Error(await trainer.PostAsJsonAsync("/api/creator/courses/101/intakes", DraftFor(100)), 403, "CREATOR_REQUIRED");
+        await Error(await creator.GetAsync("/api/trainer/intakes"), 403, "TRAINER_REQUIRED");
     }
 
     [Fact]
@@ -302,15 +302,15 @@ public sealed class B4WorkflowIntegrationTests
                     new User { Id = 102, Email = "b4-member@example.com", FullName = "B4 Member", CreditBalance = 100, Roles = [new UserRole { Role = AppRole.Member }] },
                     new User { Id = 103, Email = "b4-creator@example.com", FullName = "B4 Creator", Roles = [new UserRole { Role = AppRole.Creator }] },
                     new User { Id = 104, Email = "b4-other-creator@example.com", FullName = "Other Creator", Roles = [new UserRole { Role = AppRole.Creator }] },
-                    new User { Id = 105, Email = "b4-dual@example.com", FullName = "Dual User", Roles = [new UserRole { Role = AppRole.Trainer }, new UserRole { Role = AppRole.Creator }] },
+                    new User { Id = 105, Email = "b4-dual@example.com", FullName = "Second Creator", Roles = [new UserRole { Role = AppRole.Creator }] },
                 };
                 db.Users.AddRange(users);
                 db.Courses.AddRange(
                     new Course { Id = 100, Code = "B4-100", Title = "B4 Workflow", TrainerId = 100, CreatorId = 103, CreditCost = 10, Status = CourseStatus.Published },
-                    new Course { Id = 101, Code = "B4-101", Title = "Self Review", TrainerId = 105, CreatorId = 105, CreditCost = 10, Status = CourseStatus.Published });
+                    new Course { Id = 101, Code = "B4-101", Title = "Second Course", TrainerId = 100, CreatorId = 105, CreditCost = 10, Status = CourseStatus.Published });
                 db.CourseTrainers.AddRange(
                     new CourseTrainer { CourseId = 100, TrainerId = 100, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 103, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow },
-                    new CourseTrainer { CourseId = 101, TrainerId = 105, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 105, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow });
+                    new CourseTrainer { CourseId = 101, TrainerId = 100, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 105, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow });
                 return await db.SaveChangesAsync();
             });
         }

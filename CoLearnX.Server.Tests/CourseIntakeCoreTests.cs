@@ -11,8 +11,10 @@ namespace CoLearnX.Server.Tests;
 
 public class CourseIntakeCoreTests
 {
+    // User 1 creates the course; user 5 teaches it.
+    private const int Trainer = 5;
     private static readonly DateTime Start = new(2027, 1, 10, 9, 0, 0, DateTimeKind.Utc);
-    private static CreateCourseIntakeRequest DraftRequest => new(Start.AddDays(-20), Start.AddDays(-10), Start, Start.AddDays(2), TrainerId: 1);
+    private static CreateCourseIntakeRequest DraftRequest => new(Start.AddDays(-20), Start.AddDays(-10), Start, Start.AddDays(2), TrainerId: Trainer);
     private static CreateCourseSessionRequest SessionRequest(Guid version) => new("Session 1", Start, Start.AddHours(1),
         "https://example.com/meeting", null, 0, null, version);
 
@@ -51,7 +53,7 @@ public class CourseIntakeCoreTests
         Assert.Equal(1, pending.ConfirmedByCreatorId);
         Assert.Equal(pending.Version, (await f.Service.PublishAsync(1, draft.Id, pending.Version)).Version);
         f.Db.ChangeTracker.Clear();
-        var saved = await f.Service.GetOwnedAsync(1, draft.Id);
+        var saved = await f.Service.GetForCreatorAsync(1, draft.Id);
         Assert.Equal(DateTimeKind.Utc, saved.StartsAt.Kind);
         Assert.Equal(DateTimeKind.Utc, saved.Sessions[0].StartsAt.Kind);
         Assert.Equal(draft.Id, Assert.Single(saved.Sessions).CourseIntakeId);
@@ -158,7 +160,7 @@ public class CourseIntakeCoreTests
         await using var f = await Fixture.CreateAsync();
         var d = await f.Service.CreateAsync(1, 1, DraftRequest);
         Assert.Equal("CREATOR_REQUIRED", (await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.CreateAsync(2, 1, DraftRequest))).Code);
-        Assert.Equal(d.Id, Assert.Single(await f.Service.ListOwnedAsync(1)).Id);
+        Assert.Equal(d.Id, Assert.Single(await f.Service.ListOwnedAsync(Trainer)).Id);
         Assert.Equal("INTAKE_NOT_FOUND", (await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.GetOwnedAsync(2, d.Id))).Code);
         var commands = new Func<Task>[] {
             async () => await f.Service.UpdateAsync(2, d.Id, new(DraftRequest.RegistrationOpensAt, DraftRequest.RegistrationClosesAt, Start, Start.AddDays(2), d.Version)),
@@ -169,7 +171,7 @@ public class CourseIntakeCoreTests
         };
         foreach (var command in commands)
             Assert.Equal("CREATOR_REQUIRED", (await Assert.ThrowsAsync<CourseIntakeException>(command)).Code);
-        Assert.Equal(1, d.TrainerId);
+        Assert.Equal(Trainer, d.TrainerId);
         Assert.Equal(1, await f.Db.AuditLogs.CountAsync());
     }
 
@@ -194,7 +196,7 @@ public class CourseIntakeCoreTests
             _ => r with { MeetingLink = null },
         };
         await Assert.ThrowsAsync<CourseIntakeException>(() => f.Service.AddSessionAsync(1, d.Id, r));
-        Assert.Equal(d.Version, (await f.Service.GetOwnedAsync(1, d.Id)).Version);
+        Assert.Equal(d.Version, (await f.Service.GetForCreatorAsync(1, d.Id)).Version);
         Assert.Empty(await f.Db.CourseSessions.ToListAsync());
     }
 
@@ -251,7 +253,7 @@ public class CourseIntakeCoreTests
         var d = await f.Service.CreateAsync(1, 1, DraftRequest);
         await using var secondDb = new CoLearnXDbContext(f.Options);
         var second = new CourseIntakeService(secondDb);
-        await second.GetOwnedAsync(1, d.Id); // read the same original version before the winning edit
+        await second.GetForCreatorAsync(1, d.Id); // read the same original version before the winning edit
         await f.Service.AddSessionAsync(1, d.Id, SessionRequest(d.Version));
         var error = await Assert.ThrowsAsync<CourseIntakeException>(() => second.AddSessionAsync(1, d.Id, SessionRequest(d.Version)));
         Assert.Equal("INTAKE_VERSION_CONFLICT", error.Code);
@@ -268,7 +270,7 @@ public class CourseIntakeCoreTests
         var d = await f.Service.CreateAsync(1, 1, DraftRequest);
         d = await f.Service.AddSessionAsync(1, d.Id, SessionRequest(d.Version));
         var id = Assert.Single(d.Sessions).Id;
-        f.Db.AttendanceRecords.Add(new AttendanceRecord { CourseSessionId = id, UserId = 3, RecordedByTrainerId = 1 });
+        f.Db.AttendanceRecords.Add(new AttendanceRecord { CourseSessionId = id, UserId = 3, RecordedByTrainerId = Trainer });
         await f.Db.SaveChangesAsync();
         Assert.Equal("SESSION_HAS_HISTORY", (await Assert.ThrowsAsync<CourseIntakeException>(
             () => f.Service.DeleteSessionAsync(1, d.Id, id, d.Version))).Code);
@@ -287,7 +289,7 @@ public class CourseIntakeCoreTests
         f.Db.SessionMaterials.Add(new SessionMaterial
         {
             CourseSessionId = sessionId,
-            AddedByTrainerId = 1,
+            AddedByTrainerId = Trainer,
             Title = "Uploaded handout",
             FilePath = $"session-materials/1/{sessionId}/handout.pdf",
             Format = "PDF",
@@ -368,7 +370,7 @@ public class CourseIntakeCoreTests
         await f.Db.SaveChangesAsync();
         Assert.Equal("COURSE_NOT_PUBLISHED", (await Assert.ThrowsAsync<CourseIntakeException>(
             () => f.Service.PublishAsync(1, d.Id, d.Version))).Code);
-        Assert.Equal("Draft", (await f.Service.GetOwnedAsync(1, d.Id)).Status);
+        Assert.Equal("Draft", (await f.Service.GetForCreatorAsync(1, d.Id)).Status);
         Assert.Equal(2, await f.Db.AuditLogs.CountAsync());
     }
 
@@ -379,7 +381,7 @@ public class CourseIntakeCoreTests
         f.Db.CourseSessions.Add(new CourseSession { CourseIntakeId = 999, StartsAt = Start, EndsAt = Start.AddHours(1) });
         await Assert.ThrowsAsync<DbUpdateException>(() => f.Db.SaveChangesAsync());
         f.Db.ChangeTracker.Clear();
-        f.Db.CourseIntakes.Add(new CourseIntake { CourseId = 1, TrainerId = 1, RegistrationOpensAt = Start,
+        f.Db.CourseIntakes.Add(new CourseIntake { CourseId = 1, TrainerId = Trainer, RegistrationOpensAt = Start,
             RegistrationClosesAt = Start, StartsAt = Start, EndsAt = Start });
         await Assert.ThrowsAsync<DbUpdateException>(() => f.Db.SaveChangesAsync());
     }
@@ -459,7 +461,7 @@ public class CourseIntakeCoreTests
     }
 
     private static DateTime FirstClass => DateTime.SpecifyKind(DateTime.UtcNow.Date.AddDays(10).AddHours(8), DateTimeKind.Utc);
-    private static OpenClassRequest WeeklyClass => new(TrainerId: 1,
+    private static OpenClassRequest WeeklyClass => new(TrainerId: Trainer,
         SessionStarts: [FirstClass, FirstClass.AddDays(7), FirstClass.AddDays(14)],
         MeetingLink: "https://example.com/meeting");
 
@@ -566,7 +568,7 @@ public class CourseIntakeCoreTests
             new("Too early", tooEarly, tooEarly.AddHours(1), "https://example.com/meeting", null, 0, null, draft.Version)));
 
         Assert.Equal("SESSION_BEFORE_REGISTRATION_CLOSES", error.Code);
-        Assert.Equal(FirstClass, (await f.Service.GetOwnedAsync(1, draft.Id)).StartsAt);
+        Assert.Equal(FirstClass, (await f.Service.GetForCreatorAsync(1, draft.Id)).StartsAt);
     }
 
     [Fact]
@@ -599,7 +601,7 @@ public class CourseIntakeCoreTests
         var stored = await f.Db.CourseIntakes.SingleAsync(x => x.Id == open.Id);
         stored.RegistrationOpensAt = DateTime.UtcNow.AddHours(-1);
         await f.Db.SaveChangesAsync();
-        open = await f.Service.GetOwnedAsync(1, open.Id);
+        open = await f.Service.GetForCreatorAsync(1, open.Id);
 
         // Registration opened a moment ago; the Creator moves the closing time and the minimum.
         var edited = await f.Service.UpdateAsync(1, open.Id, new(open.RegistrationOpensAt, FirstClass.AddDays(-1),
@@ -625,13 +627,11 @@ public class CourseIntakeCoreTests
             var options = new DbContextOptionsBuilder<CoLearnXDbContext>().UseSqlite(connection).Options;
             var db = new CoLearnXDbContext(options);
             await db.Database.EnsureCreatedAsync();
-            db.Users.AddRange(Enumerable.Range(1, 4).Select(id => new User { Id = id, Email = $"b1-{id}@example.com", FullName = $"User {id}",
+            db.Users.AddRange(Enumerable.Range(1, 5).Select(id => new User { Id = id, Email = $"b1-{id}@example.com", FullName = $"User {id}",
                 CreditBalance = 100, IsActive = id != 4,
-                Roles = id == 1
-                    ? [new UserRole { Role = AppRole.Member }, new UserRole { Role = AppRole.Trainer }, new UserRole { Role = AppRole.Creator }]
-                    : [new UserRole { Role = id == 3 ? AppRole.Member : AppRole.Trainer }] }));
-            db.Courses.Add(new Course { Id = 1, Code = "B1", Title = "B1 Test", TrainerId = 1, CreatorId = 1, Status = CourseStatus.Published, CreditCost = 20 });
-            db.CourseTrainers.Add(new CourseTrainer { CourseId = 1, TrainerId = 1, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 1, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow });
+                Roles = [new UserRole { Role = id switch { 1 => AppRole.Creator, 3 => AppRole.Member, _ => AppRole.Trainer } }] }));
+            db.Courses.Add(new Course { Id = 1, Code = "B1", Title = "B1 Test", TrainerId = Trainer, CreatorId = 1, Status = CourseStatus.Published, CreditCost = 20 });
+            db.CourseTrainers.Add(new CourseTrainer { CourseId = 1, TrainerId = Trainer, Status = CourseTrainerStatus.Accepted, InvitedByUserId = 1, InvitedAt = DateTime.UtcNow, RespondedAt = DateTime.UtcNow });
             await db.SaveChangesAsync();
             return new Fixture(connection, db, options);
         }

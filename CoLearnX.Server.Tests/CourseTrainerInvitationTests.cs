@@ -172,10 +172,10 @@ public sealed class CourseTrainerInvitationTests
     }
 
     [Fact]
-    public async Task A_creator_cannot_invite_themselves_even_with_a_trainer_role()
+    public async Task A_creator_cannot_invite_themselves()
     {
         using var factory = await RosterFactory.CreateAsync();
-        using var dual = factory.UserClient(DualUser, AppRole.Creator, AppRole.Creator, AppRole.Trainer);
+        using var dual = factory.UserClient(DualUser, AppRole.Creator);
 
         using var response = await dual.PostAsJsonAsync($"/api/creator/courses/{DualCourse}/trainers", new InviteTrainerRequest(DualUser));
 
@@ -412,7 +412,7 @@ public sealed class CourseTrainerInvitationTests
                     new User { Id = Blair, Email = "blair@example.com", FullName = "Blair Ng", Roles = [new UserRole { Role = AppRole.Trainer }], Specialties = Design() },
                     new User { Id = MemberOnly, Email = "casey@example.com", FullName = "Casey Member", Roles = [new UserRole { Role = AppRole.Member }] },
                     new User { Id = InactiveTrainer, Email = "drew@example.com", FullName = "Drew Inactive", IsActive = false, Roles = [new UserRole { Role = AppRole.Trainer }], Specialties = Design() },
-                    new User { Id = DualUser, Email = "erin@example.com", FullName = "Erin Dual", Roles = [new UserRole { Role = AppRole.Creator }, new UserRole { Role = AppRole.Trainer }], Specialties = Design() },
+                    new User { Id = DualUser, Email = "erin@example.com", FullName = "Erin Dual", Roles = [new UserRole { Role = AppRole.Creator }], Specialties = Design() },
                     new User { Id = OtherSpecialtyTrainer, Email = "finn@example.com", FullName = "Finn Ledger", Roles = [new UserRole { Role = AppRole.Trainer }],
                         Specialties = [new UserSpecialty { CourseSubjectId = finance }] },
                     new User { Id = UncertifiedTrainer, Email = "gale@example.com", FullName = "Gale Pending",

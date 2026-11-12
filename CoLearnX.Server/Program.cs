@@ -235,7 +235,8 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
     await SeedData.InitializeAsync(
         db,
-        seedDemoAdmin: !app.Environment.IsProduction());
+        seedDemoAdmin: !app.Environment.IsProduction(),
+        logger: app.Logger);
 }
 
 var storage = app.Services.GetRequiredService<IFileStorage>();

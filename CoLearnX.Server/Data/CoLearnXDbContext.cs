@@ -123,6 +123,8 @@ public class CoLearnXDbContext(DbContextOptions<CoLearnXDbContext> options) : Db
         modelBuilder.Entity<UserRole>(e =>
         {
             e.HasKey(x => new { x.UserId, x.Role });
+            // One account holds one role.
+            e.HasIndex(x => x.UserId).IsUnique().HasDatabaseName(RoleCertificationSchema.SingleRoleIndexName);
             e.HasOne(x => x.User).WithMany(u => u.Roles).HasForeignKey(x => x.UserId);
         });
 

@@ -76,13 +76,18 @@ public class TrainerReservationApiTests
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-            var creatorId = await db.Users.Where(item => item.Email == SeedData.CreatorEmail).Select(item => item.Id).SingleAsync();
-            if (!await db.UserRoles.AnyAsync(item => item.UserId == creatorId && item.Role == AppRole.Trainer))
-                db.UserRoles.Add(new UserRole { UserId = creatorId, Role = AppRole.Trainer });
+            db.Users.Add(new User
+            {
+                Email = "other-trainer@example.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(SeedData.DemoPassword),
+                FullName = "Other Trainer",
+                EmailVerifiedAt = DateTime.UtcNow,
+                Roles = [new UserRole { Role = AppRole.Trainer, CertifiedAt = DateTime.UtcNow }],
+            });
             await db.SaveChangesAsync();
         }
 
-        using var otherTrainer = await ApiClient.AsRoleAsync(factory, SeedData.CreatorEmail, "Trainer");
+        using var otherTrainer = await ApiClient.AsRoleAsync(factory, "other-trainer@example.com", "Trainer");
         Assert.Equal(HttpStatusCode.NotFound,
             (await otherTrainer.GetAsync($"/api/trainer/intakes/{intakeId}/reservations")).StatusCode);
         using var trainer = await ApiClient.AsRoleAsync(factory, SeedData.TrainerEmail, "Trainer");

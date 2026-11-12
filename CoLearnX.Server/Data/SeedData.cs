@@ -4,6 +4,7 @@ using CoLearnX.Server.Domain;
 using CoLearnX.Server.Services;
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace CoLearnX.Server.Data;
 
@@ -18,7 +19,8 @@ public static class SeedData
 
     public static async Task InitializeAsync(
         CoLearnXDbContext db,
-        bool seedDemoAdmin = true)
+        bool seedDemoAdmin = true,
+        ILogger? logger = null)
     {
         await db.Database.EnsureCreatedAsync();
         if (db.Database.IsSqlite())
@@ -86,6 +88,7 @@ public static class SeedData
             await EnsurePlatformCreatorAsync(db);
             await RoleRequestCleanup.RejectRequestsForRolesNotHeldAsync(db);
             await EnsureDemoWorkspaceRolesAsync(db);
+            await EnsureSingleRoleIndexAsync(db, logger);
             await EnsureCourseReviewFixturesAsync(db);
             await EnsureLaterPhaseFixturesAsync(db);
             await RecommendationSeed.EnsureCourseTagsAsync(db);
@@ -429,12 +432,24 @@ public static class SeedData
 
         await db.SaveChangesAsync();
         await EnsureDemoWorkspaceRolesAsync(db);
+        await EnsureSingleRoleIndexAsync(db, logger);
         await EnsureCourseReviewFixturesAsync(db);
         await EnsureLaterPhaseFixturesAsync(db);
         await RecommendationSeed.EnsureCourseTagsAsync(db);
         await RecommendationSeed.EnsureDemoProfileAndRatingsAsync(db);
         await CourseTrainerSchema.BackfillAsync(db);
         await new LearningPathService(db).ReconcileAllAsync();
+    }
+
+    // Runs after the demo accounts are collapsed to one role. Other multi-role accounts are cleaned by
+    // scripts/single-role-cleanup.sql; until then the index is skipped rather than failing startup.
+    private static async Task EnsureSingleRoleIndexAsync(CoLearnXDbContext db, ILogger? logger)
+    {
+        var duplicates = await RoleCertificationSchema.EnsureSingleRoleIndexAsync(db);
+        if (duplicates.Count > 0)
+            logger?.LogWarning(
+                "Skipped unique index {Index}: {Count} accounts still hold more than one role (user ids {UserIds}).",
+                RoleCertificationSchema.SingleRoleIndexName, duplicates.Count, string.Join(", ", duplicates));
     }
 
     private static async Task DisableStaffUsersAsync(CoLearnXDbContext db)

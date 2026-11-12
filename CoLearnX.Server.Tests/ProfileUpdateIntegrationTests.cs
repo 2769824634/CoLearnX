@@ -16,21 +16,15 @@ public class ProfileUpdateIntegrationTests : IClassFixture<CoLearnXApiFactory>
     public ProfileUpdateIntegrationTests(CoLearnXApiFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task Existing_role_profiles_can_be_updated_and_role_text_cleared()
+    public async Task Trainer_profile_can_be_updated_and_role_text_cleared()
     {
         using var client = await ApiClient.AsRoleAsync(_factory, SeedData.TrainerEmail, "Trainer");
         var me = await client.GetFromJsonAsync<UserMeDto>("/api/auth/me", ApiJson.Options);
         Assert.NotNull(me);
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<CoLearnXDbContext>();
-            db.UserRoles.Add(new UserRole { UserId = me.Id, Role = AppRole.Creator });
-            await db.SaveChangesAsync();
-        }
 
         var profile = new UpdateProfileRequest("Xiao Ming", "Ming", "0412345678", "Creative teacher",
             null, null, null,
-            "Workshops", "Trainer", "Design", "Graphic Designer");
+            "Workshops", "Trainer", null, null);
         using var save = await client.PutAsJsonAsync($"/api/users/{me.Id}", profile, ApiJson.Options);
         Assert.Equal(HttpStatusCode.OK, save.StatusCode);
         var updated = await save.Content.ReadFromJsonAsync<UserMeDto>(ApiJson.Options);
@@ -41,15 +35,36 @@ public class ProfileUpdateIntegrationTests : IClassFixture<CoLearnXApiFactory>
         Assert.Equal("Creative teacher", updated.Bio);
         Assert.Equal("Trainer", updated.TrainerHeadline);
         Assert.Equal("Workshops", updated.Specialisations);
-        Assert.Equal("Graphic Designer", updated.CreatorHeadline);
-        Assert.Equal("Design", updated.ExpertiseTags);
 
+        using var clear = await client.PutAsJsonAsync($"/api/users/{me.Id}", profile with
+        {
+            TrainerHeadline = "", Specialisations = ""
+        }, ApiJson.Options);
+        Assert.Equal(HttpStatusCode.OK, clear.StatusCode);
         var reloaded = await client.GetFromJsonAsync<UserMeDto>("/api/auth/me", ApiJson.Options);
         Assert.NotNull(reloaded);
-        Assert.Contains("Creator", reloaded.Roles);
+        Assert.Equal("", reloaded.TrainerHeadline);
+        Assert.Equal("", reloaded.Specialisations);
+        Assert.Equal("Xiao Ming", reloaded.FullName);
+    }
+
+    [Fact]
+    public async Task Creator_profile_can_be_updated_and_role_text_cleared()
+    {
+        using var client = await ApiClient.AsRoleAsync(_factory, SeedData.CreatorEmail, "Creator");
+        var me = await client.GetFromJsonAsync<UserMeDto>("/api/auth/me", ApiJson.Options);
+        Assert.NotNull(me);
+
+        var profile = new UpdateProfileRequest(null, null, null, null,
+            null, null, null,
+            null, null, "Design", "Graphic Designer");
+        using var save = await client.PutAsJsonAsync($"/api/users/{me.Id}", profile, ApiJson.Options);
+        Assert.Equal(HttpStatusCode.OK, save.StatusCode);
+        var reloaded = await client.GetFromJsonAsync<UserMeDto>("/api/auth/me", ApiJson.Options);
+        Assert.NotNull(reloaded);
+        Assert.Equal(["Creator"], reloaded.Roles);
         Assert.Equal("Graphic Designer", reloaded.CreatorHeadline);
         Assert.Equal("Design", reloaded.ExpertiseTags);
-        Assert.Equal("Trainer", reloaded.TrainerHeadline);
 
         using var clear = await client.PutAsJsonAsync($"/api/users/{me.Id}", profile with
         {
@@ -60,7 +75,6 @@ public class ProfileUpdateIntegrationTests : IClassFixture<CoLearnXApiFactory>
         Assert.NotNull(reloaded);
         Assert.Equal("", reloaded.CreatorHeadline);
         Assert.Equal("", reloaded.ExpertiseTags);
-        Assert.Equal("Trainer", reloaded.TrainerHeadline);
     }
 
     [Fact]
