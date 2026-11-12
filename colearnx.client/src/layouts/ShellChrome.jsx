@@ -102,9 +102,9 @@ export function ShellChrome({
   );
 }
 
-export function ShellNavLink({ to, end, className, ariaLabel, children }) {
+export function ShellNavLink({ to, end, className, ariaLabel, onClick, children }) {
   return (
-    <NavLink to={to} end={end} className={className} aria-label={ariaLabel}>
+    <NavLink to={to} end={end} className={className} aria-label={ariaLabel} onClick={onClick}>
       {children}
     </NavLink>
   );

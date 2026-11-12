@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-dom';
 import { RequireAuth } from '../auth/RequireAuth';
+import { useAuth } from '../auth/AuthContext';
+import { isUncertified } from '../auth/certificationLock';
 import RequireAdmin from '../auth/RequireAdmin';
 import RoleShell, { AdminRoleShell } from '../layouts/RoleShell';
 import LoginPage from '../pages/LoginPage';
@@ -26,6 +28,7 @@ import TrainerLearnersPage from '../pages/trainer/TrainerLearnersPage';
 import TrainerAccountPage from '../pages/trainer/TrainerAccountPage';
 import TrainerInvitationsPage from '../pages/trainer/TrainerInvitationsPage';
 import CertificationPage from '../pages/account/CertificationPage';
+import CertificationHome from '../pages/account/CertificationHome';
 import EarningsPage from '../pages/account/EarningsPage';
 import CreatorApprovalsPage from '../pages/creator/CreatorApprovalsPage';
 import CreatorHomePage from '../pages/creator/CreatorHomePage';
@@ -113,6 +116,11 @@ function MemberArea() {
   );
 }
 
+function HomeOrCertification({ role, children }) {
+  const { user } = useAuth();
+  return isUncertified(user, role.toLowerCase()) ? <CertificationHome role={role} /> : children;
+}
+
 // Top-level router. Shared: AppRouter
 export default function AppRouter() {
   return (
@@ -133,9 +141,9 @@ export default function AppRouter() {
         </Route>
 
         <Route element={<RequireAuth role="trainer" />}>
-          <Route path="/trainer/certification" element={<CertificationPage role="Trainer" />} />
           <Route path="/trainer" element={<RoleShell role="trainer" />}>
-            <Route path="home" element={<TrainerHomePage />} />
+            <Route path="certification" element={<CertificationPage role="Trainer" />} />
+            <Route path="home" element={<HomeOrCertification role="Trainer"><TrainerHomePage /></HomeOrCertification>} />
             <Route path="courses" element={<TrainerIntakesPage />} />
             <Route path="courses/:courseId" element={<TrainerCourseDetailPage />} />
             <Route path="courses/intakes/:courseIntakeId" element={<TrainerIntakeDetailPage />} />
@@ -150,9 +158,9 @@ export default function AppRouter() {
         </Route>
 
         <Route element={<RequireAuth role="creator" />}>
-          <Route path="/creator/certification" element={<CertificationPage role="Creator" />} />
           <Route path="/creator" element={<RoleShell role="creator" />}>
-            <Route path="home" element={<CreatorHomePage />} />
+            <Route path="certification" element={<CertificationPage role="Creator" />} />
+            <Route path="home" element={<HomeOrCertification role="Creator"><CreatorHomePage /></HomeOrCertification>} />
             <Route path="courses" element={<CreatorCoursesPage />} />
             <Route path="courses/new" element={<CreatorCourseFormPage />} />
             <Route path="courses/:courseId/intakes/new" element={<CreatorIntakeCreatePage />} />

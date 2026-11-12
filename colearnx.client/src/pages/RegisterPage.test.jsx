@@ -68,7 +68,8 @@ describe('Account registration', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign up as Trainer' }));
-    expect(screen.getByText(/must be certified by an administrator/i)).toBeTruthy();
+    expect(screen.getByText(/sign in and edit your profile straight away/i)).toBeTruthy();
+    expect(screen.getByText(/Trainer features open after an administrator approves your certification/i)).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'New Trainer' } });
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'new.trainer@colearnx.test' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Password123!' } });

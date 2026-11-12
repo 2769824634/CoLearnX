@@ -1,7 +1,10 @@
-import { Outlet, useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import MemberNotifications from '../components/MemberNotifications';
 import { MemberNotificationsProvider } from '../components/MemberNotificationsProvider';
+import CertificationRequiredModal from '../components/CertificationRequiredModal';
 import { useAuth } from '../auth/AuthContext';
+import { isOpenToUncertified, isUncertified } from '../auth/certificationLock';
 import useAdminAuth from '../auth/useAdminAuth';
 import { AdminPendingProvider } from '../pages/admin/AdminPendingProvider';
 import { pendingTotal, useAdminPending } from '../pages/admin/adminPending';
@@ -55,7 +58,7 @@ function pendingCount(kind, counts) {
   return kind === 'approvals' ? pendingTotal(counts) : 0;
 }
 
-function ShellFrame({ identityName, avatarUrl, token, role, logout, identityLabel = 'Administrator', title, subtitle }) {
+function ShellFrame({ identityName, avatarUrl, token, role, logout, identityLabel = 'Administrator', title, subtitle, locked = false, onLocked }) {
   const location = useLocation();
   const items = NAV[role] || [];
   const pendingCounts = useAdminPending()?.counts;
@@ -80,6 +83,7 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, identityLabe
             to={item.to}
             end={Boolean(item.end)}
             ariaLabel={pending > 0 ? `${item.label}, ${pending} pending` : undefined}
+            onClick={locked && !isOpenToUncertified(role, item.to) ? (event) => { event.preventDefault(); onLocked(); } : undefined}
             className={({ isActive }) => `nav-item${isNavActive(item, location.pathname, isActive) ? ' active' : ''}`}
           >
             {item.label}
@@ -90,13 +94,29 @@ function ShellFrame({ identityName, avatarUrl, token, role, logout, identityLabe
       title={title}
       subtitle={subtitle}
     >
-      <Outlet />
+      {locked && !isOpenToUncertified(role, location.pathname)
+        ? <Navigate to={`/${role}/home`} replace state={{ certificationRequired: true }} />
+        : <Outlet />}
     </ShellChrome>
   );
 }
 
 export default function RoleShell({ role, title, subtitle }) {
   const { user, token, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [prompt, setPrompt] = useState(false);
+  const locked = isUncertified(user, role);
+
+  function closePrompt() {
+    setPrompt(false);
+    if (location.state?.certificationRequired) {
+      const state = { ...location.state };
+      delete state.certificationRequired;
+      navigate(`${location.pathname}${location.search}${location.hash}`, { replace: true, state });
+    }
+  }
+
   return (
     <MemberNotificationsProvider>
     <ShellFrame
@@ -108,7 +128,10 @@ export default function RoleShell({ role, title, subtitle }) {
       identityLabel={role.charAt(0).toUpperCase() + role.slice(1)}
       title={title}
       subtitle={subtitle}
+      locked={locked}
+      onLocked={() => setPrompt(true)}
     />
+    <CertificationRequiredModal open={locked && (prompt || location.state?.certificationRequired)} role={role} onClose={closePrompt} />
     </MemberNotificationsProvider>
   );
 }

@@ -3,7 +3,7 @@ import { useAuth } from './AuthContext';
 
 // Route guard by active role.
 export function RequireAuth({ role }) {
-  const { isAuthenticated, booting, activeRole, user } = useAuth();
+  const { isAuthenticated, booting, activeRole } = useAuth();
   const location = useLocation();
 
   if (booting) {
@@ -23,13 +23,6 @@ export function RequireAuth({ role }) {
   // An account has one role, so a page of another role simply leads to the account's own home.
   if (role && activeRole !== role) {
     return <Navigate to={`/${activeRole}/home`} replace />;
-  }
-
-  // Uncertified Trainer and Creator accounts stay on their certification page. The server enforces it too.
-  const certificationPath = `/${activeRole}/certification`;
-  if ((activeRole === 'trainer' || activeRole === 'creator') && user?.certifiedAt === null
-    && location.pathname !== certificationPath) {
-    return <Navigate to={certificationPath} replace />;
   }
 
   return <Outlet />;

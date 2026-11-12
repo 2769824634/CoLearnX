@@ -74,6 +74,13 @@ export function AuthProvider({ children }) {
       role: payload.role,
     });
     if (res.emailVerificationRequired) return res;
+    if (!res.accessToken && ['Trainer', 'Creator'].includes(res.user?.activeRole)) {
+      try {
+        return await login(payload.email, payload.password, res.user.activeRole);
+      } catch {
+        return { signInRequired: true };
+      }
+    }
     setStoredToken(res.accessToken);
     setToken(res.accessToken);
     setUser(res.user);

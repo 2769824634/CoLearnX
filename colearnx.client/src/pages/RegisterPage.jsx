@@ -28,6 +28,7 @@ export default function RegisterPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [signInRequired, setSignInRequired] = useState(false);
   const [resendNote, setResendNote] = useState('');
   const nameAutofill = useNoCredentialAutofill();
   const emailAutofill = useNoCredentialAutofill();
@@ -79,6 +80,12 @@ export default function RegisterPage() {
         setMessage(email.trim() ? serverMessage.replaceAll(email.trim(), maskEmail(email.trim())) : serverMessage);
         return;
       }
+      if (result.signInRequired) {
+        setPassword('');
+        setConfirm('');
+        setSignInRequired(true);
+        return;
+      }
       navigate(`/${(result.activeRole || 'Member').toLowerCase()}/home`);
     } catch (err) {
       setError(err.message || 'Registration failed');
@@ -93,7 +100,13 @@ export default function RegisterPage() {
         <div className="auth-header">
           <Logo />
         </div>
-        {message ? (
+        {signInRequired ? (
+          <div className="auth-body">
+            <h2>Account created</h2>
+            <p className="callout" role="status">Your account was created, but automatic sign-in was not completed. Please sign in to continue.</p>
+            <Link className="btn btn-primary" to="/login">Sign in</Link>
+          </div>
+        ) : message ? (
           <div className="auth-body">
             <h2>Check your email</h2>
             <p className="callout" role="status">{message}</p>
@@ -142,7 +155,7 @@ export default function RegisterPage() {
             </div>
           </div>
           {role !== 'Member' ? (
-            <p className="auth-lead auth-role-note" role="note">{role} accounts must be certified by an administrator before the workspace opens. You will choose your specialties during certification.</p>
+            <p className="auth-lead auth-role-note" role="note">You can sign in and edit your profile straight away after any required email verification. {role} features open after an administrator approves your certification, where you also choose your specialties.</p>
           ) : null}
           <div className="form-group">
             <label htmlFor="register-name">Full name</label>

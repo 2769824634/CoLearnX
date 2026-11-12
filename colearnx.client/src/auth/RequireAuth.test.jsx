@@ -25,21 +25,21 @@ it('takes an account that opens another role\'s page to its own home without a n
   expect(screen.getByText('own home, no state')).toBeTruthy();
 });
 
-it('keeps an uncertified Trainer on the certification page', () => {
+it.each(['trainer', 'creator'])('lets an uncertified %s enter the workspace', (role) => {
   render(
-    <MemoryRouter initialEntries={['/trainer/home']}>
-      <AuthContext.Provider value={{ booting: false, isAuthenticated: true, activeRole: 'trainer', user: { certifiedAt: null } }}>
+    <MemoryRouter initialEntries={[`/${role}/home`]}>
+      <AuthContext.Provider value={{ booting: false, isAuthenticated: true, activeRole: role, user: { certifiedAt: null } }}>
         <Routes>
-          <Route element={<RequireAuth role="trainer" />}>
-            <Route path="/trainer/home" element={<div>Trainer home</div>} />
-            <Route path="/trainer/certification" element={<div>Certification page</div>} />
+          <Route element={<RequireAuth role={role} />}>
+            <Route path={`/${role}/home`} element={<div>Workspace home</div>} />
+            <Route path={`/${role}/certification`} element={<div>Certification page</div>} />
           </Route>
         </Routes>
       </AuthContext.Provider>
     </MemoryRouter>,
   );
-  expect(screen.getByText('Certification page')).toBeTruthy();
-  expect(screen.queryByText('Trainer home')).toBeNull();
+  expect(screen.getByText('Workspace home')).toBeTruthy();
+  expect(screen.queryByText('Certification page')).toBeNull();
 });
 
 it('lets a certified Trainer into the workspace', () => {

@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi, roleRequestsApi } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
-import Logo from '../../components/Logo';
 import { countStatementWords } from './roleApplicationUtils';
+import '../../styles/certification.css';
 
 const MAX_STATEMENT_WORDS = 300;
 const MAX_SPECIALTIES = 5;
@@ -13,9 +13,9 @@ const AREA_LABELS = {
   HumanitiesHealthCreative: 'Humanities, Health and Creative',
 };
 
-// Uncertified Trainer and Creator accounts can only use this page until an administrator approves them.
+// Trainers and Creators submit and check their certification from their workspace.
 export default function CertificationPage({ role }) {
-  const { user, refreshUser, logout } = useAuth();
+  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [requests, setRequests] = useState(null);
   const [error, setError] = useState('');
@@ -89,13 +89,11 @@ export default function CertificationPage({ role }) {
   }
 
   return (
-    <div className="auth-screen">
-      <div className="auth-card" style={{ maxWidth: 560 }}>
-        <div className="auth-header"><Logo /></div>
-        <div className="auth-body">
-          <h2>{role} certification</h2>
+    <section className={`${role.toLowerCase()}-page`}>
+      <div className="card certification-panel">
+          <h1>{role} certification</h1>
           <p className="auth-lead">
-            Upload your resume, identity document and a short statement. An administrator reviews them before your {role} workspace opens.
+            Upload your resume, identity document and a short statement. An administrator reviews them before your {role} features open.
           </p>
           {user?.specialties?.length ? (
             <p><strong>Certified specialties:</strong> {user.specialties.join(', ')}</p>
@@ -109,7 +107,7 @@ export default function CertificationPage({ role }) {
               <strong>Status:</strong>{' '}
               {!latest ? 'No application yet'
                 : pending ? 'Submitted. Waiting for administrator review.'
-                  : latest.status === 'Approved' ? 'Approved. You can enter your workspace.'
+                  : latest.status === 'Approved' ? 'Approved. Check approval to unlock your workspace features.'
                     : `Not approved${latest.reviewNote ? `: ${latest.reviewNote}` : '.'} You can submit again.`}
             </p>
           )}
@@ -159,11 +157,9 @@ export default function CertificationPage({ role }) {
 
           {notice ? <p className="callout" role="status">{notice}</p> : null}
           <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <button type="button" className="btn btn-primary" disabled={busy} onClick={enterWorkspace}>Enter workspace</button>
-            <button type="button" className="btn btn-ghost" onClick={() => { logout(); navigate('/login', { replace: true }); }}>Sign out</button>
+            <button type="button" className="btn btn-primary" disabled={busy} onClick={enterWorkspace}>Check approval</button>
           </div>
-        </div>
       </div>
-    </div>
+    </section>
   );
 }

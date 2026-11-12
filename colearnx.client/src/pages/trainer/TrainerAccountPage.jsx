@@ -1,9 +1,15 @@
 import UserAccountPage from '../account/UserAccountPage';
+import { useAuth } from '../../auth/AuthContext';
+import { isUncertified } from '../../auth/certificationLock';
 import useTrainerQuery, { loadTrainerOverview } from './useTrainerQuery';
 import '../../styles/trainer.css';
 
+const loadNothing = async () => ({ intakes: [] });
+
 export default function TrainerAccountPage() {
-  const query = useTrainerQuery(loadTrainerOverview);
+  const { user } = useAuth();
+  const locked = isUncertified(user, 'trainer');
+  const query = useTrainerQuery(locked ? loadNothing : loadTrainerOverview, locked ? 'locked' : '');
   const intakes = query.data?.intakes || [];
   return (
     <section className="trainer-page">
