@@ -27,7 +27,7 @@ const CHIP_STYLE = { display: 'inline-block', padding: '3px 10px', borderRadius:
 // Specialties come from the admin's certification; trainers can only view them here.
 function CertifiedSpecialties({ specialties }) {
   return (
-    <div className="masked-field">
+    <div className="masked-field" style={{ gridColumn: '1 / -1' }}>
       <div className="label">Certified specialties</div>
       <div className="value">
         {specialties?.length ? (
@@ -163,16 +163,35 @@ export function ProfileEditor({ onClose }) {
   );
 }
 
+function Field({ label, children, wide }) {
+  return (
+    <div className="masked-field" style={wide ? { gridColumn: '1 / -1' } : undefined}>
+      <div className="label">{label}</div>
+      <div className="value">{children}</div>
+    </div>
+  );
+}
+
+const EMPTY_HINT = { color: 'var(--slate)', fontWeight: 400 };
+
 export function ProfileDetails({ user }) {
-  const roles = roleSet(user);
   return (<>
-    <div className="masked-field" style={{ marginTop: 12 }}><div className="label">Country / Region</div><div className="value">{user?.country || '—'}</div></div>
-    <div className="masked-field"><div className="label">Occupation</div><div className="value">{user?.occupation || 'unknown'}</div></div>
-    <div className="masked-field"><div className="label">Bio</div><div className="value">{user?.bio || 'No bio yet.'}</div></div>
-    {roles.has('trainer') && <>
-      <div className="masked-field"><div className="label">Trainer headline</div><div className="value">{user?.trainerHeadline || <span style={{ color: 'var(--slate)', fontWeight: 400 }}>Not added yet. Add one in Edit Profile.</span>}</div></div>
+    <Field label="Country / Region">{user?.country || '—'}</Field>
+    <Field label="Occupation">{user?.occupation || 'unknown'}</Field>
+    <Field label="Bio" wide>{user?.bio || <span style={EMPTY_HINT}>No bio yet.</span>}</Field>
+  </>);
+}
+
+// Trainer and Creator details, shown in their own card under Personal info.
+export function TeachingProfile({ user, kind }) {
+  if (kind === 'trainer') {
+    return (<>
+      <Field label="Trainer headline">{user?.trainerHeadline || <span style={EMPTY_HINT}>Not added yet. Add one in Edit Profile.</span>}</Field>
       <CertifiedSpecialties specialties={user?.specialties} />
-    </>}
-    {roles.has('creator') && <><div className="masked-field"><div className="label">Creator headline</div><div className="value">{user?.creatorHeadline || '—'}</div></div><div className="masked-field"><div className="label">Expertise tags</div><div className="value">{user?.expertiseTags || '—'}</div></div></>}
+    </>);
+  }
+  return (<>
+    <Field label="Creator headline">{user?.creatorHeadline || <span style={EMPTY_HINT}>Not added yet. Add one in Edit Profile.</span>}</Field>
+    <Field label="Expertise tags">{user?.expertiseTags || '—'}</Field>
   </>);
 }

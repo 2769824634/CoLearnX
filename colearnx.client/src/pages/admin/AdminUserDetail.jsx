@@ -84,17 +84,39 @@ function LearningTab({ activity, openClass }) {
   </>;
 }
 
-function ProfileTab({ user }) {
-  const fields = {
-    'Display name': user.displayName, 'User ID': user.id, 'Phone': user.phone, 'Country': user.country,
-    'Occupation': user.occupation, 'Status': user.isActive ? 'Active' : 'Inactive',
-    'Email verified': user.emailVerifiedAt ? 'Yes' : 'No', 'Joined (UTC)': formatUtcDateTime(user.createdAt),
-    'Bio': user.bio, 'Learning goals': user.learningGoals, 'Trainer headline': user.trainerHeadline,
-    'Specialisations': user.specialisations, 'Creator headline': user.creatorHeadline, 'Expertise': user.expertiseTags,
-  };
+function DetailGrid({ fields }) {
   return <dl className="account-detail-grid">
-    {Object.entries(fields).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value ?? '—'}</dd></div>)}
+    {Object.entries(fields).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || value === 0 ? value : '—'}</dd></div>)}
   </dl>;
+}
+
+function ProfileTab({ user, roles, activity }) {
+  const isTrainer = roles.includes('Trainer');
+  const isCreator = roles.includes('Creator');
+  const specialties = activity?.specialties || [];
+  return <>
+    <h4 className="admin-detail-heading">Basic info</h4>
+    <DetailGrid fields={{
+      'Full name': user.fullName, 'Display name': user.displayName, 'Email': user.email, 'User ID': `#${user.id}`,
+      'Phone': user.phone, 'Country / Region': user.country, 'Occupation': user.occupation,
+      'Status': user.isActive ? 'Active' : 'Inactive', 'Email verified': user.emailVerifiedAt ? 'Yes' : 'No',
+      'Joined (UTC)': formatUtcDateTime(user.createdAt),
+    }} />
+    <h4 className="admin-detail-heading">About</h4>
+    <DetailGrid fields={{ 'Bio': user.bio, ...(roles.includes('Member') ? { 'Learning goals': user.learningGoals } : {}) }} />
+    {isTrainer || isCreator ? <>
+      <h4 className="admin-detail-heading">{isTrainer ? 'Trainer profile' : 'Creator profile'}</h4>
+      <dl className="account-detail-grid">
+        <div><dt>Headline</dt><dd>{(isTrainer ? user.trainerHeadline : user.creatorHeadline) || '—'}</dd></div>
+        <div><dt>Certification</dt><dd>{activity ? (activity.certified ? 'Certified' : 'Not certified yet') : '—'}</dd></div>
+        <div style={{ gridColumn: '1 / -1' }}><dt>Certified specialties</dt><dd>
+          {specialties.length
+            ? <span className="admin-specialty-tags">{specialties.map((name) => <span key={name} className="pill purple">{name}</span>)}</span>
+            : 'None certified yet'}
+        </dd></div>
+      </dl>
+    </> : null}
+  </>;
 }
 
 export default function AdminUserDetail({ userId, onBalanceChange }) {
@@ -147,7 +169,7 @@ export default function AdminUserDetail({ userId, onBalanceChange }) {
       {tab === 'Trainer' && activity ? <TeachingTab activity={activity} openClass={openClass} /> : null}
       {tab === 'Creator' && activity ? <CreatorTab activity={activity} openClass={openClass} /> : null}
       {tab === 'Member' && activity ? <LearningTab activity={activity} openClass={openClass} /> : null}
-      {tab === 'Profile' ? <ProfileTab user={user} /> : null}
+      {tab === 'Profile' ? <ProfileTab user={user} roles={roles} activity={activity} /> : null}
     </> : null}
     {user && !query.error && tab === 'Credits' ? <AdminCreditLedgerPage key={userId} userId={userId} onBalanceChange={refreshBalances} /> : null}
   </div>;

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import OneRoleNotice from './OneRoleNotice';
 import AvatarEditor from './AvatarEditor';
-import { ProfileEditor, ProfileDetails } from './ProfileEditor';
+import { ProfileEditor, ProfileDetails, TeachingProfile } from './ProfileEditor';
 import useAccountShortcuts from './useAccountShortcuts';
 
 export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summaryStats = [] }) {
@@ -59,16 +59,24 @@ export default function UserAccountPage({ eyebrow, extraKind, summaryTitle, summ
             <div className="card" style={{ marginBottom: 12 }}>
               <div className="card-header">Personal info</div>
               <div className="card-body">
-                <div className="grid-2">
+                <div className="cx-account-fields">
                   <div className="masked-field"><div className="label">Full Name</div><div className="value">{user?.fullName || '—'}</div></div>
                   <div className="masked-field"><div className="label">Display name</div><div className="value">{user?.displayName || '—'}</div></div>
                   <div className="masked-field"><div className="label">Role</div><div className="value">{(user?.roles || []).join(' · ') || '—'}</div></div>
                   <div className="masked-field"><div className="label">Email</div><div className="value">{user?.email || '—'}</div></div>
                   <div className="masked-field"><div className="label">Phone</div><div className="value">{user?.phone || '—'}</div></div>
+                  <ProfileDetails user={user} />
                 </div>
-                <ProfileDetails user={user} />
               </div>
             </div>
+            {extraKind === 'trainer' || extraKind === 'creator' ? (
+              <div className="card" style={{ marginBottom: 12 }}>
+                <div className="card-header">{extraKind === 'trainer' ? 'Teaching profile' : 'Creator profile'}</div>
+                <div className="card-body">
+                  <div className="cx-account-fields"><TeachingProfile user={user} kind={extraKind} /></div>
+                </div>
+              </div>
+            ) : null}
             <OneRoleNotice />
           </div>
         </div>
