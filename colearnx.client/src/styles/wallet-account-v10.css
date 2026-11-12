@@ -327,3 +327,114 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---------- Earnings (Trainer and Creator) ---------- */
+.earnings-page {
+  display: grid;
+  gap: 24px;
+}
+
+.earnings-page :is(h1, h2, p) {
+  margin: 0;
+}
+
+.earnings-header {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.earnings-header h1 {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3vw, 34px);
+  line-height: 1.15;
+}
+
+.earnings-header p {
+  max-width: 720px;
+  color: var(--slate);
+  line-height: 1.6;
+}
+
+.earnings-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.earnings-summary {
+  display: grid;
+  gap: 10px;
+}
+
+.earnings-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.earnings-stat-note,
+.earnings-note,
+.earnings-empty {
+  color: var(--slate);
+  font-size: 13px;
+}
+
+.earnings-stat-note {
+  margin-top: 4px;
+}
+
+.earnings-payout {
+  display: grid;
+  gap: 14px;
+  max-width: 640px;
+}
+
+.earnings-page :is(.earnings-payout, .earnings-section) h2 {
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+
+.earnings-payout .form-group {
+  margin: 0;
+}
+
+.earnings-payout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.earnings-payout-actions p {
+  color: var(--slate);
+  font-size: 13px;
+}
+
+.earnings-section {
+  display: grid;
+  gap: 12px;
+}
+
+.earnings-table {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+}
+
+@media (max-width: 760px) {
+  .earnings-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .earnings-payout {
+    max-width: none;
+  }
+
+  .earnings-payout-actions .btn {
+    width: 100%;
+  }
+}
