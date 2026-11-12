@@ -25,6 +25,7 @@ function authFor(role, extra = {}) {
       specialisations: 'UI/UX Design',
       creatorHeadline: 'Content creator',
       expertiseTags: 'Cybersecurity, Cloud',
+      specialties: role === 'trainer' ? ['Cybersecurity', 'UI/UX Design'] : null,
       ...extra,
     },
     booting: false,
@@ -53,7 +54,7 @@ describe('Trainer and Creator My Account', () => {
     trigger.focus();
     fireEvent.click(trigger);
     const labels = ['Full Name', 'Display name', 'Phone', 'Bio',
-      ...(role === 'trainer' ? ['Trainer headline', 'Specialisations'] : ['Creator headline', 'Expertise tags'])];
+      ...(role === 'trainer' ? ['Trainer headline'] : ['Creator headline', 'Expertise tags'])];
     for (const label of labels) {
       if (label === 'Trainer headline' || label === 'Creator headline') {
         fireEvent.click(screen.getByRole('tab', { name: role === 'trainer' ? 'Trainer' : 'Creator' }));
@@ -81,7 +82,6 @@ describe('Trainer and Creator My Account', () => {
           ...auth.user,
           fullName: body.fullName,
           trainerHeadline: body.trainerHeadline,
-          specialisations: body.specialisations,
         });
       }
       return json([]);
@@ -98,6 +98,9 @@ describe('Trainer and Creator My Account', () => {
     expect(await screen.findByRole('heading', { name: 'Profile / My Account' })).toBeTruthy();
     expect(screen.getByText('trainer@colearnx.test')).toBeTruthy();
     expect(screen.getByText('0411222333')).toBeTruthy();
+    expect(screen.getByText('Certified specialties')).toBeTruthy();
+    expect(screen.getByText('Cybersecurity')).toBeTruthy();
+    expect(screen.getByText('UI/UX Design')).toBeTruthy();
     expect(screen.getByText('Intakes')).toBeTruthy();
     expect(document.querySelector('.avatar-frame').dataset.role).toBe('trainer');
     fireEvent.click(screen.getByRole('button', { name: 'Edit Profile' }));
