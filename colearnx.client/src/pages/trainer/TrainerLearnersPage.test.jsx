@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../../auth/AuthContext';
 import TrainerLearnersPage from './TrainerLearnersPage';
 
@@ -42,7 +43,7 @@ it('shows each Session attendance state in the Intake learner list', async () =>
     return json([]);
   }));
 
-  render(<AuthContext.Provider value={{ token: 'trainer-token' }}><TrainerLearnersPage /></AuthContext.Provider>);
+  render(<MemoryRouter><AuthContext.Provider value={{ token: 'trainer-token' }}><TrainerLearnersPage /></AuthContext.Provider></MemoryRouter>);
 
   expect(await screen.findByText('First session: Present')).toBeTruthy();
   expect(screen.getByText('Second session: Not recorded')).toBeTruthy();

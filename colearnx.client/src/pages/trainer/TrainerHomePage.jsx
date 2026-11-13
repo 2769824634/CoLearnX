@@ -15,6 +15,7 @@ const PIPELINE = [
 const QUICK_ACTIONS = [
   ['/trainer/courses', 'Attendance', 'Choose a Course, Intake and Session to record attendance.'],
   ['/trainer/courses', 'Learner List', 'Choose a Course to manage its learners.'],
+  ['/trainer/certificates', 'Certificate requests', 'Review the Members asking for their certificate.'],
 ];
 
 const DELIVERY_STEPS = ['Accept the teaching invitation', 'Open the assigned intake', 'Update the meeting link', 'Record attendance'];

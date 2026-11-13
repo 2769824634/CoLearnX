@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { trainerIntakesApi } from '../../api/trainerIntakes';
 import { trainerLaterPhaseApi } from '../../api/trainerLaterPhase';
 import { TrainerError, TrainerHeader, TrainerLoading } from './TrainerUi';
@@ -41,13 +42,11 @@ export default function TrainerLearnersPage({
   token = null,
   laterPhaseApi = trainerLaterPhaseApi,
   loadWorkspace = loadLearnerWorkspace,
-  reviewRoleLabel = 'Trainer',
 }) {
   const query = useTrainerQuery(loadWorkspace, courseId || '', token);
   const [choice, setChoice] = useState('');
   const [assessment, setAssessment] = useState(initialAssessment);
   const [grade, setGrade] = useState(initialGrade);
-  const [reviewReason, setReviewReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [mutationError, setMutationError] = useState(null);
   const [notice, setNotice] = useState('');
@@ -105,7 +104,7 @@ export default function TrainerLearnersPage({
         </div>
         <TrainerAssessmentSubmissions assessments={cohort.assessments} learners={gradeableLearners} token={query.token} api={laterPhaseApi} />
       </>}
-      <section className="later-panel"><div className="trainer-section-heading"><div><p className="trainer-eyebrow">Certificate gate</p><h2>{reviewRoleLabel} review <span className="trainer-count">{submittedRequests.length}</span></h2></div></div>{submittedRequests.length ? <>{submittedRequests.map((item) => <article className="later-review-row" key={item.id}><div><strong>{item.learnerName}</strong><p>{item.courseCode} · {item.courseTitle}</p></div><div className="trainer-actions"><button className="btn btn-primary" type="button" disabled={busy} onClick={() => mutate(() => laterPhaseApi.reviewCertificate(query.token, item.id, 'Approve', reviewReason), 'Certificate request approved for Admin review.', () => setReviewReason(''))}>Approve</button><button className="btn btn-ghost" type="button" disabled={busy || !reviewReason.trim()} onClick={() => mutate(() => laterPhaseApi.reviewCertificate(query.token, item.id, 'Reject', reviewReason), 'Certificate request rejected.', () => setReviewReason(''))}>Reject</button></div></article>)}<div className="form-group"><label htmlFor="trainer-certificate-note">Review note / required rejection reason</label><textarea id="trainer-certificate-note" maxLength="512" value={reviewReason} onChange={(event) => setReviewReason(event.target.value)} /></div></> : <div className="trainer-empty">No certificate requests await {reviewRoleLabel} review.</div>}</section>
+      <section className="later-panel"><div className="trainer-section-heading"><div><p className="trainer-eyebrow">Certificate gate</p><h2>Certificate requests <span className="trainer-count">{submittedRequests.length}</span></h2></div><Link className="btn btn-ghost" to="/trainer/certificates">Review certificate requests</Link></div><p className="trainer-help">{submittedRequests.length ? 'Members are waiting for your review.' : 'No certificate requests await your review.'}</p></section>
     </>}
   </section>;
 }

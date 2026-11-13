@@ -27,6 +27,7 @@ import TrainerAttendancePage from '../pages/trainer/TrainerAttendancePage';
 import TrainerLearnersPage from '../pages/trainer/TrainerLearnersPage';
 import TrainerAccountPage from '../pages/trainer/TrainerAccountPage';
 import TrainerInvitationsPage from '../pages/trainer/TrainerInvitationsPage';
+import TrainerCertificateRequestsPage from '../pages/trainer/TrainerCertificateRequestsPage';
 import CertificationPage from '../pages/account/CertificationPage';
 import CertificationHome from '../pages/account/CertificationHome';
 import EarningsPage from '../pages/account/EarningsPage';
@@ -149,6 +150,7 @@ export default function AppRouter() {
             <Route path="courses/intakes/:courseIntakeId" element={<TrainerIntakeDetailPage />} />
             <Route path="courses/intakes/:courseIntakeId/sessions/:courseSessionId" element={<TrainerSessionDetailPage />} />
             <Route path="invitations" element={<TrainerInvitationsPage />} />
+            <Route path="certificates" element={<TrainerCertificateRequestsPage />} />
             <Route path="earnings" element={<EarningsPage role="trainer" />} />
             <Route path="attendance" element={<TrainerAttendancePage />} />
             <Route path="learners" element={<TrainerLearnersPage />} />

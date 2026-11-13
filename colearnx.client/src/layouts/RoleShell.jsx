@@ -21,6 +21,7 @@ const NAV = {
     { to: '/trainer/home', label: 'Homepage' },
     { to: '/trainer/courses', label: 'Course' },
     { to: '/trainer/invitations', label: 'Teaching invitations' },
+    { to: '/trainer/certificates', label: 'Certificate requests' },
     { to: '/trainer/earnings', label: 'Earnings' },
     { to: '/trainer/account', label: 'My Account' },
   ],
