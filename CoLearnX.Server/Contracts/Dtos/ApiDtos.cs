@@ -145,8 +145,10 @@ public record WishlistResultDto(int CourseId, bool InWishlist);
 
 public record EnrolRequest(
     [Required] int CourseId,
-    [Required] int CourseSessionId,
-    IReadOnlyList<SessionDeliveryChoiceRequest>? DeliveryChoices = null);
+    int CourseSessionId = 0,
+    IReadOnlyList<SessionDeliveryChoiceRequest>? DeliveryChoices = null,
+    // Members enrol under an Intake. The reservation is recorded against the Intake's first session.
+    int? CourseIntakeId = null);
 
 public record SessionDeliveryChoiceRequest(int CourseSessionId, string Mode);
 public record EnrollmentDeliveryChoiceDto(int CourseSessionId, string Label, DateTime StartsAt, DateTime EndsAt,

@@ -92,10 +92,14 @@ export const adminCourseReviewsApi = {
       token,
       body: { decision, reason: reason || null },
     }),
+  // Taking a course down removes it from the catalogue; restoring puts it back.
+  archive: (token, courseId, reason) => apiRequest(`/api/admin/courses/${courseId}/archive`, { method: 'POST', token, body: { reason } }),
+  restore: (token, courseId) => apiRequest(`/api/admin/courses/${courseId}/restore`, { method: 'POST', token }),
 };
 
 export const adminPricingApi = {
   pool: (token, signal) => apiRequest('/api/admin/pricing/pool', { token, signal }),
+  updateShares: (token, poolId, body) => apiRequest(`/api/admin/pricing/pool/${encodeURIComponent(poolId)}/shares`, { method: 'PUT', token, body }),
 };
 
 export const adminPayoutsApi = {
@@ -172,10 +176,11 @@ export const enrollmentsApi = {
   },
   downloadAssessmentSubmission: (id, assessmentId, fileId, fileName, token) => downloadFile(
     `/api/enrollments/${encodeURIComponent(id)}/assessments/${encodeURIComponent(assessmentId)}/submission/files/${encodeURIComponent(fileId)}`, fileName, token),
-  enrol: (courseId, courseSessionId, deliveryChoices) =>
+  // A Member enrols in an Intake; the session id stays for Intakes created before sessions carried an Intake id.
+  enrol: (courseId, courseSessionId, deliveryChoices, courseIntakeId) =>
     apiRequest('/api/enrollments', {
       method: 'POST',
-      body: { courseId, courseSessionId, ...(deliveryChoices ? { deliveryChoices } : {}) },
+      body: { courseId, courseSessionId, ...(courseIntakeId ? { courseIntakeId } : {}), ...(deliveryChoices ? { deliveryChoices } : {}) },
     }),
 };
 
